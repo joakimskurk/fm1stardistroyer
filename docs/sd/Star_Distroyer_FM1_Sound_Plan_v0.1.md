@@ -1091,20 +1091,34 @@ nearly manage to bake one in"; on the envelopes: "is it impossible with today's 
   interrupt of the last second, higher (47–53 % here); the user saw 64 % on some patch, not yet found.
   `tools/emu_cpu.sh` takes a scenario now (EMU_KEYS).
 
-**HW, the checklist (prepared 2026-11-05; on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
-`build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_960, provisional), installed with
-`python3 tools/fm1_install.py build/stardistroyer.fwsc` (needs `pip3 install mido python-rtmidi`; it asks before
-it writes). The way back: the FM-1 Firmware Hub, or OCT- held at power-on for the USB rescue.
+**HW, the checklist (prepared 2026-11-05, brought up to the Firmware Hub's author checklist and the unified
+controls; on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
+`build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is
+FM-1_962XY), installed with `python3 tools/fm1_install.py build/stardistroyer.fwsc` (needs
+`pip3 install mido python-rtmidi`; it asks before it writes). The way back: the FM-1 Firmware Hub, or OCT- held at
+power-on for the USB rescue.
+0. *Before anything:* a full flash backup (M-Flasher or MvaveFM1Unbricker, both chips), kept off the unit. Note
+   the flash part: 0x856014 (the first units) or 0xB36014 (the UC25HQ80, units sold since autumn 2026); both must
+   save and update (`firmware/hal/fm1_flash_map.h`).
 1. *It starts:* the splash, then DISTROY on the VECTOR page; no crash screen.
-2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's 46.6 % (the emulator counts
-   instructions, the chip cycles: the gap is what this step measures). Then the other patches with PRESETS.
+2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's 41.2 % (POLY with SEQ and
+   ARP: 44.0 %; the emulator counts instructions, the chip cycles: the gap is what this step measures). Then the
+   other patches with PRESETS.
 3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and TOUR through the line out against
    `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves.
-4. *The pages:* FX through VECTOR RIDER DESTROY SPACE MOD HOME; the macros on HOME move the sound live; MOD's
-   slots and LFOs edit as on the host (`tests/scripts/c1.txt`).
-5. *MIDI:* notes over USB and the TRS jack; CC 1 (WHEEL) feeds DISTROY's loop; channel pressure (AFTER) on GLASS
+4. *The pages:* every page button through its pages as `tests/scripts/u1.txt` tours them (HOME VECTOR MACROS; FX
+   RIDER DESTROY SPACE; ENV ENV FILTER; LFO LFO1 LFO2 MOD; ARP; SEQ SEQ A, SEQ B, TURING); EDIT switches ON/OFF,
+   SCL held is the second layer; the key LEDs follow the screen; the macros move the sound live.
+5. *The voices:* `tests/scripts/v4.txt` by hand: ARP refused while SEQ plays in MONO, B locked in MONO, the
+   messages; DUO and POLY share the voices without a note cut.
+6. *MIDI:* notes over USB and the TRS jack; CC 1 (WHEEL) feeds DISTROY's loop; channel pressure (AFTER) on GLASS
    opens the FM.
-6. *Flash:* the octave, tempo, patch and mode kept over a restart (saved when silent).
+7. *Flash:* the octave, tempo, patch and mode kept over a restart (saved when silent); a user patch and a pattern
+   SAVEd and back after a power-off.
+8. *The update path (the hub's author checklist):* install from the official V15 and from another firmware of the
+   hub, both ending with Star Distroyer running; from Star Distroyer, install another firmware (it must start that
+   package's loader); unplug once during Writing, plug in, install again: it must go on. `fm1_install.py --info`
+   (and the hub) must see the FM-1 as MIDI with the identity FM-1_96200 under a port name the hub knows.
 
 The sequencer plan's minimal note driver (a fixed 16-step loop) is built in P0 so every step above is auditioned in
 time as well as on held notes.

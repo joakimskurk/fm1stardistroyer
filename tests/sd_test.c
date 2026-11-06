@@ -1967,6 +1967,76 @@ static void render_patch(const SdPatch *p, int32_t *o, uint32_t frames)
     run_ms(&e1, 2); sd_engine_note(&e1, 45, 110); run_ms(&e1, 200);
     memset(o, 0, frames * 2u * sizeof *o); sd_engine_render(&e1, o, frames);
 }
+/* The hand's held keys (the user, 2026-11-06: "in MONO, hold a key, play a second, let it go: back to the first; now
+ * it is cut"): a key let go gives its voice back to the latest key still held without one, legato (no new note-on:
+ * the voice's age stays). Keys let go out of order, three keys, and DUO's stolen voice too. */
+static void hand_keys(SdEngine *e, uint32_t mode)
+{
+    sd_engine_init(e); sd_engine_patch(e, &SD_PATCH[0]);
+    e->mode = mode; run_ms(e, 5);
+}
+static void test_hand(void)
+{
+    uint8_t nt[8];
+    uint32_t n, age;
+    hand_keys(&e1, SD_MODE_MONO);
+    sd_engine_note(&e1, 60, 100); run_ms(&e1, 20);
+    sd_engine_note(&e1, 64, 100); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 64u, "MONO: the second key does not sound (%u notes, %u)", n, nt[0]);
+    age = e1.voice[0].age;
+    sd_engine_note(&e1, 64, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 60u, "MONO: the second key let go did not go back to the first (%u notes, %u)", n, nt[0]);
+    CHECK(e1.voice[0].age == age && e1.voice[0].inc == sd_note_inc(60), "MONO: back to the first key is not legato");
+    sd_engine_note(&e1, 60, 0); run_ms(&e1, 20);
+    CHECK(gates_on(&e1, nt) == 0u, "MONO: the last key let go still sounds");
+    /* the first key let go first: the second goes on; then nothing */
+    sd_engine_note(&e1, 60, 100); sd_engine_note(&e1, 64, 100); run_ms(&e1, 20);
+    sd_engine_note(&e1, 60, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 64u, "MONO: the first key let go cut the second (%u notes, %u)", n, nt[0]);
+    sd_engine_note(&e1, 64, 0); run_ms(&e1, 20);
+    CHECK(gates_on(&e1, nt) == 0u, "MONO: a key let go went back to one no longer held");
+    /* three keys: 67 up -> 64, 64 up -> 60; out of order: 64 up (silent) changes nothing, 67 up -> 60 */
+    sd_engine_note(&e1, 60, 100); sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100); run_ms(&e1, 20);
+    sd_engine_note(&e1, 67, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 64u, "MONO: three keys, the last up: not back to the middle one (%u)", nt[0]);
+    sd_engine_note(&e1, 64, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 60u, "MONO: three keys, then the middle up: not back to the first (%u)", nt[0]);
+    sd_engine_note(&e1, 60, 0);
+    sd_engine_note(&e1, 60, 100); sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100); run_ms(&e1, 20);
+    sd_engine_note(&e1, 64, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 67u, "MONO: a silent held key let go changed the note (%u)", nt[0]);
+    sd_engine_note(&e1, 67, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 1u && nt[0] == 60u, "MONO: out of order, not back to the first key (%u)", nt[0]);
+    sd_engine_note(&e1, 60, 0); run_ms(&e1, 20);
+    CHECK(gates_on(&e1, nt) == 0u, "MONO: all keys up, still sounding");
+    /* DUO: a third key takes the oldest voice; let go, that voice goes back to the first key */
+    hand_keys(&e1, SD_MODE_DUO);
+    sd_engine_note(&e1, 60, 100); run_ms(&e1, 5); sd_engine_note(&e1, 64, 100); run_ms(&e1, 5);
+    sd_engine_note(&e1, 67, 100); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 2u && nt[0] == 64u && nt[1] == 67u, "DUO: the third key did not take the oldest voice (%u notes)", n);
+    sd_engine_note(&e1, 67, 0); run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 2u && nt[0] == 60u && nt[1] == 64u, "DUO: the third key let go, not back to the first (%u notes, %u %u)",
+          n, nt[0], nt[1]);
+    /* ARP on with keys down and off after they lifted: the list is empty, nothing comes back */
+    hand_keys(&e1, SD_MODE_MONO);
+    sd_engine_note(&e1, 60, 100); run_ms(&e1, 5);
+    e1.arp_on = 1; run_ms(&e1, 5);
+    sd_engine_note(&e1, 60, 0); run_ms(&e1, 5);
+    e1.arp_on = 0; run_ms(&e1, 20);
+    sd_engine_note(&e1, 64, 100); run_ms(&e1, 5); sd_engine_note(&e1, 64, 0); run_ms(&e1, 20);
+    CHECK(e1.hand_n == 0u && gates_on(&e1, nt) == 0u, "the hand's list kept a key lifted under ARP (%u)", e1.hand_n);
+    printf("hand: MONO back to the key still held (legato), out of order, three keys; DUO's taken voice back\n");
+}
+
 static void test_switches(void)
 {
     static int32_t a[2u * 2048u], b[2u * 2048u];
@@ -2110,6 +2180,7 @@ int main(void)
     test_seq();
     test_filter_seq_arp();
     test_switches();
+    test_hand();
     test_env();
     test_silence();
     test_chunking();

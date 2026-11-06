@@ -1,0 +1,5 @@
+# The Firmware Hub's card (docs/card.png, fmhub.json): DISTROY on the VECTOR page, the loop playing.
+# tools/make_card.sh turns the last shot into the 240x240 PNG. Buttons: PLAY 12.
+1700 btn 12
+3000 shot
+3500 end

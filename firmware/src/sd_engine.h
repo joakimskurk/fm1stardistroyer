@@ -96,6 +96,7 @@
 #define SD_SUB 32u                              /* frames per sub-block = the control period (1378 Hz) */
 #define SD_SUB_SHIFT 5u
 #define SD_QLEN 32u                             /* main loop -> audio note queue */
+#define SD_HELD 12u                             /* the hand's keys remembered while held (more: the oldest goes) */
 #define SD_OPS 4u                               /* oscillators in a bank */
 #define SD_BANKS 4u
 #define SD_VOICES 4u
@@ -516,6 +517,9 @@ typedef struct {
                                                    octaves; 1..100 %; HOLD: the notes stay after the keys lift */
     uint8_t arp_n, arp_keys, arp_was;           /* notes in the list; keys down now; arp_on last tick */
     uint8_t arp_note[8], arp_vel[8];            /* the notes, in the order played */
+    /* the hand's keys held now, the latest last (the user, 2026-11-06: in MONO, a second key let go must go back to
+       the first, still held, not cut it): sd_hand_key keeps it, sd_hand_off gives a voice back to it */
+    uint8_t hand_note[SD_HELD], hand_vel[SD_HELD], hand_n;
     uint8_t arp_i, arp_dir, arp_playing, arp_cur;   /* the place in the run; UPDN's way; a note sounds; which */
     uint32_t arp_pos_q8, arp_step_q8;           /* samples x 256 into the step; its length */
     uint32_t arp_rng;
@@ -673,6 +677,59 @@ static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's no
     uint32_t i;
     for (i = 0; i < e->nvoices; i++)
         if (e->voice[i].note == note && e->voice[i].src == src) e->voice[i].gate = 0;
+}
+
+/* The hand's held keys, the latest last: a key down goes on top (again: moved there), a key up leaves. Kept with
+ * ARP on as well, so the list is right when it goes off. */
+static void sd_hand_key(SdEngine *e, uint32_t note, uint32_t vel)
+{
+    uint32_t i, j;
+    for (i = 0; i < e->hand_n; i++)
+        if (e->hand_note[i] == note) {
+            for (j = i; j + 1u < e->hand_n; j++) { e->hand_note[j] = e->hand_note[j + 1u]; e->hand_vel[j] = e->hand_vel[j + 1u]; }
+            e->hand_n--;
+            break;
+        }
+    if (!vel) return;
+    if (e->hand_n == SD_HELD) {                 /* full: the oldest goes */
+        for (j = 0; j + 1u < SD_HELD; j++) { e->hand_note[j] = e->hand_note[j + 1u]; e->hand_vel[j] = e->hand_vel[j + 1u]; }
+        e->hand_n--;
+    }
+    e->hand_note[e->hand_n] = (uint8_t)note;
+    e->hand_vel[e->hand_n] = (uint8_t)vel;
+    e->hand_n++;
+}
+static int sd_hand_sounds(const SdEngine *e, uint32_t note)
+{
+    uint32_t i;
+    for (i = 0; i < e->nvoices; i++)
+        if (e->voice[i].gate && e->voice[i].src == SD_SRC_HAND && e->voice[i].note == note) return 1;
+    return 0;
+}
+/* A key up (after sd_hand_key took it off the list): its voice goes back to the latest key still held that has
+ * none (it lost it to a later key: in MONO always), legato: the pitch jumps there, the envelope goes on, VEC2 is not
+ * restarted, as a mono synth goes back to the key still down. With none such, the voice is let go. */
+static void sd_hand_off(SdEngine *e, uint32_t note)
+{
+    uint32_t i, k;
+    for (i = 0; i < e->nvoices; i++) {
+        SdVoice *v = &e->voice[i];
+        if (v->note != note || v->src != SD_SRC_HAND) continue;
+        if (v->gate) {
+            for (k = e->hand_n; k-- > 0u;)
+                if (!sd_hand_sounds(e, e->hand_note[k])) break;
+            if (k < e->hand_n) {                /* (none: k wrapped past 0) */
+                v->note = e->hand_note[k];
+                v->vel = e->hand_vel[k];
+                v->inc = v->inc_tgt = sd_note_inc(v->note);
+                v->glide = 0;
+                e->r.note = v->note;            /* the Rider's key tracking and the matrix's KEY follow */
+                e->m_note = v->note;
+                continue;
+            }
+        }
+        v->gate = 0;
+    }
 }
 
 /* The plan: each source's quota from the mode's voices. A playing track holds its widest step (its chords), A first;
@@ -1810,9 +1867,10 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
     while (e->q_r != e->q_w) {                  /* notes from the keys and MIDI */
         SdNoteEv ev = e->q[e->q_r % SD_QLEN];
         e->q_r++;
+        sd_hand_key(e, ev.note, ev.vel);
         if (e->arp_on) sd_arp_key(e, ev.note, ev.vel);
         else if (ev.vel) sd_voice_on(e, ev.note, ev.vel, SD_SRC_HAND);
-        else sd_voice_off(e, ev.note, SD_SRC_HAND);
+        else sd_hand_off(e, ev.note);
     }
     if (e->mode != e->mode_on) {                /* a new mode: release everything, switch once it is quiet */
         for (i = 0; i < SD_VOICES; i++) e->voice[i].gate = 0;

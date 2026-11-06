@@ -30,6 +30,9 @@ A vector FM synth with a morphing resonator and multiband destruction, for the M
     B), ARP one, the keys the rest, and no source turns off or takes another's note. What does not fit is refused
     or switched off with a short message: in MONO there is no ARP (and no keys but REC's) while SEQ A plays, and no
     SEQ B; a chord is recorded only as wide as the voices left. The status line shows who holds the voices (A B R -).
+  - The keys remember what is held: a key let go gives its voice back to the latest key still down that lost it.
+    In MONO: hold a note, play a second, let it go, and the first sounds again, legato (the pitch jumps back, the
+    envelope goes on); in DUO and POLY a voice a new key took comes back the same way.
   - The key LEDs show what the keys do: the notes playing (and ARP's), on SEQ and TURING the steps of the bank,
     the black keys' actions (RND UNDO CLR, SEG on the last), and with SCL held the transpose.
   - The patches: GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY VOWEL CHORDS PLUCKS FLANGE PHASER RIDE SPLIT COMET
@@ -93,6 +96,11 @@ A vector FM synth with a morphing resonator and multiband destruction, for the M
 - Two sequencer tracks on one sound (A and B: a melody and a bass line), chords in a step (keys held together under
   REC), and an arpeggiator (ARP: UP DOWN UP-DN RND ORDER, 1–4 octaves, RATE, GATE, HOLD).
 - SAVE: 32 user patches (U01–U32) and 32 patterns (P01–P32) in flash, written once the sound is quiet.
+  - **Other firmwares' saves:** on the FM-1 these live where the Felucca family keeps its data (the settings at
+    0xFC000, the patches and patterns from 0x97000, `firmware/src/store.h`). Star Distroyer reads only its own
+    (magic "SDST"); it cannot read another firmware's projects, and its first SAVE can overwrite them. Another
+    firmware finds Star Distroyer's data foreign and may start fresh over it. Back up the flash (M-Flasher,
+    MvaveFM1Unbricker) before switching if you want to keep either.
 - STRINGS (P21): the cello, V4 (`tools/cello_v4.txt`, tuned by ear in the duo after a match to a recorded cello's
   scale; `tools/sd_strings.c` plays the scales and the duo). A plain saw with a slow bow and 8 cents of vibrato
   through the Rider's four BP6s snapped to the note's harmonics (the body), DESTROY as a four-band level, TAME, a
@@ -147,17 +155,22 @@ A vector FM synth with a morphing resonator and multiband destruction, for the M
     (what ALGORITHM does); the steps playing; tempo, octave, ARP and the load.
   - Each region is drawn 25 times a second and sent to the screen only when its pixels changed.
   - No keyboard on the screen: the key LEDs show what the keys do (above).
-  - The logo is cut from the mockup: `python3 tools/gen_logo.py` (Pillow) writes `firmware/src/sd_logo.h`.
+  - The logo is traced from the mockup: its own letters as a clean mask in the screen's ICE and RED (no shading),
+    the bars on whole pixels at each size: `python3 tools/gen_logo.py` (Pillow) writes `firmware/src/sd_logo.h`
+    and `build/logo_preview.png`.
 - The loop of work:
 
   ```sh
   tests/run_sd.sh                              # engine tests, build/audio/*.wav to listen to, the host bench
   tests/run_host.sh tests/scripts/q1.txt       # the whole firmware on the host: WAV + screens (q2: saving)
-  ./build.sh                                   # -> build/stardistroyer.fwsc (identity FM-1_960, provisional)
+  ./build.sh                                   # -> build/stardistroyer.fwsc (identity FM-1_96200; a release X.Y: FM-1_962XY)
   tools/emu_cpu.sh build/stardistroyer.fwsc    # the chip's load in fm1-emu
   ```
 
-- Departures from Dinghy's own files: `firmware/src/gfx.c` (the canvas without a `.pool` section on a macOS host).
+- Departures from Dinghy 0.4's own files: `firmware/src/gfx.c` (the canvas without a `.pool` section on a macOS host);
+  `firmware/hal/fm1_flash_map.h` takes Dinghy's later fix (f77bf03): the newer FM-1s' flash, the UC25HQ80
+  (0xB36014), beside the first units' 0x856014, in the app and the update loader (without it they save to RAM only
+  and every update fails); `tools/build.py`: the identity FM-1_962XY.
 
 ---
 

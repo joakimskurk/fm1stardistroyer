@@ -225,7 +225,8 @@ static void splash(void)
                 }
             }
             if (!half) {
-                draw_logo(&SD_LOGO_STAR, (240 - SD_LOGO_STAR.w) / 2 - 34, 88);
+                draw_logo(&SD_LOGO_STAR, (240 - SD_LOGO_DISTROYER.w) / 2, 120 - SD_LOGO_STAR.h - 9);   /* (the lines
+                                                   start together, 9 + 2 px apart) */
             } else {
                 draw_logo(&SD_LOGO_DISTROYER, (240 - SD_LOGO_DISTROYER.w) / 2, 2);
                 cv_text((240 - text_w(&FONT_S, "FM-1 EDITION")) / 2, 40, &FONT_S, "FM-1 EDITION", C_ICE_D);
