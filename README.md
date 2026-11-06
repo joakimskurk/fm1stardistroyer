@@ -26,6 +26,10 @@ A vector FM synth with a morphing resonator and multiband destruction, for the M
     SPACE, FILTER (the settings are kept), ARP, a track (SEQ B not in MONO), TURING.
   - PRESETS: the patch (a list while it turns); on SEQ and TURING the pattern. SELECT the tempo, GLO the mode,
     PLAY the patterns, REC recording, SAVE a user place.
+  - The voices (MONO 1, DUO 2, POLY 4) are shared by rules: a playing track takes its widest chord (A first, then
+    B), ARP one, the keys the rest, and no source turns off or takes another's note. What does not fit is refused
+    or switched off with a short message: in MONO there is no ARP (and no keys but REC's) while SEQ A plays, and no
+    SEQ B; a chord is recorded only as wide as the voices left. The status line shows who holds the voices (A B R -).
   - The key LEDs show what the keys do: the notes playing (and ARP's), on SEQ and TURING the steps of the bank,
     the black keys' actions (RND UNDO CLR, SEG on the last), and with SCL held the transpose.
   - The patches: GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY VOWEL CHORDS PLUCKS FLANGE PHASER RIDE SPLIT COMET

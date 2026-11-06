@@ -22,6 +22,10 @@
  *   SAVE       the patch (on SEQ the pattern) to a user place: ALGORITHM picks it, SAVE again writes, HOME: not now
  *   the keys   play; their lights show what they do (keys_lit). On SEQ and TURING the white keys are the bank's 16
  *              steps (a step tapped again: RATCHET, PROB), the black keys RND UNDO CLR and, the last one, SEG
+ *   the voices MONO 1, DUO 2, POLY 4, shared by quota (sd_plan): a playing track its widest chord, A first, then B,
+ *              then ARP one, the keys the rest; no source turns off or takes another's note. ARP and SEQ B are refused
+ *              where they do not fit (MONO with SEQ A playing: no ARP, no keys but REC's), and switched off when PLAY,
+ *              GLO or a chord takes their room; a message says why. The status line shows who holds them (A B R -)
  *
  * The pages' knobs (SCL: the second layer):
  *   VECTOR     XM WARP FOLD DETUNE (Vector Wave's Q page, 0..99); SCL: X Y WIDTH, K4 a harmonic generator on the
@@ -373,6 +377,47 @@ static uint32_t step_mod(uint32_t v, int32_t e, uint32_t n)   /* v + e detents, 
 static uint32_t idle_ok;
 
 static uint32_t shift(void) { return fm1_in.buttons >> BTN_SEL & 1u; }   /* SCL (BTN_SEL) held: the second layer */
+static const char *msg_txt;                     /* a message in the hint's place, 2 s */
+static uint32_t msg_at;
+static void msg(const char *t) { msg_txt = t; msg_at = fm1_ms ? fm1_ms : 1u; }
+
+/* ---- the voices (2026-11-07, the user: "notes get cancelled, especially with ARP: rules for what can play and what
+ * cannot, and the functions fitted around them"; "no ARP while SEQ is on and playing in MONO, the same for SEQ B: only
+ * DUO / POLY can fix it, and there too rules, so we never try to play more than is possible; simple messages in
+ * English when you try"). The engine gives each source its quota (sd_plan: a playing track its widest chord, A
+ * first, then B, then ARP one, the hand the rest) and no source takes another's voice. Here what is switched on is
+ * kept inside the voices: ARP and SEQ B are refused when there is no room (a message says why), and switched off
+ * when PLAY, GLO or a new chord takes their room; a chord is recorded only as wide as the room left. */
+static uint32_t voices_n(void) { return set.mode == SD_MODE_POLY ? 4u : set.mode == SD_MODE_DUO ? 2u : 1u; }
+static uint32_t trk_need(uint32_t k)            /* the voices track k takes when it plays */
+{
+    if (eng.t[k].mute || (k && set.mode == SD_MODE_MONO)) return 0;
+    return eng.t[k].width;
+}
+static uint32_t arp_room(void)                  /* ARP fits beside the tracks playing */
+{
+    uint32_t n = voices_n(), a = trk_need(0), b = trk_need(1);
+    if (!eng.seq_run) return 1;
+    a = a < n ? a : n;
+    b = b < n - a ? b : n - a;
+    return a + b < n;
+}
+static uint32_t chords_cut_was;
+static void voices_guard(void)                  /* every loop: what no longer fits goes off, and says so */
+{
+    uint32_t n = voices_n(), na = trk_need(0), nb = trk_need(1), a, b, cut;
+    if (!eng.seq_run) { chords_cut_was = 0; return; }
+    a = na < n ? na : n;
+    if (nb && a >= n) { eng.t[1].mute = 1; msg("SEQ B OFF: NO VOICE LEFT"); nb = 0; }
+    b = nb < n - a ? nb : n - a;
+    if (eng.arp_on && a + b >= n) {
+        eng.arp_on = 0;
+        msg(n == 1u ? "ARP OFF: SEQ PLAYS IN MONO" : "ARP OFF: NO VOICE LEFT");
+    }
+    cut = na > a || nb > b;
+    if (cut && !chords_cut_was) msg("CHORDS CUT: TOO FEW VOICES");
+    chords_cut_was = cut;
+}
 
 
 static void draw_header(void)                   /* the logo; the patch's number on the right */
@@ -589,7 +634,12 @@ static void seq_chord(uint32_t note)            /* REC: a key while another is h
 {
     SdStep *s = &seqp.step[rec_at];
     int32_t d = (int32_t)note - (int32_t)s->note;
+    uint32_t n = voices_n(), other = trk_need(seq_trk ^ 1u) + (eng.arp_on ? 1u : 0u);
     if (rec_n >= 4u || !d || d < -127 || d > 127) return;
+    if (rec_n + 1u + other > n) {               /* wider than the voices left for it */
+        msg(n == 1u ? "MONO: ONE NOTE A STEP" : "CHORD FULL: NO VOICE LEFT");
+        return;
+    }
     s->chord[rec_n - 1u] = (int8_t)d;
     rec_n++;
     seq_push();
@@ -903,9 +953,6 @@ static char *put_ms(char *p, uint32_t i)        /* an envelope time, 0..127: "12
  *   204  the steps of the track playing         222  the transport, the load
  * Each region is drawn into the canvas 25 times a second and sent only when its pixels changed. */
 
-static const char *msg_txt;                     /* a message in the hint's place, 2 s */
-static uint32_t msg_at;
-static void msg(const char *t) { msg_txt = t; msg_at = fm1_ms ? fm1_ms : 1u; }
 
 /* ---- what EDIT switches: the page's engine, the same everywhere (the user: "EDIT a toggle") */
 static uint32_t fx_on(uint32_t bit)             /* an engine on: not switched off, and in the patch at all */
@@ -953,9 +1000,14 @@ static uint32_t edit_toggle(void)               /* EDIT: what this page shows, o
         return 1;
     }
     if (page == 0u) { pat.vec = (uint8_t)!pat.vec; return 1; }
-    if (page == PAGE_ARP) eng.arp_on = (uint8_t)!eng.arp_on;
+    if (page == PAGE_ARP) {
+        if (!eng.arp_on && !arp_room()) msg(set.mode == SD_MODE_MONO ? "NO ARP WHILE SEQ PLAYS: MONO" : "NO VOICE LEFT FOR ARP");
+        else eng.arp_on = (uint8_t)!eng.arp_on;
+    }
     else if (page == PAGE_SEQ) {
         if (seq_trk && set.mode == SD_MODE_MONO) msg("B NEEDS DUO OR POLY: GLO");
+        else if (seq_trk && eng.t[1].mute && eng.t[1].width && eng.seq_run &&
+                 (trk_need(0) < voices_n() ? trk_need(0) : voices_n()) >= voices_n()) msg("NO VOICE LEFT FOR SEQ B");
         else eng.t[seq_trk].mute = (uint8_t)!eng.t[seq_trk].mute;
     } else if (page == PAGE_TUR) {
         seqp.tur ^= 1u;
@@ -1652,7 +1704,16 @@ static void draw_status(void)
     *p = 0;
     cv_rect(8, 4, 8, 10, run ? C_RED : C_ICE_D);   /* play: a square, red; stopped: dim */
     cv_text(22, 1, &FONT_S, s, run ? C_ICE : C_ICE_D);
-    if (eng.arp_on) cv_text(134, 1, &FONT_S, "ARP", C_RED);
+    {                                           /* who holds the voices: A B, R (ARP), - the keys' */
+        uint32_t k, i, x = 134;
+        static const char L[4] = {'-', 'A', 'B', 'R'};
+        static const uint8_t ORD[4] = {SD_SRC_A, SD_SRC_B, SD_SRC_ARP, SD_SRC_HAND};
+        for (k = 0; k < 4u; k++)
+            for (i = 0; i < eng.quota[ORD[k]] && x < 166u; i++, x += 8u) {
+                char c[2] = {L[ORD[k]], 0};
+                cv_text((int32_t)x, 1, &FONT_S, c, ORD[k] == SD_SRC_ARP ? C_RED : ORD[k] == SD_SRC_HAND ? C_ICE_D : C_ICE);
+            }
+    }
     p = put(s, "CPU ");
     if (pm == 0xFFFFFFFFu) p = put(p, "--");
     else { p = put_u(p, (pm + 5u) / 10u); *p++ = '%'; }   /* (whole percents: ARP fits beside) */
@@ -1838,6 +1899,8 @@ static void app_main(void)
         } else if (sq) {
             seq_keys(down);
         }
+        if (down && !sq && !seq_rec && !eng.arp_on && eng.seq_run && !eng.quota[SD_SRC_HAND])
+            msg(set.mode == SD_MODE_MONO ? "MONO: THE SEQ HAS THE VOICE" : "NO FREE VOICE: SEQ PLAYS");
         for (k = 0; k < 27u; k++) {
             if (down >> k & 1u && !sq) {
                 uint32_t others = keys & ~(1u << k) & ~down;   /* keys already held: this one joins their chord */
@@ -2181,6 +2244,8 @@ static void app_main(void)
             if (changed) sd_engine_patch(&eng, &pat);
         }
 
+        voices_guard();
+        eng.rec_trk = seq_rec ? (uint8_t)seq_trk : 0xFFu;   /* REC: the keys may take the recorded track's voice */
         midi_in();
         eng.arp_mode = set.amode; eng.arp_div = set.adiv; eng.arp_oct = set.aoct;
         eng.arp_gate = set.agate; eng.arp_hold = set.ahold;

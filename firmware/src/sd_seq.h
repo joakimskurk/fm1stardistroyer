@@ -218,6 +218,17 @@ static void sd_step_mutate(SdStep *s, uint32_t key, uint32_t scale, uint32_t res
     }
 }
 
+static uint32_t sd_pattern_width(const SdPattern *p)   /* the most notes a step plays at once (0: no notes) */
+{
+    uint32_t k, w = 0, n = p->len < SD_PSTEPS ? p->len : SD_PSTEPS;
+    for (k = 0; k < n; k++) {
+        const SdStep *s = &p->step[k];
+        uint32_t c = 1u + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
+        if (s->type <= SD_ST_SLIDE && c > w) w = c;
+    }
+    return w;
+}
+
 static void sd_pattern_mutate(SdPattern *p, uint32_t *rng)   /* TURING: each step by its chance (CHANGE) */
 {
     uint32_t k, key = p->step[0].note, rests = SD_TUR_RESTS(p), range = SD_TUR_RANGE(p);

@@ -2021,7 +2021,58 @@ static void test_switches(void)
     run_ms(&e1, 125u * 2u);                     /* step 4 -> step 1 */
     n = gates_on(&e1, nt);
     CHECK(e1.t[0].seq_shown == 0u && n == 1u && nt[0] == 77u, "the transpose at the one: step %u, note %u", e1.t[0].seq_shown, nt[0]);
-    printf("switches: EDIT OFF = level 0 (RIDER DESTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one\n");
+    /* the voices' owners and quotas: a note off turns off only its own source's notes; no source takes another's held
+       voice; MONO with A playing has no voice for ARP or the hand (REC: the hand takes A's) */
+    {
+        uint32_t sub, cutA = 0, onA = 0, arpSounds = 0;
+        for (i = 0; i < SD_PSTEPS; i++) { pa.step[i].note = 60; pa.step[i].gate = 95; }
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+        e1.mode = SD_MODE_POLY; run_ms(&e1, 5);
+        sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
+        e1.arp_on = 1; e1.arp_gate = 20; e1.arp_div = 0;   /* ARP on 60 too, short gates, 1/32 */
+        sd_engine_note(&e1, 60, 100);
+        for (sub = 0; sub < 2000u; sub++) {
+            int32_t oo[64];
+            uint32_t v, s60 = 0;
+            sd_engine_render(&e1, oo, 32);
+            for (v = 0; v < e1.nvoices; v++) s60 += e1.voice[v].gate && e1.voice[v].note == 60u && e1.voice[v].src == SD_SRC_A;
+            if (e1.t[0].seq_note_on) { onA++; cutA += !s60; }
+        }
+        CHECK(onA > 100u && cutA * 50u < onA, "POLY: ARP's note offs cut A's same note (%u of %u)", cutA, onA);
+        for (k = 0; k < 2u; k++) {              /* MONO, then DUO: A plays with ARP on */
+            sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+            e1.mode = k ? SD_MODE_DUO : SD_MODE_MONO; run_ms(&e1, 5);
+            sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
+            e1.arp_on = 1; sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100);
+            cutA = onA = arpSounds = 0;
+            for (sub = 0; sub < 2000u; sub++) {
+                int32_t oo[64];
+                uint32_t v, sa = 0;
+                sd_engine_render(&e1, oo, 32);
+                for (v = 0; v < e1.nvoices; v++) {
+                    sa += e1.voice[v].gate && e1.voice[v].src == SD_SRC_A;
+                    arpSounds += e1.voice[v].gate && e1.voice[v].src == SD_SRC_ARP;
+                }
+                if (e1.t[0].seq_note_on) { onA++; cutA += !sa; }
+            }
+            CHECK(onA > 100u && !cutA, "%s: A cut by ARP %u of %u times", k ? "DUO" : "MONO", cutA, onA);
+            CHECK(k ? arpSounds > 100u : !arpSounds, "%s: ARP %s (%u)", k ? "DUO" : "MONO", k ? "silent" : "took the voice", arpSounds);
+        }
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);   /* MONO, A playing: the hand has no voice */
+        run_ms(&e1, 5);
+        sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
+        run_ms(&e1, 30);
+        sd_engine_note(&e1, 72, 100); run_ms(&e1, 2);
+        CHECK(gates_on(&e1, nt) == 1u && nt[0] == 60u, "MONO: a key took A's voice (%u)", nt[0]);
+        sd_engine_note(&e1, 72, 0);
+        e1.rec_trk = 0;                         /* REC on A: the key is heard */
+        sd_engine_note(&e1, 74, 100); run_ms(&e1, 2);
+        CHECK(gates_on(&e1, nt) == 1u && nt[0] == 74u, "MONO REC: the key is not heard (%u)", nt[0]);
+        sd_engine_note(&e1, 74, 0); run_ms(&e1, 2);
+        CHECK(e1.voice[0].note != 74u || !e1.voice[0].gate, "MONO REC: the key's note stuck");
+    }
+    printf("switches: EDIT OFF = level 0 (RIDER DESTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one; "
+           "the voices' owners and quotas\n");
 }
 
 int main(void)

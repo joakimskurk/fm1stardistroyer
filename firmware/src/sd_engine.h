@@ -328,10 +328,17 @@ typedef struct {                                /* a bank's waveform for this su
 } SdShape;
 enum { SD_SH_SINE, SD_SH_BLEND, SD_SH_TRI };    /* warp 0; sine -> triangle; triangle -> saw (and on, squashed) */
 
+/* Who plays a voice (2026-11-07, the user: "notes get cancelled, especially with ARP: we need rules for what can
+ * play together"): the hand (the keys and MIDI), SEQ A, SEQ B, the arpeggiator. Each has a quota of voices held at
+ * once (sd_plan: the tracks first, then ARP, the hand the rest); a note off turns off only its own source's notes,
+ * and no source takes a held voice from another: past its quota it steals its own oldest, without one it is silent. */
+enum { SD_SRC_HAND, SD_SRC_A, SD_SRC_B, SD_SRC_ARP, SD_SRCS };
+
 typedef struct {
     uint32_t inc;                               /* the note's (gliding toward inc_tgt while glide) */
     uint32_t inc_tgt;                           /* SLIDE: where the glide goes */
     uint8_t note, vel, gate, glide;
+    uint8_t src;                                /* who played it: SD_SRC_* (only it turns it off) */
     SdEnv env1, env2, env3;
     int32_t fa1[2], fa2[2], fa3[2];             /* the filter's two stages: coefficients (Q30), this sub-block */
     int32_t amp, amp_next;                      /* Q15 level at this sub-block's start, at the next one's */
@@ -439,6 +446,8 @@ typedef struct {                                /* a sequencer track: its patter
     uint8_t sq_ord[2][SD_PSTEPS * 2u];          /* this pass's steps in order, and the next one's (P-P: ~2 x) */
     uint32_t sq_rng;
     volatile uint8_t mute;                      /* the main loop's ON / OFF (EDIT): the track keeps time, silent */
+    uint8_t src;                                /* SD_SRC_A / SD_SRC_B */
+    volatile uint8_t width;                     /* the most notes a step of its pattern plays at once (0: none) */
     volatile int8_t xpose_next;                 /* the main loop's transpose (SCL + a key), semitones: taken at the
                                                    track's next one (or START) */
     int8_t xpose;                               /* the transpose playing */
@@ -480,6 +489,10 @@ typedef struct {
     uint8_t mode_on, nvoices;
     uint32_t ages;
     SdVoice voice[SD_VOICES];
+    volatile uint8_t quota[SD_SRCS];            /* sd_plan: the voices each source may hold at once (the screen reads
+                                                   it) */
+    volatile uint8_t rec_trk;                   /* REC (the main loop): the track it writes, 0 / 1, else 0xFF: the hand
+                                                   may then take that track's voice (you hear what you record) */
     SdBank bank[SD_BANKS];
 
     /* the vector: VEC2's playback, and where it is (for the screen) */
@@ -576,7 +589,10 @@ static void sd_engine_init(SdEngine *e)
         else sd_pattern_default(&e->t[i].pat_in);
         e->t[i].pat = e->t[i].pat_in;
         e->t[i].sq_rng = 0x5E9u + 0x1F3u * i;
+        e->t[i].src = (uint8_t)(SD_SRC_A + i);
+        e->t[i].width = (uint8_t)sd_pattern_width(&e->t[i].pat);
     }
+    e->rec_trk = 0xFF;
     e->pmul = 65536;
     e->m_seed = 0x5EED1u;
     for (i = 0; i < SD_BANKS; i++) e->bank[i].sh.fg = e->bank[i].sh.fg_next = 4096;
@@ -612,23 +628,29 @@ static void sd_vec_start(SdEngine *e)           /* VEC2 from its first cell (on 
     e->vec_run = 1;
 }
 
-static void sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel)
+static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t src)   /* 1: it sounds */
 {
-    uint32_t i, pick = 0;
+    uint32_t i, pick = 0xFFu, held = 0, best = 0xFFFFFFFFu, rank, q = e->quota[src % SD_SRCS];
     SdVoice *v;
-    if (e->nvoices > 1u) {                      /* the same note again, else the oldest silent, released, held */
-        uint32_t best = 0xFFFFFFFFu, rank;
-        for (i = 0; i < e->nvoices; i++) {
-            SdVoice *c = &e->voice[i];
-            rank = c->gate && c->note == note ? 0u
-                 : sd_voice_silent(c) ? 1u : !c->gate ? 2u : 3u;
-            rank = rank << 28 | (c->age & 0x0FFFFFFFu);
-            if (rank < best) { best = rank; pick = i; }
-        }
+    for (i = 0; i < e->nvoices; i++) held += e->voice[i].gate && e->voice[i].src == src;
+    for (i = 0; i < e->nvoices; i++) {          /* its own note again; else, under its quota, the oldest silent, then
+                                                   released; at its quota, its own oldest held. Never another's held */
+        SdVoice *c = &e->voice[i];
+        if (c->gate && c->src == src && c->note == note) rank = 0u;
+        else if (c->gate && c->src != src) {
+            if (!(src == SD_SRC_HAND && e->rec_trk < 2u && c->src == SD_SRC_A + e->rec_trk && !q)) continue;
+            rank = 3u;                          /* (REC with no voice of its own: the recorded track's) */
+        } else if (c->gate) { if (held < q) continue; rank = 3u; }
+        else if (held >= q && !(src == SD_SRC_HAND && e->rec_trk < 2u && !q)) continue;
+        else rank = sd_voice_silent(c) ? 1u : 2u;
+        rank = rank << 28 | (c->age & 0x0FFFFFFFu);
+        if (rank < best) { best = rank; pick = i; }
     }
+    if (pick == 0xFFu) return 0;                /* no voice for it: silent */
     v = &e->voice[pick];
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
+    v->src = (uint8_t)src;
     v->inc = v->inc_tgt = sd_note_inc(note);
     v->glide = 0;
     v->gate = 1;
@@ -644,12 +666,30 @@ static void sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel)
     v->env2.stage = SD_ENV_ATTACK;
     v->env3.stage = SD_ENV_ATTACK;
     if (e->mode_on == SD_MODE_MONO && e->patch.vec) sd_vec_start(e);
+    return 1;
 }
-static void sd_voice_off(SdEngine *e, uint32_t note)
+static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's notes only */
 {
     uint32_t i;
     for (i = 0; i < e->nvoices; i++)
-        if (e->voice[i].note == note) e->voice[i].gate = 0;
+        if (e->voice[i].note == note && e->voice[i].src == src) e->voice[i].gate = 0;
+}
+
+/* The plan: each source's quota from the mode's voices. A playing track holds its widest step (its chords), A first;
+ * ARP one; the hand the rest. Stopped, the tracks hold none. B never in MONO. The main loop keeps what is switched on
+ * inside it (the user: "no trying to play more than is possible"), so a quota cut here is only a chord's top notes. */
+static void sd_plan(SdEngine *e)
+{
+    uint32_t n = e->nvoices, a, b, r, run = e->seq_run;
+    a = run && !e->t[0].mute ? e->t[0].width : 0u;
+    a = a < n ? a : n;
+    b = run && e->seqb && !e->t[1].mute && e->mode_on != SD_MODE_MONO ? e->t[1].width : 0u;
+    b = b < n - a ? b : n - a;
+    r = e->arp_on && n - a - b ? 1u : 0u;
+    e->quota[SD_SRC_A] = (uint8_t)a;
+    e->quota[SD_SRC_B] = (uint8_t)b;
+    e->quota[SD_SRC_ARP] = (uint8_t)r;
+    e->quota[SD_SRC_HAND] = (uint8_t)(n - a - b - r);
 }
 
 /* ---- the Rider: control */
@@ -1044,7 +1084,7 @@ static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   
     uint32_t i;
     for (i = 0; i < e->nvoices; i++) {
         SdVoice *v = &e->voice[i];
-        if (v->gate && v->note == t->seq_note[0]) {
+        if (v->gate && v->note == t->seq_note[0] && v->src == t->src) {
             v->note = (uint8_t)note;
             v->inc_tgt = sd_note_inc(note);
             v->glide = 1;
@@ -1054,13 +1094,13 @@ static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   
             return;
         }
     }
-    sd_voice_on(e, note, vel);                  /* (nothing held: a new note) */
+    sd_voice_on(e, note, vel, t->src);          /* (nothing held: a new note) */
 }
 
 static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, off */
 {
     uint32_t i;
-    for (i = 0; i < t->seq_nn && i < 4u; i++) sd_voice_off(e, t->seq_note[i]);
+    for (i = 0; i < t->seq_nn && i < 4u; i++) sd_voice_off(e, t->seq_note[i], t->src);
     t->seq_note_on = 0;
     t->seq_nn = 0;
 }
@@ -1081,7 +1121,8 @@ static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   
             int32_t c = (int32_t)root + st->chord[i];
             if (c >= 0 && c <= 127) t->seq_note[n++] = (uint8_t)c;
         }
-    for (i = 0; i < n; i++) sd_voice_on(e, t->seq_note[i], vel);
+    if (n > e->quota[t->src]) n = e->quota[t->src];   /* (a chord past the track's voices: its top notes go) */
+    for (i = 0; i < n; i++) sd_voice_on(e, t->seq_note[i], vel, t->src);
     t->seq_nn = (uint8_t)n;
     t->seq_note_on = 1;
 }
@@ -1096,6 +1137,8 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
                                                    place; a pass past the new end restarts at A) */
         t->pat_taken = sq;
         t->pat = t->pat_in;
+        t->width = (uint8_t)sd_pattern_width(&t->pat);
+        sd_plan(e);                             /* (its width may have changed the quotas) */
         if (t->seq_on) {
             uint8_t b[SD_SEGS + 1u];
             if (t->sq_seg >= sd_seg_bounds(&t->pat, b)) { t->sq_seg = 0; t->sq_rep = 0; }
@@ -1133,6 +1176,8 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
         if (one) t->xpose = t->xpose_next;      /* SCL + a key: the transpose at the one */
         if (one && (t->pat.tur & 1u) && t->pat.mutate) {   /* TURING: the loop played as it was; this one varies */
             sd_pattern_mutate(&t->pat, &t->sq_rng);
+            t->width = (uint8_t)sd_pattern_width(&t->pat);   /* (a rest may have become a note) */
+            sd_plan(e);
             t->mut_count++;
             t->sq_n[t->sq_cur] = (uint8_t)sd_seq_build(t, t->sq_seg, t->sq_ord[t->sq_cur]);
             if (t->sq_pos >= t->sq_n[t->sq_cur]) t->sq_pos = 0;
@@ -1634,7 +1679,7 @@ static void sd_arp_key(SdEngine *e, uint32_t note, uint32_t vel)
         e->arp_n++;
     } else {
         if (e->arp_keys) e->arp_keys--;
-        if (!(e->arp_playing && e->arp_cur == note)) sd_voice_off(e, note);   /* (a key held as ARP came on: its
+        sd_voice_off(e, note, SD_SRC_HAND);   /* (a key held as ARP came on: its
                                                    note played straight, so it lifts straight) */
         if (e->arp_hold) return;
         for (i = 0; i < e->arp_n; i++)
@@ -1652,21 +1697,21 @@ static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
     uint8_t s[8], v[8];
     if (!e->arp_on) {
         if (e->arp_was) {                       /* off: its note off, the list gone */
-            if (e->arp_playing) sd_voice_off(e, e->arp_cur);
+            if (e->arp_playing) sd_voice_off(e, e->arp_cur, SD_SRC_ARP);
             e->arp_playing = 0; e->arp_n = 0; e->arp_keys = 0; e->arp_was = 0;
         }
         return;
     }
     e->arp_was = 1;
     if (!n) {
-        if (e->arp_playing) { sd_voice_off(e, e->arp_cur); e->arp_playing = 0; }
+        if (e->arp_playing) { sd_voice_off(e, e->arp_cur, SD_SRC_ARP); e->arp_playing = 0; }
         return;
     }
     {
         uint32_t d = e->arp_div < SD_SDIVS ? e->arp_div : 2u, g = e->arp_gate < 1u ? 1u : e->arp_gate > 100u ? 100u : e->arp_gate;
         e->arp_step_q8 = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
         if (e->arp_pos_q8 != 0xFFFFFFFFu && e->arp_playing && e->arp_pos_q8 >= (e->arp_step_q8 >> 7) * g / 100u << 7) {
-            sd_voice_off(e, e->arp_cur);        /* the gate */
+            sd_voice_off(e, e->arp_cur, SD_SRC_ARP);        /* the gate */
             e->arp_playing = 0;
         }
         if (e->arp_pos_q8 != 0xFFFFFFFFu && e->arp_pos_q8 < e->arp_step_q8) { e->arp_pos_q8 += SD_SUB << 8; return; }
@@ -1693,11 +1738,11 @@ static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
         e->arp_i = (uint8_t)((k + 1u) % len);
         if (e->arp_mode == SD_AM_DOWN) k = len - 1u - k;
     }
-    if (e->arp_playing) sd_voice_off(e, e->arp_cur);
+    if (e->arp_playing) sd_voice_off(e, e->arp_cur, SD_SRC_ARP);
     {
         uint32_t note = s[k % n] + 12u * (k / n);
         e->arp_cur = (uint8_t)(note > 127u ? 127u : note);
-        sd_voice_on(e, e->arp_cur, v[k % n]);
+        sd_voice_on(e, e->arp_cur, v[k % n], SD_SRC_ARP);
         e->arp_playing = 1;
     }
     e->arp_pos_q8 += SD_SUB << 8;
@@ -1761,12 +1806,13 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
         }
     }
     p = &e->patch;
+    sd_plan(e);                                 /* who may hold how many voices, now */
     while (e->q_r != e->q_w) {                  /* notes from the keys and MIDI */
         SdNoteEv ev = e->q[e->q_r % SD_QLEN];
         e->q_r++;
         if (e->arp_on) sd_arp_key(e, ev.note, ev.vel);
-        else if (ev.vel) sd_voice_on(e, ev.note, ev.vel);
-        else sd_voice_off(e, ev.note);
+        else if (ev.vel) sd_voice_on(e, ev.note, ev.vel, SD_SRC_HAND);
+        else sd_voice_off(e, ev.note, SD_SRC_HAND);
     }
     if (e->mode != e->mode_on) {                /* a new mode: release everything, switch once it is quiet */
         for (i = 0; i < SD_VOICES; i++) e->voice[i].gate = 0;

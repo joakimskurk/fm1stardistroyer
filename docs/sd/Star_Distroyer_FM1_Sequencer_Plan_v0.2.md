@@ -91,6 +91,15 @@ and Turing should be the same". On the choices: EDIT is ON / OFF ("a toggle, not
 - Tests: `test_switches` (EDIT OFF is the engine at level 0, bit for bit; a track OFF; B in MONO; the transpose at
   the one), the TURING switch in the MUTATE test; `tests/scripts/u1.txt` tours every page. fm1-emu: 40.7 % on
   average, as before.
+- *The voices' rules* (the user: "notes get cancelled, especially with ARP"; "no ARP while SEQ is on and playing in
+  MONO, the same for SEQ B; only DUO / POLY can fix it, and there too rules, so we never try to play more than is
+  possible; simple messages in English"). Each voice knows who played it (`SdVoice.src`: the hand, A, B, ARP) and
+  only that source turns it off; `sd_plan` gives each a quota each tick (a playing track its widest step,
+  `SdSeqT.width`, A first, then B, ARP one, the hand the rest) and no source takes another's held voice. The app
+  keeps what is on inside it: ARP and B refused with a message, switched off when PLAY, GLO or a chord takes their
+  room, chords recorded only as wide as the room left; REC lets the keys take the recorded track's voice. Before:
+  A cut 100 % of its steps by ARP in MONO, in DUO with B, in POLY with chords and B; now never (`test_switches`).
+  Every render bit for bit as before; fm1-emu 41.2 % (+0.5).
 
 ---
 
