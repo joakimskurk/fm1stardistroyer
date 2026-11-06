@@ -14,6 +14,8 @@ cc $CFLAGS -o build/sd/sd_demo tools/sd_demo.c -lm
 cc $CFLAGS -o build/sd/sd_cine tools/sd_cine.c -lm
 cc $CFLAGS -o build/sd/sd_strings tools/sd_strings.c -lm
 cc $CFLAGS -o build/sd/sd_epic tools/sd_epic.c -lm
+cc $CFLAGS -o build/sd/sd_range tools/sd_range.c -lm
+cc $CFLAGS -o build/sd/sd_song tools/sd_song.c -lm
 build/sd/sd_test
 if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: overflow, a shift of a negative, memory
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
@@ -72,4 +74,10 @@ build/sd/sd_strings piece build/audio/strings/cello_duo.wav     # the cello duo 
 build/sd/sd_strings piece build/audio/strings/cello_v4.wav tools/cello_v4.txt   # STRINGS is tools/cello_v4.txt:
 cmp build/audio/strings/cello_duo.wav build/audio/strings/cello_v4.wav && rm build/audio/strings/cello_v4.wav   # bit for bit
 build/sd/sd_demo build/audio/demo_star_distroyer.wav               # ~105 s of music: five parts layered
+mkdir -p build/audio/range                                          # RANGE: one FM-1 played by one person, ~135 s;
+build/sd/sd_range build/audio/range/star_distroyer_range.wav > build/audio/range/performance.txt   # every gesture
+tail -1 build/audio/range/performance.txt                           # (it stops at one the FM-1 could not play)
+mkdir -p build/audio/song                                           # the song, the same rules: one patch at a time,
+build/sd/sd_song build/audio/song/star_distroyer_song.wav > build/audio/song/performance.txt   # no layering, ~3:25
+tail -1 build/audio/song/performance.txt
 build/sd/sd_render bench "${SD_BENCH_S:-60}"

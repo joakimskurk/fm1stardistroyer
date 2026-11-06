@@ -112,6 +112,26 @@ A vector FM synth with a morphing resonator and multiband destruction, for the M
   - ION (the ostinato and the bass) and ORBITAL drive, TOUR doubles the climaxes, and a sine sub holds the depth.
   - The first climax is in E minor, after a beat's silence. The last climax goes up a third, into G major, the
     release, and grows to its last bar under a rising and a falling arp.
+- RANGE, the demo of the instrument's span: `tools/sd_range.c` writes `build/audio/range/star_distroyer_range.wav`
+  (~135 s) and `performance.txt`, every gesture with its time and page. One FM-1 played by one person: one engine,
+  one stock patch at a time, the app's controls only (a knob on its page, no faster than a hand turns it; the 27
+  keys at velocity 100; MASTER ridden between scenes as the platform applies it), the voice rules checked every
+  block (the tool stops at a gesture the FM-1 could not play). Seven scenes, a bar between them:
+  - VECTOR (TOUR, MONO): VEC2, WARP and XM up, FOLD, a harmonic generator re-rolling bank A on each bar.
+  - FILTER (GROWL): an acid line, the lowpass on, LP24, RES, ENV 3 short; TURING on, the line transposed at the ones.
+  - RIDER (VOWEL, DUO): a melody on A, a bass on B transposed under it (D D Bb C); POS through the vowels, MODEL.
+  - DESTROY (DISTROY, DUO): a riff in segments (RND, P-P), BREAK and MOVE up, the top band destroyed.
+  - POLY (CHORDS): chords on A, the arpeggiator on top (HOLD), A up a tone with a new hand; UP-DN, 1/32, RND.
+  - TURING (ORBITAL, MONO): an ostinato TURING rewrites, MOVE stepping the vector, MUTATE, the tempo to 124, 1/32.
+  - SPACE (BEACON): long notes into the delay and the room, FDBK and DECAY up, a held key, the echoes falling.
+- The song: `tools/sd_song.c` writes `build/audio/song/star_distroyer_song.wav` (~3:25) and `performance.txt`, under
+  RANGE's rules (`tools/sd_play.h`, shared): one FM-1, one person, never more than one patch at a time, no layering.
+  D minor at 112 BPM, one hook; the melody and the bass (or the chords and the hook) are the two tracks on the one
+  patch, the harmony moving by the patterns and the transposes at the ones. Sections change without a stop where
+  two patterns share their last bar; a bar's break only where the mode changes. INTRO (VOWEL, DUO: the bass, the hook
+  from bar 5), VERSE, PRE (Bb Bb C C, BREAK up), CHORUS (CHORDS, POLY: Dm Bb F C with the root low on A, the hook on
+  B), BRIDGE (ORBITAL, MONO: TURING, MOVE, MUTATE), BUILD (GROWL on the same line: the lowpass closes and opens),
+  CHORUS (up a tone at bar 9), OUTRO (B off, the arpeggiator over the chords, the echoes, MASTER down, the arp alone).
 - A demo: `tools/sd_demo.c` writes `build/audio/demo_star_distroyer.wav`, ~105 s at 100 BPM in D minor.
   - Five parts, each its own engine as the FM-1 plays one: a POLY pad through the AP2 phaser, KP plucks, GROWL's
     bass, a VOWEL then TOUR lead, and a break of DISTROY under sample-and-hold, a Lissajous vector and re-rolled
