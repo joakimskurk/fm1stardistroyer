@@ -1,0 +1,6 @@
+# PRESETS (encoder 6) turned: the list over the panel; after 1.5 s the page is back.
+1800 enc 6 3
+1900 shot
+2100 enc 6 -5
+2200 shot
+4000 shot

@@ -1,0 +1,11 @@
+# V2: the loop in GROWL (the default), then PRESETS to BELL, ALGORITHM one step, XM up, WP to the saw (40), FD up, stop
+200 btn 12
+1500 shot
+2000 enc 6 -2
+2400 enc 1 1
+2800 enc 2 20
+3200 enc 3 40
+3600 enc 4 10
+4500 shot
+5200 btn 12
+5600 end

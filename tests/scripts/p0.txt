@@ -1,0 +1,9 @@
+# P0: a key, then the 16-step loop at 120 BPM, the tempo up 20, stop
+200 keys 0x80
+900 keys 0
+1000 btn 12
+1500 shot
+3000 enc 0 20
+4500 shot
+5200 btn 12
+5600 end
