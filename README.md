@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>A vector FM synth for the M-VAVE FM-1.</b><br>
-  Four banks of oscillators on an X/Y vector · a morphing resonator · multiband destruction · delay and room
+  <b>A starship FM synth for the M-VAVE FM-1.</b><br>
+  Four banks of oscillators on an X/Y nav field · a morphing resonator · multiband destruction · delay and room
 </p>
 
 <p align="center">
