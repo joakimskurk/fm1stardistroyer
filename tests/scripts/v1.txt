@@ -1,0 +1,10 @@
+# V1: the loop in GROWL (the default), then PRESETS to GLASS, warp and fold up on the knobs, TIMBRE down, stop
+200 btn 12
+1500 shot
+2000 enc 6 1
+2600 enc 2 64
+3200 enc 3 40
+3600 enc 5 -30
+4500 shot
+5200 btn 12
+5600 end

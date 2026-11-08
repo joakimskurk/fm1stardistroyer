@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 404" width="880" height="404" role="img" aria-label="Star Distroyer's signal chain: notes from the keys, MIDI, two sequencer tracks, TURING and the arpeggiator play the voices; VOICE, RIDER, DESTROY and SPACE in series to the stereo out; the modulation matrix and four macros reach every engine">
+  <!-- SPDX-License-Identifier: GPL-3.0-only. Star Distroyer's signal chain, in the screen's colours (C_BG, C_ICE, C_ICE_D, C_RED). -->
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#CDE6F0"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#EB1C1C"/>
+    </marker>
+    <style>
+      text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; fill: #CDE6F0; }
+      .t { font-size: 14px; font-weight: 700; letter-spacing: 1.5px; fill: #06080C; }
+      .b { font-size: 12px; letter-spacing: 0.3px; }
+      .d { font-size: 11px; letter-spacing: 0.3px; fill: #8FA5B2; }
+      .h { font-size: 13px; font-weight: 700; letter-spacing: 2px; }
+      .box { fill: #0B1017; stroke: #CDE6F0; stroke-width: 1.5; }
+      .src { fill: #0B1017; stroke: #546874; stroke-width: 1.2; }
+      .ln { stroke: #CDE6F0; stroke-width: 1.6; fill: none; }
+      .mod { stroke: #EB1C1C; stroke-width: 1.4; fill: none; stroke-dasharray: 4 4; }
+    </style>
+  </defs>
+  <rect x="0.5" y="0.5" width="879" height="403" rx="14" fill="#06080C" stroke="#1B232C"/>
+
+  <!-- title -->
+  <text x="24" y="30" class="h"><tspan fill="#EB1C1C">///</tspan> SIGNAL FLOW</text>
+
+  <!-- what plays the voices -->
+  <rect x="24" y="48" width="150" height="46" rx="6" class="src"/>
+  <text x="99" y="68" class="b" text-anchor="middle">KEYS · MIDI</text>
+  <text x="99" y="84" class="d" text-anchor="middle">USB and TRS</text>
+  <rect x="188" y="48" width="230" height="46" rx="6" class="src"/>
+  <text x="303" y="68" class="b" text-anchor="middle">SEQ A · SEQ B</text>
+  <text x="303" y="84" class="d" text-anchor="middle">64 steps · segments · TURING</text>
+  <rect x="432" y="48" width="130" height="46" rx="6" class="src"/>
+  <text x="497" y="68" class="b" text-anchor="middle">ARP</text>
+  <text x="497" y="84" class="d" text-anchor="middle">5 modes · 1–4 oct</text>
+  <path d="M99 94 V120 M303 94 V120 M497 94 V120 M99 120 H497" class="ln"/>
+  <path d="M109 120 V150" class="ln" marker-end="url(#a)"/>
+  <text x="580" y="66" class="d">the voices: MONO 1 · DUO 2 · POLY 4,</text>
+  <text x="580" y="82" class="d">shared by rules, no note cut</text>
+
+  <!-- the chain -->
+  <rect x="24" y="152" width="170" height="104" rx="8" class="box"/>
+  <rect x="24" y="152" width="84" height="22" rx="4" fill="#EB1C1C"/>
+  <text x="34" y="168" class="t">VOICE</text>
+  <text x="36" y="196" class="b">4 banks × 4 osc</text>
+  <text x="36" y="214" class="b">X/Y vector · FM</text>
+  <text x="36" y="232" class="b">warp · fold</text>
+  <text x="36" y="248" class="d">a lowpass a voice</text>
+
+  <rect x="220" y="152" width="170" height="104" rx="8" class="box"/>
+  <rect x="220" y="152" width="84" height="22" rx="4" fill="#EB1C1C"/>
+  <text x="230" y="168" class="t">RIDER</text>
+  <text x="232" y="196" class="b">4 resonators</text>
+  <text x="232" y="214" class="b">6 stages · POS</text>
+  <text x="232" y="232" class="b">BPF · comb · AP</text>
+  <text x="232" y="248" class="d">vowels · chords</text>
+
+  <rect x="416" y="152" width="170" height="104" rx="8" class="box"/>
+  <rect x="416" y="152" width="102" height="22" rx="4" fill="#EB1C1C"/>
+  <text x="426" y="168" class="t">DESTROY</text>
+  <text x="428" y="196" class="b">4 bands</text>
+  <text x="428" y="214" class="b">shaper · bias</text>
+  <text x="428" y="232" class="b">PHAT ↔ SHARP</text>
+  <text x="428" y="248" class="d">feedback · TAME</text>
+
+  <rect x="612" y="152" width="170" height="104" rx="8" class="box"/>
+  <rect x="612" y="152" width="84" height="22" rx="4" fill="#EB1C1C"/>
+  <text x="622" y="168" class="t">SPACE</text>
+  <text x="624" y="196" class="b">delay → room</text>
+  <text x="624" y="214" class="b">free or synced</text>
+  <text x="624" y="232" class="b">stereo · ping-pong</text>
+  <text x="624" y="248" class="d">long, safe tails</text>
+
+  <path d="M194 204 H218" class="ln" marker-end="url(#a)"/>
+  <path d="M390 204 H414" class="ln" marker-end="url(#a)"/>
+  <path d="M586 204 H610" class="ln" marker-end="url(#a)"/>
+  <path d="M782 204 H812" class="ln" marker-end="url(#a)"/>
+  <circle cx="836" cy="204" r="22" fill="#0B1017" stroke="#CDE6F0" stroke-width="1.5"/>
+  <text x="836" y="201" class="b" text-anchor="middle">OUT</text>
+  <text x="836" y="215" class="d" text-anchor="middle">L R</text>
+
+  <!-- modulation: each engine reached -->
+  <path d="M109 298 V262" class="mod" marker-end="url(#r)"/>
+  <path d="M305 298 V262" class="mod" marker-end="url(#r)"/>
+  <path d="M501 298 V262" class="mod" marker-end="url(#r)"/>
+  <path d="M697 298 V262" class="mod" marker-end="url(#r)"/>
+
+  <rect x="24" y="298" width="536" height="88" rx="8" fill="#0B1017" stroke="#EB1C1C" stroke-width="1.5"/>
+  <text x="40" y="320" class="h"><tspan fill="#EB1C1C">MOD</tspan> MATRIX</text>
+  <text x="40" y="340" class="b">8 slots · ENV 1 · ENV 2 · LFO 1 · LFO 2</text>
+  <text x="40" y="358" class="b">VEC X · VEC Y · VEL · KEY · WHEEL · AFTER · RAND</text>
+  <text x="40" y="376" class="d">and the engines': STEP · SEGMENT · D LOW · D TOP · R STAGE · ECHO</text>
+
+  <rect x="576" y="298" width="206" height="88" rx="8" fill="#0B1017" stroke="#EB1C1C" stroke-width="1.5"/>
+  <text x="592" y="320" class="h"><tspan fill="#EB1C1C">MACROS</tspan></text>
+  <text x="592" y="340" class="b">MUTATE · MOVE</text>
+  <text x="592" y="358" class="b">BREAK · MACRO 4</text>
+  <text x="592" y="376" class="d">0: the patch as set</text>
+</svg>

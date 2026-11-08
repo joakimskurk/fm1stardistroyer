@@ -1,0 +1,21 @@
+# C1: DISTROY (the boot patch) in the loop; LFO (5) three times to MOD: slot 1 SOURCE DEST AMOUNT turned; LFO again: LFO 1, its
+# rate up; HOME (8) twice to MACROS: MUTATE and BREAK up, MACRO 4 to AIR (ALGORITHM). Buttons: LFO 5, HOME 8, PLAY 12.
+# Encoders: ALGORITHM 1, K1..K4 2..5.
+1700 btn 12
+1800 btn 5
+1900 btn 5
+2000 btn 5
+2200 enc 2 3
+2300 enc 3 2
+2400 enc 4 40
+2900 shot
+3000 btn 5
+3400 enc 3 12
+3900 shot
+4000 btn 8
+4050 btn 8
+4100 enc 2 60
+4200 enc 4 50
+4300 enc 1 1
+4900 shot
+5000 end
