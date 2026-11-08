@@ -1391,7 +1391,8 @@ static void sd_bank_params(SdBank *bk, const SdPatch *p, const SdBankPatch *bp, 
         else if (inc > SD_INC_16K)              /* 16..20 kHz: fading out */
             l = (int32_t)((uint32_t)l * ((SD_INC_20K - (uint32_t)inc) >> 12) / ((SD_INC_20K - SD_INC_16K) >> 12));
         o->inc = (uint32_t)inc;
-        o->lvl = o->lvl_next;
+        o->lvl = o->tgt == SD_NOWHERE ? 0 : o->lvl_next;   /* feeding nothing: silent at once, not faded from the
+                                                   old level (sd_bank_run would write that into bus[SD_NOWHERE]) */
         o->lvl_next = l;
     }
 }

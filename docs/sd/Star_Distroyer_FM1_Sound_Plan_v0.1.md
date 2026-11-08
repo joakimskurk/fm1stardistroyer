@@ -1210,6 +1210,16 @@ do. It goes on the page with its own player.
   SIZE 90, DECAY 84). Its MASTER sits at 1500, so it is at the chords' level (−28.7 against −28.0 dBFS in THEME I,
   where before it was 6 dB over). MASTER goes to 4092 for BEACON. The mix reads RMS −21.8 dBFS, with its loudest
   bars in the second breach (bars 29–32).
+- *A bug it found (fixed 2026-11-08).* The first CI run of the site crashed in DERELICT's third pass on Linux. It
+  ran cleanly on the Mac. Under the sanitizers it was `sd_engine.h`'s `sd_bank_run` writing `bus[254]`.
+  - *Why:* an oscillator that becomes a modulator with nothing to its right gets `SD_NOWHERE` as its target. That
+    happens when a patch, ALGORITHM or a generator changes a bank's roles while it sounds; here it was BRAAM →
+    UNDERTOW. For one sub-block it kept its old level, so it was not skipped and was written past the buses.
+  - *What it means:* on the FM-1 this corrupts memory.
+  - *The fix:* `sd_bank_params` now silences such an oscillator at once.
+  - *The guard:* `test_nowhere` catches it under UBSan. `tests/run_sd.sh` also runs DERELICT under the sanitizers,
+    and a demo that stops now shows the end of its log. Before, the log went to `performance.txt` unseen.
+  - *Fit it:* DISTROY in MONO reads 40.8 %.
 - *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
   spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
 

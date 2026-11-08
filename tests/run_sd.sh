@@ -23,6 +23,13 @@ if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: ove
         -o build/sd/sd_test_asan tests/sd_test.c -lm
     build/sd/sd_test_asan > build/sd/sd_test_asan.txt 2>&1 || { tail -20 build/sd/sd_test_asan.txt; exit 1; }
     echo "sd_test: clean under the sanitizers"
+    cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
+        -o build/sd/sd_derelict_asan tools/sd_derelict.c -lm   # its patch changes, under them too (a bus out of
+    mkdir -p build/sd/derelict_asan                            # range was found so)
+    build/sd/sd_derelict_asan build/sd/derelict_asan/x.wav > build/sd/derelict_asan.txt 2>&1 ||
+        { tail -20 build/sd/derelict_asan.txt; exit 1; }
+    rm -rf build/sd/derelict_asan
+    echo "sd_derelict: clean under the sanitizers"
 fi
 rm -f build/audio/*.wav
 NAMES="growl tour distroy vowel chords plucks flange phaser ride split aurora"   # sd_render takes SD_PATCH_NAME's
@@ -74,12 +81,15 @@ build/sd/sd_strings piece build/audio/strings/cello_v4.wav tools/cello_v4.txt   
 cmp build/audio/strings/cello_duo.wav build/audio/strings/cello_v4.wav && rm build/audio/strings/cello_v4.wav   # bit for bit
 build/sd/sd_demo build/audio/demo_star_distroyer.wav               # ~105 s of music: five parts layered
 mkdir -p build/audio/range                                          # RANGE: one FM-1 played by one person, ~135 s;
-build/sd/sd_range build/audio/range/star_distroyer_range.wav > build/audio/range/performance.txt   # every gesture
+build/sd/sd_range build/audio/range/star_distroyer_range.wav > build/audio/range/performance.txt ||   # every gesture
+    { tail -5 build/audio/range/performance.txt; exit 1; }
 tail -1 build/audio/range/performance.txt                           # (it stops at one the FM-1 could not play)
 mkdir -p build/audio/song                                           # the song, the same rules: one patch at a time,
-build/sd/sd_song build/audio/song/star_distroyer_song.wav > build/audio/song/performance.txt   # no layering, ~3:25
+build/sd/sd_song build/audio/song/star_distroyer_song.wav > build/audio/song/performance.txt ||   # no layering, ~3:25
+    { tail -5 build/audio/song/performance.txt; exit 1; }
 tail -1 build/audio/song/performance.txt
 mkdir -p build/audio/derelict                                       # DERELICT: four such passes layered, ~2:06,
-build/sd/sd_derelict build/audio/derelict/star_distroyer_derelict.wav > build/audio/derelict/performance.txt   # stems too
+build/sd/sd_derelict build/audio/derelict/star_distroyer_derelict.wav > build/audio/derelict/performance.txt ||   # stems too
+    { tail -5 build/audio/derelict/performance.txt; exit 1; }
 tail -1 build/audio/derelict/performance.txt
 build/sd/sd_render bench "${SD_BENCH_S:-60}"

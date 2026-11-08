@@ -575,6 +575,27 @@ static void test_alias(void)
     CHECK(db[1][1] < db[1][0] - 6.0, "the tracking did not take 6 dB off C7's aliasing");
 }
 
+/* An oscillator that turns into a modulator with nothing to its right (a patch, ALGORITHM or a generator changing a
+ * bank's roles while it sounds) is silent at once. Its level used to fade from the old one for a sub-block, written
+ * into a bus that does not exist (bus[SD_NOWHERE]: DERELICT's patch changes found it, the sanitizers on Linux) */
+static void test_nowhere(void)
+{
+    SdPatch p = T_GLASS;                        /* four carriers */
+    int32_t o[2u * SD_SUB];
+    uint32_t i, b;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &p);
+    sd_engine_note(&e1, 57, 100);
+    for (i = 0; i < 64u; i++) run(&e1, o, SD_SUB, SD_SUB);
+    for (b = 0; b < SD_BANKS; b++) p.bank[b].osc[3].role = SD_ROLE_S;   /* the 4th: a series modulator, nothing right */
+    sd_engine_patch(&e1, &p);
+    for (i = 0; i < 64u; i++) run(&e1, o, SD_SUB, SD_SUB);
+    for (b = 0; b < SD_BANKS; b++)
+        CHECK(e1.bank[b].osc[3].lvl == 0 && e1.bank[b].osc[3].lvl_next == 0, "bank %u's 4th, feeding nothing, at %d",
+              b, e1.bank[b].osc[3].lvl);
+    printf("nowhere: a modulator with nothing to its right is silent at once, its bus never written\n");
+}
+
 static void test_gen(void)                      /* the generators */
 {
     SdPatch p = T_BELL;
@@ -2268,6 +2289,7 @@ int main(void)
     test_modes();
     test_stereo();
     test_alias();
+    test_nowhere();
     test_gen();
     test_rider_bypass();
     test_rider_response();
