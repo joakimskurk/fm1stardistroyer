@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Star Distroyer: a vector FM synth with a morphing resonator and multiband destruction, for the M-VAVE FM-1.
+/* Star Distroyer: a starship FM synth with a morphing resonator and multiband destruction, for the M-VAVE FM-1.
  * Built on Dinghy 0.4 (platform.c: updates, the USB rescue, MIDI, keys, knobs, LEDs, the screen, flash).
  *
  * V3 (Sound Plan v0.1 §6): four banks of four oscillators, in the sound engine
