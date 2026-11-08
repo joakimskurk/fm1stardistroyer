@@ -1,0 +1,16 @@
+# D3: DISTROY (the boot patch) in the loop on the DESTROY page (FX twice), EDIT five times to LOOP; FDBK up, TAME up.
+# Buttons: EDIT 6, FX 2, PLAY 12. Encoders: K1..K4 2..5.
+1700 btn 12
+1800 btn 2
+1900 btn 2
+2000 btn 6
+2100 btn 6
+2200 btn 6
+2300 btn 6
+2700 shot
+2800 enc 2 5
+2900 enc 5 10
+3300 shot
+3400 btn 6
+3700 shot
+3800 end

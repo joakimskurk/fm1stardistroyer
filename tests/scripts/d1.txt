@@ -1,0 +1,17 @@
+# D1: SPLIT (PRESETS +7 from DISTROY) in the loop on the DESTROY page (FX twice); EDIT to band 2, its shaper one
+# step on (CRUSH -> NONE), GAIN up; SEL held: the split up, XOVER to CMP. Buttons: SEL 3, FX 2, EDIT 6, PLAY 12.
+1700 enc 6 7
+1800 btn 12
+2000 btn 2
+2100 btn 2
+2200 btn 6
+2600 shot
+2800 enc 1 -1
+3000 enc 2 10
+3300 shot
+3400 btndown 3
+3500 enc 2 8
+3600 enc 4 -1
+3900 shot
+4000 btnup 3
+4100 end

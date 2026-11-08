@@ -1,0 +1,21 @@
+# Saving: XM up on the Q page (K1), SAVE (9), ALGORITHM (1) two places on, SAVE: U03; PRESETS (6) off and back to it.
+# Then SEQ (11): RND (the 1st black key, key 1), SAVE twice: P01; PRESETS to P02 (the default), back to P01.
+1700 enc 2 30
+1800 btn 9
+1900 enc 1 2
+2200 shot
+2300 btn 9
+2500 shot
+4000 enc 6 1
+4200 enc 6 -1
+4500 shot
+4600 btn 11
+4700 keys 0x2
+4750 keys 0
+4900 btn 9
+5000 btn 9
+5400 enc 6 1
+5600 shot
+5700 enc 6 -1
+6000 shot
+6100 end

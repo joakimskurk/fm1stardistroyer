@@ -1,0 +1,57 @@
+# U1 (2026-11-07): the page tour. Every page the same: its button's pages on top (EDIT ON / OFF right), K1..K4 in a
+# row, the picture, the hint. Buttons: FX 2, SEL (SCL) 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10, SEQ 11, PLAY 12.
+1700 btn 12
+1800 shot
+1900 btndown 3
+2000 shot
+2050 btnup 3
+2100 btn 8
+2200 shot
+2300 btn 2
+2400 shot
+2500 btn 6
+2600 shot
+2700 btn 2
+2800 enc 1 1
+2900 shot
+3000 btn 2
+3100 shot
+3200 btn 4
+3300 shot
+3400 btn 4
+3500 btn 6
+3600 shot
+3700 btndown 3
+3800 shot
+3850 btnup 3
+3900 btn 5
+4000 shot
+4100 btn 5
+4200 btn 5
+4300 shot
+4400 btn 10
+4500 btn 6
+4600 keys 0x91
+4700 shot
+4750 keys 0
+4800 btn 11
+4900 shot
+5000 btndown 3
+5100 keys 0x400
+5150 keys 0
+5200 shot
+5300 btnup 3
+5400 btn 11
+5500 shot
+5600 btn 7
+5700 btn 7
+5800 shot
+5900 btn 6
+6000 shot
+6100 btn 7
+6200 btn 11
+6300 btn 6
+6400 shot
+6500 keys 0x4000000
+6550 keys 0
+6600 shot

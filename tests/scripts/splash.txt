@@ -1,0 +1,7 @@
+# the splash (1.5 s): stars and the shooting star; then the main screen with DISTROY
+300 shot
+700 shot
+1100 shot
+1700 btn 12
+2400 shot
+2600 end
