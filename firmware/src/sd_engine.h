@@ -3,7 +3,7 @@
  * tools (tools/sd_render.c, tests/sd_test.c) include the same file.
  *
  * Every interrupt's 256 frames are rendered as sub-blocks of SD_SUB (32) frames. At the start of a sub-block the
- * control tick runs: notes from the main loop, the note driver, the envelopes, the vector, every bank's parameters
+ * control tick runs: notes from the main loop, the note driver, the envelopes, the nav, every bank's parameters
  * for the sub-block. Inside it only audio-rate work, with levels, gains and the fold gain ramped across it.
  *
  * V3: four banks of four oscillators (Sound Plan §3.0):
@@ -17,10 +17,10 @@
  *   FD fold     a triangle fold of every oscillator's waveform, closed form
  *   Q page      XM WP FD DT for all banks; each bank adds its own offsets (as a modulation slot's offset)
  *   ENV1, ENV2  per voice: ENV1 the level, ENV2 the FM amount (and, as a modulation slot would, WP and FD)
- *   modes       MONO: one voice, the four banks mixed by the vector X/Y (VEC); DUO: two voices, banks
+ *   modes       MONO: one voice, the four banks mixed by the nav X/Y (NAV); DUO: two voices, banks
  *               A B and their copies, mixed by X; POLY: four voices, each bank playing bank A
- *   vector      bilinear weights from X/Y, normalised by (sum w^2)^(1/4): +3 dB for coherent banks at the centre,
- *               -3 dB for unrelated ones, between equal gain and equal power. VEC2: four stored X/Y cells, played
+ *   nav      bilinear weights from X/Y, normalised by (sum w^2)^(1/4): +3 dB for coherent banks at the centre,
+ *               -3 dB for unrelated ones, between equal gain and equal power. COURSE: four stored X/Y cells, played
  *               from the gate (triggered)
  *   stereo      a balance per bank, A and D left, B and C right, by WIDTH (a pan per bank); at WIDTH 0
  *               both outputs carry everything at full level
@@ -30,8 +30,8 @@
  * The kernel has eight variants (shape sine / blend / triangle-saw, squash, fold), picked once a sub-block per bank:
  * no branch on a parameter inside the loop.
  *
- * R1, the Rider (Sound Plan §4.0): the voice, summed to mono and DRIVEn, through four
- * band-pass filters in parallel, each panned, mixed with the dry voice by MIX (0: the Rider is not there at all).
+ * R1, the Reactor (Sound Plan §4.0): the voice, summed to mono and DRIVEn, through four
+ * band-pass filters in parallel, each panned, mixed with the dry voice by MIX (0: the Reactor is not there at all).
  *   filters     TPT state-variable filters in integers: BP6 (one, its band-pass output: louder as it rings), BP12 (two
  *               in series, steeper), VBP (one, normalised: RES sets the width, not the loudness). One model for all
  *   stages      six, each a frequency (log pitch) and a level for every filter; the pan is a filter's own
@@ -40,7 +40,7 @@
  *   clock       the stage advances with the note driver's steps: a division, a range, FWD BWD PING-PONG RANDOM
  *   frequency   a global offset in semitones, plus the last note's distance from C4 when key tracking is on
  *   level       up to 2x: past 1 a soft clip (a zone of saturation)
- * R2, the Rider's other models, in parallel (KP) or in series (the allpasses):
+ * R2, the Reactor's other models, in parallel (KP) or in series (the allpasses):
  *   KP          a comb per filter: a delay line fs / f long (read between samples, linearly), Karplus-Strong's
  *               two-point average in the loop (its half sample taken off the length), feedback 0 .. 0.995 by RES
  *   AP1         four Schroeder allpasses in series on delay lines: as a filter's pitch moves its delay slides, and
@@ -48,14 +48,14 @@
  *   AP2         eight first-order IIR allpasses in series, two a filter: no skating
  *   AP outputs  the four levels' mean, no pan: left the wet minus RES x the dry, right the wet plus it (a
  *               subtracted and an added dry): RES 0 a flat allpass, RES up the notches
- * R3, the Rider's nonlinear layer, before DESTROY's:
+ * R3, the Reactor's nonlinear layer, before DESTROY's:
  *   in the loop  a soft saturation where each filter's energy turns back on itself: an SVF's band-pass before it
  *               updates its integrator (it rings to ~6 x full scale, then flattens), KP's line (to ~3 x): high
  *               RES and DRIVE ring into saturation, never away
  *   level law   SD_RLEVEL: the first half clean, 0 .. 1; the second 1 .. 4, into the soft clip at the output
  *   make-up     each model's own gain (SD_RMAKEUP), so a model change does not jump in level; BP6's and BP12's
  *               loudness growing with RES stays, by design
- *   dry path    stereo: MIX blends the voice's own stereo with the Rider's panned wet
+ *   dry path    stereo: MIX blends the voice's own stereo with the Reactor's panned wet
  *
  * D1, DESTROY (Sound Plan §5.0): four frequency bands, each with its distortion: a GAIN, a type, an ALT, and BIAS,
  * a DC offset before the distortion:
@@ -66,7 +66,7 @@
  *                    Butterworth stages (low: lowpass twice, high: highpass twice), and each side an allpass at the
  *                    other side's split, so the bands sum to an allpass: flat in level; 11 SVFs a channel
  *   a band      GAIN (0 .. +36 dB) -> + BIAS -> its shaper (NONE SOFT HARD FOLD CRUSH, each with its ALT) -> a DC
- *               blocker -> LEVEL (the Rider's level law) -> PAN (a balance)
+ *               blocker -> LEVEL (the Reactor's level law) -> PAN (a balance)
  *   shapers     SOFT  a knee: linear to T, a cubic shoulder to the ceiling; the negative half's ceiling lower
  *                     (asymmetric: even harmonics); ALT = hardness (T from 0 to 0.6)
  *               HARD  a clip at full scale; ALT = the knee (0 a brick wall, up to half the range a shoulder)
@@ -112,7 +112,7 @@
 #define SD_INC_16K 1558261261u                  /* 16 kHz and 20 kHz as phase increments: the fade-out above */
 #define SD_INC_20K 1947826576u
 #define SD_POLY_GAIN 16384                      /* a POLY voice's level, Q15: -6 dB, four voices share the output (R4: -3 dB
-                                                   clipped CHORDS and RIDE in chords once the Rider kept the dry) */
+                                                   clipped CHORDS and FUSION in chords once the Reactor kept the dry) */
 
 #if defined(__GNUC__)
 #define SD_INLINE static inline __attribute__((always_inline))
@@ -174,11 +174,11 @@ typedef struct {
 typedef struct {
     uint16_t pitch[4];                          /* each filter: MIDI x 256 (log pitch), SD_R_LO..SD_R_HI */
     uint16_t level[4];                          /* 0..65535 = 0..2 (past 1: the soft clip) */
-} SdRiderStage;
+} SdReactorStage;
 enum { SD_RM_BP6, SD_RM_BP12, SD_RM_VBP, SD_RM_KP, SD_RM_AP1, SD_RM_AP2, SD_RMODELS };
 enum { SD_RT_KEY = 1, SD_RT_HARM = 2 };          /* r_track's bits: follow the key; snap to its harmonics (R4) */
-#define SD_DL 2048u                             /* a Rider delay line, samples: 21.5 Hz the lowest comb */
-/* each model's make-up, Q12: measured (tests/sd_test.c, test_rider_makeup) on a saw through VOWEL's stage A at RES
+#define SD_DL 2048u                             /* a Reactor delay line, samples: 21.5 Hz the lowest comb */
+/* each model's make-up, Q12: measured (tests/sd_test.c, test_reactor_makeup) on a saw through VOWEL's stage A at RES
  * and level one half, so a change of model keeps the level (within the test's tolerance) */
 static const int32_t SD_RMAKEUP[6] = {2769, 4240, 18939, 720, 3736, 3779};   /* measured: BP6 +3.4 BP12 -0.3 VBP -13.3
                                                    KP +15.1 AP1 +0.8 AP2 +0.7 dB from the dry, taken off */
@@ -192,14 +192,14 @@ enum { SD_DX_CMP, SD_DX_LR4 };
 #define SD_SP_FLEN 2048u                        /* its reverb's lines (a power of two: masked), at half rate */
 #define SD_SP_APLEN 256u                        /* its diffusers, at half rate */
 enum { SD_SP_SYNC = 1, SD_SP_PP = 2 };          /* s_mode's bits */
-enum { SD_FX_RIDER = 1, SD_FX_DESTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8 };   /* fx_off's bits */
+enum { SD_FX_REACTOR = 1, SD_FX_DESTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8 };   /* fx_off's bits */
 
 /* C1: the modulation (Sound Plan §7.x; the spec's "one global matrix"): sources, destinations, a slot */
-enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_VECX, SD_MS_VECY, SD_MS_VEL, SD_MS_KEY,
+enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY,
        SD_MS_WHEEL, SD_MS_AFTER, SD_MS_RAND,
        /* the engines talking to each other (the user: "everything talking together, in unorthodox ways"): where the
           sequencer is in its pattern (STEP, -1 .. +1 across it) and which segment (SEG); DESTROY's low and top bands'
-          energy (D LOW, D TOP: -48 .. 0 dBFS as 0 .. 1); the Rider's stage (R STAGE, 1..6 as -1 .. +1); SPACE's
+          energy (D LOW, D TOP: -48 .. 0 dBFS as 0 .. 1); the Reactor's stage (R STAGE, 1..6 as -1 .. +1); SPACE's
           echoes (ECHO: their level, followed) */
        SD_MS_STEP, SD_MS_SEG, SD_MS_DLOW, SD_MS_DTOP, SD_MS_RSTAGE, SD_MS_ECHO,
        SD_MS_ENV3,                              /* the filter's envelope */
@@ -230,21 +230,21 @@ typedef struct {
     int16_t e2_warp, e2_fold;                   /* ENV2's depth on WP / FD, -32767..32767 = -1..+1 (a mod slot) */
     uint8_t e1_a, e1_d, e1_s, e1_r;             /* ENV1, the level: times 0..127 = 1 ms .. 10 s, sustain 0..127 */
     uint8_t e2_a, e2_d, e2_s, e2_r;             /* ENV2, the FM amount */
-    uint16_t x, y, width;                       /* the vector (0 = left / bottom), the stereo width; 0..65535 */
-    uint8_t vec;                                /* VEC2 on the gate: 0 off, 1 on */
+    uint16_t x, y, width;                       /* the nav (0 = left / bottom), the stereo width; 0..65535 */
+    uint8_t course;                                /* COURSE on the gate: 0 off, 1 on */
     uint8_t fx_off;                             /* SD_FX_*: engines switched off (EDIT, 2026-11-07), their settings
                                                    kept; 0 in every factory patch */
-    uint16_t cell_x[4], cell_y[4];              /* VEC2's four cells */
+    uint16_t cell_x[4], cell_y[4];              /* COURSE's four cells */
     uint16_t cell_ms[3];                        /* the times between them, 1..65535 ms */
-    /* the Rider */
-    SdRiderStage stage[6];
+    /* the Reactor */
+    SdReactorStage stage[6];
     int16_t r_pan[4];                           /* each filter, -32767 (left) .. 32767 (right) */
     uint16_t r_pos;                             /* 0 .. 6 x 256 - 1: stage 1 .. 6.999 */
-    uint16_t r_res, r_slew, r_drive, r_mix;     /* 0..65535; DRIVE 0..4x (16384 = 1x); MIX 0 = no Rider */
+    uint16_t r_res, r_slew, r_drive, r_mix;     /* 0..65535; DRIVE 0..4x (16384 = 1x); MIX 0 = no Reactor */
     int16_t r_freq;                             /* the global offset, semitones x 256 */
     uint8_t r_model, r_track;                   /* SD_RM_*; key tracking on (1) */
     uint8_t r_div, r_cmode, r_min, r_max;       /* the stage clock: steps a stage (0 off), SD_RC_*, the range 0..5 */
-    uint16_t r_low;                             /* R4: the lows that skip the Rider: 0 none, else 50 .. 400 Hz */
+    uint16_t r_low;                             /* R4: the lows that skip the Reactor: 0 none, else 50 .. 400 Hz */
     /* DESTROY */
     uint16_t d_split[3];                        /* the crossover, MIDI x 256 (log pitch), rising */
     uint8_t d_type[4];                          /* each band's shaper, SD_DS_* */
@@ -268,7 +268,7 @@ typedef struct {
     uint16_t mac[4];                            /* MUTATE MOVE BREAK MACRO 4, 0..65535: 0 = the patch as programmed */
     uint8_t mac4, m_pad;                        /* MACRO 4's kind, SD_M4_* */
     /* the filter (the user, 2026-11-06: "I miss a lowpass filter"): a lowpass on each voice, on its banks' carriers
-       before the vector's balance; ENV3 on its cutoff. All zero: off (every patch before it plays as it did) */
+       before the nav's balance; ENV3 on its cutoff. All zero: off (every patch before it plays as it did) */
     uint8_t f_type, f_key;                      /* SD_FT_*; KEY 0..100 % (100: the cutoff follows the note) */
     uint16_t f_cut, f_res;                      /* 0..65535: CUTOFF MIDI 16 .. 130 (21 Hz .. 15 kHz); RES */
     int16_t f_env;                              /* ENV3's depth, -32767..32767 = -/+ 60 semitones */
@@ -349,14 +349,14 @@ typedef struct {
 typedef struct {
     SdOsc osc[SD_OPS];
     SdShape sh;
-    int32_t gl, gl_next, gr, gr_next;           /* to the outputs: voice level x vector weight x balance, Q15 */
+    int32_t gl, gl_next, gr, gr_next;           /* to the outputs: voice level x nav weight x balance, Q15 */
     uint8_t voice, src;                         /* the voice that plays it; the bank patch it plays */
     int32_t bus[SD_OPS][SD_SUB];                /* PM into each oscillator, this sub-block, Q15 */
     int32_t mix[SD_SUB];                        /* the carriers' sum, Q15 (up to 4 x full scale) */
     int32_t fic1[2], fic2[2];                   /* the filter's states (its two stages), the mix x 8 */
 } SdBank;
 
-typedef struct {                                /* the Rider's state */
+typedef struct {                                /* the Reactor's state */
     int32_t pitch[4], level[4];                 /* where each filter is (slewed): MIDI x 256 << 8, level << 8 */
     int32_t ic1[2][4], ic2[2][4];               /* each filter's two integrators, two stages (BP12), Q19 */
     int32_t a1[4], a2[4], a3[4], kn[4];         /* coefficients (Q30); kn = k (Q24): BP12's and VBP's scale */
@@ -375,7 +375,7 @@ typedef struct {                                /* the Rider's state */
     uint32_t quiet;                             /* sub-blocks in a row the voice was silent and the wet under 4 */
     uint32_t rnd;
     volatile uint16_t shown_pos;                /* where it is, x 256: for the screen */
-} SdRider;
+} SdReactor;
 
 typedef struct {                                /* DESTROY's state */
     int32_t ic1[2][11], ic2[2][11];             /* the crossover's SVFs, a channel, Q19 (CMP uses 3, LR4 11) */
@@ -484,7 +484,7 @@ typedef struct {
     uint32_t move_t;                            /* MOVE: samples x 256 into the beat */
     int32_t move_tgt[3], move_cur[3];           /* its X, Y, POS: drawn on each beat, glided to (Q15) */
     uint32_t pmul;                              /* PITCH: the note's increment x pmul, Q16 */
-    int32_t mvx, mvy;                           /* the vector's offset (the matrix's X / Y, MOVE's orbit), Q16 */
+    int32_t mvx, mvy;                           /* the nav's offset (the matrix's X / Y, MOVE's orbit), Q16 */
     int32_t echo_env;                           /* ECHO: SPACE's wet level, followed (~60 ms release), Q15 */
 
     uint8_t mode_on, nvoices;
@@ -496,10 +496,10 @@ typedef struct {
                                                    may then take that track's voice (you hear what you record) */
     SdBank bank[SD_BANKS];
 
-    /* the vector: VEC2's playback, and where it is (for the screen) */
-    uint8_t vec_seg, vec_run;
-    uint32_t vec_ph, vec_step;                  /* Q20 through the current segment */
-    volatile uint16_t vx, vy;
+    /* the nav: COURSE's playback, and where it is (for the screen) */
+    uint8_t course_seg, course_run;
+    uint32_t course_ph, course_step;                  /* Q20 through the current segment */
+    volatile uint16_t nav_x, nav_y;
     uint32_t w_x, w_y, w_mode;                  /* the X / Y / mode the weights below were computed for */
     uint8_t w_ok;
     int32_t w[SD_BANKS];
@@ -526,10 +526,10 @@ typedef struct {
 
     uint32_t sub_left;                          /* frames left in the current sub-block */
     uint32_t frames;                            /* frames rendered since start (wraps) */
-    SdRider r;
-    int32_t vbuf[2u * SD_SUB];                  /* the voice, before the Rider */
+    SdReactor r;
+    int32_t vbuf[2u * SD_SUB];                  /* the voice, before the Reactor */
     SdDestroy d;
-    int32_t dbuf[2u * SD_SUB];                  /* the voice and the Rider, before DESTROY */
+    int32_t dbuf[2u * SD_SUB];                  /* the voice and the Reactor, before DESTROY */
     SdSpace sp;
     SdSpaceMem *sm;                             /* SPACE's memory (0: no SPACE); set after sd_engine_init */
     int32_t sbuf[2u * SD_SUB];                  /* everything, before SPACE */
@@ -623,13 +623,13 @@ static void sd_engine_note(SdEngine *e, uint32_t note, uint32_t vel)
     e->q_w = w + 1u;                            /* published last */
 }
 
-static void sd_vec_start(SdEngine *e)           /* VEC2 from its first cell (on the gate, MONO only) */
+static void sd_course_start(SdEngine *e)           /* COURSE from its first cell (on the gate, MONO only) */
 {
     uint32_t ms = e->patch.cell_ms[0] ? e->patch.cell_ms[0] : 1u;
-    e->vec_seg = 0;
-    e->vec_ph = 0;
-    e->vec_step = 335544320u / (ms * 441u);     /* 32 frames x 2^20 / (ms x 44.1): Q20 a tick */
-    e->vec_run = 1;
+    e->course_seg = 0;
+    e->course_ph = 0;
+    e->course_step = 335544320u / (ms * 441u);     /* 32 frames x 2^20 / (ms x 44.1): Q20 a tick */
+    e->course_run = 1;
 }
 
 static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t src)   /* 1: it sounds */
@@ -659,7 +659,7 @@ static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t s
     v->glide = 0;
     v->gate = 1;
     v->age = ++e->ages;
-    e->r.note = (uint8_t)note;                  /* the Rider's key tracking follows the last note */
+    e->r.note = (uint8_t)note;                  /* the Reactor's key tracking follows the last note */
     e->m_vel = (uint8_t)vel;                    /* C1: the matrix's VEL, KEY, ENV (this voice's), RAND */
     e->m_note = (uint8_t)note;
     e->m_last = (uint8_t)pick;
@@ -669,7 +669,7 @@ static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t s
     v->env1.stage = SD_ENV_ATTACK;              /* from where the level is: a retrigger never clicks */
     v->env2.stage = SD_ENV_ATTACK;
     v->env3.stage = SD_ENV_ATTACK;
-    if (e->mode_on == SD_MODE_MONO && e->patch.vec) sd_vec_start(e);
+    if (e->mode_on == SD_MODE_MONO && e->patch.course) sd_course_start(e);
     return 1;
 }
 static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's notes only */
@@ -707,7 +707,7 @@ static int sd_hand_sounds(const SdEngine *e, uint32_t note)
     return 0;
 }
 /* A key up (after sd_hand_key took it off the list): its voice goes back to the latest key still held that has
- * none (it lost it to a later key: in MONO always), legato: the pitch jumps there, the envelope goes on, VEC2 is not
+ * none (it lost it to a later key: in MONO always), legato: the pitch jumps there, the envelope goes on, COURSE is not
  * restarted, as a mono synth goes back to the key still down. With none such, the voice is let go. */
 static void sd_hand_off(SdEngine *e, uint32_t note)
 {
@@ -723,7 +723,7 @@ static void sd_hand_off(SdEngine *e, uint32_t note)
                 v->vel = e->hand_vel[k];
                 v->inc = v->inc_tgt = sd_note_inc(v->note);
                 v->glide = 0;
-                e->r.note = v->note;            /* the Rider's key tracking and the matrix's KEY follow */
+                e->r.note = v->note;            /* the Reactor's key tracking and the matrix's KEY follow */
                 e->m_note = v->note;
                 continue;
             }
@@ -749,11 +749,11 @@ static void sd_plan(SdEngine *e)
     e->quota[SD_SRC_HAND] = (uint8_t)(n - a - b - r);
 }
 
-/* ---- the Rider: control */
-static void sd_rider_clock(SdEngine *e)         /* a step of the note driver: the stage clock's advance */
+/* ---- the Reactor: control */
+static void sd_reactor_clock(SdEngine *e)         /* a step of the note driver: the stage clock's advance */
 {
     const SdPatch *p = &e->patch;
-    SdRider *r = &e->r;
+    SdReactor *r = &e->r;
     uint32_t lo = p->r_min > 5u ? 5u : p->r_min, hi = p->r_max > 5u ? 5u : p->r_max, st;
     if (!p->r_div || ++r->count < p->r_div) return;
     r->count = 0;
@@ -783,10 +783,10 @@ static int32_t sd_recip30(int32_t d)
     return (int32_t)(((int64_t)x * ((int64_t)(1 << 30) * 2 - e)) >> 30);
 }
 
-static void sd_rider_params(SdEngine *e)        /* once a sub-block: position, slew, coefficients, gains */
+static void sd_reactor_params(SdEngine *e)        /* once a sub-block: position, slew, coefficients, gains */
 {
     const SdPatch *p = &e->patch;
-    SdRider *r = &e->r;
+    SdReactor *r = &e->r;
     uint32_t pos = ((uint32_t)p->r_pos + (p->r_div ? (uint32_t)r->stage << 8 : 0u)) % 1536u, i, f, j, k;
     uint32_t slew = p->r_slew >> 9, c = slew ? SD_ENV_DEC[slew] : 0u;   /* 0: no glide */
     int32_t off = p->r_freq + (p->r_track & SD_RT_KEY ? ((int32_t)r->note - 60) * 256 : 0);
@@ -799,7 +799,7 @@ static void sd_rider_params(SdEngine *e)        /* once a sub-block: position, s
     r->drive = p->r_drive;                      /* Q14 as it is: 16384 = 1x, 65535 = 4x */
     r->mix = p->r_mix >> 1;
     /* R4: MIX fills. Up to the middle the dry stays whole and the wet comes in on top; past it the dry fades. The
-     * lows under r_low skip the Rider: what the dry loses of them comes back from a one-pole */
+     * lows under r_low skip the Reactor: what the dry loses of them comes back from a one-pole */
     {                                           /* (SD_RMIX: the loudness held, -3 dB each at the middle) */
         uint32_t mi = p->r_mix >> 9, mf = p->r_mix & 511u;
         r->dg = (int32_t)SD_RMIX[mi][0] + ((((int32_t)SD_RMIX[mi + 1u][0] - (int32_t)SD_RMIX[mi][0]) * (int32_t)mf) >> 9);
@@ -1185,7 +1185,7 @@ static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   
 }
 
 static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   /* a track, once a sub-block:
-                                                   start, stop, steps, gates; main: track A (the Rider's clock) */
+                                                   start, stop, steps, gates; main: track A (the Reactor's clock) */
 {
     uint32_t sq = t->pat_seq;
     t->quiet = (uint8_t)(t->mute || (!main && e->mode_on == SD_MODE_MONO));   /* (B needs DUO or POLY) */
@@ -1246,7 +1246,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
         t->seq_seg_shown = t->sq_seg;
         sd_seq_steplen(e, t);
         if (t->seq_pos_q8 >= t->seq_step_q8) t->seq_pos_q8 = 0;   /* (the tempo jumped: no catching up) */
-        if (main) sd_rider_clock(e);
+        if (main) sd_reactor_clock(e);
         st = &t->pat.step[t->seq_step];
         t->rat_q8 = 0;
         if (st->type <= SD_ST_SLIDE && st->prob < 100u && sd_seq_rand(&t->sq_rng) % 100u >= st->prob) {
@@ -1397,29 +1397,29 @@ static void sd_bank_params(SdBank *bk, const SdPatch *p, const SdBankPatch *bp, 
     }
 }
 
-static void sd_vector(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q15 */
+static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q15 */
 {
     uint32_t x, y, b, s = 0, r;
     if (e->mode_on == SD_MODE_POLY) {
         for (b = 0; b < SD_BANKS; b++) w[b] = SD_POLY_GAIN;
         return;
     }
-    if (e->vec_run && e->patch.vec && e->mode_on == SD_MODE_MONO) {   /* VEC2: between two cells */
+    if (e->course_run && e->patch.course && e->mode_on == SD_MODE_MONO) {   /* COURSE: between two cells */
         const SdPatch *p = &e->patch;
-        uint32_t a = e->vec_seg, f = e->vec_ph >> 5;             /* Q15 */
+        uint32_t a = e->course_seg, f = e->course_ph >> 5;             /* Q15 */
         x = (uint32_t)((int32_t)p->cell_x[a] + (((int32_t)p->cell_x[a + 1u] - (int32_t)p->cell_x[a]) * (int32_t)f >> 15));
         y = (uint32_t)((int32_t)p->cell_y[a] + (((int32_t)p->cell_y[a + 1u] - (int32_t)p->cell_y[a]) * (int32_t)f >> 15));
-        e->vec_ph += e->vec_step;
-        if (e->vec_ph >= 1u << 20) {            /* the next cell: hold the last one */
-            if (e->vec_seg < 2u) {
+        e->course_ph += e->course_step;
+        if (e->course_ph >= 1u << 20) {            /* the next cell: hold the last one */
+            if (e->course_seg < 2u) {
                 uint32_t ms;
-                e->vec_seg++;
-                e->vec_ph = 0;
-                ms = p->cell_ms[e->vec_seg] ? p->cell_ms[e->vec_seg] : 1u;
-                e->vec_step = 335544320u / (ms * 441u);
+                e->course_seg++;
+                e->course_ph = 0;
+                ms = p->cell_ms[e->course_seg] ? p->cell_ms[e->course_seg] : 1u;
+                e->course_step = 335544320u / (ms * 441u);
             } else {
-                e->vec_ph = (1u << 20) - 1u;
-                e->vec_step = 0;
+                e->course_ph = (1u << 20) - 1u;
+                e->course_step = 0;
             }
         }
     } else {
@@ -1430,8 +1430,8 @@ static void sd_vector(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight,
         x = (uint32_t)sd_clamp16((int32_t)x + e->mvx);
         y = (uint32_t)sd_clamp16((int32_t)y + e->mvy);
     }
-    e->vx = (uint16_t)x;
-    e->vy = (uint16_t)y;
+    e->nav_x = (uint16_t)x;
+    e->nav_y = (uint16_t)y;
     if (e->w_ok && x == e->w_x && y == e->w_y && e->mode_on == e->w_mode) {   /* unmoved: the last weights */
         for (b = 0; b < SD_BANKS; b++) w[b] = e->w[b];
         return;
@@ -1553,8 +1553,8 @@ static void sd_mod_tick(SdEngine *e)
         src[SD_MS_ENV2] = e2 > 32767 ? 32767 : e2;
         src[SD_MS_LFO1] = sd_lfo_tick(e, p, 0);
         src[SD_MS_LFO2] = sd_lfo_tick(e, p, 1);
-        src[SD_MS_VECX] = (int32_t)e->vx - 32768;
-        src[SD_MS_VECY] = (int32_t)e->vy - 32768;
+        src[SD_MS_NAVX] = (int32_t)e->nav_x - 32768;
+        src[SD_MS_NAVY] = (int32_t)e->nav_y - 32768;
         src[SD_MS_VEL] = (int32_t)e->m_vel * 258;
         src[SD_MS_KEY] = key > 32767 ? 32767 : key < -32767 ? -32767 : key;
         src[SD_MS_WHEEL] = (int32_t)(e->wheel & 127u) * 258;
@@ -1600,7 +1600,7 @@ static void sd_mod_tick(SdEngine *e)
     }
     if (m[1]) {                                 /* MOVE: animation in steps on the beat (the user: "all modulation
                                                    must add something rhythmic"; stepped random over smooth sines):
-                                                   the vector and the Rider's POS jump to new places each quarter,
+                                                   the nav and the Reactor's POS jump to new places each quarter,
                                                    glided ~10 ms */
         e->move_t += SD_SUB << 8;
         if (e->move_t >= 4u * e->seq_len_q8) {
@@ -1631,7 +1631,7 @@ static void sd_mod_tick(SdEngine *e)
         static const int16_t BG[4] = {4000, 12000, 20000, 26000}, BA[4] = {4000, 10000, 16000, 20000};   /* the top
                                                    bands first, the lows nearly clean (the user: "the best
                                                    results with it on the top frequencies") */
-        acc[SD_MD_RDRIVE] += sd_mw(m[2], 6000);   /* (12000: RIDE, its drive low, +3 dB louder) */
+        acc[SD_MD_RDRIVE] += sd_mw(m[2], 6000);   /* (12000: FUSION, its drive low, +3 dB louder) */
         acc[SD_MD_DMIX] += sd_mw(m[2], 15000);   /* (no feedback: on a patch without its own, BREAK's 1 ms loop
                                                    howled, the user: "full internal feedback" on COMET and ION) */
         for (k = 0; k < 4u; k++) {
@@ -1807,7 +1807,7 @@ static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
 }
 
 /* The filter: each voice's cutoff (MIDI x 256) from CUTOFF, KEY, VEL and ENV3, then two TPT SVF stages' coefficients
- * as the Rider's (SD_RG's warp; SD_FK's damping by RES). LP12: one stage, k 1.41 (flat) .. 0.1 (+23 dB) by RES.
+ * as the Reactor's (SD_RG's warp; SD_FK's damping by RES). LP12: one stage, k 1.41 (flat) .. 0.1 (+23 dB) by RES.
  * LP24: a Butterworth pair, k 1.85 and 0.77 .. 0.054 (+25 dB). A silent voice's banks have their states cleared. */
 static void sd_filter_params(SdEngine *e)
 {
@@ -1899,15 +1899,15 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
     sd_mod_tick(e);
     if (p->fx_off) {                            /* EDIT's OFF: after the matrix and the macros, so none reopens it */
         SdPatch *q = &e->patch;
-        if (q->fx_off & SD_FX_RIDER) q->r_mix = 0;
+        if (q->fx_off & SD_FX_REACTOR) q->r_mix = 0;
         if (q->fx_off & SD_FX_DESTROY) q->d_mix = 0;
         if (q->fx_off & SD_FX_SPACE) q->s_dlevel = q->s_rlevel = 0;
         if (q->fx_off & SD_FX_FILTER) q->f_type = SD_FT_OFF;
     }
     if (p->f_type) sd_filter_params(e);
-    sd_vector(e, w);
+    sd_nav(e, w);
     if (p->r_mix) {
-        sd_rider_params(e);
+        sd_reactor_params(e);
         e->r.rest = 0;
         if (sd_engine_silent(e) && e->r.model > SD_RM_VBP) {   /* the delay models: rest once their output has been
                                                                   under 4 LSB for 100 sub-blocks (73 ms) */
@@ -2063,7 +2063,7 @@ static void sd_bank_run(SdBank *bk, uint32_t pos, uint32_t m)
     }
 }
 
-/* ---- the Rider: audio. in: the voice (stereo, m frames); out: added to. */
+/* ---- the Reactor: audio. in: the voice (stereo, m frames); out: added to. */
 /* The loops' saturation: exactly linear up to a knee, then a cubic shoulder to a ceiling; on the magnitude, the
  * sign put back, so it adds no bias (a bias recirculating in a ringing filter damps it, or holds it at a DC) */
 SD_INLINE int32_t sd_sat19(int32_t v)            /* Q19: linear to 2 x full scale, a ceiling at 6 x */
@@ -2109,9 +2109,9 @@ SD_INLINE int32_t sd_dl_read(const int16_t *dl, uint32_t wp, int32_t dq)   /* dq
 }
 
 /* pos: where in the sub-block these m frames start (the delays' ramps) */
-/* The Rider's frames, MODEL and FILL constants: each variant compiles without the others' branches (C1: they
+/* The Reactor's frames, MODEL and FILL constants: each variant compiles without the others' branches (C1: they
  * were tested every sample) */
-SD_INLINE void sd_rider_loop(SdRider *r, const int32_t *in, int32_t *out, uint32_t m, int32_t *d, const int32_t *ds,
+SD_INLINE void sd_reactor_loop(SdReactor *r, const int32_t *in, int32_t *out, uint32_t m, int32_t *d, const int32_t *ds,
                              const int MODEL, const int FILL)
 {
     uint32_t i, k;
@@ -2204,11 +2204,11 @@ SD_INLINE void sd_rider_loop(SdRider *r, const int32_t *in, int32_t *out, uint32
     r->wp = wp;
 }
 
-#define SD_RLOOP(M) (fill ? sd_rider_loop(r, in, out, m, d, ds, M, 1) : sd_rider_loop(r, in, out, m, d, ds, M, 0))
+#define SD_RLOOP(M) (fill ? sd_reactor_loop(r, in, out, m, d, ds, M, 1) : sd_reactor_loop(r, in, out, m, d, ds, M, 0))
 
-static void sd_rider_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+static void sd_reactor_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
 {
-    SdRider *r = &e->r;
+    SdReactor *r = &e->r;
     uint32_t k;
     int32_t d[4], ds[4], fill = r->dg >= 32767;  /* MIX to the middle: the dry whole, the wet on top */
     for (k = 0; k < 4u; k++) {
@@ -2445,7 +2445,7 @@ SD_INLINE void sd_space_loop(SdSpace *s, SdSpaceMem *mem, const int32_t *in, int
     for (i = 0; i < m; i++) {
         int32_t xl = in[2u * i], xr = in[2u * i + 1u], el, er, r, al, ar, dl = xl, dr = xr;
         /* the input without its DC (a warp toward pulse has some): the delay's feedback and the room's lines
-           multiply a DC up to 20 .. 100 x (C1: DROWN on TOUR built a rumble). The dry, below, keeps it */
+           multiply a DC up to 20 .. 100 x (C1: DROWN on VOYAGE built a rumble). The dry, below, keeps it */
         dz0 += ((xl * 256 - dz0) >> 10);        /* |x| <= 2^18: x 256 fits */
         dz1 += ((xr * 256 - dz1) >> 10);
         xl -= dz0 >> 8;
@@ -2565,7 +2565,7 @@ static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
         if (!e->sub_left) { sd_control_tick(e); e->sub_left = SD_SUB; }
         m = n < e->sub_left ? n : e->sub_left;
         pos = SD_SUB - e->sub_left;             /* where in the sub-block this call starts: ramps continue */
-        {                                       /* voice -> (Rider) -> (DESTROY) -> (SPACE) -> out */
+        {                                       /* voice -> (Reactor) -> (DESTROY) -> (SPACE) -> out */
             int32_t *last = e->sp.on ? e->sbuf : out, *post = e->d.on ? e->dbuf : last;
             if (e->sp.on)
                 for (i = 0; i < 2u * m; i++) e->sbuf[i] = 0;
@@ -2597,7 +2597,7 @@ static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
             }
         }
         if (e->r.on && !e->r.rest)              /* resting: the voice is silent too */
-            sd_rider_run(e, e->vbuf, e->d.on ? e->dbuf : e->sp.on ? e->sbuf : out, m, pos);
+            sd_reactor_run(e, e->vbuf, e->d.on ? e->dbuf : e->sp.on ? e->sbuf : out, m, pos);
         if (e->d.on && !e->d.rest) sd_destroy_run(e, e->dbuf, e->sp.on ? e->sbuf : out, m, pos);
         if (e->sp.on && !e->sp.rest) sd_space_run(e, e->sbuf, out, m, pos);
         for (i = 0; i < 2u * m; i++) {          /* the output's shoulder: linear to 0.85 of full scale, then a cubic

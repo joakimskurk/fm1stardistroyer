@@ -1,8 +1,8 @@
 # Star Distroyer — Sequencer Plan
 
-**Status:** Plan v0.2, companion to *FM1 Design & Feasibility v0.1* (written under the working name Skurky Vector Machine), section 6
+**Status:** Plan v0.2, companion to *FM1 Design & Feasibility v0.1*, section 6
 **Instrument name:** Star Distroyer (decided 2026-11-02)
-**Priority:** sound first. The sequencer waits for VOICE, RIDER and DESTROY (§7).
+**Priority:** sound first. The sequencer waits for VOICE, REACTOR and DESTROY (§7).
 **Scope:** Only the sequencer is advanced beyond the baseline spec. It stays a standard step sequencer; the one
 addition is **segments** (§3).
 
@@ -121,7 +121,7 @@ the white keys.
 | DSP budget is the scarce resource | Sequencer + locks + motion budgeted inside the spec's "mod/seq/control 5–10 %". It must be integer/lookup work only. |
 | RAM: no measured figure yet | Everything is static and bounded (§5). Total sequencer runtime state well under 2 KB. |
 | Flash: writes stall; not from audio | Save only on SAVE, never on edit. A pattern must fit one erase sector (4 KiB on Dinghy; widen `FL_RANGE_OK` for the pattern area, save only when silent). |
-| Vector mode is **one** large voice; Poly is 4 × 4-op | Sequencer is monophonic. TIE and SLIDE are well-defined in Vector mode; in Poly mode SLIDE means legato on the same voice. |
+| Nav mode is **one** large voice; Poly is 4 × 4-op | Sequencer is monophonic. TIE and SLIDE are well-defined in Nav mode; in Poly mode SLIDE means legato on the same voice. |
 | Platform: **Dinghy** (decided, §8) — MIDI IN on TRS from 0.4 | MIDI clock sync and note input via TRS. |
 
 ---
@@ -209,7 +209,7 @@ These are the decisions segments force once there are locks and motion lanes.
 ### 4.1 Parameter locks follow the step
 
 A lock belongs to a step, not to a time position. In a REV, P-P or RND segment the step plays its own locks in its
-new place. This is what makes segments useful for sound design: `RIDER.POS` locks on steps 1–4 played P-P give a
+new place. This is what makes segments useful for sound design: `REACTOR.POS` locks on steps 1–4 played P-P give a
 vowel that goes there and back without new data.
 
 ### 4.2 Motion lanes follow the step, interpolating along playback order
@@ -231,12 +231,12 @@ Cheap, useful sources for the global matrix (baseline §7):
 - `SEQ.STEP` (0–1 over the pattern), `SEQ.SEG` (segment index), `SEQ.SEG_PHASE` (0–1 inside the current segment)
 - a trigger on SEGMENT ENTER
 
-`SEQ.SEG_PHASE → RIDER.POS` or `VECTOR X` gives each segment its own sweep without a single lock. Optional for V1, but
+`SEQ.SEG_PHASE → REACTOR.POS` or `NAV X` gives each segment its own sweep without a single lock. Optional for V1, but
 essentially free.
 
 ### 4.5 Not in V1
 
-Per-segment overrides (transpose, a Rider state, a macro offset per segment). Attractive, but they add a data layer
+Per-segment overrides (transpose, a Reactor state, a macro offset per segment). Attractive, but they add a data layer
 and a UI layer; revisit after V1 is in hands.
 
 ---
@@ -299,9 +299,9 @@ REC with EDIT on = live recording; stopped, a key writes the next step (step rec
 
 ## 7. Work plan
 
-**Sound comes first.** Phase 0–3 (benchmark harness, VOICE, RIDER, DESTROY) get the attention; the sequencer does not
+**Sound comes first.** Phase 0–3 (benchmark harness, VOICE, REACTOR, DESTROY) get the attention; the sequencer does not
 run in parallel with them. The only sequencer work before then is a minimal note driver for auditioning patches
-(a fixed 16-step loop, no segments, no locks) — enough to hear VOICE → RIDER → DESTROY move in time. S0–S6 start
+(a fixed 16-step loop, no segments, no locks) — enough to hear VOICE → REACTOR → DESTROY move in time. S0–S6 start
 when Gate D (musical identity) is passed for all three engines. Because the sequencer has almost no DSP risk, waiting
 costs nothing: the design here is settled.
 
@@ -313,7 +313,7 @@ costs nothing: the design here is settled.
 | S3 | Parameter locks (sparse pool), STEP + param grammar | Locks follow steps under REV/P-P/RND (test) |
 | S4 | Motion lanes, interpolation along playback order, REC + param | Reversed segment reverses motion without jumps (test) |
 | S5 | Pattern save/load in one flash sector; `SEQ.*` mod sources | Save/load round-trip; no flash access from audio (asserted) |
-| S6 | Connect to real VOICE / RIDER / DESTROY | Seq + mod inside its 5–10 % CPU budget under the worst-case patch (Gate B) |
+| S6 | Connect to real VOICE / REACTOR / DESTROY | Seq + mod inside its 5–10 % CPU budget under the worst-case patch (Gate B) |
 
 ### Validation gates for the sequencer
 

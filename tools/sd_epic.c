@@ -13,7 +13,7 @@
  * Fifteen parts, each its own engine as an FM-1 would play it, each on a stock patch (sd_patches.h: STRINGS and
  * the twelve after it are this cue's); only the notes, the macros' moves, the cello's opening and the mix are
  * this tool's:
- *   CELLO    STRINGS, the bowed cello (a saw through the Rider's body, HARM): the melody, the heart.
+ *   CELLO    STRINGS, the bowed cello (a saw through the Reactor's body, HARM): the melody, the heart.
  *            At the start it is filtered (TAME and DESTROY's upper bands) and opens over eight bars, in a long
  *            hall with a dotted-quarter delay.
  *   CELLO 2  the same cello, a harmony under the melody (the nearest chord tone a third or more below)
@@ -28,7 +28,7 @@
  *   DRONE    BRAAM (DISTROY) an octave under the root: a drone at first, then a hit on every chord. A once-a-hit SAW on
  *            D SPLIT drops the destroyed band through the spectrum.
  *   SCREAM   SCREAM (BRAAM falling further) on the root and fifth, BREAK up
- *   LEAD     BEACON (TOUR) an octave over the cello in the climaxes, far back, its top tamed
+ *   LEAD     BEACON (VOYAGE) an octave over the cello in the climaxes, far back, its top tamed
  *   SUB      DEPTH, a sine an octave under the root: the depth
  *   ARP      SHARDS (GLASS, short) on the sequencer: 32nds up and down, high, in the release
  *   DARP     PRISM (SHARDS, ringing) on the sequencer: 16ths falling from two octaves up, in the release

@@ -1,4 +1,4 @@
-# R2: PLUCKS (PRESETS +3 from DISTROY) in the loop on the RIDER page (FX); SEL held shows MODEL KP; then PHASER (+2)
+# R2: PLUCKS (PRESETS +3 from DISTROY) in the loop on the REACTOR page (FX); SEL held shows MODEL KP; then PHASER (+2)
 # Buttons: SEL 3, FX 2, PLAY 12. Encoders: PRESETS 6.
 1700 enc 6 3
 1800 btn 12

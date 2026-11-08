@@ -1,8 +1,7 @@
 # Star Distroyer — Sound Plan
 
-**Status:** Plan v0.1, 2026-11-02. Companion to *FM1 Design & Feasibility v0.1* (written under the working name
-Skurky Vector Machine), sections 2–4, 13–15, and to *Star Distroyer — Sequencer Plan v0.2*.
-**Priority:** sound is the current focus. This plan covers VOICE, RIDER and DESTROY: how each is built on Dinghy,
+**Status:** Plan v0.1, 2026-11-02. Companion to *FM1 Design & Feasibility v0.1*, sections 2–4, 13–15, and to *Star Distroyer — Sequencer Plan v0.2*.
+**Priority:** sound is the current focus. This plan covers VOICE, REACTOR and DESTROY: how each is built on Dinghy,
 in what order, and how we know it sounds right.
 **Platform:** Dinghy (decided 2026-11-02).
 
@@ -20,7 +19,7 @@ harder and more concrete limits. These override the spec where they disagree.
 | 64-sample blocks, ~1.45 ms | **256 frames per interrupt, 5.8 ms**, 44.1 kHz | Render in 32-frame sub-blocks (§2.2); budget per interrupt is "under half": **2.9 ms** |
 | Two cores: Core A voice, Core B post | One audio interrupt (`app_audio`); Dinghy exposes no second core to the app | Plan for **one core**. A second core is a bonus to explore in Phase 0, not a dependency |
 | Audio kernels in RAM | Code runs from XIP flash; `.ram_text` (24 KB) is the flash driver, 8 KB free for RAM-run code | Hot kernels into the 8 KB RAM window if the cache misses show up in measurements |
-| "hundreds of KB SRAM" | **96 KB** `.data/.bss` + **336 KB pool** for big buffers + 24 KB stack | Delay lines and tables in the pool; plenty for Rider and feedback buffers |
+| "hundreds of KB SRAM" | **96 KB** `.data/.bss` + **336 KB pool** for big buffers + 24 KB stack | Delay lines and tables in the pool; plenty for Reactor and feedback buffers |
 | Fold: `repeat while outside [-1,+1]` | **No unbounded loops** in the audio callback | Fold in closed form (§3.4) |
 | — | Flash erase blocks interrupts for tens of ms | Save patches only when silent, as Dinghy does |
 
@@ -64,7 +63,7 @@ dsp/*.c  (fixed point, no float, no 64-bit div)
 | Oscillator phase | 32-bit unsigned, wraps | `inc = f · 2^32 / 44100`, from a table (Dinghy's octave table) |
 | Filter states, coefficients | Q31 or Q28 | 64-bit multiply, shift back |
 | Parameters from UI/mod | 0..65535 (Q16 unipolar) or Q15 bipolar | Mapped to coefficients at control rate |
-| Pitch for interpolation | log pitch, 1/256 semitone | Rider states and vector motion interpolate in log pitch, not Hz |
+| Pitch for interpolation | log pitch, 1/256 semitone | Reactor states and nav motion interpolate in log pitch, not Hz |
 
 `q15mul` of two full-scale values overflows: every multiply site documents its range, and the
 host tests run at extreme parameter values.
@@ -72,7 +71,7 @@ host tests run at extreme parameter values.
 ### 2.2 Rates
 
 - **Audio rate:** 44.1 kHz. Operators, filters, shapers, delay lines.
-- **Control rate:** every **32 frames** (1378 Hz). Envelopes, LFOs, mod matrix, vector weights, Rider state
+- **Control rate:** every **32 frames** (1378 Hz). Envelopes, LFOs, mod matrix, nav weights, Reactor state
   interpolation and slew, filter coefficient targets, dynamics gains. Coefficients are ramped linearly across the
   32 frames where zipper noise is audible (cutoff, resonance, levels).
 - **Sub-blocks:** each 256-frame interrupt renders as 8 sub-blocks of 32. Note events from the sequencer or MIDI
@@ -85,7 +84,7 @@ to be (XIP cache), no loops whose length depends on a parameter.
 
 ---
 
-## 3. VOICE — vector / harmonic FM
+## 3. VOICE — nav / harmonic FM
 
 ### 3.0 The voice's design (decided 2026-11-03)
 
@@ -104,7 +103,7 @@ The user's rule: when a choice is open, follow this design. What it settles:
 | DT spreads the four oscillators' tuning | the four at −21/−7/+7/+21 cents at 99 |
 | No feedback operator | none: V1's feedback is gone |
 | Generators: ALL, ODD, RND, CLUST, CHRD (14 chords), CPY TO | the generator list of §3.7 |
-| Modes: one voice with all banks on the vector, POLY (bank A on four voices), a bank a voice | §3.6; DUO is the user's addition |
+| Modes: one voice with all banks on the nav, POLY (bank A on four voices), a bank a voice | §3.6; DUO is the user's addition |
 | Per bank: AM, FM, XM, WP, HM (harmonic shift of modulators), DT, PN (pan), FD, BF/LF (harmonic band/low filter) | modulation destinations for C1; BF/LF are the harmonic mask |
 
 Decided here as well:
@@ -184,19 +183,19 @@ control rate:
 High notes get slightly gentler; low and mid notes keep their full grit. This is the single biggest difference
 between "digital and harsh" and "digital and good" on this hardware, and it is tuned with the identity set in V3.
 
-### 3.6 Banks, vector, stereo
+### 3.6 Banks, nav, stereo
 
 - **Voice modes (decided 2026-11-03):** always 16 operator kernels a sample; the mode divides them among voices, so
   every mode costs the same CPU.
 
-  | Mode | Voices × operators | Banks per voice | Vector |
+  | Mode | Voices × operators | Banks per voice | Nav |
   |---|---|---|---|
   | **MONO** | 1 × 16 | A B C D | full XY field |
   | **DUO** | 2 × 8 | A B | X only (A ↔ B), Y free for modulation |
   | **POLY** | 4 × 4 | A | none: one bank, morph by mod only |
   | **POLY8** (candidate) | 8 × 2 | A, operators 1–2 | none: a 2-op pair; kept only if it sounds like more than a toy |
 
-  Each voice has its own note, ENV1 and ENV2. Patch, Rider and Destroy are shared, since they sit after the voices.
+  Each voice has its own note, ENV1 and ENV2. Patch, Reactor and Destroy are shared, since they sit after the voices.
   The allocator takes, in order:
   - the same note again
   - the oldest silent voice
@@ -206,7 +205,7 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   A stolen voice restarts its envelopes from where they are, so it does not click. A mode change releases every
   voice and switches once all are quiet. The sequencer's notes go through the same allocator. Built in V3; POLY8 is
   not built.
-- **Vector mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
+- **Nav mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
   control rate. Gain law tuned in V3 (the spec's "energy hole").
 - **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, so moving X moves the image as well as the
   timbre.
@@ -226,9 +225,9 @@ Two LFOs. All at control rate; AMP envelope ramped per sample across the sub-blo
 
 ---
 
-## 4. RIDER — quad morphing resonator
+## 4. REACTOR — quad morphing resonator
 
-### 4.0 The Rider's design (decided 2026-11-04)
+### 4.0 The Reactor's design (decided 2026-11-04)
 
 | What | Here |
 |---|---|
@@ -239,7 +238,7 @@ Two LFOs. All at control rate; AMP envelope ramped per sample across the sub-blo
 | A stage clock: division, range, FWD / BWD / ping-pong / random | the same, clocked by the note driver's steps |
 | A level that runs into saturation at its top | level to 2×, past 1 a soft clip on each filter |
 | Presets into a stage: 13 vowel formants (ee i ay e au u a aw oo ar er ir iir), 13 chords | the vowels as textbook formants; chords as patches use them |
-| A dry control | MIX dry ↔ wet, so 0 is no Rider at all (the patches before R1 are bit for bit unchanged) |
+| A dry control | MIX dry ↔ wet, so 0 is no Reactor at all (the patches before R1 are bit for bit unchanged) |
 
 ### 4.1 Signal path
 
@@ -273,7 +272,7 @@ make a wide image of their own. Whether the dry path should stay stereo or also 
 ### 4.4 Resonance, safety, drive
 
 - A soft saturator (table) inside each resonator's feedback path: high resonance rings and pings but cannot run away,
-  and drive pushes the rings into saturation — the Rider's own nonlinear layer before DESTROY.
+  and drive pushes the rings into saturation — the Reactor's own nonlinear layer before DESTROY.
 - Level law: clean → drive → saturation in the upper range (spec §3.8), one generated table.
 - Gain compensation per model so switching BPF ↔ COMB does not jump in level.
 
@@ -373,11 +372,11 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **P0** | Dinghy app skeleton, sub-block renderer, render tool, host bench, emu count, CPU nn % readout | A sine at the right pitch, no clicks at sub-block edges | Empty render < 2 % |
 | **V1** | One operator: warp, fold, envelopes | Warp sweep is continuous sine → saw → pulse, no "crossfade" sound; fold sweep has the spec's four regions | Kernel cost per operator measured |
 | **V2** | One bank: roles, PM, feedback op, FM/warp/fold order A/B | Bells to growls from one bank; the order is decided by ear and written down | 4 ops |
-| **V3** | Four banks, vector mix, stereo, aliasing tracking, harmonic generators | **Gate D VOICE:** clean additive → complex FM → folded digital across the XY field, not a generic FM synth | 16 ops ≤ 35–40 % of the 2.9 ms budget |
+| **V3** | Four banks, nav mix, stereo, aliasing tracking, harmonic generators | **Gate D VOICE:** clean additive → complex FM → folded digital across the XY field, not a generic FM synth | 16 ops ≤ 35–40 % of the 2.9 ms budget |
 | **R1** | Four BPFs, six states, POS, slew | Six states turn a static voice into vowels/chords; POS scans smoothly | |
 | **R2** | COMB/KP, DELAY AP, IIR AP, shared pool | Pinged combs at musical pitches; AP skating kept | |
-| **R3** | Drive, internal saturation, gain compensation, dry-path decision | **Gate D RIDER:** phoneme / chord / resonator motion from one patch | Rider ≤ 15–20 % |
-| **R4** | The Rider fills (the user, 2026-11-05: "too extreme … ring modulator … tin can"): MIX law, low keep, HARM | The Rider colours the voice instead of replacing it; no inharmonic ringing | Scenes A/B; ~0.2 % |
+| **R3** | Drive, internal saturation, gain compensation, dry-path decision | **Gate D REACTOR:** phoneme / chord / resonator motion from one patch | Reactor ≤ 15–20 % |
+| **R4** | The Reactor fills (the user, 2026-11-05: "too extreme … ring modulator … tin can"): MIX law, low keep, HARM | The Reactor colours the voice instead of replacing it; no inharmonic ringing | Scenes A/B; ~0.2 % |
 | **D1** | Crossover, four shapers, bias | Bands audibly separate; slope decision (complementary vs LR4) | |
 | **D2** | Dynamics, PHAT/SHARP, BODY | PHAT thickens, SHARP spits transients — not a compressor knob | (measured 1.4 %) |
 | **D3** | Feedback, spread, TAME, safety limiter | **Gate D DESTROY:** bands behave as distinct dynamic/nonlinear systems; feedback sings, never blows up | Destroy ≤ 15–20 % |
@@ -445,21 +444,21 @@ EPIANO, GROWL, ORGAN) in `sd_patches.h`.
   the very worst is over it and most patches are well under. Squash is the place to save.
 
 **V3 done 2026-11-03.** Four banks in `sd_engine.h`, the generators
-in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY) in `sd_patches.h`.
+in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN VOYAGE DISTROY) in `sd_patches.h`.
 - *Built:*
   - Four banks with per-bank Q offsets (§3.0).
   - Voices with ENV1 and ENV2 each.
   - The modes: MONO, all banks by X/Y; DUO, two voices, A ↔ B by X; POLY, four voices on bank A. An allocator
     takes the same note, then the oldest silent, then the oldest released, then the oldest held.
-  - The vector, with bilinear weights normalised by (Σw²)^¼.
-  - VEC2 from the gate, playing four cells.
+  - The nav, with bilinear weights normalised by (Σw²)^¼.
+  - COURSE from the gate, playing four cells.
   - A stereo balance per bank, with A and D left and B and C right, set by WIDTH.
   - Aliasing tracking, described below.
   - The generators: ALL, ODD, RND, CLUST, CHRD (14 chords in just intonation) and CPY.
   - The squash is now a cubic soft clip instead of tanh. The warp table was re-spaced for it, and the anchors still
     measure triangle 0.111, saw 0.500/0.333 and pulse h3 0.325.
   - POLY8 is not built. It remains a candidate (§3.6).
-- *Gate D VOICE, hear it:* `v3_field_tour.wav`. TOUR is held while X/Y walks A → B → C → D → A, then the diagonal.
+- *Gate D VOICE, hear it:* `v3_field_tour.wav`. VOYAGE is held while X/Y walks A → B → C → D → A, then the diagonal.
   - The spectral centroid goes 156 Hz (A, clean additive) → 690–1120 Hz (B FM bell, C folded growl) → 145–190 Hz
     (D organ).
   - The level holds within ±2 dB the whole way, with no energy hole at the centre.
@@ -486,7 +485,7 @@ in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY) in `sd_p
   the half-budget (950–1080).
 
   On the host the other patches cost 15–55 % of DISTROY at the centre or in POLY: GLASS, BELL, EPIANO and ORGAN at
-  25–45 %, TOUR 50 % and GROWL 95 %. At a corner it is 13–30 %.
+  25–45 %, VOYAGE 50 % and GROWL 95 %. At a corner it is 13–30 %.
 
   fm1-emu, DISTROY in the loop: 41.1 M/s = 17.1 % of the chip on average, with the loop's rests (silent 7.4). The
   CPU readout shows the worst interrupt at 23.8 %, which is ~1290 instructions a frame, as the count predicts. Not
@@ -494,7 +493,7 @@ in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY) in `sd_p
 - *Optimised 2026-11-03, fit gate met.*
   - Every stage keeps the waveform within −32767..32768 and writes each next product for 32768, so no clamps are
     needed. The kernel walks pointers instead of indexes.
-  - The control tick caches the warp's three divisions and the vector's two square roots while their inputs stand
+  - The control tick caches the warp's three divisions and the nav's two square roots while their inputs stand
     still.
   - The loops, plain / with fold:
 
@@ -509,12 +508,12 @@ in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY) in `sd_p
     **19.9 %**. That was 23.8 % and is now inside the gate.
   - The sound is unchanged: the anchors, PM, chunking, aliasing and identity tests pass as before. The triangle is
     1 LSB higher.
-  - Still left for C1, if Rider + Destroy need room:
+  - Still left for C1, if Reactor + Destroy need room:
     - the cubic's ×⅓, which can go into its normalisation
     - the fold ramp's load
     - the skew's three loads from memory a sample (register pressure)
 
-**R1 done 2026-11-04.** The Rider in `sd_engine.h`; patches VOWEL and CHORDS, and DISTROY's Rider.
+**R1 done 2026-11-04.** The Reactor in `sd_engine.h`; patches VOWEL and CHORDS, and DISTROY's Reactor.
 - *Built:*
   - Four TPT state-variable filters in integers: states Q19, coefficients Q30, 64-bit products.
     1/(1 + g(g+k)) uses a 32-bit division to 15 bits and one Newton step, since 64-bit division is not allowed.
@@ -535,15 +534,15 @@ in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY) in `sd_p
   - SLEW 0 jumps, SLEW glides to the log-pitch midpoint.
   - The clock's modes, every maximum without overflow, and MIX 0 bit-exact.
 - *Fit it:* the loop is 95 instructions a filter (every model's branches) and ~57 around it. BP12, the costliest,
-  comes to ~420 a frame, ~8 % of the chip, under the plan's 15–20 %. fm1-emu, DISTROY with its Rider in BP12, in the loop: 53.4 M/s = 22.2 % of the chip on average. The CPU readout
-  shows the worst interrupt at **28.3 %**: the voice's 19.9 plus the Rider's ~8.4. That leaves ~20 % for DESTROY
+  comes to ~420 a frame, ~8 % of the chip, under the plan's 15–20 %. fm1-emu, DISTROY with its Reactor in BP12, in the loop: 53.4 M/s = 22.2 % of the chip on average. The CPU readout
+  shows the worst interrupt at **28.3 %**: the voice's 19.9 plus the Reactor's ~8.4. That leaves ~20 % for DESTROY
   under C1's 50 %.
-  - The Rider rests when the voice is silent and its integrators have rung out under ⅛ LSB: no work, no output.
+  - The Reactor rests when the voice is silent and its integrators have rung out under ⅛ LSB: no work, no output.
     Without that, silence cost 25.3 M/s; with it, 9.0.
   - A first measurement was of a stale package: `./build.sh` had failed its ROM-address check on `-(1 << 22)` (now
     clamped before the shift) and written no new `.fwsc`. CLAUDE.md now says how to see that.
 
-**R2 done 2026-11-04.** The Rider's other three models in `sd_engine.h`: KP, AP1, AP2. Patches PLUCKS, FLANGE and
+**R2 done 2026-11-04.** The Reactor's other three models in `sd_engine.h`: KP, AP1, AP2. Patches PLUCKS, FLANGE and
 PHASER.
 - *Built, to §4.0:*
   - **KP:** four combs in parallel. Each is a delay line fs/f long, read linearly between samples, with
@@ -560,10 +559,10 @@ PHASER.
 - *Decided:* **linear interpolation** in the comb (§9's open question). KP rings within 0.1 cents up to 440 Hz,
   +0.9 at 880 Hz and +4.1 at 1.76 kHz. In AP1's loops, linear reads cost a few dB of colour above ~4 kHz when all
   four delays are the same (−4.6 dB at 6 kHz). Allpass interpolation would fix that, but it would smear the skating
-  the Rider keeps. AP1 is flat within 1.2 dB to 3 kHz.
+  the Reactor keeps. AP1 is flat within 1.2 dB to 3 kHz.
 - *Found and fixed by the tests:*
   - Two limit cycles. A shift's rounding toward −∞ held KP's loop at −1 and an AP2 stage at a small DC for ever: no
-    tail ended, and the Rider never rested. Both loops now round toward zero.
+    tail ended, and the Reactor never rested. Both loops now round toward zero.
   - AP2's coefficient had the wrong sign, so its phase turned only near Nyquist.
 - *Hear it:*
   - `loop_plucks.wav` / `hold_plucks.wav`: a pluck pings four combs on chords.
@@ -571,12 +570,12 @@ PHASER.
   - `loop_phaser.wav`: AP2 gliding.
 
   AP2 notches to −31 dB left and −32 dB right at RES max, and is flat within 0.14 dB at RES 0.
-- *Fit it:* on the host, with DISTROY's voice in front, the Rider costs BP6 +24 %, VBP +27 %, AP1 +27 %, AP2 +32 %,
+- *Fit it:* on the host, with DISTROY's voice in front, the Reactor costs BP6 +24 %, VBP +27 %, AP1 +27 %, AP2 +32 %,
   BP12 +35 % and KP +35 % of the voice. BP12, DISTROY's, stays the worst. fm1-emu, DISTROY in the loop: 54.5 M/s = 22.7 % of the
   chip on average (silent 9.1). The CPU readout shows the worst interrupt at **29.0 %** (R1: 28.3; the models'
   dispatch). RAM: 38 of 96 KB with the delay lines.
 
-**R3 done 2026-11-04: the Rider is finished (Gate D RIDER).** Its nonlinear layer, its levels, and patch RIDE.
+**R3 done 2026-11-04: the Reactor is finished (Gate D REACTOR).** Its nonlinear layer, its levels, and patch FUSION.
 - *Saturation in the loops:* each SVF's band-pass passes a knee before it updates its integrator: exactly linear to
   2 × full scale, then a cubic shoulder to a ceiling at 6×. KP's line works the same way: linear to 1.5×, a ceiling
   at 3×. High RES and DRIVE ring into saturation and never away. Both shoulders work on the magnitude, with the
@@ -600,22 +599,22 @@ PHASER.
 
   A model change no longer jumps. BP6's and BP12's loudness growing with RES stays,
   by design. VOWEL's and PLUCKS' levels were converted to keep their gains: their renders are unchanged.
-- *The dry path (§9): stereo.* MIX blends the voice's own stereo (banks panned by WIDTH) with the Rider's panned
+- *The dry path (§9): stereo.* MIX blends the voice's own stereo (banks panned by WIDTH) with the Reactor's panned
   wet. Mono would throw that image away. To be heard on the FM-1.
-- *Gate D RIDER, hear it:* `loop_ride.wav`, `hold_ride.wav`. One patch moves through a phoneme (A), a chord, a
+- *Gate D REACTOR, hear it:* `loop_ride.wav`, `hold_ride.wav`. One patch moves through a phoneme (A), a chord, a
   phoneme (OO), a single high ring, a phoneme (EE) and a chord. BP12 at RES 70, ping-pong a beat, with a glide. The
-  spectral centroid walks 300 … 1540 Hz beat by beat, without clipping. RIDE needed DRIVE low: narrow BP12 on a
+  spectral centroid walks 300 … 1540 Hz beat by beat, without clipping. FUSION needed DRIVE low: narrow BP12 on a
   held vowel rings ~+25 dB.
 - *Found by the sanitizers:* MIX's (wet − dry) × MIX overflowed 32 bits once wet and dry stood more than 2 × full
   scale apart (KP at +15 dB): a crackle on the FM-1. It is now 64-bit. `tests/run_sd.sh` now also runs the tests
   under ASan/UBSan (SD_ASAN=0 skips it).
 - *Fit it:* fm1-emu, DISTROY (BP12) in the loop: 56.8 M/s = 23.6 % of the chip on average (silent
   9.3). The CPU readout shows the worst interrupt at **30.1 %** (R2: 29.0; the knees' tests). That is the voice's
-  ~19.9 plus the Rider's ~10.2, inside the plan's 15–20 % for the Rider. ~20 % is left for DESTROY under C1's 50 %.
+  ~19.9 plus the Reactor's ~10.2, inside the plan's 15–20 % for the Reactor. ~20 % is left for DESTROY under C1's 50 %.
 
 **D1 done 2026-11-04.** DESTROY's crossover, bias and shapers in `sd_engine.h`; patch SPLIT, and DESTROY in DISTROY.
 - *Built:* per band, GAIN (0 … +36 dB) → BIAS (±½ full scale) → shaper → DC blocker (~14 Hz, its output × 256: a
-  first version had a dead zone of 511 LSB and left a DC of 37) → LEVEL (the Rider's law) → PAN. Then MIX dry ↔ wet;
+  first version had a dead zone of 511 LSB and left a DC of 37) → LEVEL (the Reactor's law) → PAN. Then MIX dry ↔ wet;
   0 is no DESTROY, bit for bit. The shapers:
   - **NONE:** guarded at 4 × full scale.
   - **SOFT:** asymmetric, a lower ceiling on the negative side; h2 −20 dB. ALT = hardness.
@@ -635,10 +634,10 @@ PHASER.
   CMP's 3. The A/B is `d1_split_lr4.wav` / `d1_split_cmp.wav`, to be heard.
 - *Hear it:* `loop_split.wav`, `hold_split.wav`: clean lows, crushed mids, biased SOFT upper mids, folded highs, the
   bands panned apart.
-- *The page:* FX steps VECTOR → RIDER → DESTROY. EDIT picks the band and ALGORITHM its shaper. K1–K4 are GAIN, ALT,
+- *The page:* FX steps NAV → REACTOR → DESTROY. EDIT picks the band and ALGORITHM its shaper. K1–K4 are GAIN, ALT,
   BIAS and LEVEL; with SEL held, SPLIT, PAN, XOVER and MIX. The bands are drawn as rectangles on a log-frequency
   axis.
-- *Fit it:* fm1-emu, DISTROY (voice, Rider BP12, DESTROY LR4) in the loop: the first build's worst
+- *Fit it:* fm1-emu, DISTROY (voice, Reactor BP12, DESTROY LR4) in the loop: the first build's worst
   interrupt was **52.0 %**, over C1's 50 %, with DESTROY alone ~22 %.
   - Restructured into blocks: the crossover over a call's frames into four band buffers, then each band through
     its shaper with the type picked once, not a sample.
@@ -668,7 +667,7 @@ PHASER.
   The tails' floor is ~−80 dB: the lines are Q14 in 16 bits.
 - *Hear it:* `loop_plucks.wav`, `loop_tour.wav`, `loop_chords.wav`, `loop_distroy.wav` (everything at max, 1/16
   synced, ping-pong), and the demo. No render clips (PLUCKS peaks at 31469).
-- *The page:* FX steps VECTOR → RIDER → DESTROY → SPACE. The panel shows the echoes as lines falling by FDBK (the
+- *The page:* FX steps NAV → REACTOR → DESTROY → SPACE. The panel shows the echoes as lines falling by FDBK (the
   right channel's ice-white in ping-pong) over the reverb's tail, along 2 s; the bottom shows the delay's time and
   mode and the room.
 - *Fit it:* fm1-emu, DISTROY in the loop.
@@ -709,7 +708,7 @@ PHASER.
 - *Hear it:* `d2_split_phat.wav` / `d2_split_nodyn.wav` (SPLIT, a held bass, PHAT on the low band at T −12 dBFS:
   RMS +0.5 dB, crest −0.8 dB), and `d2_distroy_dyn.wav` / `d2_distroy_nodyn.wav` (PHAT low, SHARP on CRUSH and
   HARD: crest +0.5 dB, the attacks spit). DISTROY's band levels came down ~1.5 dB, and with them the clipping in
-  `hold_distroy` at note 57: a Rider stage rings there.
+  `hold_distroy` at note 57: a Reactor stage rings there.
   - That clipping was older than D2. S1's scan of the renders had missed it, because the sanitizer run had stopped
     `run_sd.sh` before the renders: the files measured were stale. The cause was a buffer in D2's new test.
 - *The page:* DESTROY with SEL held: K3 SHAPE (PH / OFF / SH), K4 BODY (dBFS). MIX moved to ALGORITHM and XOVER to
@@ -754,34 +753,34 @@ PHASER.
     simpler.
   - *Open:* ~0.5 % has to come back, now or in C1, which adds the mod matrix as well.
 
-**R4 done 2026-11-05.** The user heard the Rider as "too extreme, ring-modulator-like, a tin can".
+**R4 done 2026-11-05.** The user heard the Reactor as "too extreme, ring-modulator-like, a tin can".
 - *Why:*
   - MIX crossfaded dry to wet, and most patches sat at full wet: the voice's fundamental and body were gone,
     leaving narrow bandpasses alone.
-  - In DISTROY, VOWEL and RIDE the filters did not follow the note. A resonance between the harmonics rings at a
+  - In DISTROY, VOWEL and FUSION the filters did not follow the note. A resonance between the harmonics rings at a
     pitch the note does not have, which is what a ring modulator does.
   - DRIVE and the loops' saturation intermodulated the filters.
 - *MIX fills (`SD_RMIX`):*
   - Up to the middle the dry stays whole and the wet comes in on top; past it the dry fades.
   - Both are scaled by 1 / sqrt(dry² + wet²), so the loudness holds across MIX: −3 dB each at the middle.
   - The ends are the old law's.
-- *The low keep (`r_low`):* the lows under 50 … 400 Hz skip the Rider. Whatever MIX takes of the dry, a one-pole
+- *The low keep (`r_low`):* the lows under 50 … 400 Hz skip the Reactor. Whatever MIX takes of the dry, a one-pole
   gives back below the corner. At full MIX, 60 Hz comes through at −0.3 dB with it, −41 dB without.
 - *HARM (`r_track` bit 2; bit 1 is KEY):* each filter goes onto the nearest harmonic of the note (1 … 32, none under
   the fundamental). The resonances then strengthen what the voice has instead of adding tones.
   - KEY+H first transposes with the key, then snaps; HARM alone keeps the stages' own colour (a vowel's formants)
     and snaps it.
-  - On the harmonics a filter passes 1.4 … 7.4 dB more (measured on five patches), so HARM takes the Rider's level
+  - On the harmonics a filter passes 1.4 … 7.4 dB more (measured on five patches), so HARM takes the Reactor's level
     × 0.59.
 - *Patches:* MIX 24 000 … 40 000, RES and DRIVE lower, HARM or KEY+H, LOW 160 … 180 Hz.
-  - DISTROY, VOWEL, CHORDS, PLUCKS and RIDE.
+  - DISTROY, VOWEL, CHORDS, PLUCKS and FUSION.
   - FLANGE and PHASER are unchanged (full wet, r_low 0: the old law exactly).
-- *POLY:* a voice is now −6 dB (was −3). Once the Rider kept the dry, four voices in a chord clipped CHORDS and RIDE.
+- *POLY:* a voice is now −6 dB (was −3). Once the Reactor kept the dry, four voices in a chord clipped CHORDS and FUSION.
   POLY patches are 3 dB quieter.
-- *Hear it:* `build/audio/r4/before_*.wav` and `after_*.wav` for DISTROY, VOWEL, CHORDS, PLUCKS and RIDE. Each is
+- *Hear it:* `build/audio/r4/before_*.wav` and `after_*.wav` for DISTROY, VOWEL, CHORDS, PLUCKS and FUSION. Each is
   a scene (`sd_render scene`) at 100 BPM, 29 s: a bass riff low, a slow melody, four POLY chords, a fast arpeggio
-  over two octaves. No render clips; the loudness is within ~1 dB of before, RIDE +4 dB.
-- *The page:* RIDER, ALGORITHM TRACK (OFF KEY HARM KEY+H), SEL + ALGORITHM LOW; both on the panel's title row.
+  over two octaves. No render clips; the loudness is within ~1 dB of before, FUSION +4 dB.
+- *The page:* REACTOR, ALGORITHM TRACK (OFF KEY HARM KEY+H), SEL + ALGORITHM LOW; both on the panel's title row.
 - *Fit it:* fm1-emu, DISTROY in the loop: 44.2 % on average (43.2 % at D3). The worst interrupt reads **52.7 %**
   (50.5 % at D3).
   - The first R4 read 53.4 / 53.9 %. HARM's scan of all 32 harmonics, four filters a tick, eight ticks an interrupt,
@@ -792,13 +791,13 @@ PHASER.
   - *Open, for C1:* the worst case is 2.7 % over 50 %, with C1's mod matrix still to add.
 
 **C1 (2026-11-05): the CPU first.** fm1-emu, DISTROY in the loop, the worst interrupt (the readout):
-- *Where it goes* (one block off at a time): the voice 20.7 %, DESTROY 14.3 %, the Rider 10.9 %, SPACE 6.4 %; the
+- *Where it goes* (one block off at a time): the voice 20.7 %, DESTROY 14.3 %, the Reactor 10.9 %, SPACE 6.4 %; the
   four add up to the 52.7 % R4 left.
 - *Done, all bit-exact (the demo renders sample for sample the same):*
-  - The Rider's loop: one variant per model and MIX side (`sd_rider_loop`, MODEL and FILL constants), its scalars in
+  - The Reactor's loop: one variant per model and MIX side (`sd_reactor_loop`, MODEL and FILL constants), its scalars in
     locals. DESTROY's crossover: one variant per XOVER and feedback (`sd_dx_loop`), its coefficients in locals.
     52.7 → 50.7 %, 44.2 → 42.5 % on average.
-  - No divide per sample: the signed `/ 2`, `/ 256`, `/ 512` in the Rider's KP, the knee, DESTROY's DC blocker and
+  - No divide per sample: the signed `/ 2`, `/ 256`, `/ 512` in the Reactor's KP, the knee, DESTROY's DC blocker and
     line, SPACE's store and its Hadamard compiled to the chip's divide. They are shifts toward zero (`sd_tz`) now.
     77 → 50 divides in the image, those left at control rate. Neutral in the emulator, which counts a divide as one
     instruction; on the chip a divide costs many cycles.
@@ -814,29 +813,29 @@ macros (§8), in `sd_engine.h`, all at the control rate:
   `e->patch`, what the engines read, is the base with the modulation written on top each tick (`sd_mod_tick`).
   `sd_mod_restore` puts back only the fields the modulation wrote. No slot and the macros at 0: the patch exactly,
   sample for sample (the A/B: loop renders with a full copy a tick and with the restore are identical).
-- *Sources (Q15):* ENV1 and ENV2 of the last note's voice, LFO1, LFO2, VEC X and VEC Y (where the vector is,
+- *Sources (Q15):* ENV1 and ENV2 of the last note's voice, LFO1, LFO2, NAV X and NAV Y (where the nav is,
   around the centre), VEL, KEY (around C4), WHEEL (MIDI CC 1), AFTER (channel pressure), RAND (drawn at each note).
-- *Destinations:* PITCH (+-24 semitones at 100 %), XM WP FD DT, X Y (an offset on top of the vector or VEC2), WIDTH;
-  the Rider's POS FREQ RES DRIVE MIX; DESTROY's GAIN and BIAS (all bands), FDBK TAME MIX; SPACE's FDBK D-LVL
+- *Destinations:* PITCH (+-24 semitones at 100 %), XM WP FD DT, X Y (an offset on top of the nav or COURSE), WIDTH;
+  the Reactor's POS FREQ RES DRIVE MIX; DESTROY's GAIN and BIAS (all bands), FDBK TAME MIX; SPACE's FDBK D-LVL
   R-LVL DECAY. An amount of 100 % moves a destination by its whole range at a full source; slots add up.
 - *LFOs:* SINE TRI SAW RAMP SQUARE S&H; free 0.02 .. 40 Hz (`SD_LFO_INC`, exponential) or 1/16 .. 4 bars of the
   note driver's tempo; KEY restarts one on each note. Global, not a voice's (POLY's four voices share them).
 - *Macros:* 0 is the patch as programmed; each moves a curated set by its own depth (to be tuned by ear):
   - MUTATE: XM, WP, FD, DT up.
-  - MOVE: an orbit of the vector (two slow sines, ~0.23 and ~0.17 Hz), a triangle sweep of POS (+-3 stages), the
-    Rider's slew, WIDTH.
-  - BREAK: the Rider's DRIVE, DESTROY's GAIN, ALT, the bias's range (up to 2.5 x), FDBK and MIX; the bands' level
+  - MOVE: an orbit of the nav (two slow sines, ~0.23 and ~0.17 Hz), a triangle sweep of POS (+-3 stages), the
+    Reactor's slew, WIDTH.
+  - BREAK: the Reactor's DRIVE, DESTROY's GAIN, ALT, the bias's range (up to 2.5 x), FDBK and MIX; the bands' level
     back by up to 8.5 dB, so BREAK destroys instead of getting louder (without it DISTROY and SPLIT clipped).
-  - MACRO 4, the patch's kind: BODY (the Rider's RES and LOW, PHAT on every band, TAME), AIR (the Rider's FREQ
+  - MACRO 4, the patch's kind: BODY (the Reactor's RES and LOW, PHAT on every band, TAME), AIR (the Reactor's FREQ
     up to +12, WIDTH, less TAME, SPACE's tones brighter) or DROWN (SPACE's levels, decay, feedback, size).
-- *Patches:* eight have slots (GLASS AFTER -> XM, WHEEL -> WP; GROWL a synced LFO on FD, VEL -> XM; TOUR two slow
+- *Patches:* eight have slots (GLASS AFTER -> XM, WHEEL -> WP; GROWL a synced LFO on FD, VEL -> XM; VOYAGE two slow
   LFOs on X and Y; DISTROY S&H a sixteenth on POS, a slow LFO on WP, ENV2 -> DESTROY's GAIN, WHEEL -> its FDBK;
-  VOWEL VEL -> RES, AFTER -> DRIVE; PLUCKS VEL -> RES, RAND -> POS; RIDE a two-bar LFO on FREQ; SPLIT ENV1 -> BIAS).
+  VOWEL VEL -> RES, AFTER -> DRIVE; PLUCKS VEL -> RES, RAND -> POS; FUSION a two-bar LFO on FREQ; SPLIT ENV1 -> BIAS).
   DISTROY's LFO on WP keeps the warp's cache from ever holding: the worst case.
 - *The pages:* FX steps on to MOD (EDIT: slots 1..8, LFO 1, LFO 2; a slot's K1 SRC K2 DST K3 AMT; an LFO's K1
   SHAPE K2 RATE K3 MODE) and HOME (K1..K4 the macros, ALGORITHM MACRO 4's kind). `tests/scripts/c1.txt`.
 - *Hear it:* `build/audio/c1_macros_*.wav` (`sd_render macros`): the loop at 110 BPM, each macro in turn up to 99,
-  held, back, for GLASS GROWL TOUR DISTROY VOWEL PLUCKS SPLIT. No clipping but DISTROY's MUTATE at full (16 samples).
+  held, back, for GLASS GROWL VOYAGE DISTROY VOWEL PLUCKS SPLIT. No clipping but DISTROY's MUTATE at full (16 samples).
 - *The copy:* a whole patch is ~400 bytes, and `-fno-builtin` makes the copy a byte at a time (~1200 instructions).
   Before C1 the audio took one every tick, ~0.7 % of the chip; the first matrix took two (52.3 % with no slot).
   Now one only when the main loop hands a patch over.
@@ -856,25 +855,25 @@ macros (§8), in `sd_engine.h`, all at the control rate:
 something that evolves more? I want to hear the sonic spectrum. That should be the essence of this synth."
 - `sd_render evolve OUT PATCH [SECONDS]`: a slow line of tied and slid quarters at 76 BPM in D minor, while the four
   macros drift on slow curves of their own (37, 23, 29 and 53 s), out of step, MUTATE and BREAK under an arc that
-  rises to two thirds and settles. `build/audio/evolve/evolve_*.wav` (TOUR, DISTROY, VOWEL, GROWL, RIDE, 90 s): the
+  rises to two thirds and settles. `build/audio/evolve/evolve_*.wav` (VOYAGE, DISTROY, VOWEL, GROWL, FUSION, 90 s): the
   spectrum's centroid wanders 350 .. 1400 Hz.
 - What it found:
   - *DC in SPACE.* A warp toward pulse has a DC; SPACE's feedback and its room's lines multiplied it (up to 20 ..
-    100 x), DROWN on TOUR building a rumble. SPACE's input now loses its DC (~7 Hz) before the echoes and the room;
-    the dry keeps it. The mix's DC: −56 dB (TOUR).
-  - *The macros together clipped* (RIDE, TOUR: long tied notes, MOVE, BODY / DROWN up at once). The output now has
+    100 x), DROWN on VOYAGE building a rumble. SPACE's input now loses its DC (~7 Hz) before the echoes and the room;
+    the dry keeps it. The mix's DC: −56 dB (VOYAGE).
+  - *The macros together clipped* (FUSION, VOYAGE: long tied notes, MOVE, BODY / DROWN up at once). The output now has
     a shoulder: linear to 0.85 of full scale, then `sd_knee`'s cubic to it, so an overload saturates instead of
-    clipping; under 0.85 it is the same sample for sample (of the loops only PLUCKS and RIDE reach it). DROWN's
+    clipping; under 0.85 it is the same sample for sample (of the loops only PLUCKS and FUSION reach it). DROWN's
     feedback +3000 (was +8000), BODY's RES +4000 (8000).
 - *Fit it:* the shoulder and the DC cost 0.8 %: DISTROY in the loop reads 47.9 % worst, 40.6 % on average.
 
-**The essence, round two (2026-11-05).** The user on the evolve pieces: TOUR "definitely the best", but it
+**The essence, round two (2026-11-05).** The user on the evolve pieces: VOYAGE "definitely the best", but it
 "sounds like a random voxel / formant … often with a random sine modulation"; "much better with stepwise modulation
 from the randomizer"; GROWL "so noisy it is nearly unusable"; "I always get the best results with [the distortion] on the top
 frequencies, and/or modulated, but all modulation must add something rhythmic".
-- *Rhythmic, stepped:* MOVE jumps the vector and the Rider's POS to new random places on each beat (glided ~10 ms)
+- *Rhythmic, stepped:* MOVE jumps the nav and the Reactor's POS to new random places on each beat (glided ~10 ms)
   instead of its slow sines; an S&H LFO glides ~10 ms into each step (no click, still a step); `sd_render evolve`
-  steps the macros on bars (each its own count, a random walk, glided ~80 ms). TOUR's LFOs are synced S&H on X (a
+  steps the macros on bars (each its own count, a random walk, glided ~80 ms). VOYAGE's LFOs are synced S&H on X (a
   quarter) and Y (a half); DISTROY's warp and POS step on 16ths.
 - *DESTROY on the top:* BREAK weights the bands' gain and ALT toward the top (gain +4000 / 12000 / 20000 / 26000 at
   full, low to high). On a patch without DESTROY BREAK sets one up (lows clean, SOFT and HARD on the top two, at
@@ -884,9 +883,9 @@ frequencies, and/or modulated, but all modulation must add something rhythmic".
 - *GROWL usable, MUTATE gentler:* measured as the energy off the note's harmonics on a held D2 (aliasing heard as
   noise): GROWL −13.8 dB, at MUTATE full −4.4 (half of it noise). The chain's saw edges under FM alias; GROWL sits
   between triangle and saw now (WP 20000, FD 8000, XM 24000): −24.4 dB. MUTATE adds XM 12000, WP 6000, FD 7000,
-  DT 6000 (was 20000, 13000, 16000, 8000): GROWL at MUTATE full −8.2, TOUR −12.2 (−8.0). BREAK's Rider drive +6000
-  (RIDE was +3 dB louder).
-- *Left:* RIDE's evolve piece is hot (−10.5 dB RMS against −17 for the others: low tied notes into its resonances),
+  DT 6000 (was 20000, 13000, 16000, 8000): GROWL at MUTATE full −8.2, VOYAGE −12.2 (−8.0). BREAK's Reactor drive +6000
+  (FUSION was +3 dB louder).
+- *Left:* FUSION's evolve piece is hot (−10.5 dB RMS against −17 for the others: low tied notes into its resonances),
   its peaks on the output's shoulder.
 - *Fit it:* DISTROY in the loop reads **48.5 %** worst, 40.8 % on average (47.9 % before: its top bands driven harder
   take the knees' cubic more often). 1.5 % under 50: the next feature that costs audio time pays for itself.
@@ -898,7 +897,7 @@ again … not that exciting".
   is a ramp down inside each note: the FM dying away, the grit falling, a pitch drop, a split sinking.
 - *Six patches* (P15–P20), each built on that and on stepped S&H, the destruction on top, warps under the saw:
   COMET (an FM pluck; FM and grit fall each note, the warp steps on eighths), NEBULA (a pad through AP2; its place
-  steps a bar, the fold grows each note), PULSAR (the vector between bell and glass stepping on 16ths; the upper
+  steps a bar, the fold grows each note), PULSAR (the nav between bell and glass stepping on 16ths; the upper
   split sinks each note), ION (a round bass under a destroyed, panned top; the split jumps on 16ths, the grit falls
   each note), ORBITAL (percussive FM: pitch and FM fall in ~150 ms; RAND places each hit in the field), MONOLITH
   (long notes; the fold steps on quarters, the grit pulses on eighths). Off the harmonics on a held D2: −19 … −32 dB.
@@ -918,7 +917,7 @@ sound: no go".
   tones (MONOLITH −26 → −18 dB off the harmonics with its DESTROY, −10 at BREAK 70). MONOLITH: SOFT only, no loop.
 - *A bank's WP offset counts twice* (the Q page's scale): the chain banks' +17000 was +34000, past the saw. Now
   +8000.
-- *NEBULA, PULSAR and ORBITAL rebuilt on what makes TOUR and DISTROY themselves:* NEBULA's character is the Rider,
+- *NEBULA, PULSAR and ORBITAL rebuilt on what makes VOYAGE and DISTROY themselves:* NEBULA's character is the Reactor,
   four KP combs on the chord's tones kept on the harmonics (KEY+H), bowed by a soft stack, the chord stepping a bar;
   PULSAR is a spectral sequencer, four banks as far apart as they go (glass, the odd cluster 5 7 9 11, a chain, the
   organ) with X and Y stepping on 16ths and eighths; ORBITAL is a short FM hit landing anywhere in such a field,
@@ -930,11 +929,11 @@ better, preferably in unorthodox ways"; and before it: "systems so the outcome i
 calculated and musical are important, even if it is to be sonically exciting".
 - *Six new sources*, the engines as modulators, each from the last tick: SEQ STEP (where the pattern is, −1 … +1
   across it), SEGMENT (which segment), D LOW and D TOP (DESTROY's low and top bands' fast followers, −48 … 0 dBFS
-  as 0 … 1), R STAGE (the Rider's stage, 1 … 6 as −1 … +1), ECHO (SPACE's wet level, followed ~60 ms). They are
+  as 0 … 1), R STAGE (the Reactor's stage, 1 … 6 as −1 … +1), ECHO (SPACE's wet level, followed ~60 ms). They are
   rhythmic by nature: steps, segments, stages and the hits' energy.
-- *Cross-wired patches:* DISTROY (the bass pushes the Rider's stages, the split sweeps the loop), ION (the bass
-  ducks the top's grit), COMET (the grit feeds the echoes), TOUR (Y walks the loop, the echoes bend the warp),
-  ORBITAL (the Rider's stage picks where each hit lands), NEBULA (the echoes fold it), PULSAR (each segment its own
+- *Cross-wired patches:* DISTROY (the bass pushes the Reactor's stages, the split sweeps the loop), ION (the bass
+  ducks the top's grit), COMET (the grit feeds the echoes), VOYAGE (Y walks the loop, the echoes bend the warp),
+  ORBITAL (the Reactor's stage picks where each hit lands), NEBULA (the echoes fold it), PULSAR (each segment its own
   fold). The tour's patterns are four segments now, so SEGMENT has something to say.
 - *MONOLITH dry:* no delay, a small room, no gating; its FM grows inside each note, its fold rises across the
   loop, the warp steps on quarters, BODY for MACRO 4. Off the harmonics on a held G2 at 3 s: −20.8 dB, GLASS's
@@ -942,14 +941,14 @@ calculated and musical are important, even if it is to be sonically exciting".
 - *Still to build:* the musical guardrails as a system (pitch, time, spectrum, level, a musicality gate in the
   tests), proposed to the user.
 
-**The cinematic demo (2026-11-05).** The user asked for "a short demo layering some sounds … a soundtrack as if
-Star Wars were made in 2026 … big, mighty and alien: Hans Zimmer meets Star Distroyer": `tools/sd_cine.c`, original
-material (D minor, 84 BPM, Dm Bb Gm A), eight engines layered as a multitrack (NEBULA's chords, TOUR's alien line,
+**The cinematic demo (2026-11-05).** The user asked for "a short demo layering some sounds … a soundtrack …
+big, mighty and alien": `tools/sd_cine.c`, original
+material (D minor, 84 BPM, Dm Bb Gm A), eight engines layered as a multitrack (NEBULA's chords, VOYAGE's alien line,
 PULSAR's 16th ostinato, ION's bass, ORBITAL's taiko, MONOLITH's drone and braams with DISTROY's, a sine sub), the
 macros stepping a bar at a time; −27 dB RMS in the intro to −14 in the climax. The user: "fantastic, but missing a
 little depth, and somewhat fierce, screaming high overtones in the lead and in the FM in general".
 - *FM up high, in the engine:* a modulator past 4 kHz now loses its index, gone by 12 kHz (its sidebands were the
-  screech), and the tracking's knee is C5 (was C6). The energy over 6 kHz on a held note: TOUR at D6 −8 → −17 dB,
+  screech), and the tracking's knee is C5 (was C6). The energy over 6 kHz on a held note: VOYAGE at D6 −8 → −17 dB,
   at D5 −24 → −26; EPIANO at D5 −19 → −26, at D6 −21 → −56; under C5 nothing changes.
 - *Depth in the demo:* the pad and the alien far back (MACRO 4 DROWN at 65 … 90 %), the bass and the drums dry and
   near, a sine sub an octave under the root from the build on, the alien line an octave lower.
@@ -970,7 +969,7 @@ the same time … but keep it melancholy and beautiful". `tools/sd_epic.c`, orig
   - three cellos (the melody; a harmony on the nearest chord tone a third or more below; the roots, a long note a
     chord);
   - GLASS's choir an octave over the chord tones, and DISTROY's POLY horns in the low middle;
-  - the rhythm parts, the braams, TOUR's lead and the sub as before.
+  - the rhythm parts, the braams, VOYAGE's lead and the sub as before.
 - *Intensity:* the climax's phrase plays twice. The second time is a tone up, F# minor, reached from D (its VI).
   Before each climax the rhythm and the drones drop out for a beat. The drums are denser in each climax.
 - *The bus (the tool's mix, not the engine):* the master fader rides the form, then a peak compressor (−6 dBFS,
@@ -1022,24 +1021,24 @@ instrument. Analyse the waveforms and match as well as you can."
   a weak fundamental low (C2 at −28 dB), its strongest around 160 … 320 Hz, a dip at 400 … 800, a bump at 1 kHz,
   a shelf near −27 dB to 3.3 kHz, falling past 4 kHz. The violin: the air resonance 250 … 400 Hz, a dip at
   650, peaks at 1 and 1.6 kHz, then −16 dB an octave past 2.5 kHz. Bowed attacks of 150 … 500 ms, little vibrato.
-- *The model:* a saw through a body. The Rider's four BP6s on fixed frequencies (no tracking): stages 1-3 the
+- *The model:* a saw through a body. The Reactor's four BP6s on fixed frequencies (no tracking): stages 1-3 the
   cello's body, 4-6 the violin's, KEY moving POS across them, so one instrument goes from the one to the other with
   the keys; DESTROY unshaped as a four-band level and TAME, KEY closing TAME with the pitch.
 - *Matched by search* (`tools/sd_strings.c` with a parameter file; a coordinate descent on the levels, splits,
-  TAME, the Rider's RES and MIX and the two bodies' levels): third-octave RMS 14.6 dB at the first guess, 4.0 at
+  TAME, the Reactor's RES and MIX and the two bodies' levels): third-octave RMS 14.6 dB at the first guess, 4.0 at
   the end (cello 4.4, violin 3.3). What is left: the cello's lowest fundamentals (+8 … +13 dB: the same body
   cannot cut 65 Hz and keep the violin's 220), the violin's top over 5 kHz (+3 … +7). Its strongest resonances
-  reach the Rider's soft clip (flat tops in the waveform). No bow noise: the engine has no noise source.
+  reach the Reactor's soft clip (flat tops in the waveform). No bow noise: the engine has no noise source.
 - *Round two, "with all the tools we have":* the noise between the harmonics joins the match (the recordings':
   cello −12.7, violin −21.0 dB under the harmonics).
   - Two sources in the field: bank A a saw whose 2nd and 3rd harmonics' saws carry it (the cello's weak low
-    fundamental), B a plain saw; KEY moves the vector A → B with the pitch.
+    fundamental), B a plain saw; KEY moves the nav A → B with the pitch.
   - The bow: each bank's first oscillator an inharmonic modulator (7, +47 cents) under a short ENV2 (XM 20000):
     a scratch at each note, a hiss under it after. It stands in for the noise source the engine does not have.
   - Tried and dropped: DESTROY's CRUSH as hiss on the top band (it replaces the band, it does not add to it).
   - Bodies 3.6 (cello) and 3.5 dB (violin) RMS by third-octave; noise −12.7 and −20.5 dB (theirs −12.7, −21.0).
 - *V4, locked (2026-11-05).* The cello duo's rounds by ear (V1 … V4, `tools/cello_v4.txt`) left the violin and the
-  KEY morph behind: a plain saw (WARP 25544, attack 70, sustain 118), 8 cents of vibrato at 5.5 Hz, the Rider's
+  KEY morph behind: a plain saw (WARP 25544, attack 70, sustain 118), 8 cents of vibrato at 5.5 Hz, the Reactor's
   BP6s snapped to the note's harmonics (HARM) on stage 2's cello body, DESTROY's four levels (−22 −4.8 −0.1 +6.8 dB
   at 262 750 2380 Hz), TAME 22000, a small room, mono. The user liked it in the duo and in the second cue, and it
   is now STRINGS itself; `tests/run_sd.sh` renders the duo from the patch and from the file and compares them bit
@@ -1053,7 +1052,7 @@ for bit as before:
   swelling, its top tamed), DRIVE (ION without the grit split on the step, dotted-eighth delays), UNDERTOW (ION
   dry), IMPACT (ORBITAL dry);
 - BRAAM and SCREAM (DISTROY whose destroyed band falls through the spectrum in a hit: a once-a-note SAW on D SPLIT,
-  30 % and 45 %, and on XM), BEACON (TOUR with a 5 Hz vibrato, its top tamed, far back), DEPTH (a sine, slow);
+  30 % and 45 %, and on XM), BEACON (VOYAGE with a 5 Hz vibrato, its top tamed, far back), DEPTH (a sine, slow);
 - SHARDS (GLASS short and wide, no detune, the 32nd arp) and PRISM (it ringing longer and darker, the falling
   16ths, dotted-quarter delays).
 The voice mode (POLY for HALO, AURORA and TITAN) stays the player's (GLO), as it is for every patch. The CPU is
@@ -1063,15 +1062,15 @@ unchanged (the boot patch is still DISTROY: 40.8 % in the emulator).
 in the emulator: "everything is under FX: it must be spread to the right place … I miss a lowpass filter: we must
 nearly manage to bake one in"; on the envelopes: "is it impossible with today's setup without breaking anything?"
 (no: ENV1 and ENV2 were always in every patch, only without a page).
-- *The filter:* a lowpass on each voice (POLY: each note its own), on the banks' carriers before the vector's
-  balance: one TPT SVF stage (LP12) or a Butterworth pair (LP24), as the Rider's and TAME's, SD_RG's warp, MIDI
+- *The filter:* a lowpass on each voice (POLY: each note its own), on the banks' carriers before the nav's
+  balance: one TPT SVF stage (LP12) or a Butterworth pair (LP24), as the Reactor's and TAME's, SD_RG's warp, MIDI
   16–130. RES by SD_FK, even in dB of the peak: k from flat to 0.1 (+23 dB, LP12) and 0.054 (+25 dB, LP24), never
   self-oscillating; the output held to the render's range. The cutoff: CUTOFF + KEY (0–100 %) + VEL (up to +24
   semitones) + ENV 3 (its own ADSR, ±60 semitones); the matrix has ENV3 as a source and F CUT, F RES as
   destinations. All zero is off: every patch before it renders bit for bit as it did (cue 2 and the duo checked).
   `sd_test`: LP12 −31 dB and LP24 −60 dB at 2–5 kHz with the cutoff near 400 Hz, the lows within 3 dB; ENV 3
   opens it +68 dB; full RES in range.
-- *The pages, each its button's:* HOME the voice (VECTOR) and again the macros; FX RIDER → DESTROY → SPACE; ENV
+- *The pages, each its button's:* HOME the voice (NAV) and again the macros; FX REACTOR → DESTROY → SPACE; ENV
   ENV 1 / ENV 2 (SEL) and again FILTER (ENV 3 with SEL); LFO the matrix at LFO 1, LFO 2, then the slots; ARP the
   arpeggiator; SEQ A, B. Their LEDs light with their pages.
 - *Fit it* (fm1-emu, DISTROY in POLY, four keys held and the loop playing, the audio's average): filter off 36.9 %,
@@ -1087,7 +1086,7 @@ the Star Distroyer version": a small edge that makes each its own.
   - Under the top split, DESTROY passes the sound as it was (NONE through LR4).
   - The top band alone is destroyed.
   - Something steps on the beat (a synced S&H).
-  - It works in MONO, DUO and POLY alike; a twist on the vector would not, since POLY plays bank A alone.
+  - It works in MONO, DUO and POLY alike; a twist on the nav would not, since POLY plays bank A alone.
 - *Each:*
 
   | Patch | Its edge |
@@ -1109,8 +1108,8 @@ the Star Distroyer version": a small edge that makes each its own.
     set so the top lands +3 to +6 dB over the patch before.
   - **SHARP and the D HIGH slots lift peaks.** VEL → D HIGH alone added 4 dB to EPIANO's top at velocity 100, so both
     are kept small.
-  - **ORGAN's allpasses took its body.** In FILL the Rider adds the allpasses' wet on the dry, and below 800 Hz their
-    phase took 2 dB of the organ's body. The stages moved over 800 Hz, and the Rider went a quarter wet.
+  - **ORGAN's allpasses took its body.** In FILL the Reactor adds the allpasses' wet on the dry, and below 800 Hz their
+    phase took 2 dB of the organ's body. The stages moved over 800 Hz, and the Reactor went a quarter wet.
 - *Hear it:* `build/audio/twist/ab/StarDistroyer_edge_*.m4a`, each the patch's `sd_render scene` before, a second of
   silence, then after.
 - *Measured* (the scene, before → after):
@@ -1137,7 +1136,7 @@ the Star Distroyer version": a small edge that makes each its own.
 **Four out (2026-11-08, later).** The user listened to the A/Bs: GLASS, BELL, EPIANO and ORGAN still sounded like
 classic FM, edge or not. Given the choice of rebuilding them or taking them out, the user took them out. AURORA ("sounds
 fantastic") and GROWL stay, with their edge.
-- *The bank:* 29 patches, GROWL first. DISTROY, the boot patch, is now P03. The banks live on inside TOUR, DISTROY and
+- *The bank:* 29 patches, GROWL first. DISTROY, the boot patch, is now P03. The banks live on inside VOYAGE, DISTROY and
   the cue's patches (`BK_GLASS`, `BK_BELL`, `BK_ORGAN`, `BK_EPIANO_LIGHT`); `BK_EPIANO`, used by EPIANO alone, went.
 - *By name:* the code names a patch by `SD_P_*` (an enum in `sd_patches.h`), never by its number, and `test_names`
   checks each against its name. `sd_render` takes a patch's name (`sd_render hold out.wav distroy 45`), and
@@ -1160,9 +1159,9 @@ do. It goes on the page with its own player.
 
   | Part | Bars | What plays |
   |---|---|---|
-  | DRIFT | 1–8 | AURORA's chords in POLY swell in (MASTER from nothing). DISTROY is held on C2, its four banks at the centre, with BREAK bringing up the noise and MOVE orbiting the vector. It is cut at the bar line. |
-  | SIGNAL | 9–24 | PULSAR's staccato 16ths in MONO, with a ratchet and PROB, its vector jumping across its four banks. SCL + key moves it with the chords, and its figure of roots, fifths and ninths has no third to clash. UNDERTOW plays eighths, and the STRINGS cello comes in at bar 17. |
-  | BREACH | 25–32 | The chords move to Fm, Abmaj7, Cm9 and G7. PULSAR holds a pedal C with TURING rewriting it (CHANGE 35, RANGE 4); its top band goes to CRUSH with the GAIN up, and BREAK and MOVE rise. The bass's WARP turns toward the saw, and the cello climbs with its Rider on the brighter stages. |
+  | DRIFT | 1–8 | AURORA's chords in POLY swell in (MASTER from nothing). DISTROY is held on C2, its four banks at the centre, with BREAK bringing up the noise and MOVE orbiting the nav. It is cut at the bar line. |
+  | SIGNAL | 9–24 | PULSAR's staccato 16ths in MONO, with a ratchet and PROB, its nav jumping across its four banks. SCL + key moves it with the chords, and its figure of roots, fifths and ninths has no third to clash. UNDERTOW plays eighths, and the STRINGS cello comes in at bar 17. |
+  | BREACH | 25–32 | The chords move to Fm, Abmaj7, Cm9 and G7. PULSAR holds a pedal C with TURING rewriting it (CHANGE 35, RANGE 4); its top band goes to CRUSH with the GAIN up, and BREAK and MOVE rise. The bass's WARP turns toward the saw, and the cello climbs with its Reactor on the brighter stages. |
   | AFTERGLOW | 33–40 | BRAAM hits on the downbeat. PULSAR fades out by MASTER, the cello's last phrase falls to a low C, and the chords drown under MACRO 4, then MASTER lets the hall go. |
 
 - *Levels:* the faders are set from each pass's RMS part by part. In SIGNAL, with all four playing, the cello is
@@ -1181,7 +1180,7 @@ do. It goes on the page with its own player.
   | 1–4 | THE CALL | BRAAM's hits on C, Ab and G, under AURORA's chords swelling in |
   | 5–8 | THEME I | the cello's melody over the chords and the bass's long roots |
   | 9–12 | THEME II | PULSAR's staccato 16ths under the cello's answer; the bass in eighths |
-  | 13–16 | THEME III | BEACON's high line far back (TOUR's banks, VEC2), PULSAR's glints |
+  | 13–16 | THEME III | BEACON's high line far back (VOYAGE's banks, COURSE), PULSAR's glints |
   | 17–20 | THEME IV | a pedal C in Phrygian, saved with TURING on (CHANGE 35, RANGE 4), its top band to CRUSH, BREAK and MOVE up; the bass in 16ths, its WARP up |
   | 21–24 | I over II | |
   | 25–28 | III on the cello | |
@@ -1220,6 +1219,13 @@ do. It goes on the page with its own player.
   - *The guard:* `test_nowhere` catches it under UBSan. `tests/run_sd.sh` also runs DERELICT under the sanitizers,
     and a demo that stops now shows the end of its log. Before, the log went to `performance.txt` unseen.
   - *Fit it:* DISTROY in MONO reads 40.8 %.
+- *CINEMATIC remade, and back (2026-11-08).* The user asked to put the cinematic demo on the page in THE SONG's
+  place, "remade the way we would play it; changing the parameters is allowed". It was remade as four passes on one
+  FM-1 under DERELICT's rules (HALO; BEACON then IMPACT; PULSAR; MONOLITH, UNDERTOW, BRAAM and DEPTH). The user heard
+  that "it has lost what it had": most of the alien's line, the macros stepping each bar, the sub through the build,
+  and its eight layers. So the first one (eight parts layered as a multitrack) is back as it was, and it is the
+  page's CINEMATIC. What stays from the remake is the shared layering in `tools/sd_layer.h` (DERELICT uses it, bit for
+  bit as before).
 - *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
   spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
 
@@ -1232,14 +1238,14 @@ power-on for the USB rescue.
 0. *Before anything:* a full flash backup (M-Flasher or MvaveFM1Unbricker, both chips), kept off the unit. Note
    the flash part: 0x856014 (the first units) or 0xB36014 (the UC25HQ80, units sold since autumn 2026); both must
    save and update (`firmware/hal/fm1_flash_map.h`).
-1. *It starts:* the splash, then DISTROY on the VECTOR page; no crash screen.
+1. *It starts:* the splash, then DISTROY on the NAV page; no crash screen.
 2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's 41.2 % (POLY with SEQ and
    ARP: 44.0 %; the emulator counts instructions, the chip cycles: the gap is what this step measures). Then the
    other patches with PRESETS.
-3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and TOUR through the line out against
+3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and VOYAGE through the line out against
    `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves.
-4. *The pages:* every page button through its pages as `tests/scripts/u1.txt` tours them (HOME VECTOR MACROS; FX
-   RIDER DESTROY SPACE; ENV ENV FILTER; LFO LFO1 LFO2 MOD; ARP; SEQ SEQ A, SEQ B, TURING); EDIT switches ON/OFF,
+4. *The pages:* every page button through its pages as `tests/scripts/u1.txt` tours them (HOME NAV MACROS; FX
+   REACTOR DESTROY SPACE; ENV ENV FILTER; LFO LFO1 LFO2 MOD; ARP; SEQ SEQ A, SEQ B, TURING); EDIT switches ON/OFF,
    SCL held is the second layer; the key LEDs follow the screen; the macros move the sound live.
 5. *The voices:* `tests/scripts/v4.txt` by hand: ARP refused while SEQ plays in MONO, B locked in MONO, the
    messages; DUO and POLY share the voices without a note cut.
@@ -1262,11 +1268,11 @@ time as well as on held notes.
 Eight patches, rendered as a held note, a 16-step line and a POS/XY sweep each:
 
 1. **GLASS** — clean additive, harmonic generator ALL, no fold: the "is it clean?" reference.
-2. **BELL CELL** — METAL generator, series PM, vector between two bell banks.
+2. **BELL CELL** — METAL generator, series PM, nav between two bell banks.
 3. **GROWL** — feedback operator, warp toward pulse, fold mid range, low register.
-4. **VECTOR TOUR** — four contrasting banks, slow TRACE around the field.
-5. **VOWEL** — Rider BPF, six vowel states, POS scanned by LFO.
-6. **PLUCK CHOIR** — Rider COMB at chord pitches, pinged by a short voice.
+4. **VOYAGE** — four contrasting banks, slow TRACE around the field.
+5. **VOWEL** — Reactor BPF, six vowel states, POS scanned by LFO.
+6. **PLUCK CHOIR** — Reactor COMB at chord pitches, pinged by a short voice.
 7. **SPLIT DAMAGE** — Destroy: clean lows, crushed mids, folded highs, PHAT on the low band.
 8. **STAR DISTROYER** — everything at once, feedback on, BREAK high: the worst-case CPU patch and the "does it hold
    together" test.
@@ -1281,8 +1287,8 @@ Patch 8 is also the CPU worst case for Gate A/B.
 
 | Block | Estimate, cycles / sample | Share of 2700 |
 |---|---|---|
-| VOICE: 16 operators × ~40 + vector mix + envelope ramps | ~700 | 26 % |
-| RIDER: 4 resonators × ~25 + drive + pan | ~200 | 7 % |
+| VOICE: 16 operators × ~40 + nav mix + envelope ramps | ~700 | 26 % |
+| REACTOR: 4 resonators × ~25 + drive + pan | ~200 | 7 % |
 | DESTROY: 6 SVFs + 4 bands × 2 ch × ~35 + feedback + TAME | ~550 | 20 % |
 | Control rate (mod, coefficients, slew) amortized | ~100 | 4 % |
 | Sequencer, UI interrupts, key scan | ~150 | 6 % |
@@ -1300,9 +1306,9 @@ replace it with numbers before anything else is built on it.
 |---|---|
 | FM → warp → fold order | V2: decided by §3.0 |
 | Self-feedback on operator 1: keep? | V2: no (§3.0) |
-| Vector gain law (bilinear vs equal power vs in between) | V3 |
+| Nav gain law (bilinear vs equal power vs in between) | V3 |
 | Aliasing knees: how much to tame high notes | V3 |
-| Rider dry path: stereo or mono | R3: stereo (the voice's image kept); to be heard on the FM-1 |
+| Reactor dry path: stereo or mono | R3: stereo (the voice's image kept); to be heard on the FM-1 |
 | Comb interpolation: linear or allpass | R2: linear (KP within 4 cents to 1.76 kHz) |
 | Crossover: complementary or LR4 | D1: LR4 by default (neighbours −25 … −34 dB against −4 … −15); CMP a patch's choice; to be heard |
 | Which 4 further shapers come next (SLEW, HOLD, CHAOS, FRACTAL candidates) | after D3 |

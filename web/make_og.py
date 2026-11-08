@@ -15,7 +15,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 ART = ROOT / "docs" / "readme"
 BG = (6, 8, 12)                                 # C_BG
-SCREENS = ("screen_splash.png", "screen_vector.png", "screen_turing.png")
+SCREENS = ("screen_splash.png", "screen_nav.png", "screen_turing.png")
 
 
 def og():

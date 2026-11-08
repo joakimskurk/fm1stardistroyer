@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* A cinematic demo: the user asked for "a soundtrack as if Star Wars were made in 2026 … big, mighty and alien:
- * Hans Zimmer meets Star Distroyer". Original material (no film's theme): D minor, 84 BPM, Dm Bb Gm A, ~69 s.
+/* CINEMATIC, a cue: the user asked for a soundtrack, "big, mighty and alien". Original material: D minor, 84 BPM,
+ * Dm Bb Gm A, ~69 s. (Remade on 2026-11-08 as four passes on one FM-1, it lost what it had, the user heard: this one,
+ * the first, stays.)
  *
  *   sd_cine OUT.wav [STEMS_DIR]
  *
  * Seven parts, each its own engine as the FM-1 would play it (a multitrack, layered; only the mix is this tool's):
  *   PAD      NEBULA, POLY: the chords, the combs on their tones
- *   ALIEN    TOUR: long notes high, the vector stepping through its field
+ *   ALIEN    VOYAGE: long notes high, the nav stepping through its field
  *   OSTINATO PULSAR on the sequencer: 16ths on the chord's tones, the spectral sequencer's steps
  *   BASS     ION on the sequencer: eighths on the root, the bass ducking its own grit
  *   PERC     ORBITAL on the sequencer: a taiko pattern, low
@@ -93,7 +94,7 @@ static void bass_pattern(uint32_t ch)           /* eighths on the root, an octav
 static void setup(void)
 {
     uint32_t i, k;
-    static const uint8_t PATCH[NT] = {SD_P_NEBULA, SD_P_TOUR, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH,
+    static const uint8_t PATCH[NT] = {SD_P_NEBULA, SD_P_VOYAGE, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH,
                                        SD_P_DISTROY, 0 /* T_SUB: the sine */};
     for (i = 0; i < NT; i++) {
         Track *t = &tr[i];

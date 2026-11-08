@@ -1,5 +1,5 @@
 # V3: DISTROY (the default) in the loop; SEL held: X and Y to corner B, WIDTH up; GLO to DUO; EDIT to bank B and a
-# generator (ALL); then PRESETS to TOUR, stop. Buttons: SEL 3, EDIT 6, GLO 7, PLAY 12.
+# generator (ALL); then PRESETS to VOYAGE, stop. Buttons: SEL 3, EDIT 6, GLO 7, PLAY 12.
 200 btn 12
 1500 shot
 2000 btndown 3

@@ -17,7 +17,7 @@
  *   - the roles route left to right (S the next one, P the nearest carrier)
  *   - every algorithm, all at max: no overflow, under the carriers' levels
  *   - the audio never takes a half-written patch
- * R1, the Rider: MIX 0 is no Rider at all; each filter peaks where it is set (VBP at 0 dB, BP6 louder as
+ * R1, the Reactor: MIX 0 is no Reactor at all; each filter peaks where it is set (VBP at 0 dB, BP6 louder as
  * it rings, BP12 steeper); POS between stages in log pitch, SLEW 0 jumps, SLEW glides; the stage clock's modes; at
  * every maximum nothing overflows
  * R2: KP rings at its pitch (within 5 cents) and longer with RES; AP1 and AP2 are flat at RES 0 and notch at RES
@@ -79,7 +79,7 @@ static void test_chunking(void)
 {
     static const uint32_t CH[] = {1, 7, 31, 32, 33, 100, 256, 1000};
     uint32_t c, i, p;
-    for (p = 0; p < SD_PATCHES; p++) {       /* every patch: the fold ramp, the Rider, DESTROY, SPACE continue
+    for (p = 0; p < SD_PATCHES; p++) {       /* every patch: the fold ramp, the Reactor, DESTROY, SPACE continue
                                                    across calls too */
         static SdSpaceMem cm1, cm2;
         memset(&cm1, 0, sizeof cm1);
@@ -434,7 +434,7 @@ static void test_env(void)
 }
 
 /* ---- V3 */
-static void test_vector(void)                   /* the weights: corners, centre, DUO, POLY */
+static void test_nav(void)                   /* the weights: corners, centre, DUO, POLY */
 {
     static const uint16_t CX[4] = {0, 65535, 65535, 0}, CY[4] = {65535, 65535, 0, 0};   /* A B C D */
     int32_t w[SD_BANKS];
@@ -442,30 +442,30 @@ static void test_vector(void)                   /* the weights: corners, centre,
     for (c = 0; c < 4u; c++) {
         sd_engine_init(&e1);
         e1.patch.x = CX[c]; e1.patch.y = CY[c];
-        sd_vector(&e1, w);
+        sd_nav(&e1, w);
         for (b = 0; b < SD_BANKS; b++)
             CHECK(b == c ? w[b] >= 32700 : w[b] == 0, "corner %c: bank %c weighs %d", 'A' + c, 'A' + b, w[b]);
     }
     sd_engine_init(&e1);
     e1.patch.x = e1.patch.y = 32768;
-    sd_vector(&e1, w);
+    sd_nav(&e1, w);
     for (b = 0; b < SD_BANKS; b++)
         CHECK(w[b] > 11585 - 120 && w[b] < 11585 + 120, "centre: bank %c weighs %d, not 0.354", 'A' + b, w[b]);
     e1.mode_on = SD_MODE_DUO;
-    sd_vector(&e1, w);
+    sd_nav(&e1, w);
     CHECK(w[0] == w[2] && w[1] == w[3] && w[0] > 19483 - 120 && w[0] < 19483 + 120, "DUO at X 0.5: %d %d", w[0], w[1]);
     e1.mode_on = SD_MODE_POLY;
-    sd_vector(&e1, w);
+    sd_nav(&e1, w);
     CHECK(w[0] == SD_POLY_GAIN && w[3] == SD_POLY_GAIN, "POLY: %d", w[0]);
 }
 
-static void test_vec2(void)                     /* TOUR's VEC2: from the gate, A -> B -> C -> D, 1.5 s each, then held */
+static void test_course(void)                     /* VOYAGE's COURSE: from the gate, A -> B -> C -> D, 1.5 s each, then held */
 {
     static const struct { double s; uint16_t x, y; } AT[] = {{0.02, 0, 65535}, {1.5, 65535, 65535}, {3.0, 65535, 0},
                                                             {4.5, 0, 0}, {6.0, 0, 0}};
     uint32_t i, done = 0;
-    SdPatch p = SD_PATCH[SD_P_TOUR];
-    memset(p.mod, 0, sizeof p.mod);             /* VEC2 alone (TOUR's LFOs move X and Y on top: C1) */
+    SdPatch p = SD_PATCH[SD_P_VOYAGE];
+    memset(p.mod, 0, sizeof p.mod);             /* COURSE alone (VOYAGE's LFOs move X and Y on top: C1) */
     sd_engine_init(&e1);
     sd_engine_patch(&e1, &p);
     sd_engine_note(&e1, 45, 100);
@@ -473,8 +473,8 @@ static void test_vec2(void)                     /* TOUR's VEC2: from the gate, A
         uint32_t to = (uint32_t)(AT[i].s * SD_FS);
         int32_t o[2u * SD_SUB];
         while (done < to) { run(&e1, o, SD_SUB, SD_SUB); done += SD_SUB; }
-        CHECK(abs((int)e1.vx - AT[i].x) < 1200 && abs((int)e1.vy - AT[i].y) < 1200, "VEC2 at %.2f s: %u %u, not %u %u",
-              AT[i].s, e1.vx, e1.vy, AT[i].x, AT[i].y);
+        CHECK(abs((int)e1.nav_x - AT[i].x) < 1200 && abs((int)e1.nav_y - AT[i].y) < 1200, "COURSE at %.2f s: %u %u, not %u %u",
+              AT[i].s, e1.nav_x, e1.nav_y, AT[i].x, AT[i].y);
     }
 }
 
@@ -518,8 +518,8 @@ static void test_stereo(void)                   /* WIDTH 0: both sides the same;
     uint32_t i;
     double l = 0, r = 0;
     int same = 1;
-    SdPatch p = SD_PATCH[SD_P_TOUR];
-    p.vec = 0;
+    SdPatch p = SD_PATCH[SD_P_VOYAGE];
+    p.course = 0;
     sd_engine_init(&e1);
     sd_engine_patch(&e1, &T_GLASS);
     sd_engine_note(&e1, 57, 100);
@@ -620,11 +620,11 @@ static void test_gen(void)                      /* the generators */
     for (k = 1; k < SD_BANKS; k++) CHECK(!memcmp(&p.bank[k], &p.bank[0], sizeof p.bank[0]), "CPY to bank %u", k);
 }
 
-/* ---- R1, the Rider */
+/* ---- R1, the Reactor */
 static uint16_t midi256(double hz) { return (uint16_t)lround(256.0 * (69.0 + 12.0 * log2(hz / 440.0))); }
 
-/* one filter of the Rider alone, its centre at hz: the gain (dB) of a sine at test_hz, after it settles */
-static double rider_gain(uint32_t model, uint16_t res, double hz, double test_hz)
+/* one filter of the Reactor alone, its centre at hz: the gain (dB) of a sine at test_hz, after it settles */
+static double reactor_gain(uint32_t model, uint16_t res, double hz, double test_hz)
 {
     static int32_t in[2u * SD_SUB], out[2u * SD_SUB];
     SdPatch p = SD_PATCH_SINE;
@@ -634,7 +634,7 @@ static double rider_gain(uint32_t model, uint16_t res, double hz, double test_hz
     p.r_model = (uint8_t)model; p.r_res = res; p.r_drive = 16384; p.r_mix = 65535;
     sd_engine_init(&e1);
     e1.patch = p;
-    sd_rider_params(&e1);
+    sd_reactor_params(&e1);
     for (b = 0; b < 3000u; b++) {               /* 2.2 s: the last 0.7 s measured */
         for (i = 0; i < SD_SUB; i++) {
             int32_t x = (int32_t)lround(1000.0 * sin(ph));
@@ -642,42 +642,42 @@ static double rider_gain(uint32_t model, uint16_t res, double hz, double test_hz
             in[2u * i] = in[2u * i + 1u] = x;
             out[2u * i] = out[2u * i + 1u] = 0;
         }
-        sd_rider_run(&e1, in, out, SD_SUB, 0);
+        sd_reactor_run(&e1, in, out, SD_SUB, 0);
         if (b >= 2000u)
             for (i = 0; i < SD_SUB; i++) { a2 += (double)in[2u * i] * in[2u * i]; o2 += (double)out[2u * i] * out[2u * i]; }
     }
     return 10 * log10(o2 / a2) - 20 * log10(SD_RMAKEUP[model] / 4096.0);   /* the shape, without the make-up */
 }
 
-static void test_rider_response(void)
+static void test_reactor_response(void)
 {
     static const double HZ[] = {100, 440, 2000, 8000, 13000};
     uint32_t h, m;
     for (h = 0; h < 5u; h++) {
         double best = -1e9, at = 0, f, c;
         for (f = HZ[h] * 0.8; f <= HZ[h] * 1.25; f *= 1.005) {   /* the peak, VBP at a high RES */
-            double g = rider_gain(SD_RM_VBP, 52000, HZ[h], f);
+            double g = reactor_gain(SD_RM_VBP, 52000, HZ[h], f);
             if (g > best) { best = g; at = f; }
         }
-        c = rider_gain(SD_RM_VBP, 52000, HZ[h], HZ[h]);
-        printf("rider VBP at %5.0f Hz: peak at %7.1f Hz (%+.2f dB); an octave off %+.1f dB\n", HZ[h], at, best,
-               rider_gain(SD_RM_VBP, 52000, HZ[h], HZ[h] * (HZ[h] < 10000 ? 2.0 : 0.5)));
-        CHECK(fabs(at / HZ[h] - 1) < 0.02, "rider VBP at %.0f Hz peaks at %.1f Hz", HZ[h], at);
-        CHECK(fabs(c) < 0.5, "rider VBP at %.0f Hz: %.2f dB at its centre, not 0", HZ[h], c);
+        c = reactor_gain(SD_RM_VBP, 52000, HZ[h], HZ[h]);
+        printf("reactor VBP at %5.0f Hz: peak at %7.1f Hz (%+.2f dB); an octave off %+.1f dB\n", HZ[h], at, best,
+               reactor_gain(SD_RM_VBP, 52000, HZ[h], HZ[h] * (HZ[h] < 10000 ? 2.0 : 0.5)));
+        CHECK(fabs(at / HZ[h] - 1) < 0.02, "reactor VBP at %.0f Hz peaks at %.1f Hz", HZ[h], at);
+        CHECK(fabs(c) < 0.5, "reactor VBP at %.0f Hz: %.2f dB at its centre, not 0", HZ[h], c);
     }
     for (m = 0; m <= SD_RM_VBP; m++) {          /* each band-pass model: a band, not a shelf */
-        double c = rider_gain(m, 30000, 1000, 1000), lo = rider_gain(m, 30000, 1000, 250), hi = rider_gain(m, 30000, 1000, 4000);
-        printf("rider model %u at 1 kHz: centre %+.1f, 250 Hz %+.1f, 4 kHz %+.1f dB\n", m, c, lo, hi);
-        CHECK(c > lo + 9 && c > hi + 9, "rider model %u is not a band-pass", m);
+        double c = reactor_gain(m, 30000, 1000, 1000), lo = reactor_gain(m, 30000, 1000, 250), hi = reactor_gain(m, 30000, 1000, 4000);
+        printf("reactor model %u at 1 kHz: centre %+.1f, 250 Hz %+.1f, 4 kHz %+.1f dB\n", m, c, lo, hi);
+        CHECK(c > lo + 9 && c > hi + 9, "reactor model %u is not a band-pass", m);
     }
-    CHECK(rider_gain(SD_RM_BP12, 30000, 1000, 4000) < rider_gain(SD_RM_BP6, 30000, 1000, 4000) - 6,
+    CHECK(reactor_gain(SD_RM_BP12, 30000, 1000, 4000) < reactor_gain(SD_RM_BP6, 30000, 1000, 4000) - 6,
           "BP12 is not steeper than BP6");
-    CHECK(rider_gain(SD_RM_BP6, 60000, 1000, 1000) > rider_gain(SD_RM_BP6, 20000, 1000, 1000) + 10,
+    CHECK(reactor_gain(SD_RM_BP6, 60000, 1000, 1000) > reactor_gain(SD_RM_BP6, 20000, 1000, 1000) + 10,
           "BP6 does not grow louder as it rings");
 }
 
 /* ---- R2: the delay models and the allpasses */
-static SdPatch rider_patch(uint32_t model, uint16_t res, double hz)   /* all four filters at hz, level 1 */
+static SdPatch reactor_patch(uint32_t model, uint16_t res, double hz)   /* all four filters at hz, level 1 */
 {
     SdPatch p = SD_PATCH_SINE;
     uint32_t k, f;
@@ -687,8 +687,8 @@ static SdPatch rider_patch(uint32_t model, uint16_t res, double hz)   /* all fou
     return p;
 }
 
-/* the Rider alone on a test signal: an impulse (sine_hz 0) or a sine; frames of output, left / right */
-static void rider_feed(const SdPatch *p, double sine_hz, uint32_t frames, int32_t *outbuf)
+/* the Reactor alone on a test signal: an impulse (sine_hz 0) or a sine; frames of output, left / right */
+static void reactor_feed(const SdPatch *p, double sine_hz, uint32_t frames, int32_t *outbuf)
 {
     static int32_t in[2u * SD_SUB];
     uint32_t i, b;
@@ -696,14 +696,14 @@ static void rider_feed(const SdPatch *p, double sine_hz, uint32_t frames, int32_
     sd_engine_init(&e1);
     e1.patch = *p;
     for (b = 0; b * SD_SUB < frames; b++) {
-        sd_rider_params(&e1);
+        sd_reactor_params(&e1);
         for (i = 0; i < SD_SUB; i++) {
             int32_t x = sine_hz > 0 ? (int32_t)lround(1000.0 * sin(ph)) : (b == 0 && i == 0 ? 20000 : 0);
             ph += 2 * M_PI * sine_hz / SD_FS;
             in[2u * i] = in[2u * i + 1u] = x;
             outbuf[2u * (b * SD_SUB + i)] = outbuf[2u * (b * SD_SUB + i) + 1u] = 0;
         }
-        sd_rider_run(&e1, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
+        sd_reactor_run(&e1, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
 
@@ -726,48 +726,48 @@ static double ac_pitch(const int32_t *x, uint32_t n, double guess)   /* autocorr
     return SD_FS / at;
 }
 
-static void test_rider_kp(void)
+static void test_reactor_kp(void)
 {
     static const double HZ[] = {55, 110, 220, 440, 880, 1760};
     uint32_t h;
     double worst = 0, t1, t2;
     for (h = 0; h < 6u; h++) {                  /* pinged: the comb's pitch, in cents off */
-        SdPatch p = rider_patch(SD_RM_KP, 60000, HZ[h]);
+        SdPatch p = reactor_patch(SD_RM_KP, 60000, HZ[h]);
         double f, c;
-        rider_feed(&p, 0, SD_FS / 2u, a);
+        reactor_feed(&p, 0, SD_FS / 2u, a);
         f = ac_pitch(a + 2u * 2000u, SD_FS / 2u - 2000u, HZ[h]);
         c = 1200.0 * log2(f / HZ[h]);
         if (fabs(c) > worst) worst = fabs(c);
-        printf("rider KP at %6.1f Hz: rings at %8.2f Hz (%+.1f cents)\n", HZ[h], f, c);
+        printf("reactor KP at %6.1f Hz: rings at %8.2f Hz (%+.1f cents)\n", HZ[h], f, c);
     }
     CHECK(worst < 5.0, "KP is %.1f cents off its pitch", worst);
     {                                           /* RES: a longer ring */
-        SdPatch p = rider_patch(SD_RM_KP, 40000, 220);
+        SdPatch p = reactor_patch(SD_RM_KP, 40000, 220);
         uint32_t i;
         double e0 = 0, e1v = 0;
-        rider_feed(&p, 0, SD_FS, a);
+        reactor_feed(&p, 0, SD_FS, a);
         for (i = 0; i < 4410u; i++) e0 += (double)a[2u * i] * a[2u * i], e1v += (double)a[2u * (i + 22050u)] * a[2u * (i + 22050u)];
         t1 = 10 * log10(e1v / e0);
-        p = rider_patch(SD_RM_KP, 62000, 220);
-        rider_feed(&p, 0, SD_FS, a);
+        p = reactor_patch(SD_RM_KP, 62000, 220);
+        reactor_feed(&p, 0, SD_FS, a);
         e0 = e1v = 0;
         for (i = 0; i < 4410u; i++) e0 += (double)a[2u * i] * a[2u * i], e1v += (double)a[2u * (i + 22050u)] * a[2u * (i + 22050u)];
         t2 = 10 * log10(e1v / e0);
-        printf("rider KP at 220 Hz: after 0.5 s %.1f dB (RES 61) / %.1f dB (RES 94)\n", t1, t2);
+        printf("reactor KP at 220 Hz: after 0.5 s %.1f dB (RES 61) / %.1f dB (RES 94)\n", t1, t2);
         CHECK(t2 > t1 + 10, "KP: RES does not lengthen the ring");
     }
 }
 
-static void test_rider_ap(void)                 /* RES 0: flat; RES max: notches, left and right apart */
+static void test_reactor_ap(void)                 /* RES 0: flat; RES max: notches, left and right apart */
 {
     static const double HZ[] = {200, 700, 1500, 3000, 6000};
     uint32_t m, h, i;
     for (m = SD_RM_AP1; m <= SD_RM_AP2; m++) {
         double flat = 0, top = 0, lmin = 1e9, rmin = 1e9, lmax = -1e9;
         for (h = 0; h < 5u; h++) {
-            SdPatch p = rider_patch(m, 0, 1000);
+            SdPatch p = reactor_patch(m, 0, 1000);
             double ein = 0, el = 0;
-            rider_feed(&p, HZ[h], SD_FS / 2u, a);
+            reactor_feed(&p, HZ[h], SD_FS / 2u, a);
             for (i = SD_FS / 4u; i < SD_FS / 2u; i++) { double x = 1000.0 * sin(2 * M_PI * HZ[h] * i / SD_FS); ein += x * x; el += (double)a[2u * i] * a[2u * i]; }
             double g = 10 * log10(el / ein) - 20 * log10(SD_RMAKEUP[m] / 4096.0);   /* without the make-up */
             if (h == 4u) top = g;               /* 6 kHz: AP1's linear reads in its loops dip there */
@@ -775,9 +775,9 @@ static void test_rider_ap(void)                 /* RES 0: flat; RES max: notches
         }
         for (h = 0; h < 120u; h++) {            /* RES max: sweep 100 Hz .. 10 kHz */
             double hz = 100 * pow(100.0, h / 119.0), ein = 0, el = 0, er = 0, gl, gr;
-            SdPatch p = rider_patch(m, 65535, 1000);
+            SdPatch p = reactor_patch(m, 65535, 1000);
             p.stage[0].pitch[1] = midi256(1300); p.stage[0].pitch[2] = midi256(2100); p.stage[0].pitch[3] = midi256(3400);
-            rider_feed(&p, hz, SD_FS / 4u, a);
+            reactor_feed(&p, hz, SD_FS / 4u, a);
             for (i = SD_FS / 8u; i < SD_FS / 4u; i++) {
                 double x = 1000.0 * sin(2 * M_PI * hz * i / SD_FS);
                 ein += x * x; el += (double)a[2u * i] * a[2u * i]; er += (double)a[2u * i + 1u] * a[2u * i + 1u];
@@ -787,16 +787,16 @@ static void test_rider_ap(void)                 /* RES 0: flat; RES max: notches
             if (gr < rmin) rmin = gr;
             if (gl > lmax) lmax = gl;
         }
-        printf("rider AP%u: RES 0 within %.2f dB of flat to 3 kHz (6 kHz %+.1f dB); RES max: left %.1f .. %+.1f dB, "
+        printf("reactor AP%u: RES 0 within %.2f dB of flat to 3 kHz (6 kHz %+.1f dB); RES max: left %.1f .. %+.1f dB, "
                "right down to %.1f dB\n", m - SD_RM_AP1 + 1u, flat, top, lmin, lmax, rmin);
         CHECK(flat < 1.5, "AP%u at RES 0 is %.2f dB off flat", m - SD_RM_AP1 + 1u, flat);
         CHECK(lmin < -15 && rmin < -15 && lmax > 3, "AP%u at RES max has no notches", m - SD_RM_AP1 + 1u);
     }
 }
 
-static void test_rider_rest(void)               /* a comb rings out, then rests: no work while silent */
+static void test_reactor_rest(void)               /* a comb rings out, then rests: no work while silent */
 {
-    SdPatch p = rider_patch(SD_RM_KP, 60000, 220);
+    SdPatch p = reactor_patch(SD_RM_KP, 60000, 220);
     uint32_t t;
     int32_t o[2u * SD_SUB];
     p.e1_r = 30;
@@ -804,15 +804,15 @@ static void test_rider_rest(void)               /* a comb rings out, then rests:
     sd_engine_patch(&e1, &p);
     sd_engine_note(&e1, 57, 100);
     for (t = 0; t < 100u; t++) run(&e1, o, SD_SUB, SD_SUB);
-    CHECK(!e1.r.rest, "the Rider rests while a note sounds");
+    CHECK(!e1.r.rest, "the Reactor rests while a note sounds");
     sd_engine_note(&e1, 57, 0);
     for (t = 0; t < 12000u && !e1.r.rest; t++) run(&e1, o, SD_SUB, SD_SUB);   /* RES 92: a long ring */
-    printf("rider KP rests %.2f s after the release\n", t * SD_SUB / (double)SD_FS);
-    CHECK(e1.r.rest, "the Rider never rests after a comb rang out");
+    printf("reactor KP rests %.2f s after the release\n", t * SD_SUB / (double)SD_FS);
+    CHECK(e1.r.rest, "the Reactor never rests after a comb rang out");
 }
 
 /* ---- R3: each model's level against the dry voice: a saw through VOWEL's stage A, RES and level one half */
-static double rider_vs_dry(uint32_t model)
+static double reactor_vs_dry(uint32_t model)
 {
     SdPatch p = SD_PATCH[SD_P_VOWEL];
     uint32_t i;
@@ -834,15 +834,15 @@ static double rider_vs_dry(uint32_t model)
     return 10 * log10(w / d);
 }
 
-static void test_rider_makeup(void)             /* switching model keeps the level: each within 3 dB of the dry */
+static void test_reactor_makeup(void)             /* switching model keeps the level: each within 3 dB of the dry */
 {
     static const char *const MN[SD_RMODELS] = {"BP6", "BP12", "VBP", "KP", "AP1", "AP2"};
     uint32_t m;
-    printf("rider against the dry voice:");
+    printf("reactor against the dry voice:");
     for (m = 0; m < SD_RMODELS; m++) {
-        double g = rider_vs_dry(m);
+        double g = reactor_vs_dry(m);
         printf(" %s %+.1f", MN[m], g);
-        CHECK(fabs(g) < 3.0, "rider %s is %+.1f dB from the dry voice", MN[m], g);
+        CHECK(fabs(g) < 3.0, "reactor %s is %+.1f dB from the dry voice", MN[m], g);
     }
     printf(" dB\n");
 }
@@ -859,10 +859,10 @@ static double h3_of(const int32_t *x, uint32_t n, double f0)   /* the 3rd harmon
     return sqrt(r3 * r3 + i3 * i3) / sqrt(r1 * r1 + i1 * i1);
 }
 
-static void test_rider_saturation(void)         /* clean while small; DRIVE and RES ring into the loop's ceiling */
+static void test_reactor_saturation(void)         /* clean while small; DRIVE and RES ring into the loop's ceiling */
 {
     static int32_t in[2u * SD_SUB];
-    SdPatch p = rider_patch(SD_RM_BP6, 52000, 1000);
+    SdPatch p = reactor_patch(SD_RM_BP6, 52000, 1000);
     uint32_t b, i, d, k;
     double h[2], pk[2], ph;
     for (d = 0; d < 2u; d++) {
@@ -872,23 +872,23 @@ static void test_rider_saturation(void)         /* clean while small; DRIVE and 
         sd_engine_init(&e1);
         e1.patch = p;
         for (b = 0; b < 2000u; b++) {
-            sd_rider_params(&e1);
+            sd_reactor_params(&e1);
             for (i = 0; i < SD_SUB; i++) {
                 int32_t x = (int32_t)lround((d ? 8000.0 : 300.0) * sin(ph));
                 ph += 2 * M_PI * 1000.0 / SD_FS;
                 in[2u * i] = in[2u * i + 1u] = x;
                 a[2u * (b * SD_SUB + i)] = a[2u * (b * SD_SUB + i) + 1u] = 0;
             }
-            sd_rider_run(&e1, in, a + 2u * b * SD_SUB, SD_SUB, 0);
+            sd_reactor_run(&e1, in, a + 2u * b * SD_SUB, SD_SUB, 0);
         }
         h[d] = h3_of(a + 2u * 40000u, 16384u, 1000.0);
         for (i = 40000u; i < 56384u; i++) if (abs(a[2u * i]) > pk[d]) pk[d] = abs(a[2u * i]);
         for (i = 0; i < 4u; i++) CHECK(abs(e1.r.ic1[0][i]) < (16 << 19), "an integrator past 16 x full scale");
     }
-    printf("rider BP6 at RES 79: a quiet sine h3/h1 %.4f %%; DRIVE 4x on a loud one %.1f %% (peak %.0f)\n", 100 * h[0],
+    printf("reactor BP6 at RES 79: a quiet sine h3/h1 %.4f %%; DRIVE 4x on a loud one %.1f %% (peak %.0f)\n", 100 * h[0],
            100 * h[1], pk[1]);
-    CHECK(h[0] < 0.001, "the Rider is not clean while small: h3/h1 %.4f", h[0]);
-    CHECK(h[1] > 0.03, "the Rider does not saturate when driven: h3/h1 %.4f", h[1]);
+    CHECK(h[0] < 0.001, "the Reactor is not clean while small: h3/h1 %.4f", h[0]);
+    CHECK(h[1] > 0.03, "the Reactor does not saturate when driven: h3/h1 %.4f", h[1]);
     CHECK(SD_RLEVEL[64] == 4096 && SD_RLEVEL[128] == 16384 && SD_RLEVEL[0] == 0, "the level law's anchors");
     for (i = 1; i < 129u; i++) CHECK(SD_RLEVEL[i] > SD_RLEVEL[i - 1u], "the level law falls at %u", i);
 }
@@ -1012,8 +1012,8 @@ static void test_destroy(void)
         CHECK(n == 4u, "CRUSH's step at ALT max is not 2^13");
     }
     {   /* MIX 0: no DESTROY at all, bit for bit */
-        SdPatch p = SD_PATCH[SD_P_TOUR];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
+        SdPatch p = SD_PATCH[SD_P_VOYAGE];
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_VOYAGE]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
         p.d_type[0] = SD_DS_FOLD; p.d_gain[0] = 65535; p.d_mix = 0;
         sd_engine_init(&e2); sd_engine_patch(&e2, &p); sd_engine_note(&e2, 50, 100); run(&e2, b, SD_FS / 2u, 256);
         for (i = 0; i < SD_FS; i++) if (a[i] != b[i]) break;
@@ -1324,8 +1324,8 @@ static void test_space(void)
         CHECK(t[1] > t[0] + 10, "DECAY does not lengthen the tail");
     }
     {   /* both levels 0: no SPACE, bit for bit */
-        SdPatch p = SD_PATCH[SD_P_TOUR];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
+        SdPatch p = SD_PATCH[SD_P_VOYAGE];
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_VOYAGE]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
         p.s_time = 9000; p.s_fb = 50000; p.s_decay = 50000; p.s_dlevel = 0; p.s_rlevel = 0;
         memset(&tsm, 0, sizeof tsm);
         sd_engine_init(&e2); e2.sm = &tsm; sd_engine_patch(&e2, &p); sd_engine_note(&e2, 50, 100); run(&e2, b, SD_FS / 2u, 256);
@@ -1349,7 +1349,7 @@ static void test_space(void)
 }
 
 /* ---- R4: MIX fills, the lows keep, HARM */
-static void test_rider_r4(void)
+static void test_reactor_r4(void)
 {
     static int32_t a[2u * (SD_FS / 2u + SD_SUB)];
     uint32_t n = SD_FS / 2u, k, h, ok;
@@ -1361,33 +1361,33 @@ static void test_rider_r4(void)
     for (k = 1; k <= 64u; k++) CHECK(SD_RMIX[k][1] >= SD_RMIX[k - 1u][1], "MIX's wet falls at %u", k);
     {   /* a 1 kHz sine with the filters at 4 kHz (they pass little): at the middle the dry comes through at -3 dB,
            not half as before R4 */
-        SdPatch p = rider_patch(SD_RM_BP12, 20000, 4000);
-        p.r_mix = 1;                            /* (MIX 0 is no Rider: the dry by 1 LSB of MIX) */
-        rider_feed(&p, 1000, n, a);
+        SdPatch p = reactor_patch(SD_RM_BP12, 20000, 4000);
+        p.r_mix = 1;                            /* (MIX 0 is no Reactor: the dry by 1 LSB of MIX) */
+        reactor_feed(&p, 1000, n, a);
         e_dry = rms_db(a, n / 2u, n);
         p.r_mix = 32768;
-        rider_feed(&p, 1000, n, a);
+        reactor_feed(&p, 1000, n, a);
         e_mid = rms_db(a, n / 2u, n);
-        printf("rider R4: MIX at the middle passes the dry at %+.1f dB (the old law: -6)\n", e_mid - e_dry);
+        printf("reactor R4: MIX at the middle passes the dry at %+.1f dB (the old law: -6)\n", e_mid - e_dry);
         CHECK(e_mid - e_dry > -5 && e_mid - e_dry < -1, "MIX's middle passes the dry at %+.1f dB", e_mid - e_dry);   /* -3,
                                                    and a little of the wet against it */
     }
     {   /* the low keep: a 60 Hz sine, the filters at 2 kHz, MIX full: with r_low it stays, without it goes */
-        SdPatch p = rider_patch(SD_RM_BP12, 20000, 2000);
-        rider_feed(&p, 60, n, a);
+        SdPatch p = reactor_patch(SD_RM_BP12, 20000, 2000);
+        reactor_feed(&p, 60, n, a);
         e_nokeep = rms_db(a, n / 2u, n);
         p.r_low = 40000;                        /* ~264 Hz */
-        rider_feed(&p, 60, n, a);
+        reactor_feed(&p, 60, n, a);
         e_keep = rms_db(a, n / 2u, n);
         p.r_mix = 1;
-        rider_feed(&p, 60, n, a);
+        reactor_feed(&p, 60, n, a);
         e_dry = rms_db(a, n / 2u, n);
-        printf("rider R4: 60 Hz at MIX full: %+.1f dB without the low keep, %+.1f dB with it\n", e_nokeep - e_dry, e_keep - e_dry);
+        printf("reactor R4: 60 Hz at MIX full: %+.1f dB without the low keep, %+.1f dB with it\n", e_nokeep - e_dry, e_keep - e_dry);
         CHECK(e_keep - e_dry > -2, "the low keep loses 60 Hz: %+.1f dB", e_keep - e_dry);
         CHECK(e_nokeep - e_dry < -15, "without the low keep 60 Hz still passes %+.1f dB", e_nokeep - e_dry);
     }
     {   /* HARM: every filter lands on a harmonic of the note (none under it) */
-        SdPatch p = rider_patch(SD_RM_BP12, 20000, 1000);
+        SdPatch p = reactor_patch(SD_RM_BP12, 20000, 1000);
         uint32_t f;
         p.r_track = SD_RT_HARM;
         for (f = 0; f < 4u; f++) p.stage[0].pitch[f] = (uint16_t)midi256(150.0 + 700.0 * f);   /* 150 .. 2250 Hz */
@@ -1395,26 +1395,26 @@ static void test_rider_r4(void)
         sd_engine_init(&e1);
         e1.patch = p;
         e1.r.note = 50;                         /* D3, 146.8 Hz */
-        sd_rider_params(&e1);
+        sd_reactor_params(&e1);
         ok = 1;
         for (f = 0; f < 4u; f++) {
             int32_t sv = (e1.r.pitch[f] >> 8) - 50 * 256, hit = 0;
             for (h = 0; h < 32u; h++) hit |= sv == (int32_t)SD_HARM_ST[h];
             ok &= (uint32_t)hit;
         }
-        printf("rider R4 HARM: 150 850 1550 2250 Hz over D3 -> harmonics %.2f %.2f %.2f %.2f\n",
+        printf("reactor R4 HARM: 150 850 1550 2250 Hz over D3 -> harmonics %.2f %.2f %.2f %.2f\n",
                pow(2, ((e1.r.pitch[0] >> 8) - 50 * 256) / 3072.0), pow(2, ((e1.r.pitch[1] >> 8) - 50 * 256) / 3072.0),
                pow(2, ((e1.r.pitch[2] >> 8) - 50 * 256) / 3072.0), pow(2, ((e1.r.pitch[3] >> 8) - 50 * 256) / 3072.0));
         CHECK(ok, "HARM leaves a filter off the harmonics");
     }
 }
 
-static void test_rider_bypass(void)             /* MIX 0: the Rider is not there, bit for bit */
+static void test_reactor_bypass(void)             /* MIX 0: the Reactor is not there, bit for bit */
 {
-    SdPatch p = SD_PATCH[SD_P_TOUR];
+    SdPatch p = SD_PATCH[SD_P_VOYAGE];
     uint32_t i;
     sd_engine_init(&e1);
-    sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]);
+    sd_engine_patch(&e1, &SD_PATCH[SD_P_VOYAGE]);
     sd_engine_note(&e1, 50, 100);
     run(&e1, a, SD_FS / 2u, 256);
     p.stage[0] = SD_PATCH[SD_P_VOWEL].stage[0];
@@ -1427,7 +1427,7 @@ static void test_rider_bypass(void)             /* MIX 0: the Rider is not there
     CHECK(i == SD_FS, "MIX 0 changed the sound at frame %u", i / 2u);
 }
 
-static void test_rider_pos(void)                /* between stages in log pitch; SLEW 0 jumps, SLEW glides */
+static void test_reactor_pos(void)                /* between stages in log pitch; SLEW 0 jumps, SLEW glides */
 {
     SdPatch p = SD_PATCH_SINE;
     uint32_t k, t;
@@ -1455,7 +1455,7 @@ static void test_rider_pos(void)                /* between stages in log pitch; 
     CHECK(abs((e1.r.pitch[1] >> 8) - (40 + 40 + 2) * 256) < 4, "SLEW: stage 6 never reached");
 }
 
-static void test_rider_clock(void)              /* the stage clock: modes, range */
+static void test_reactor_clock(void)              /* the stage clock: modes, range */
 {
     static const struct { uint8_t mode, lo, hi; const char *want; } C[] = {
         {SD_RC_FWD, 0, 5, "234561234"}, {SD_RC_BWD, 0, 5, "654321654"}, {SD_RC_PP, 0, 3, "234321234"},
@@ -1466,17 +1466,17 @@ static void test_rider_clock(void)              /* the stage clock: modes, range
         sd_engine_init(&e1);
         e1.patch.r_div = 1; e1.patch.r_cmode = C[c].mode; e1.patch.r_min = C[c].lo; e1.patch.r_max = C[c].hi;
         e1.r.stage = C[c].mode == SD_RC_BWD ? 0 : C[c].lo;
-        for (k = 0; k < 9u; k++) { sd_rider_clock(&e1); got[k] = (char)('1' + e1.r.stage); }
+        for (k = 0; k < 9u; k++) { sd_reactor_clock(&e1); got[k] = (char)('1' + e1.r.stage); }
         got[9] = 0;
-        CHECK(!strcmp(got, C[c].want), "rider clock mode %u range %u..%u: %s, not %s", C[c].mode, C[c].lo + 1, C[c].hi + 1,
+        CHECK(!strcmp(got, C[c].want), "reactor clock mode %u range %u..%u: %s, not %s", C[c].mode, C[c].lo + 1, C[c].hi + 1,
               got, C[c].want);
     }
     sd_engine_init(&e1);
     e1.patch.r_div = 1; e1.patch.r_cmode = SD_RC_RND; e1.patch.r_min = 1; e1.patch.r_max = 3;
-    for (k = 0; k < 200u; k++) { sd_rider_clock(&e1); CHECK(e1.r.stage >= 1 && e1.r.stage <= 3, "RND left its range"); }
+    for (k = 0; k < 200u; k++) { sd_reactor_clock(&e1); CHECK(e1.r.stage >= 1 && e1.r.stage <= 3, "RND left its range"); }
 }
 
-static void test_rider_extremes(void)           /* every model, RES / DRIVE / levels at max, the range's ends */
+static void test_reactor_extremes(void)           /* every model, RES / DRIVE / levels at max, the range's ends */
 {
     static const uint16_t P[] = {SD_R_LO * 256, 69 * 256, SD_R_HI * 256};
     uint32_t m, q, i, k;
@@ -1493,8 +1493,8 @@ static void test_rider_extremes(void)           /* every model, RES / DRIVE / le
             run(&e1, a, SD_FS / 2u, 256);
             for (i = 0; i < SD_FS; i++) { int32_t s = a[i] < 0 ? -a[i] : a[i]; if (s > peak) peak = s; }
             for (i = 0; i < 4u; i++) { int32_t s = abs(e1.r.ic1[0][i]) > abs(e1.r.ic2[0][i]) ? abs(e1.r.ic1[0][i]) : abs(e1.r.ic2[0][i]); if (s > st) st = s; }
-            CHECK(peak <= 4 * 32768 + 64, "rider model %u at %u x 256, all at max: peak %d", m, P[q] / 256u, peak);
-            CHECK(st < (1 << 30), "rider model %u at %u x 256: an integrator at %d", m, P[q] / 256u, st);
+            CHECK(peak <= 4 * 32768 + 64, "reactor model %u at %u x 256, all at max: peak %d", m, P[q] / 256u, peak);
+            CHECK(st < (1 << 30), "reactor model %u at %u x 256: an integrator at %d", m, P[q] / 256u, st);
         }
 }
 
@@ -2153,7 +2153,7 @@ static void test_names(void)
 {
 #define PN(x) {SD_P_##x, #x}
     static const struct { uint32_t i; const char *name; } P[] = {
-        PN(GROWL), PN(TOUR), PN(DISTROY), PN(VOWEL), PN(CHORDS), PN(PLUCKS), PN(FLANGE), PN(PHASER), PN(RIDE),
+        PN(GROWL), PN(VOYAGE), PN(DISTROY), PN(VOWEL), PN(CHORDS), PN(PLUCKS), PN(FLANGE), PN(PHASER), PN(FUSION),
         PN(SPLIT), PN(COMET), PN(NEBULA), PN(PULSAR), PN(ION), PN(ORBITAL), PN(MONOLITH), PN(STRINGS), PN(HALO),
         PN(AURORA), PN(TITAN), PN(DRIVE), PN(UNDERTOW), PN(IMPACT), PN(BRAAM), PN(SCREAM), PN(BEACON), PN(DEPTH),
         PN(SHARDS), PN(PRISM)};
@@ -2169,7 +2169,7 @@ static void test_names(void)
 static void test_switches(void)
 {
     static int32_t a[2u * 2048u], b[2u * 2048u];
-    static const uint8_t BITS[4] = {SD_FX_RIDER, SD_FX_DESTROY, SD_FX_SPACE, SD_FX_FILTER};
+    static const uint8_t BITS[4] = {SD_FX_REACTOR, SD_FX_DESTROY, SD_FX_SPACE, SD_FX_FILTER};
     SdPatch p, q;
     SdPattern pa, pb;
     uint8_t nt[8];
@@ -2270,7 +2270,7 @@ static void test_switches(void)
         sd_engine_note(&e1, 74, 0); run_ms(&e1, 2);
         CHECK(e1.voice[0].note != 74u || !e1.voice[0].gate, "MONO REC: the key's note stuck");
     }
-    printf("switches: EDIT OFF = level 0 (RIDER DESTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one; "
+    printf("switches: EDIT OFF = level 0 (REACTOR DESTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one; "
            "the voices' owners and quotas\n");
 }
 
@@ -2284,26 +2284,26 @@ int main(void)
     test_pm();
     test_routing();
     test_patch_lock();
-    test_vector();
-    test_vec2();
+    test_nav();
+    test_course();
     test_modes();
     test_stereo();
     test_alias();
     test_nowhere();
     test_gen();
-    test_rider_bypass();
-    test_rider_response();
-    test_rider_pos();
-    test_rider_clock();
-    test_rider_extremes();
-    test_rider_kp();
-    test_rider_ap();
-    test_rider_rest();
-    test_rider_makeup();
-    test_rider_saturation();
+    test_reactor_bypass();
+    test_reactor_response();
+    test_reactor_pos();
+    test_reactor_clock();
+    test_reactor_extremes();
+    test_reactor_kp();
+    test_reactor_ap();
+    test_reactor_rest();
+    test_reactor_makeup();
+    test_reactor_saturation();
     test_destroy();
     test_dynamics();
-    test_rider_r4();
+    test_reactor_r4();
     test_feedback();
     test_space();
     test_mod();

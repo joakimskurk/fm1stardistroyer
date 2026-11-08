@@ -20,12 +20,12 @@
 
 <p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
-  <img src="docs/readme/screen_vector.png" width="256" alt="VECTOR: the X/Y diamond, the bank's four oscillators and their roles">
+  <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
   <img src="docs/readme/screen_turing.png" width="256" alt="TURING: the steps it rewrote last underlined red">
 </p>
 
 Star Distroyer turns the FM-1 into one instrument with four engines in a row. A **voice** of sixteen oscillators,
-morphed across an X/Y field; a **Rider** of four resonators that sweep through vowels, chords and combs; **DESTROY**,
+morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DESTROY**,
 which splits the sound into four bands and wrecks each its own way; and **SPACE**, a delay feeding a room. Around them
 are a modulation matrix, four macros, a two-track step sequencer with segments and a Turing machine, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
@@ -34,31 +34,31 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 > and in the FM-1 emulator. It has **not yet been tested on a real FM-1**, and there is no release yet.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into RIDER into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
 
 <table>
 <tr>
-<td width="264" valign="top"><img src="docs/readme/screen_vector.png" width="256" alt="VECTOR"></td>
+<td width="264" valign="top"><img src="docs/readme/screen_nav.png" width="256" alt="NAV"></td>
 <td valign="top">
 
 **VOICE**: four banks of four oscillators.
 - Each oscillator is a harmonic 1–32 of the note with a fine tune, and a carrier or a modulator (series or
   parallel), read left to right.
 - **XM** sets the FM, **WARP** turns sine → triangle → saw → pulse, **FOLD** folds, **DETUNE** spreads.
-- The **vector** X/Y blends the four banks. **VEC2** plays four stored X/Y cells from each note.
+- The **NAV** X/Y blends the four banks. **COURSE** plays four stored X/Y cells from each note.
 - Harmonic generators re-roll a bank: ALL, ODD, RND, CLUST, CHRD (14 chords), CPY.
 - **MONO**, **DUO** or **POLY**, a bank's own stereo place by WIDTH, and gentle aliasing tracking up high.
 
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="docs/readme/screen_rider.png" width="256" alt="RIDER"></td>
+<td valign="top"><img src="docs/readme/screen_reactor.png" width="256" alt="REACTOR"></td>
 <td valign="top">
 
-**RIDER**: a quad morphing resonator after the voice.
+**REACTOR**: a quad morphing resonator after the voice.
 - Four filters of one model: BP6, BP12, a variable BPF, KP combs, delay allpasses (AP1) or IIR allpasses (AP2).
 - Six stages hold every filter's pitch and level. **POS** moves through them, and **SLEW** jumps or glides.
 - A stage clock (forwards, backwards, ping-pong, random) and key tracking. **HARM** snaps the filters to the note's
@@ -111,8 +111,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 
 **Four macros** on HOME. 0 is the patch as programmed.
 - **MUTATE**: the voice's FM, warp, fold and detune.
-- **MOVE**: the vector in orbit or jumping on the beat, the Rider's POS, the width.
-- **BREAK**: the Rider's drive and DESTROY's gain, ALT, bias and feedback, the top bands first.
+- **MOVE**: the nav in orbit or jumping on the beat, the Reactor's POS, the width.
+- **BREAK**: the Reactor's drive and DESTROY's gain, ALT, bias and feedback, the top bands first.
 - **MACRO 4**: BODY, AIR or DROWN, as the patch chooses.
 
 </td>
@@ -122,9 +122,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top">
 
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
-- **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, VEC X, VEC Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and RAND.
+- **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and RAND.
   The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
-- **Destinations:** across all four engines, from PITCH and XM to the Rider's POS, DESTROY's SPLIT and SPACE's DECAY.
+- **Destinations:** across all four engines, from PITCH and XM to the Reactor's POS, DESTROY's SPLIT and SPACE's DECAY.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars), restarted by a note, or
   ONE cycle a note.
 
@@ -184,8 +184,8 @@ LEDs show what the keys do.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | VECTOR → MACROS |
-| **FX** | RIDER → DESTROY → SPACE |
+| **HOME** | NAV → MACROS |
+| **FX** | REACTOR → DESTROY → SPACE |
 | **ENV** | ENV → FILTER |
 | **LFO** | LFO 1 → LFO 2 → MOD |
 | **ARP** | the arpeggiator |
@@ -193,7 +193,7 @@ LEDs show what the keys do.
 | **K1–K4** | the four values in the row on top |
 | **SCL** held | the second layer (the names turn red); on SEQ and TURING, the keys transpose the track |
 | **ALGORITHM** | the page's choice, named on the hint line; SCL + ALGORITHM the second |
-| **EDIT** | ON / OFF of what the page shows: VEC2, RIDER, DESTROY, SPACE, FILTER, ARP, a track, TURING |
+| **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DESTROY, SPACE, FILTER, ARP, a track, TURING |
 | **PRESETS** | the patch; on SEQ and TURING the pattern |
 | **SELECT** · **GLO** | the tempo (40–240 BPM) · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
@@ -203,7 +203,7 @@ The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/sta
 ## <img src="docs/readme/slash.png" height="14" alt=""> The patches
 
 <p align="center">
-<code>GROWL</code> <code>TOUR</code> <code>DISTROY</code> <code>VOWEL</code> <code>CHORDS</code> <code>PLUCKS</code> <code>FLANGE</code> <code>PHASER</code> <code>RIDE</code> <code>SPLIT</code><br>
+<code>GROWL</code> <code>VOYAGE</code> <code>DISTROY</code> <code>VOWEL</code> <code>CHORDS</code> <code>PLUCKS</code> <code>FLANGE</code> <code>PHASER</code> <code>FUSION</code> <code>SPLIT</code><br>
 <code>COMET</code> <code>NEBULA</code> <code>PULSAR</code> <code>ION</code> <code>ORBITAL</code> <code>MONOLITH</code> <code>STRINGS</code> <code>HALO</code> <code>AURORA</code> <code>TITAN</code><br>
 <code>DRIVE</code> <code>UNDERTOW</code> <code>IMPACT</code> <code>BRAAM</code> <code>SCREAM</code> <code>BEACON</code> <code>DEPTH</code> <code>SHARDS</code> <code>PRISM</code>
 </p>
@@ -260,7 +260,8 @@ stock patch, the app's own controls and the voice rules.
 - **The song** (`song/`, ~3:25, D minor at 112 BPM).
 - **RANGE** (`range/`, ~135 s): the instrument's span in seven scenes, with every gesture listed in
   `performance.txt`.
-- Two film cues (`cine/` and `epic/`) with their stems, and the loops of the identity patches.
+- **CINEMATIC** (`cine/`, ~69 s, D minor at 84 BPM): a cue, eight parts layered as a multitrack, with their stems.
+- The second cue (`epic/`, its parts layered as engines, with its stems), and the loops of the identity patches.
 
 Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/gen_logo.py`.
 

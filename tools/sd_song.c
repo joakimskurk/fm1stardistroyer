@@ -12,13 +12,13 @@
  * the new one share); they stop for a bar only where the mode must change (the sound quiet first): before each chorus
  * and before the bridge, a break.
  *
- *   INTRO    8   VOWEL, DUO: the bass alone (D D Bb C), the Rider opening; the hook enters on A at bar 5
- *   VERSE    16  the verse melody on A, the bass on B; the Rider's MODEL to BP12 halfway
+ *   INTRO    8   VOWEL, DUO: the bass alone (D D Bb C), the Reactor opening; the hook enters on A at bar 5
+ *   VERSE    16  the verse melody on A, the bass on B; the Reactor's MODEL to BP12 halfway
  *   PRE      8   Bb Bb C C, a rising line; BREAK and MOVE up
  *   (break)      GLO to POLY, CHORDS
  *   CHORUS   16  CHORDS, POLY: Dm Bb F C on A (three voices), the hook on B (the fourth); MOVE in the second half
  *   (break)      GLO to MONO, ORBITAL
- *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, TURING rewriting it, MOVE stepping the vector, MUTATE
+ *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, TURING rewriting it, MOVE stepping the nav, MUTATE
  *   BUILD    8   GROWL (the same line, still evolving): the lowpass on, closed, then opened all the way, RES up
  *   (break)      GLO to POLY, CHORDS, the last chorus's pattern
  *   CHORUS   16  again, BREAK's grit, MOVE; at bar 9 both tracks up a tone (E minor)
@@ -98,13 +98,13 @@ static void patterns(void)
 
 /* ---- the sections; s: sixteenths from the section's start */
 #define S(x) (s0 + (x))
-static void intro(double s0)                    /* VOWEL, DUO: the bass, the Rider opening; the hook from bar 5 */
+static void intro(double s0)                    /* VOWEL, DUO: the bass, the Reactor opening; the hook from bar 5 */
 {
     int32_t v;
     if (at(S(0))) play(1);
-    on_ramp_page(PG_RIDER, S(2), S(56));
+    on_ramp_page(PG_REACTOR, S(2), S(56));
     if (ramp(__LINE__, pat.r_pos / 26, 512 / 26, S(2), S(56), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    KNOB99(PG_RIDER, pat.r_res, 58, S(8), S(48));
+    KNOB99(PG_REACTOR, pat.r_res, 58, S(8), S(48));
     if (at(S(57))) press("SEQ", PG_SEQA);
     if (at(S(60))) track_on(0, 1);              /* the hook's pickup, then the hook */
     if (at(S(122))) pattern(0, &VERSE, "VERSE");
@@ -113,13 +113,13 @@ static void intro(double s0)                    /* VOWEL, DUO: the bass, the Rid
 static void verse(double s0)                    /* the verse melody on A, the bass on B */
 {
     int32_t v;
-    if (at(S(2))) press("FX", PG_RIDER);
-    on_ramp_page(PG_RIDER, S(4), S(120));
+    if (at(S(2))) press("FX", PG_REACTOR);
+    on_ramp_page(PG_REACTOR, S(4), S(120));
     if (ramp(__LINE__, pat.r_pos / 26, 900 / 26, S(4), S(120), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    if (at(S(126))) { on_page(PG_RIDER, "MODEL off RIDER"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("SCL + K2: MODEL BP12"); }
-    on_ramp_page(PG_RIDER, S(132), S(232));
+    if (at(S(126))) { on_page(PG_REACTOR, "MODEL off REACTOR"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("SCL + K2: MODEL BP12"); }
+    on_ramp_page(PG_REACTOR, S(132), S(232));
     if (ramp(__LINE__, pat.r_pos / 26, 520 / 26, S(132), S(232), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    KNOB99(PG_RIDER, pat.r_res, 66, S(140), S(220));
+    KNOB99(PG_REACTOR, pat.r_res, 66, S(140), S(220));
     if (at(S(242))) press("SEQ", PG_SEQA);      /* inside the last bar, which PRE shares */
     if (at(S(244))) pattern(0, &PRE, "PRE");
     if (at(S(246))) press("SEQ", PG_SEQB);
@@ -128,7 +128,7 @@ static void verse(double s0)                    /* the verse melody on A, the ba
 
 static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MOVE build */
 {
-    if (at(S(2))) press("HOME", PG_VECTOR);
+    if (at(S(2))) press("HOME", PG_NAV);
     if (at(S(4))) press("HOME", PG_MACROS);
     pot(__LINE__, 2350, S(0), S(16));           /* (a little down: the chorus lifts) */
     KNOB99(PG_MACROS, pat.mac[2], 35, S(16), S(120));   /* BREAK */
@@ -140,9 +140,9 @@ static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MO
     if (at(S(132.5))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
     if (at(S(134))) press("SEQ", PG_SEQB);
     if (at(S(135.5))) pattern(1, &HOOK, "HOOK");
-    if (at(S(137))) press("HOME", PG_VECTOR);
+    if (at(S(137))) press("HOME", PG_NAV);
     if (at(S(139.5))) preset(P_CHORDS);
-    KNOB99(PG_VECTOR, pat.warp, 42, S(140.5), S(143.5));   /* K2: WARP down a little, warmer */
+    KNOB99(PG_NAV, pat.warp, 42, S(140.5), S(143.5));   /* K2: WARP down a little, warmer */
     pot(__LINE__, 3300, S(140), S(143));
 }
 
@@ -156,7 +156,7 @@ static void chorus1(double s0)
     if (at(S(257.5))) glo(SD_MODE_MONO);
     if (at(S(259))) press("SEQ", PG_SEQA);
     if (at(S(260.5))) pattern(0, &OST, "OSTINATO (16)");
-    if (at(S(262))) press("HOME", PG_VECTOR);
+    if (at(S(262))) press("HOME", PG_NAV);
     if (at(S(267.5))) preset(P_ORBITAL);
     pot(__LINE__, 2900, S(268), S(271));
 }
@@ -176,7 +176,7 @@ static void bridge(double s0)                   /* ORBITAL: TURING rewrites the 
     }
     if (at(S(18))) { act(); pa_cur = e.t[0].pat; pa_cur.mutate = 32; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 32"); }
     if (at(S(20))) { act(); pa_cur = e.t[0].pat; pa_cur.range = 5; sd_engine_pattern_to(&e, 0, &pa_cur); say("K2: RANGE 5"); }
-    if (at(S(32))) press("HOME", PG_VECTOR);
+    if (at(S(32))) press("HOME", PG_NAV);
     if (at(S(34))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 60, S(36), S(120));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 30, S(64), S(120));   /* MUTATE */
@@ -216,9 +216,9 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
     if (at(S(131))) glo(SD_MODE_POLY);
     if (at(S(132.5))) press("SEQ", PG_SEQA);
     if (at(S(134))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
-    if (at(S(135.5))) press("HOME", PG_VECTOR);
+    if (at(S(135.5))) press("HOME", PG_NAV);
     if (at(S(137))) preset(P_CHORDS);
-    KNOB99(PG_VECTOR, pat.warp, 42, S(138.5), S(141.5));
+    KNOB99(PG_NAV, pat.warp, 42, S(138.5), S(141.5));
     pot(__LINE__, 3300, S(138), S(141));
 }
 
@@ -232,7 +232,7 @@ static void chorus2(double s0)                  /* again; BREAK's grit, MOVE; at
     if (at(S(120))) xpose(0, 2);
     if (at(S(122))) press("SEQ", PG_SEQB);
     if (at(S(124))) xpose(1, 2);
-    if (at(S(130))) press("HOME", PG_VECTOR);
+    if (at(S(130))) press("HOME", PG_NAV);
     if (at(S(132))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 60, S(136), S(240));  /* MOVE */
     pot(__LINE__, 3700, S(128), S(160));        /* (a touch louder for the last half) */
@@ -257,7 +257,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     if (at(S(1.5))) { act(); e.arp_oct = 2; say("K3: OCTAVES 2"); }
     for (i = 0; i < 4; i++) { if (at(S(3) + i * 0.1)) key(HAND[i], 1); if (at(S(5) + i * 0.1)) key(HAND[i], 0); }
     if (at(S(16))) { act(); e.arp_mode = SD_AM_UPDN; say("K1: MODE UP-DN"); }
-    if (at(S(32))) press("FX", PG_RIDER);
+    if (at(S(32))) press("FX", PG_REACTOR);
     if (at(S(34))) press("FX", PG_DESTROY);
     if (at(S(36))) press("FX", PG_SPACE);
     KNOB99(PG_SPACE, pat.s_fb, 62, S(38), S(80));
@@ -282,7 +282,7 @@ static void setup(void)                         /* before the first note: DUO, V
     say("EDIT: SEQ A OFF");
     page = PG_SEQB;
     pattern(1, &BASS, "BASS (D D Bb C)");
-    page = PG_RIDER;
+    page = PG_REACTOR;
     master = 2600;
 }
 

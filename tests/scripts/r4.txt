@@ -1,4 +1,4 @@
-# R4: VOWEL (PRESETS +1 from DISTROY) in the loop on the RIDER page (FX once); ALGORITHM: TRACK one step; SEL held:
+# R4: VOWEL (PRESETS +1 from DISTROY) in the loop on the REACTOR page (FX once); ALGORITHM: TRACK one step; SEL held:
 # ALGORITHM, LOW up. Buttons: SEL 3, FX 2, PLAY 12. Encoders: ALGORITHM 1, PRESETS 6.
 1700 enc 6 1
 1800 btn 12

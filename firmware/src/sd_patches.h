@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* The patches (Sound Plan §7, V3): four banks of four oscillators, each a harmonic 1..32 of
  * the note with a fine tune, a level and a role, left to right; each bank's offsets on the Q page; the Q page's XM WP
- * FD DT for all banks; ENV1 on the level, ENV2 on the FM amount; the vector X/Y, VEC2's cells, the stereo width.
+ * FD DT for all banks; ENV1 on the level, ENV2 on the FM amount; the nav X/Y, COURSE's cells, the stereo width.
  * Included by sd_engine.h after the patch's types.
  *
- * A one-bank patch (GROWL, AURORA, ...) has its bank in all four and the vector at corner A: in DUO and POLY every
+ * A one-bank patch (GROWL, AURORA, ...) has its bank in all four and the nav at corner A: in DUO and POLY every
  * voice plays the same bank. */
 #ifndef SD_PATCHES_H
 #define SD_PATCHES_H
@@ -18,7 +18,7 @@
 #define P_ SD_ROLE_P
 #define SD_OFF SD_OSC(1, 0, 0, C_)
 #define SD_CORNER_A .x = 0, .y = 65535
-/* the Rider: a stage from a vowel (sd_tables.h, its four formants) at levels falling from F1, or a chord on a root */
+/* the Reactor: a stage from a vowel (sd_tables.h, its four formants) at levels falling from F1, or a chord on a root */
 #define SD_RLV_VOWEL {47800u, 43700u, 37500u, 27900u}   /* the level law's 1.89 1.59 1.22 0.85 x */
 #define SD_RST_VOWEL(v) {v, SD_RLV_VOWEL}
 /* VOWEL's in VBP: the same gains as before the make-up (VBP's is 4.62 x): 0.41 0.34 0.26 0.18; PLUCKS' combs:
@@ -50,17 +50,17 @@ static const SdPatch SD_PATCH_SINE = {
 #define SD_SPMS(ms) ((uint16_t)(((ms) - 1u) * 65535u / 999u + 1u))
 
 /* GLASS, BELL, EPIANO and ORGAN are gone (the user, 2026-11-08: they still sounded like classic FM, edge or not);
- * their banks live on inside TOUR, DISTROY and the cue's patches. The code names a patch by SD_P_*, never by number:
+ * their banks live on inside VOYAGE, DISTROY and the cue's patches. The code names a patch by SD_P_*, never by number:
  * tests/sd_test.c checks each against SD_PATCH_NAME */
 enum {
-    SD_P_GROWL, SD_P_TOUR, SD_P_DISTROY, SD_P_VOWEL, SD_P_CHORDS, SD_P_PLUCKS, SD_P_FLANGE, SD_P_PHASER, SD_P_RIDE,
+    SD_P_GROWL, SD_P_VOYAGE, SD_P_DISTROY, SD_P_VOWEL, SD_P_CHORDS, SD_P_PLUCKS, SD_P_FLANGE, SD_P_PHASER, SD_P_FUSION,
     SD_P_SPLIT, SD_P_COMET, SD_P_NEBULA, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH, SD_P_STRINGS,
     SD_P_HALO, SD_P_AURORA, SD_P_TITAN, SD_P_DRIVE, SD_P_UNDERTOW, SD_P_IMPACT, SD_P_BRAAM, SD_P_SCREAM, SD_P_BEACON,
     SD_P_DEPTH, SD_P_SHARDS, SD_P_PRISM, SD_P_COUNT
 };
 #define SD_PATCHES 29u
-static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "TOUR", "DISTROY", "VOWEL", "CHORDS", "PLUCKS", "FLANGE",
-                                                      "PHASER", "RIDE", "SPLIT", "COMET", "NEBULA", "PULSAR", "ION",
+static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "VOYAGE", "DISTROY", "VOWEL", "CHORDS", "PLUCKS", "FLANGE",
+                                                      "PHASER", "FUSION", "SPLIT", "COMET", "NEBULA", "PULSAR", "ION",
                                                       "ORBITAL", "MONOLITH", "STRINGS",
                                                       /* cue 2's (tools/sd_epic.c) */
                                                       "HALO", "AURORA", "TITAN", "DRIVE", "UNDERTOW", "IMPACT", "BRAAM",
@@ -93,16 +93,16 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         /* the fold stepping on eighths (S&H: a rhythm, not a wobble), the top's gain with it; harder notes growl more */
         .mod = {{SD_MS_LFO1, SD_MD_FOLD, 6620}, {SD_MS_VEL, SD_MD_XM, 6620}, {SD_MS_LFO1, SD_MD_DHIGH, 2600}},
         .lfo_shape = {SD_LS_SH}, .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {5561}, .mac4 = SD_M4_BODY},
-    {   /* TOUR (§7 VECTOR TOUR): clean additive (A) -> FM bell (B) -> folded growl (C) -> organ (D), VEC2 from the gate
+    {   /* VOYAGE (§7 VOYAGE): clean additive (A) -> FM bell (B) -> folded growl (C) -> organ (D), COURSE from the gate
          * around the field, the banks spread in stereo. C warps and folds by its own offsets, as a mod slot would */
         .bank = {BK_GLASS, BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                                                 SD_OSC(1, 0, 60000, C_), 0, 22000, 12000, 0), BK_ORGAN},
         .xm = 40000, .width = 40000, SD_CORNER_A,
-        .vec = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0}, .cell_ms = {1500, 1500, 1500},
+        .course = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0}, .cell_ms = {1500, 1500, 1500},
         .e1_a = 10, .e1_d = 90, .e1_s = 100, .e1_r = 60, .e2_a = 0, .e2_d = 70, .e2_s = 60, .e2_r = 60,
         .s_time = SD_SPDIV(8), .s_mode = SD_SP_SYNC, .s_fb = 22000, .s_dtone = 36000, .s_dlevel = 14000,
         .s_size = 65535, .s_decay = 48000, .s_rtone = 40000, .s_rlevel = 18000,
-        /* the vector stepping round the field: X a new place each quarter, Y each half (S&H, glided ~10 ms). (Two slow
+        /* the nav stepping round the field: X a new place each quarter, Y each half (S&H, glided ~10 ms). (Two slow
          * free LFOs drifted it as a random vowel, the user: stepped random is "much better") */
         .mod = {{SD_MS_LFO1, SD_MD_X, 9929}, {SD_MS_LFO2, SD_MD_Y, 9929},
                 /* the engines talking: Y walks the loop, the echoes bend the warp */
@@ -114,7 +114,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .bank = {BK_GROWL, BK_BELL_LIGHT, BK_EPIANO_LIGHT, BK_GROWL}, .x = 32768, .y = 32768, .width = 30000,
         .xm = 50000, .warp = 50000, .fold = 30000, .dt = 20000,
         .e1_a = 5, .e1_d = 70, .e1_s = 100, .e1_r = 40, .e2_a = 0, .e2_d = 60, .e2_s = 80, .e2_r = 40,
-        /* and the Rider in its costliest model, BP12, half wet, its stages at random */
+        /* and the Reactor in its costliest model, BP12, half wet, its stages at random */
         .stage = {SD_RST_VOWEL(SD_RV_A), SD_RST_VOWEL(SD_RV_ER), SD_RCH(48, 10000u, 0, 7, 12, 19), SD_RST_VOWEL(SD_RV_OO),
                   SD_RCH(48, 10000u, 0, 3, 10, 15), SD_RST_VOWEL(SD_RV_EE)},
         .r_pan = {-24000, 24000, -8000, 8000}, .r_model = SD_RM_BP12, .r_res = 36000, .r_slew = 24000,
@@ -133,7 +133,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         /* and SPACE, all of it: the worst case */
         .s_time = SD_SPDIV(2), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 40000, .s_dtone = 30000, .s_dlevel = 18000,
         .s_size = 65535, .s_decay = 50000, .s_rtone = 36000, .s_rlevel = 16000,
-        /* the Rider and the warp sampled and held a sixteenth; the top band's gain a new step each quarter; the
+        /* the Reactor and the warp sampled and held a sixteenth; the top band's gain a new step each quarter; the
          * wheel feeds the loop */
         .mod = {{SD_MS_LFO1, SD_MD_RPOS, 8274}, {SD_MS_LFO1, SD_MD_WARP, 4965}, {SD_MS_LFO2, SD_MD_DHIGH, 9929},
                 {SD_MS_WHEEL, SD_MD_DFB, 13239},
@@ -197,7 +197,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .r_model = SD_RM_AP2, .r_res = 56000, .r_slew = 54000,
         .r_drive = 16384, .r_mix = 65535, .r_div = 8, .r_cmode = SD_RC_FWD, .r_max = 5,
         .s_size = 50000, .s_decay = 40000, .s_rtone = 42000, .s_rlevel = 14000},
-    {   /* RIDE (Gate D RIDER): one patch, its stages a phoneme, a chord, a phoneme, a single high ring, a phoneme, a
+    {   /* FUSION (Gate D REACTOR): one patch, its stages a phoneme, a chord, a phoneme, a single high ring, a phoneme, a
          * chord; BP12 high, DRIVE into the loops' saturation, ping-pong with a glide between */
         .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 50000, C_), SD_OSC(2, 0, 16000, C_), SD_OSC(1, 7, 20000, C_), SD_OFF)),
         SD_CORNER_A, .warp = 30000, .dt = 8000,
@@ -247,7 +247,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_DTOP, SD_MD_SDLVL, 9929}},
         .lfo_shape = {SD_LS_SAW, SD_LS_SH}, .lfo_mode = {SD_LM_SYNC | SD_LM_ONE, SD_LM_SYNC},
         .lfo_rate = {16484, 5561}, .mac4 = SD_M4_BODY},
-    {   /* NEBULA: a pad (four voices: POLY) whose character is the Rider: four KP combs tuned to the chord's
+    {   /* NEBULA: a pad (four voices: POLY) whose character is the Reactor: four KP combs tuned to the chord's
          * tones and kept on the note's harmonics (KEY+H), bowed by a soft triangle stack; their chord steps once a bar
          * (S&H on POS), the fold grows inside each note; the top band breathes, SOFT, on halves; the room open */
         .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 34000, C_), SD_OSC(2, 5, 16000, C_), SD_OSC(4, -6, 9000, C_),
@@ -345,7 +345,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* STRINGS (the user, 2026-11-05: a cello, "as close as possible" to the recorded C major, then V4 by ear in
          * the duo, tools/cello_v4.txt): a bowed string is a saw through a body.
          * - The source: a plain saw (WARP 25544), slow in (70), a long bow (sustain 118), 8 cents of vibrato at 5.5 Hz.
-         * - The body: the Rider's four BP6s snapped to the note's harmonics (HARM), stages 1-3 a cello's
+         * - The body: the Reactor's four BP6s snapped to the note's harmonics (HARM), stages 1-3 a cello's
          *   (~100 200 320 Hz, 1 kHz), 4-6 brighter (~280 420 Hz, 1.05 1.65 kHz); POS on stage 2.
          * - The tilt: DESTROY unshaped as four levels (-22 -4.8 -0.1 +6.8 dB at 262 750 2380 Hz) and TAME; a small
          *   room, mono (the duo's and cue 2's strings pan by the part).
@@ -428,7 +428,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_WHEEL, SD_MD_DFB, 13239}, {SD_MS_DLOW, SD_MD_RPOS, 6620}, {SD_MS_STEP, SD_MD_DSPLIT, 6620}},
         .lfo_shape = {SD_LS_SH, SD_LS_SH}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC}, .lfo_rate = {100, 16484}},
     {   /* DRIVE (cue 2's 16ths): ION without the grit split jumping on the step (the bass has it), in the big
-         * hall with a dotted-eighth delay: it answers itself (PULSAR's vector jumping between banks stood out from
+         * hall with a dotted-eighth delay: it answers itself (PULSAR's nav jumping between banks stood out from
          * the rest, the user said) */
         .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
                 SD_OSC(1, 0, 14000, S_))),
@@ -457,7 +457,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_LFO1, SD_MD_DSPLIT, 9929}, {SD_MS_LFO2, SD_MD_DHIGH, 11584}, {SD_MS_VEL, SD_MD_XM, 6620},
                 {SD_MS_DLOW, SD_MD_DHIGH, -6620}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_ONE}, .lfo_rate = {100, 16484}},
-    {   /* IMPACT (cue 2's drums): ORBITAL dry: its hits ring in the Rider, not in SPACE */
+    {   /* IMPACT (cue 2's drums): ORBITAL dry: its hits ring in the Reactor, not in SPACE */
         .bank = {BK_BELL,
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                      SD_OSC(1, 0, 60000, C_), 0, 8000, 0, 0),
@@ -540,15 +540,15 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_LFO2, SD_MD_DSPLIT, 14745}, {SD_MS_LFO2, SD_MD_XM, 8192}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
         .lfo_rate = {100, 30000}},
-    {   /* BEACON (cue 2's high line): TOUR far back: a slow 10-cent vibrato (5 Hz), its top tamed (the user heard
-         * TOUR's high partials scream), in the big hall with dotted-quarter delays; DROWN on MACRO 4 */
+    {   /* BEACON (cue 2's high line): VOYAGE far back: a slow 10-cent vibrato (5 Hz), its top tamed (the user heard
+         * VOYAGE's high partials scream), in the big hall with dotted-quarter delays; DROWN on MACRO 4 */
         .bank = {BK_GLASS,
                  BK_BELL,
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                      SD_OSC(1, 0, 60000, C_), 0, 22000, 12000, 0),
                  BK_ORGAN},
         .xm = 40000, .e1_a = 60, .e1_d = 90, .e1_s = 100, .e1_r = 75, .e2_a = 0, .e2_d = 70, .e2_s = 60, .e2_r = 60,
-        SD_CORNER_A, .width = 40000, .vec = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0},
+        SD_CORNER_A, .width = 40000, .course = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0},
         .cell_ms = {1500, 1500, 1500},
         .d_split = {12288, 18432, 24576}, .d_level = {32768, 32768, 32768, 32768}, .d_tame = 30000, .d_mix = 65535,
         .s_time = 56000, .s_fb = 38000, .s_dtone = 22000, .s_dlevel = 26214, .s_size = 64000, .s_decay = 57000,

@@ -7,7 +7,7 @@ in the browser, the firmware, the demos.
                                    inlined: the installer (Web MIDI, Chrome or Edge), the demos, the controls, the links
   firmware/stardistroyer-VER.fwsc  the package the page installs (its SHA-256 in the page: a damaged download is never
                                    offered)
-  audio/                           DERELICT, the song and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
+  audio/                           DERELICT, CINEMATIC and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
                                    and each one's spectrum as a picture (WebP), low to high, left to right
   screens/                         the pictures (docs/readme: the logo's line, the screens, the signal flow; web/og.png
                                    and web/icon.png from web/make_og.py)
@@ -38,19 +38,20 @@ BLOCKS, BLK, KEEP = 20, 0x30, 0x2F
 ART = ROOT / "docs" / "readme"
 PICTURES = {ART / "logo_line.png": "logo.png", ART / "slash.png": "slash.png", ART / "chain.svg": "chain.svg",
             HERE / "og.png": "og.png", HERE / "icon.png": "icon.png"}
-SCREENS = ("splash", "vector", "macros", "rider", "destroy", "space", "env", "filter", "lfo", "mod", "seq", "turing",
+SCREENS = ("splash", "nav", "macros", "reactor", "destroy", "space", "env", "filter", "lfo", "mod", "seq", "turing",
            "arp")
 # the demos: each one FM-1 played by one person (tools/sd_play.h's rules); DERELICT four such passes layered
 DEMOS = [
     {"id": "derelict", "wav": "build/audio/derelict/star_distroyer_derelict.wav", "title": "DERELICT",
      "about": "An overture, C minor at 84 BPM, four themes in four-bar turns: BRAAM's call; the cello far back in "
-              "its own hall; PULSAR's staccato, its vector jumping across all four banks; BEACON's high line; the "
+              "its own hall; PULSAR's staccato, its nav jumping across all four banks; BEACON's high line; the "
               "cello over the staccato; a pedal TURING rewrites, its top band crushed. Four passes on one FM-1."},
-    {"id": "song", "wav": "build/audio/song/star_distroyer_song.wav", "title": "THE SONG",
-     "about": "D minor at 112 BPM: intro, verse, chorus, a bridge that TURING rewrites, the last chorus a tone up. "
-              "VOWEL, CHORDS, ORBITAL and GROWL, one at a time."},
+    {"id": "cine", "wav": "build/audio/cine/star_distroyer_cine.wav", "title": "CINEMATIC",
+     "about": "A cue in D minor at 84 BPM, big, mighty and alien: NEBULA's chords and VOYAGE's alien line far "
+              "back, PULSAR's 16ths, ION's bass and ORBITAL's taiko near, MONOLITH's and DISTROY's braams, a sine "
+              "under it all, the macros stepping each bar. Eight parts layered as a multitrack."},
     {"id": "range", "wav": "build/audio/range/star_distroyer_range.wav", "title": "RANGE",
-     "about": "The span in seven scenes, one patch each: VECTOR, FILTER, RIDER, DESTROY, POLY, TURING and SPACE."},
+     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DESTROY, POLY, TURING and SPACE."},
 ]
 # the spectrum's picture: 40 Hz .. 16 kHz on a log scale, 75 dB of range, in the screen's ice
 SPEC_W, SPEC_H, SPEC_N = 1600, 240, 8192

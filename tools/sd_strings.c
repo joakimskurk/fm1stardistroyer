@@ -9,7 +9,7 @@
  *
  * The patch: SD_PATCH's STRINGS (tools/cello_v4.txt, V4), or, with PARAMS (key value lines, see below), one built from them, for tuning.
  * The model: a bowed string is a sawtooth through a body. The source is the banks at the saw; the body is the
- * Rider's four band-passes on fixed frequencies (no tracking), stages 1-3 a cello's body and 4-6 a violin's, KEY
+ * Reactor's four band-passes on fixed frequencies (no tracking), stages 1-3 a cello's body and 4-6 a violin's, KEY
  * moving POS so the low notes sound through the cello and the high ones through the violin; DESTROY with no
  * shaping is a four-band level (the tilt) and TAME the top's fall. */
 #include <math.h>
@@ -105,7 +105,7 @@ static int piece(const char *path, const SdPatch *p)
         memset(a, 0, sizeof a); memset(b, 0, sizeof b);
         sd_engine_render(&eng, a, m);
         sd_engine_render(&e2, b, m);
-        {   /* the phrase's arc in the mix (the Rider's resonances keep the velocities close): held back at the start,
+        {   /* the phrase's arc in the mix (the Reactor's resonances keep the velocities close): held back at the start,
                full at the high D of bar 4, a diminuendo home; the last bar fades */
             double bt = t / beat, g = bt < 12 ? 0.70 + 0.30 * bt / 12 : bt < 16 ? 1.0 : bt < 28 ? 1.0 - 0.35 * (bt - 16) / 12
                       : 0.65 * fmax(0, 1 - (bt - 28) / 6);

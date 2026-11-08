@@ -5,21 +5,21 @@
  *
  * Five parts, each its own engine as the FM-1 would play it (the instrument plays one part at a time: this is five
  * takes layered, a mix as from a multitrack):
- *   PAD      POLY chords (Dm9 Bbmaj7 Gm9 A7sus4), the Rider's AP2 phaser gliding
- *   PLUCKS   a 16th arpeggio pinging the Rider's KP combs
+ *   PAD      POLY chords (Dm9 Bbmaj7 Gm9 A7sus4), the Reactor's AP2 phaser gliding
+ *   PLUCKS   a 16th arpeggio pinging the Reactor's KP combs
  *   BASS     GROWL's chain low, its fold swept by a slow wave
- *   LEAD     VOWEL's melody, the Rider's POS scanning vowels; later TOUR, the vector circling the field
- *   WEIRD    the break: DISTROY with sample-and-hold on XM, warp and fold, the vector in a fast Lissajous, the
- *            Rider's stages at random, the harmonic generators re-rolling the banks on the beat
+ *   LEAD     VOWEL's melody, the Reactor's POS scanning vowels; later VOYAGE, the nav circling the field
+ *   WEIRD    the break: DISTROY with sample-and-hold on XM, warp and fold, the nav in a fast Lissajous, the
+ *            Reactor's stages at random, the harmonic generators re-rolling the banks on the beat
  * Every change the patterns and the "modulation" make goes through sd_engine_patch() once a 256-frame interrupt,
  * as the firmware's knobs and modulation would. Only the mix (gains, a soft master clip) is this tool's own and
  * uses floating point; the engine renders exactly as on the FM-1.
  *
  * Bars (16 sixteenths, 2.4 s): 0-5 pad; 6-11 + plucks; 12-19 + bass, vowel lead; 20-27 the weird break;
- * 28-37 everything, TOUR lead; 38-43 the pad and a flanged swell.
+ * 28-37 everything, VOYAGE lead; 38-43 the pad and a flanged swell.
  *
- * SD_FIRST=1 renders it as the first demo was (2026-11-04, after R3): no SPACE, no DESTROY, the Rider's MIX a plain
- * crossfade with no low keep and no HARM, the patches' Rider values from then, POLY at -3 dB a voice. */
+ * SD_FIRST=1 renders it as the first demo was (2026-11-04, after R3): no SPACE, no DESTROY, the Reactor's MIX a plain
+ * crossfade with no low keep and no HARM, the patches' Reactor values from then, POLY at -3 dB a voice. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,7 +85,7 @@ static float gain_of(uint32_t t, double bar)    /* each part's level through the
         {0, 1.5, 42, 44, 0.85f},                 /* pad: the whole piece */
         {6, 7, 38, 39, 0.70f},                   /* plucks */
         {12, 12.5, 38, 39, 0.95f},               /* bass */
-        {12, 13, 43, 44, 0.80f},                 /* lead (vowel, then TOUR) */
+        {12, 13, 43, 44, 0.80f},                 /* lead (vowel, then VOYAGE) */
         {20, 20.3, 27.7, 28, 1.00f},             /* the weird break */
         {37, 39, 43, 44, 0.70f}};                /* the flanged swell */
     double f;
@@ -120,7 +120,7 @@ static void sixteenth(uint32_t s)
         if (BL[pos] >= 0) { all_off(&tr[T_BASS]); note_on(&tr[T_BASS], ROOT[ch] + (uint32_t)BL[pos], pos == 0 ? 120 : 95); }
         else if (pos % 2u) all_off(&tr[T_BASS]);
     }
-    /* LEAD: the vowel melody in eighths (bars 12-19), then TOUR's long notes (28-37) */
+    /* LEAD: the vowel melody in eighths (bars 12-19), then VOYAGE's long notes (28-37) */
     if (bar >= 12u && bar < 20u && pos % 2u == 0) {
         int8_t n = MEL[((s - 12u * 16u) / 2u) % 32u];
         if (n >= 0) { all_off(&tr[T_LEAD]); note_on(&tr[T_LEAD], (uint32_t)n, 100); }
@@ -161,7 +161,7 @@ static void modulate(double t, double bar)
     b->p.xm = (uint16_t)(30000 + 12000 * sin(2 * M_PI * t / 7.2));
     if (bar < 20) {                             /* VOWEL: POS through the vowels a bar, a glide */
         l->p.r_pos = (uint16_t)fmod(t / 2.4 * 256.0 * 1.5, 1536.0);
-    } else if (bar >= 28) {                     /* TOUR: the vector round the field, 7.2 s a lap; DT breathing */
+    } else if (bar >= 28) {                     /* VOYAGE: the nav round the field, 7.2 s a lap; DT breathing */
         l->p.x = (uint16_t)(32767.5 + 32767 * cos(2 * M_PI * t / 7.2));
         l->p.y = (uint16_t)(32767.5 + 32767 * sin(2 * M_PI * t / 7.2));
         l->p.dt = (uint16_t)(9000 + 9000 * sin(2 * M_PI * t / 9.6));
@@ -177,7 +177,7 @@ static void modulate(double t, double bar)
 static void setup(void)
 {
     uint32_t i;
-    /* PAD: soft carriers 1 2 3 (+ a 2 a few cents off), toward triangle, slow ADSR; POLY; the Rider's AP2 */
+    /* PAD: soft carriers 1 2 3 (+ a 2 a few cents off), toward triangle, slow ADSR; POLY; the Reactor's AP2 */
     SdPatch pad = SD_PATCH[SD_P_PHASER];
     for (i = 0; i < SD_BANKS; i++)
         pad.bank[i] = (SdBankPatch){{{1, 0, SD_ROLE_C, 0, 34000}, {2, 6, SD_ROLE_C, 0, 18000},
@@ -190,14 +190,14 @@ static void setup(void)
     tr[T_PLUCK].p.r_div = 0; tr[T_PLUCK].p.r_track = 1; tr[T_PLUCK].p.r_res = 56000;
     tr[T_BASS].p = SD_PATCH[SD_P_GROWL];                 /* GROWL */
     tr[T_BASS].p.e1_d = 50; tr[T_BASS].p.e1_s = 60; tr[T_BASS].p.e1_r = 30;
-    tr[T_LEAD].p = SD_PATCH[SD_P_VOWEL];                 /* VOWEL; at bar 28 it becomes TOUR */
+    tr[T_LEAD].p = SD_PATCH[SD_P_VOWEL];                 /* VOWEL; at bar 28 it becomes VOYAGE */
     tr[T_LEAD].p.r_div = 0; tr[T_LEAD].p.r_slew = 34000; tr[T_LEAD].p.e1_r = 70;
     tr[T_WEIRD].p = SD_PATCH[SD_P_DISTROY];                /* DISTROY */
     tr[T_WEIRD].p.r_div = 0; tr[T_WEIRD].p.e1_d = 40; tr[T_WEIRD].p.e1_s = 40; tr[T_WEIRD].p.e1_r = 25;
     tr[T_WEIRD].p.r_mix = 52000;
     tr[T_SWELL].p = SD_PATCH[SD_P_FLANGE];               /* FLANGE */
     tr[T_SWELL].p.r_div = 0; tr[T_SWELL].p.e1_a = 100; tr[T_SWELL].p.e1_r = 100;
-    if (first) {                                /* the patches' Rider values before R4 */
+    if (first) {                                /* the patches' Reactor values before R4 */
         tr[T_PLUCK].p.r_mix = 65535; tr[T_PLUCK].p.r_drive = 16384;
         tr[T_LEAD].p.r_res = 36000; tr[T_LEAD].p.r_drive = 26000; tr[T_LEAD].p.r_mix = 65535;
         tr[T_WEIRD].p.r_res = 44000; tr[T_WEIRD].p.r_drive = 14000;
@@ -237,10 +237,10 @@ int main(int argc, char **argv)
         uint32_t n = frames - done < BLOCK ? frames - done : BLOCK;
         double t = (double)done / SD_FS, bar = (double)done / (16.0 * S16);
         while (next16 * S16 <= done) sixteenth(next16++);
-        if (bar >= 28.0 && !toured) {           /* the lead becomes TOUR, once */
+        if (bar >= 28.0 && !toured) {           /* the lead becomes VOYAGE, once */
             toured = 1;
-            tr[T_LEAD].p = SD_PATCH[SD_P_TOUR];
-            tr[T_LEAD].p.vec = 0; tr[T_LEAD].p.e1_r = 80; tr[T_LEAD].p.e1_s = 110;
+            tr[T_LEAD].p = SD_PATCH[SD_P_VOYAGE];
+            tr[T_LEAD].p.course = 0; tr[T_LEAD].p.e1_r = 80; tr[T_LEAD].p.e1_s = 110;
             tr[T_LEAD].p.r_mix = 30000; tr[T_LEAD].p.stage[0] = SD_PATCH[SD_P_VOWEL].stage[2];
             tr[T_LEAD].p.r_model = SD_RM_VBP; tr[T_LEAD].p.r_res = 30000; tr[T_LEAD].p.r_drive = 20000;
             for (k = 0; k < 6u; k++) tr[T_LEAD].p.stage[k] = SD_PATCH[SD_P_VOWEL].stage[k];

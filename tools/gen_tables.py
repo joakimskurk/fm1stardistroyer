@@ -11,25 +11,25 @@
     SD_ENV_DEC   envelope decay/release coefficient per control tick (32 frames), Q31, 128 times 1 ms .. 10 s
     SD_ENV_ATK   envelope attack coefficient (toward 1.25, reaching 1.0 in the time), Q31, same times
     SD_ENV_MS    the same times in ms (the screen's ENV and FILTER pages: 1 .. 10000)
-    SD_RG        the Rider's filter warp g = tan(pi f / fs) by semitone, MIDI 16..130 (+1), Q24
-    SD_RK        the Rider's damping k = 1/Q by RES, 128 steps (+1): 2.0 (no resonance) .. 0.01 (rings), Q24
+    SD_RG        the Reactor's filter warp g = tan(pi f / fs) by semitone, MIDI 16..130 (+1), Q24
+    SD_RK        the Reactor's damping k = 1/Q by RES, 128 steps (+1): 2.0 (no resonance) .. 0.01 (rings), Q24
     SD_FK        the filter's damping by RES (2026-11-06), 128 steps (+1), Q24: a factor on its flat k (LP12 1.41,
                  LP24's second stage 0.77), 1.0 .. 0.0707 exponentially: even in dB of the peak, to +23 dB (LP12)
                  and +25 dB (LP24) at full, never self-oscillating
-    SD_RLEVEL    the Rider's level law, 128 steps (+1), Q12: clean 0 .. 1 over the first half (2x), then 1 .. 4
+    SD_RLEVEL    the Reactor's level law, 128 steps (+1), Q12: clean 0 .. 1 over the first half (2x), then 1 .. 4
                  exponentially into the soft clip (a zone of saturation)
     SD_DGAIN     DESTROY's band gain before its shaper, 128 steps (+1), Q8: 0 .. +36 dB (1 .. 63 x), even in dB
     SD_DLOG      DESTROY's dynamics: 20 log10(1 + i / 64) in dB x 256, 64 steps (+1): a level's dB from its top bits
     SD_DEXP      and back: 2^(i / 64), Q14, 64 steps (+1): a gain from its log2's fraction
-    SD_RMIX      the Rider's MIX law (R4), 128 steps (+1), Q15 pairs {dry, wet}: the dry whole to the middle and the
+    SD_RMIX      the Reactor's MIX law (R4), 128 steps (+1), Q15 pairs {dry, wet}: the dry whole to the middle and the
                  wet in on top, past it the dry fading; both x 1 / sqrt(dry^2 + wet^2), so the loudness holds
-    SD_HARM_ST   the harmonics 1..32 as semitones x 256 above the fundamental (12 log2 h): the Rider's HARM snap
+    SD_HARM_ST   the harmonics 1..32 as semitones x 256 above the fundamental (12 log2 h): the Reactor's HARM snap
     SD_SEMI      2^(k / 12) for k = 0..11, Q16: the matrix's PITCH (C1), with SD_CENTS for the rest
     SD_LFO_INC   the LFOs' free rate (C1), 128 steps (+1): 0.02 .. 40 Hz, exponential, as a phase step a control tick
                  (2^32 a cycle); SD_LFO_HZ100 the same rates in Hz x 100, for the screen
     SD_SP_G      SPACE's reverb: a line's gain by DECAY, 128 steps (+1), Q15, for a 3500-sample line: T60 0.3 .. 20 s
                  (exponential in time); a shorter SIZE rings proportionally shorter
-    SD_RVOWEL    the Rider's 13 vowel presets (ee i ay e au u a aw oo ar er ir iir): four formant
+    SD_RVOWEL    the Reactor's 13 vowel presets (ee i ay e au u a aw oo ar er ir iir): four formant
                  frequencies as MIDI x 256. Textbook adult male formants (Peterson & Barney 1952 and the like for
                  F1..F3, F4 at 3.5 kHz), approximate
 
@@ -47,7 +47,7 @@ D_MIN, G_MIN, G_MAX = 0.012, 0.05, 12.0
 FOLD_EDGES = [(0.00, 1.00), (0.30, 1.18), (0.65, 2.40), (0.85, 4.50), (1.00, 10.0)]
 # ---- aliasing tracking: gentle (the target is raw: off-series partials only 15-33 dB down, Sound Plan §3.0), from C6 up
 TRACK_KNEE = 72                                  # C5 (C6 until the user heard the FM scream up high)
-# ---- the Rider: its filters' range (a rumble to a wisp), its resonance law
+# ---- the Reactor: its filters' range (a rumble to a wisp), its resonance law
 R_LO, R_HI = 16, 130                    # MIDI 16 (20.6 Hz) .. 130 (14.9 kHz)
 K_MAX, K_MIN = 2.0, 0.01
 VOWELS = [                              # name, F1 F2 F3 F4 (Hz)

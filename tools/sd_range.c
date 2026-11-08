@@ -17,18 +17,18 @@
  *
  * Seven scenes at 112 BPM (124 in the sixth), each a pattern and a patch, a bar between them to stop, load the next
  * patch and pattern, change the mode, and start again:
- *   1 VECTOR   TOUR, MONO: VEC2 moving the vector on every note; WARP and XM up, FOLD in, a harmonic generator
+ *   1 NAV   VOYAGE, MONO: COURSE moving the nav on every note; WARP and XM up, FOLD in, a harmonic generator
  *              re-rolling bank A on each bar's one
  *   2 FILTER   GROWL, MONO: an acid line (SLIDE, accents, a ratchet, PROB, swing); the lowpass switched on, LP24,
  *              closed with RES, ENV 3 made short, then TURING on (the line evolves at each one) and the line
  *              transposed up a fourth and a minor third at the ones; the filter opens to end
- *   3 RIDER    VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
- *              ones; the Rider's POS through the vowels, its MODEL changed
+ *   3 REACTOR    VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
+ *              ones; the Reactor's POS through the vowels, its MODEL changed
  *   4 DESTROY  DISTROY, DUO: a riff in four segments (one in random order, one ping-pong), a ratchet, PROB; BREAK
  *              and MOVE up, then the top band's GAIN destroyed
  *   5 POLY     CHORDS, POLY: three-note chords on SEQ A, the arpeggiator on top (HOLD, two octaves), A transposed up a
  *              tone at the fifth bar with a new hand for the arp; UP-DN, three octaves, 1/32, RND
- *   6 TURING   ORBITAL, MONO: a 16th ostinato that TURING rewrites (CHANGE 35, RANGE 5), MOVE stepping the vector
+ *   6 TURING   ORBITAL, MONO: a 16th ostinato that TURING rewrites (CHANGE 35, RANGE 5), MOVE stepping the nav
  *              around the field's middle, MUTATE, the tempo pushed to 124, a bar at 1/32
  *   7 SPACE    BEACON, MONO: long notes into the delay and the room, FDBK and DECAY up; the sequence stops, a held
  *              key, the echoes left to fall */
@@ -89,20 +89,20 @@ static void patterns(void)
 }
 
 /* ---- the scenes: s, the sixteenths since the scene's PLAY; a bar between scenes (s 128..143 of the one before) */
-static void s1_vector(double s0)
+static void s1_nav(double s0)
 {
 #define S(x) (s0 + (x))
     if (at(S(0))) { play(1); }
-    KNOB99(PG_VECTOR, pat.warp, 40, S(2), S(64));
-    KNOB99(PG_VECTOR, pat.xm, 70, S(32), S(62));
-    KNOB99(PG_VECTOR, pat.fold, 22, S(66), S(124));
+    KNOB99(PG_NAV, pat.warp, 40, S(2), S(64));
+    KNOB99(PG_NAV, pat.xm, 70, S(32), S(62));
+    KNOB99(PG_NAV, pat.fold, 22, S(66), S(124));
     {                                           /* SCL + K4: a generator a detent on bank A, each bar's one */
         static const double G[4] = {64, 80, 96, 112};
         int i;
         for (i = 0; i < 4; i++)
             if (at(S(G[i]) - 0.5)) {
                 char t[48];
-                on_page(PG_VECTOR, "GEN off VECTOR");
+                on_page(PG_NAV, "GEN off NAV");
                 gen = gen >= SD_GENS ? 0u : (gen + 1u) % SD_GENS;
                 gen_seed += frame;
                 sd_gen(&pat, 0, gen, &gen_seed);
@@ -172,13 +172,13 @@ static void s2_filter(double s0)
     if (at(S(131))) pattern(0, &A3, "MELODY (64)");
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) pattern(1, &B3, "BASS (16)");
-    if (at(S(137))) press("FX", PG_RIDER);
+    if (at(S(137))) press("FX", PG_REACTOR);
     if (at(S(141))) preset(SD_P_VOWEL);
     pot(__LINE__, 2380, S(139), S(143));
 #undef S
 }
 
-static void s3_rider(double s0)
+static void s3_reactor(double s0)
 {
 #define S(x) (s0 + (x))
     int32_t v;
@@ -186,17 +186,17 @@ static void s3_rider(double s0)
     static const int XV[6] = {-4, -2, 0, -4, -2, 0};   /* B under A: D D Bb C */
     int i;
     if (at(S(0))) play(1);
-    on_ramp_page(PG_RIDER, S(3), S(21));
+    on_ramp_page(PG_REACTOR, S(3), S(21));
     if (ramp(__LINE__, pat.r_pos / 26, 512 / 26, S(3), S(21), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    KNOB99(PG_RIDER, pat.r_res, 60, S(6), S(20));
+    KNOB99(PG_REACTOR, pat.r_res, 60, S(6), S(20));
     if (at(S(22))) press("SEQ", PG_SEQA);
     if (at(S(23))) press("SEQ", PG_SEQB);
     for (i = 0; i < 6; i++) if (at(S(X[i]))) xpose(1, XV[i]);
-    if (at(S(58))) press("FX", PG_RIDER);
-    on_ramp_page(PG_RIDER, S(60), S(84));
+    if (at(S(58))) press("FX", PG_REACTOR);
+    on_ramp_page(PG_REACTOR, S(60), S(84));
     if (ramp(__LINE__, pat.r_pos / 26, 1000 / 26, S(60), S(84), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
     if (at(S(72))) {                            /* SCL + K2: MODEL, VBP -> BP12 */
-        on_page(PG_RIDER, "MODEL off RIDER");
+        on_page(PG_REACTOR, "MODEL off REACTOR");
         pat.r_model = SD_RM_BP12;
         dirty = 1;
         say("SCL + K2: MODEL BP12");
@@ -206,10 +206,10 @@ static void s3_rider(double s0)
     if (at(S(128))) play(0);
     /* the bar between: DISTROY, the riff on A, the bass on B */
     if (at(S(130))) pattern(1, &B4, "PULSE (16)");   /* (on SEQ B still) */
-    if (at(S(131))) press("HOME", PG_VECTOR);
+    if (at(S(131))) press("HOME", PG_NAV);
     if (at(S(132))) press("SEQ", PG_SEQA);
     if (at(S(133))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
-    if (at(S(135))) press("HOME", PG_VECTOR);
+    if (at(S(135))) press("HOME", PG_NAV);
     if (at(S(136))) press("HOME", PG_MACROS);
     if (at(S(141))) preset(SD_P_DISTROY);
     pot(__LINE__, 4092, S(139), S(143));
@@ -223,7 +223,7 @@ static void s4_destroy(double s0)
     if (at(S(0))) play(1);
     KNOB99(PG_MACROS, pat.mac[2], 85, S(1), S(80));    /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 60, S(48), S(96));   /* MOVE */
-    if (at(S(97))) press("FX", PG_RIDER);
+    if (at(S(97))) press("FX", PG_REACTOR);
     if (at(S(98))) press("FX", PG_DESTROY);
     if (at(S(100))) say("ALGORITHM: band 4 (the top)");
     on_ramp_page(PG_DESTROY, S(102), S(124));
@@ -281,7 +281,7 @@ static void s5_poly(double s0)
     }
     if (at(S(137))) { pa_cur.mutate = 35; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 35"); }
     if (at(S(138))) { pa_cur.range = 5; sd_engine_pattern_to(&e, 0, &pa_cur); say("K2: RANGE 5"); }
-    if (at(S(139))) press("HOME", PG_VECTOR);
+    if (at(S(139))) press("HOME", PG_NAV);
     if (at(S(141))) preset(SD_P_ORBITAL);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
@@ -303,7 +303,7 @@ static void s6_turing(double s0)
     if (ramp(__LINE__, (int32_t)bpm, 112, S(129), S(131), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
-    if (at(S(134))) press("FX", PG_RIDER);
+    if (at(S(134))) press("FX", PG_REACTOR);
     if (at(S(135))) press("FX", PG_DESTROY);
     if (at(S(136))) press("FX", PG_SPACE);
     if (at(S(141))) preset(SD_P_BEACON);
@@ -328,16 +328,16 @@ static int s7_space(double s0)                  /* 1: the end */
 static void setup(void)
 {
     patterns();
-    preset(SD_P_TOUR);
+    preset(SD_P_VOYAGE);
     page = PG_SEQA;
     pattern(0, &A1, "LINE (16)");
-    page = PG_VECTOR;
+    page = PG_NAV;
 }
 static int score(void)
 {
-    s1_vector(0);
+    s1_nav(0);
     s2_filter(144);
-    s3_rider(288);
+    s3_reactor(288);
     s4_destroy(432);
     s5_poly(576);
     s6_turing(720);

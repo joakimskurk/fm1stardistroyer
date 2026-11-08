@@ -20,7 +20,7 @@
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The /// STAR DISTROYER logo over three of its FM-1 screens: the splash, VECTOR and TURING">
+<meta property="og:image:alt" content="The /// STAR DISTROYER logo over three of its FM-1 screens: the splash, NAV and TURING">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#06080c">
 <meta name="color-scheme" content="dark">
@@ -175,32 +175,32 @@
 
   <div class="hero">
     <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
-    <img src="screens/vector.png" width="240" height="240" alt="VECTOR: the X/Y diamond, the bank's four oscillators and their roles">
+    <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
     <img src="screens/turing.png" width="240" height="240" alt="TURING: the steps it rewrote last underlined red">
   </div>
 
   <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
-    sixteen oscillators, morphed across an X/Y field; a <b>Rider</b> of four resonators that sweep through vowels,
+    sixteen oscillators, morphed across an X/Y field; a <b>Reactor</b> of four resonators that sweep through vowels,
     chords and combs; <b>DESTROY</b>, which splits the sound into four bands and wrecks each its own way; and
     <b>SPACE</b>, a delay feeding a room. Around them: a modulation matrix, four macros, a two-track step sequencer
     with segments and a Turing machine, and an arpeggiator.</p>
 
   <div class="facts">
     <div class="fact"><b>16</b><span>oscillators in four banks, morphed on an X/Y field</span></div>
-    <div class="fact"><b>4</b><span>engines in a row: VOICE, RIDER, DESTROY, SPACE</span></div>
+    <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DESTROY, SPACE</span></div>
     <div class="fact"><b>29</b><span>patches, and 32 places of your own</span></div>
     <div class="fact"><b>2×64</b><span>sequencer steps, with segments and a Turing machine</span></div>
   </div>
 
   <h2 id="hear"><img src="screens/slash.png" width="68" height="28" alt="">Hear it</h2>
-  <p>Each part of these is played the way one person plays one FM-1: one stock patch at a time, the app's own controls,
-    the voice rules. DERELICT is four such passes on one FM-1, layered at fixed levels, never more than four at once; the
-    song and RANGE are one pass each, with nothing mixed in. All three are rendered on a computer by the firmware's own
-    sound engine, the same C the FM-1 runs. The picture under each is its spectrum, low to high, from start to end: tap
-    it to jump.</p>
+  <p>DERELICT and RANGE are played the way one person plays one FM-1: one stock patch at a time, the app's own
+    controls, the voice rules. DERELICT is four such passes, layered at fixed levels, never more than four at once;
+    RANGE is one pass, with nothing mixed in. CINEMATIC layers eight parts as a multitrack, each a stock patch on the
+    engine. All three are rendered on a computer by the firmware's own sound engine, the same C the FM-1 runs. The
+    picture under each is its spectrum, low to high, from start to end: tap it to jump.</p>
   <div id="demos"></div>
 
-  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into RIDER into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
 
   <h2 id="install"><img src="screens/slash.png" width="68" height="28" alt="">Install</h2>
   <div class="box">
@@ -227,18 +227,18 @@
 
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The sound</h2>
   <div class="eng">
-    <img class="scr" src="screens/vector.png" width="240" height="240" alt="VECTOR">
+    <img class="scr" src="screens/nav.png" width="240" height="240" alt="NAV">
     <div><h3>VOICE <span>·</span> four banks of four oscillators</h3>
       <ul>
         <li>Each oscillator is a harmonic 1–32 of the note with a fine tune, a carrier or a modulator.</li>
         <li><b>XM</b> sets the FM, <b>WARP</b> turns sine → triangle → saw → pulse, <b>FOLD</b> folds, <b>DETUNE</b> spreads.</li>
-        <li>The <b>vector</b> X/Y blends the four banks; <b>VEC2</b> plays four stored X/Y cells from each note.</li>
+        <li>The <b>NAV</b> X/Y blends the four banks; <b>COURSE</b> plays four stored X/Y cells from each note.</li>
         <li>Harmonic generators re-roll a bank. <b>MONO</b>, <b>DUO</b> or <b>POLY</b>.</li>
       </ul></div>
   </div>
   <div class="eng">
-    <img class="scr" src="screens/rider.png" width="240" height="240" alt="RIDER">
-    <div><h3>RIDER <span>·</span> a quad morphing resonator</h3>
+    <img class="scr" src="screens/reactor.png" width="240" height="240" alt="REACTOR">
+    <div><h3>REACTOR <span>·</span> a quad morphing resonator</h3>
       <ul>
         <li>Four filters of one model: BP6, BP12, a variable BPF, KP combs, or two kinds of allpass.</li>
         <li>Six stages hold every filter's pitch and level; <b>POS</b> moves through them, <b>SLEW</b> jumps or glides.</li>
@@ -266,10 +266,10 @@
     <img class="scr" src="screens/macros.png" width="240" height="240" alt="MACROS">
     <div><h3>MOVEMENT <span>·</span> macros and the matrix</h3>
       <ul>
-        <li>Four macros: <b>MUTATE</b> the voice, <b>MOVE</b> the vector and the Rider, <b>BREAK</b> the destruction,
+        <li>Four macros: <b>MUTATE</b> the voice, <b>MOVE</b> the nav and the Reactor, <b>BREAK</b> the destruction,
           <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
-        <li>Eight modulation slots: envelopes, two LFOs, the vector, velocity, the wheel, aftertouch, random, and the
-          engines themselves (the step, the bands, the Rider's stage, the echoes).</li>
+        <li>Eight modulation slots: envelopes, two LFOs, the nav, velocity, the wheel, aftertouch, random, and the
+          engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -285,8 +285,8 @@
 
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
   <table>
-    <tr><td>HOME</td><td>VECTOR → MACROS</td></tr>
-    <tr><td>FX</td><td>RIDER → DESTROY → SPACE</td></tr>
+    <tr><td>HOME</td><td>NAV → MACROS</td></tr>
+    <tr><td>FX</td><td>REACTOR → DESTROY → SPACE</td></tr>
     <tr><td>ENV</td><td>ENV → FILTER</td></tr>
     <tr><td>LFO</td><td>LFO 1 → LFO 2 → MOD</td></tr>
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
@@ -309,8 +309,8 @@
 
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The patches</h2>
   <ul class="chips" aria-label="The 29 patches">
-    <li>GROWL</li><li>TOUR</li><li class="boot" title="The one it starts on">DISTROY</li><li>VOWEL</li><li>CHORDS</li>
-    <li>PLUCKS</li><li>FLANGE</li><li>PHASER</li><li>RIDE</li><li>SPLIT</li><li>COMET</li><li>NEBULA</li><li>PULSAR</li>
+    <li>GROWL</li><li>VOYAGE</li><li class="boot" title="The one it starts on">DISTROY</li><li>VOWEL</li><li>CHORDS</li>
+    <li>PLUCKS</li><li>FLANGE</li><li>PHASER</li><li>FUSION</li><li>SPLIT</li><li>COMET</li><li>NEBULA</li><li>PULSAR</li>
     <li>ION</li><li>ORBITAL</li><li>MONOLITH</li><li>STRINGS</li><li>HALO</li><li>AURORA</li><li>TITAN</li><li>DRIVE</li>
     <li>UNDERTOW</li><li>IMPACT</li><li>BRAAM</li><li>SCREAM</li><li>BEACON</li><li>DEPTH</li><li>SHARDS</li><li>PRISM</li>
   </ul>

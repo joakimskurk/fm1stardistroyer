@@ -27,10 +27,10 @@ static uint32_t mode = SD_MODE_MONO;            /* GLO's */
 static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform.c: (k10 x k10) >> 8, ~1 full) */
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
-enum { PG_VECTOR, PG_MACROS, PG_RIDER, PG_DESTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_SEQA, PG_SEQB, PG_TURING };
-static const char *const PG_NAME[] = {"VECTOR", "MACROS", "RIDER", "DESTROY", "SPACE", "ENV", "FILTER", "ARP", "SEQ A",
+enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DESTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_SEQA, PG_SEQB, PG_TURING };
+static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DESTROY", "SPACE", "ENV", "FILTER", "ARP", "SEQ A",
                                       "SEQ B", "TURING"};
-static int page = PG_VECTOR;
+static int page = PG_NAV;
 
 static void say(const char *what)
 {

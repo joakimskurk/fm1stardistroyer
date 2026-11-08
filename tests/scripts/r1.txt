@@ -1,4 +1,4 @@
-# R1: VOWEL (PRESETS +1 from DISTROY) in the loop, the RIDER page (FX), POS and RES turned; SEL held: MODEL, DIV
+# R1: VOWEL (PRESETS +1 from DISTROY) in the loop, the REACTOR page (FX), POS and RES turned; SEL held: MODEL, DIV
 # Buttons: SEL 3, FX 2, PLAY 12. Encoders: K1..K4 2..5, PRESETS 6.
 1700 enc 6 1
 1800 btn 12

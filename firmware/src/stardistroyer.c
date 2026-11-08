@@ -3,18 +3,18 @@
  * Built on Dinghy 0.4 (platform.c: updates, the USB rescue, MIDI, keys, knobs, LEDs, the screen, flash).
  *
  * V3 (Sound Plan v0.1 §6): four banks of four oscillators, in the sound engine
- * (sd_engine.h, 32-frame sub-blocks), the Rider, DESTROY, SPACE, a lowpass a voice, the matrix, the macros, two
+ * (sd_engine.h, 32-frame sub-blocks), the Reactor, DESTROY, SPACE, a lowpass a voice, the matrix, the macros, two
  * sequencer tracks, the arpeggiator.
  *
  * The controls, the same on every page (2026-11-07, the user: "functionality on knobs and buttons must recur across
  * the whole app"; "K1-4 lie in a row: we need an indication"; "EDIT a toggle"; "SCL held: the second function"):
  *   a page button  its page; again, the next of its pages (the top line shows them, this one a red tab):
- *                  HOME  VECTOR -> MACROS        FX   RIDER -> DESTROY -> SPACE      ENV  ENV -> FILTER
+ *                  HOME  NAV -> MACROS        FX   REACTOR -> DESTROY -> SPACE      ENV  ENV -> FILTER
  *                  LFO   LFO 1 -> LFO 2 -> MOD   ARP  ARP                            SEQ  SEQ A -> SEQ B -> TURING -> back
  *   K1..K4     the four values in the row under the top line, left to right as the knobs
  *   SCL held   their second layer (the names turn red); on SEQ and TURING the keys transpose the track, at its one
  *   ALGORITHM  the page's choice, said on the hint line (SCL + ALGORITHM: the second)
- *   EDIT       ON / OFF of what the page shows (the top line's right end; EDIT's light: on): VEC2, RIDER, DESTROY,
+ *   EDIT       ON / OFF of what the page shows (the top line's right end; EDIT's light: on): COURSE, REACTOR, DESTROY,
  *              SPACE, FILTER (fx_off: the settings kept), ARP, a track (SEQ B: not in MONO), TURING
  *   PRESETS    the patch (a list while it turns; on SEQ and TURING the pattern, P01..P32)
  *   SELECT     the tempo, 40..240 BPM      GLO the mode: MONO -> DUO -> POLY      OCT- OCT+ the octave (SEQ: the bank)
@@ -28,11 +28,11 @@
  *              GLO or a chord takes their room; a message says why. The status line shows who holds them (A B R -)
  *
  * The pages' knobs (SCL: the second layer):
- *   VECTOR     XM WARP FOLD DETUNE (the Q page, 0..99); SCL: X Y WIDTH, K4 a harmonic generator on the
+ *   NAV     XM WARP FOLD DETUNE (the Q page, 0..99); SCL: X Y WIDTH, K4 a harmonic generator on the
  *              bank (ALL ODD RND CLUST, 14 chords, CPY). ALGORITHM the bank's roles (SSSC PSSC PPPC SCSC PPCC CSSC
- *              SCCC CCCC); SCL + ALGORITHM the bank, A B C D. EDIT: VEC2
+ *              SCCC CCCC); SCL + ALGORITHM the bank, A B C D. EDIT: COURSE
  *   MACROS     MUTATE MOVE BREAK MACRO 4; ALGORITHM MACRO 4's kind (BODY AIR DROWN); the picture: the chain, ON / OFF
- *   RIDER      POS RES SLEW DRIVE; SCL: FREQ MODEL DIV MIX; ALGORITHM TRACK (OFF KEY HARM KEY+H), SCL + ALGO LOW
+ *   REACTOR      POS RES SLEW DRIVE; SCL: FREQ MODEL DIV MIX; ALGORITHM TRACK (OFF KEY HARM KEY+H), SCL + ALGO LOW
  *   DESTROY    ALGORITHM the band 1..4, then LOOP. A band: GAIN ALT BIAS LEVEL; SCL: SPLIT PAN SHAPE BODY;
  *              SCL + ALGORITHM its shaper (NONE SOFT HARD FOLD CRUSH). LOOP: FDBK TIME SPREAD TAME; SCL: MIX XOVER
  *   SPACE      TIME FDBK SIZE DECAY; SCL: D-LEVEL TONE R-LEVEL MODE (FREE SYNC FREE PP SYNC PP)
@@ -57,7 +57,7 @@
 #define APP_NAME "STAR DISTROYER"
 static void app_idle(void);
 #define LCD_IDLE app_idle                       /* while the screen's DMA runs: MIDI in (platform.c) */
-#define CV_MAX (240u * 120u)                    /* the splash in two halves; the vector panel (57.6 KB of the pool) */
+#define CV_MAX (240u * 120u)                    /* the splash in two halves; the nav panel (57.6 KB of the pool) */
 #include "platform.c"
 #include "sd_engine.h"
 #include "sd_logo.h"
@@ -103,7 +103,7 @@ static void app_audio(int32_t *out, uint32_t n)
 #define C_GRID RGB(24, 32, 40)                  /* empty cells, grids */
 #define C_RED RGB(235, 28, 28)                  /* accents, the playing step, a held key */
 #define C_RED_D RGB(118, 14, 14)
-#define C_FILL RGB(58, 6, 8)                    /* the vector's mix, filled */
+#define C_FILL RGB(58, 6, 8)                    /* the nav's mix, filled */
 #define KEY0 53u                                /* key 0 = F3 */
 static int black(uint32_t note) { return (0x54Au >> (note % 12u)) & 1u; }
 
@@ -285,7 +285,7 @@ static uint32_t patch_ok(uint32_t i) { return i < SD_PATCHES || (i < NPATCHES &&
 static void patch_load(uint32_t i, SdPatch *p) { *p = i < SD_PATCHES ? SD_PATCH[i] : upat.p[i - SD_PATCHES]; }
 static SdPatch pat;                             /* the patch as the knobs left it (not saved: PRESETS reloads it) */
 static uint32_t ebank, gen = 0xFFFFFFFFu, gen_seed = 1;   /* the edited bank; the last generator (K4, SCL) */
-static uint32_t page;                           /* 0 VECTOR, 1 RIDER, 2 DESTROY, 3 SPACE, 4 MOD, 5 HOME (the macros),
+static uint32_t page;                           /* 0 NAV, 1 REACTOR, 2 DESTROY, 3 SPACE, 4 MOD, 5 HOME (the macros),
                                                    6 SEQ, 7 ENV, 8 FILTER, 9 ARP: each its button's (2026-11-06) */
 #define PAGE_SEQ 6u
 #define PAGE_ENV 7u
@@ -315,10 +315,10 @@ static const char *const SORDER_GLYPH[SD_SORDERS] = {"", "<", "<>", "?"};
 static const char *const SDIV_NAME[SD_SDIVS] = {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4"};
 static const char *const SCALE_NAME[SD_SCALES] = {"MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM"};
 static uint32_t dmod;                           /* LFO's page: slots 0..7 (MOD, ALGORITHM picks), 8 LFO 1, 9 LFO 2 */
-static const char *const SRC_NAME[SD_MSRCS] = {"OFF", "ENV1", "ENV2", "LFO1", "LFO2", "VEC X", "VEC Y", "VEL", "KEY",
+static const char *const SRC_NAME[SD_MSRCS] = {"OFF", "ENV1", "ENV2", "LFO1", "LFO2", "NAV X", "NAV Y", "VEL", "KEY",
                                                "WHEEL", "AFTER", "RAND", "STEP", "SEGMENT", "D LOW",
                                                "D TOP", "R STAGE", "ECHO", "ENV3"};
-static const char *const SRC_SHORT[SD_MSRCS] = {"--", "E1", "E2", "L1", "L2", "VX", "VY", "VL", "KY", "WH", "AT",
+static const char *const SRC_SHORT[SD_MSRCS] = {"--", "E1", "E2", "L1", "L2", "NX", "NY", "VL", "KY", "WH", "AT",
                                                 "RN", "ST", "SG", "DL", "DT", "RS", "EC", "E3"};   /* two letters: a slot's
                                                    cell is 57 px */
 static const char *const DST_NAME[SD_MDSTS] = {"OFF", "PITCH", "XM", "WP", "FD", "DT", "X", "Y", "WIDTH", "R POS",
@@ -959,14 +959,14 @@ static char *put_ms(char *p, uint32_t i)        /* an envelope time, 0..127: "12
 static uint32_t fx_on(uint32_t bit)             /* an engine on: not switched off, and in the patch at all */
 {
     if (pat.fx_off & bit) return 0;
-    if (bit == SD_FX_RIDER) return pat.r_mix != 0;
+    if (bit == SD_FX_REACTOR) return pat.r_mix != 0;
     if (bit == SD_FX_DESTROY) return pat.d_mix != 0;
     if (bit == SD_FX_SPACE) return pat.s_dlevel || pat.s_rlevel;
     return pat.f_type != SD_FT_OFF;
 }
 static uint32_t page_fx(void)
 {
-    return page == 1u ? SD_FX_RIDER : page == 2u ? SD_FX_DESTROY : page == 3u ? SD_FX_SPACE : page == PAGE_FILT ? SD_FX_FILTER : 0u;
+    return page == 1u ? SD_FX_REACTOR : page == 2u ? SD_FX_DESTROY : page == 3u ? SD_FX_SPACE : page == PAGE_FILT ? SD_FX_FILTER : 0u;
 }
 static void filt_first(void)                    /* the filter's first time on: open, ENV3 as ENV1, so it sounds */
 {
@@ -980,7 +980,7 @@ static uint32_t sw_of(const char **what)        /* this page's switch, and its n
     uint32_t b = page_fx();
     *what = "EDIT";
     if (b) return fx_on(b) ? SW_ON : SW_OFF;
-    if (page == 0u) { *what = "EDIT VEC2"; return pat.vec ? SW_ON : SW_OFF; }
+    if (page == 0u) { *what = "EDIT COURSE"; return pat.course ? SW_ON : SW_OFF; }
     if (page == PAGE_ARP) return eng.arp_on ? SW_ON : SW_OFF;
     if (page == PAGE_SEQ) return seq_trk && set.mode == SD_MODE_MONO ? SW_LOCK : eng.t[seq_trk].mute ? SW_OFF : SW_ON;
     if (page == PAGE_TUR) return seqp.tur & 1u ? SW_ON : SW_OFF;
@@ -993,14 +993,14 @@ static uint32_t edit_toggle(void)               /* EDIT: what this page shows, o
         if (fx_on(b)) pat.fx_off = (uint8_t)(pat.fx_off | b);
         else {
             pat.fx_off = (uint8_t)(pat.fx_off & ~b);   /* (off by its level in the patch: a level to hear) */
-            if (b == SD_FX_RIDER && !pat.r_mix) pat.r_mix = 32768;
+            if (b == SD_FX_REACTOR && !pat.r_mix) pat.r_mix = 32768;
             if (b == SD_FX_DESTROY && !pat.d_mix) pat.d_mix = 65535;
             if (b == SD_FX_SPACE && !pat.s_dlevel && !pat.s_rlevel) pat.s_rlevel = 20000;
             if (b == SD_FX_FILTER && !pat.f_type) { pat.f_type = SD_FT_LP12; filt_first(); }
         }
         return 1;
     }
-    if (page == 0u) { pat.vec = (uint8_t)!pat.vec; return 1; }
+    if (page == 0u) { pat.course = (uint8_t)!pat.course; return 1; }
     if (page == PAGE_ARP) {
         if (!eng.arp_on && !arp_room()) msg(set.mode == SD_MODE_MONO ? "NO ARP WHILE SEQ PLAYS: MONO" : "NO VOICE LEFT FOR ARP");
         else eng.arp_on = (uint8_t)!eng.arp_on;
@@ -1019,7 +1019,7 @@ static uint32_t edit_toggle(void)               /* EDIT: what this page shows, o
 }
 
 /* ---- the top line: the button's pages */
-static const char *const NAV_HOME[2] = {"VECTOR", "MACROS"}, *const NAV_FX[3] = {"RIDER", "DESTROY", "SPACE"},
+static const char *const NAV_HOME[2] = {"NAV", "MACROS"}, *const NAV_FX[3] = {"REACTOR", "DESTROY", "SPACE"},
                          *const NAV_ENV[2] = {"ENV", "FILTER"}, *const NAV_LFO[3] = {"LFO 1", "LFO 2", "MOD"},
                          *const NAV_ARP[1] = {"ARP"}, *const NAV_SEQ[3] = {"SEQ A", "SEQ B", "TURING"};
 static uint32_t nav_of(const char *const **n, uint32_t *cur)
@@ -1037,7 +1037,10 @@ static void draw_nav(void)
 {
     const char *const *n, *what;
     uint32_t cur, cnt = nav_of(&n, &cur), k, sw = sw_of(&what);
-    int32_t x = 6;
+    const char *t = sw == SW_ON ? "ON" : sw == SW_OFF ? "OFF" : "MONO";
+    int32_t x = 6, gap = 10, tw = 0, bw = text_w(&FONT_S, t) + 6, bx = 238 - bw, lx = bx - 5 - text_w(&FONT_S, what);
+    for (k = 0; k < cnt; k++) tw += text_w(&FONT_S, n[k]);
+    if (sw && x + tw + 10 * (int32_t)cnt - 4 > lx) gap = 7;   /* (REACTOR DESTROY SPACE: closer, so EDIT fits) */
     cv_begin(240, 18, C_BG);
     for (k = 0; k < cnt; k++) {
         int32_t w = text_w(&FONT_S, n[k]);
@@ -1047,11 +1050,9 @@ static void draw_nav(void)
         } else {
             cv_text(x, 0, &FONT_S, n[k], seq_page() && k == 1u && set.mode == SD_MODE_MONO ? C_GRID : C_ICE_D);
         }
-        x += w + 10;
+        x += w + gap;
     }
     if (sw) {                                   /* the switch: "EDIT" (when it fits) and ON / OFF / MONO */
-        const char *t = sw == SW_ON ? "ON" : sw == SW_OFF ? "OFF" : "MONO";
-        int32_t bw = text_w(&FONT_S, t) + 6, bx = 238 - bw, lx = bx - 5 - text_w(&FONT_S, what);
         uint16_t c = sw == SW_OFF ? C_ICE_D : C_RED;
         if (sw == SW_ON) {
             cv_rect(bx, 0, bw, 17, C_RED);
@@ -1275,7 +1276,7 @@ static void draw_knobs(void)
 }
 
 /* ---- the pictures, 240 x 68 */
-static int32_t gx(int32_t m256, int32_t x0, int32_t w)   /* MIDI x 256 -> a graph's column, the Rider's range */
+static int32_t gx(int32_t m256, int32_t x0, int32_t w)   /* MIDI x 256 -> a graph's column, the Reactor's range */
 {
     return x0 + (m256 - SD_R_LO * 256) * w / ((SD_R_HI - SD_R_LO) * 256);
 }
@@ -1290,7 +1291,7 @@ static void adsr(const uint8_t *ev, int32_t x0, int32_t w, int32_t y0, int32_t h
     cv_line(xr, sus, x0 + w - 1, yb, c);
 }
 
-static void pic_vec(void)                       /* the field as a diamond, the banks' mix in it; the bank's oscillators */
+static void pic_nav(void)                       /* the field as a diamond, the banks' mix in it; the bank's oscillators */
 {
     int32_t cx = 34, cy = 34, R = 20, qx[4], qy[4];
     uint32_t k;
@@ -1303,9 +1304,9 @@ static void pic_vec(void)                       /* the field as a diamond, the b
         qx[0] = cx; qy[0] = cy - wa; qx[1] = cx + wb; qy[1] = cy; qx[2] = cx; qy[2] = cy + wc; qx[3] = cx - wd; qy[3] = cy;
         cv_quad_fill(qx, qy, C_FILL);
         for (k = 0; k < 4u; k++) cv_line(qx[k], qy[k], qx[(k + 1u) & 3u], qy[(k + 1u) & 3u], C_RED);
-        {                                       /* the vector's point: x + y - 1 across, x - y down */
-            int32_t px = cx + (((int32_t)eng.vx + (int32_t)eng.vy - 65535) * R >> 16);
-            int32_t py = cy + (((int32_t)eng.vx - (int32_t)eng.vy) * R >> 16);
+        {                                       /* the nav's point: x + y - 1 across, x - y down */
+            int32_t px = cx + (((int32_t)eng.nav_x + (int32_t)eng.nav_y - 65535) * R >> 16);
+            int32_t py = cy + (((int32_t)eng.nav_x - (int32_t)eng.nav_y) * R >> 16);
             cv_rect(px - 2, py - 2, 5, 5, C_ICE);
         }
     }
@@ -1337,9 +1338,9 @@ static void pic_vec(void)                       /* the field as a diamond, the b
 
 static void pic_chain(void)                     /* MACROS: the chain, each engine ON or OFF (EDIT on its page) */
 {
-    static const char *const EN[5] = {"VOICE", "FILT", "RIDER", "DEST", "SPACE"};
+    static const char *const EN[5] = {"VOICE", "FILT", "REACT", "DEST", "SPACE"};
     uint32_t k, on[5];
-    on[0] = 1; on[1] = fx_on(SD_FX_FILTER); on[2] = fx_on(SD_FX_RIDER); on[3] = fx_on(SD_FX_DESTROY); on[4] = fx_on(SD_FX_SPACE);
+    on[0] = 1; on[1] = fx_on(SD_FX_FILTER); on[2] = fx_on(SD_FX_REACTOR); on[3] = fx_on(SD_FX_DESTROY); on[4] = fx_on(SD_FX_SPACE);
     for (k = 0; k < 5u; k++) {
         int32_t x = 4 + (int32_t)k * 47;
         cv_text(x, 2, &FONT_S, EN[k], on[k] ? C_ICE : C_ICE_D);
@@ -1350,13 +1351,13 @@ static void pic_chain(void)                     /* MACROS: the chain, each engin
     cv_text(4, 51, &FONT_S, "EACH PAGE: EDIT = ON/OFF", C_ICE_D);
 }
 
-static void pic_rider(void)                     /* the filters now as peaks; the six stages, the one playing red */
+static void pic_reactor(void)                     /* the filters now as peaks; the six stages, the one playing red */
 {
     enum { X0 = 6, W = 140, Y0 = 2, H = 62 };
     int32_t col[W], x, k, wpx;
     uint32_t i, pos = eng.r.shown_pos, at = pos >> 8, nx = at == 5u ? 0u : at + 1u, f = pos & 255u;
     uint32_t dom = f < 128u ? at : nx, sec = f ? (f < 128u ? nx : at) : 99u;
-    uint16_t on = fx_on(SD_FX_RIDER);
+    uint16_t on = fx_on(SD_FX_REACTOR);
     wpx = 1 + (int32_t)((uint32_t)(SD_RK[pat.r_res >> 9] >> 8) * 22u >> 16);   /* k 2 -> 23 px, k 0.01 -> 1 */
     for (x = 0; x < W; x++) col[x] = 0;
     for (k = 0; k < 4; k++) {
@@ -1607,9 +1608,9 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
 static void pic(void)
 {
     switch (page) {
-    case 0: pic_vec(); break;
+    case 0: pic_nav(); break;
     case 5: pic_chain(); break;
-    case 1: pic_rider(); break;
+    case 1: pic_reactor(); break;
     case 2: pic_dest(); break;
     case 3: pic_space(); break;
     case PAGE_ENV: pic_env(); break;
@@ -2202,7 +2203,7 @@ static void app_main(void)
                     }
                     if ((e = fm1_enc_take(ENC_KNOB4)) != 0) pat.d_level[k2] = knob_q(pat.d_level[k2], e), changed = 1;
                 }
-            } else if (page == 1u) {            /* the Rider */
+            } else if (page == 1u) {            /* the Reactor */
                 if (l2) {
                     if ((e = fm1_enc_take(ENC_KNOB1)) != 0) {
                         int32_t f = pat.r_freq + e * 256;
@@ -2226,7 +2227,7 @@ static void app_main(void)
                     if ((e = fm1_enc_take(ENC_KNOB3)) != 0) pat.r_slew = knob_q(pat.r_slew, e), changed = 1;
                     if ((e = fm1_enc_take(ENC_KNOB4)) != 0) pat.r_drive = knob_q(pat.r_drive, e), changed = 1;
                 }
-            } else if (page == 0u && l2) {      /* VECTOR, SCL: X Y WIDTH, K4 a harmonic generator a detent */
+            } else if (page == 0u && l2) {      /* NAV, SCL: X Y WIDTH, K4 a harmonic generator a detent */
                 if ((e = fm1_enc_take(ENC_KNOB1)) != 0) pat.x = knob_q(pat.x, e), changed = 1;
                 if ((e = fm1_enc_take(ENC_KNOB2)) != 0) pat.y = knob_q(pat.y, e), changed = 1;
                 if ((e = fm1_enc_take(ENC_KNOB3)) != 0) pat.width = knob_q(pat.width, e), changed = 1;
@@ -2236,7 +2237,7 @@ static void app_main(void)
                     sd_gen(&pat, ebank, gen, &gen_seed);
                     changed = 1;
                 }
-            } else if (page == 0u) {            /* VECTOR: the Q page */
+            } else if (page == 0u) {            /* NAV: the Q page */
                 if ((e = fm1_enc_take(ENC_KNOB1)) != 0) pat.xm = knob_q(pat.xm, e), changed = 1;
                 if ((e = fm1_enc_take(ENC_KNOB2)) != 0) pat.warp = knob_q(pat.warp, e), changed = 1;
                 if ((e = fm1_enc_take(ENC_KNOB3)) != 0) pat.fold = knob_q(pat.fold, e), changed = 1;

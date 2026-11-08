@@ -14,15 +14,15 @@
  * sections of four, a chord a bar, then the coda's eight; four themes, the first back over the second:
  *   THE CALL (the opening)       BRAAM's hits on C, Ab, G under AURORA's chords swelling in
  *   THEME I (the derelict)       the cello's melody (U01: STRINGS saved with a big room and dotted-quarter echoes)
- *   THEME II (the signal)        PULSAR's staccato 16ths (roots, fifths, ninths), its vector jumping across its four
+ *   THEME II (the signal)        PULSAR's staccato 16ths (roots, fifths, ninths), its nav jumping across its four
  *                                banks, under the cello's answer
- *   THEME III (the aurora)       BEACON's high line far back (TOUR's banks, VEC2 round the field), PULSAR's glints
+ *   THEME III (the aurora)       BEACON's high line far back (VOYAGE's banks, COURSE round the field), PULSAR's glints
  *   THEME I over THEME II        the cello's melody again, over the staccato
  *   THEME IV (the breach)        a pedal C in Phrygian that TURING rewrites each bar, over Fm Db Ab Fm (all in its
  *                                scale), its top band CRUSHed, BREAK and MOVE up; UNDERTOW in 16ths, its warp up
  *   the coda                     BRAAM, the cello down to a low C, the chords drowning
- * Each pass is rendered in its own process (a fresh FM-1); its performance printed in turn. The stems:
- * STEMS_DIR/derelict_{chords,pulse,low,lead}.wav (STEMS_DIR: OUT's own folder). */
+ * The layering: tools/sd_layer.h (each pass in its own process, a fresh FM-1; its performance printed in turn). The
+ * stems: STEMS_DIR/derelict_{chords,pulse,low,lead}.wav (STEMS_DIR: OUT's own folder). */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,11 +32,12 @@
 #include "sd_engine.h"
 #include "sd_gen.h"
 #include "sd_play.h"
+#include "sd_layer.h"
 
 enum { CHORDS_, PULSE_, LOW_, LEAD_, PASSES };
 static const char *const PASS_NAME[PASSES] = {"chords", "pulse", "low", "lead"};
 static const double GAIN[PASSES] = {1.36, 1.90, 1.80, 0.55};   /* the faders (then one master to -1 dBFS) */
-static int pass;
+#define pass layer_pass
 
 #define BAR(b) (((b) - 1) * 16.0)               /* the start of bar b (from 1), in sixteenths */
 #define SEC(k) BAR(1 + 4 * (k))                 /* section k (0..6): four bars (the coda eight) */
@@ -190,17 +191,6 @@ static void patterns(void)
 }
 
 /* ---- gestures */
-static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past the stock ones: a place of the player's */
-{
-    char t[48];
-    if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
-    act();
-    pat = *p;
-    gen = 0xFFFFFFFFu;
-    dirty = 1;
-    snprintf(t, sizeof t, "PRESETS: U01 %s", name);
-    say(t);
-}
 static void load(int k, const SdPattern *p, const char *name)   /* section k's pattern, inside the last step before */
 {
     if (at(SEC(k) - 0.4)) pattern(0, p, name);
@@ -224,7 +214,7 @@ static int chords_score(void)
     for (k = 1; k <= 6; k++) load(k, &CH[k], NAME[k]);
     pot(__LINE__, 3600, SEC(5), SEC(5) + 8);    /* (the breach a little up) */
     pot(__LINE__, 3000, SEC(6), SEC(6) + 8);
-    if (at(SEC(6) + 2)) press("HOME", PG_VECTOR);
+    if (at(SEC(6) + 2)) press("HOME", PG_NAV);
     if (at(SEC(6) + 3.5)) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[3], 80, SEC(6) + 4, BAR(32));   /* MACRO 4: DROWN */
     if (at(BAR(33) - 1)) play(0);
@@ -248,7 +238,7 @@ static int pulse_score(void)
     pot(__LINE__, 4092, SEC(4) - 1, SEC(4));
     load(4, &PU[4], "THEME II (16ths)");
     load(5, &PU[5], "THEME IV (TURING ON, Phrygian)");
-    if (at(SEC(5) + 1)) press("FX", PG_RIDER);
+    if (at(SEC(5) + 1)) press("FX", PG_REACTOR);
     if (at(SEC(5) + 2.5)) press("FX", PG_DESTROY);
     if (at(SEC(5) + 4)) { act(); say("ALGORITHM: band 4 (the top)"); }
     if (at(SEC(5) + 5.5)) {                     /* SCL + ALGORITHM: the top band's shaper to CRUSH */
@@ -259,7 +249,7 @@ static int pulse_score(void)
         say("SCL + ALGORITHM: SHAPE CRUSH (band 4)");
     }
     KNOB99(PG_DESTROY, pat.d_gain[3], 58, SEC(5) + 6, SEC(5) + 18);   /* K1: its GAIN */
-    if (at(SEC(5) + 20)) press("HOME", PG_VECTOR);
+    if (at(SEC(5) + 20)) press("HOME", PG_NAV);
     if (at(SEC(5) + 21.5)) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[2], 62, SEC(5) + 22, SEC(6) - 6);   /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 65, SEC(5) + 22, SEC(6) - 6);   /* MOVE */
@@ -274,7 +264,7 @@ static void low_setup(void)
     preset(SD_P_BRAAM);
     page = PG_SEQA;
     pattern(0, &LO[1], "LOW (THEME I: whole bars)");
-    page = PG_VECTOR;
+    page = PG_NAV;
     oct = -2;                                   /* (OCT- twice before: the keys from F1) */
     master = 3200;
 }
@@ -296,8 +286,8 @@ static int low_score(void)
     load(3, &LO[3], "LOW (eighths)");
     load(4, &LO[4], "LOW (eighths)");
     load(5, &LO[5], "LOW (16ths)");
-    if (at(SEC(5) + 2)) press("HOME", PG_VECTOR);
-    KNOB99(PG_VECTOR, pat.warp, wp + 24, SEC(5) + 4, SEC(6) - 10);   /* K2: WARP toward the saw */
+    if (at(SEC(5) + 2)) press("HOME", PG_NAV);
+    KNOB99(PG_NAV, pat.warp, wp + 24, SEC(5) + 4, SEC(6) - 10);   /* K2: WARP toward the saw */
     if (at(SEC(6) - 1.5)) play(0);
     if (at(SEC(6) - 0.6)) preset(SD_P_BRAAM);
     if (at(SEC(6))) key(32, 1);                 /* the coda: Ab, then C held */
@@ -311,7 +301,7 @@ static int low_score(void)
 /* the lead: U01 (STRINGS in a big room) in MONO, BEACON for THEME III; far back */
 static void lead_setup(void)
 {
-    preset_user(&U01, "CELLO HALL");
+    preset_user(&U01, "U01 CELLO HALL");
     page = PG_SEQA;
     pattern(0, &LE[1], "THEME I");
     master = 1500;                              /* (far back: the room and the echoes carry it) */
@@ -320,13 +310,13 @@ static int lead_score(void)
 {
     if (at(SEC(1))) play(1);
     load(2, &LE[2], "THEME I (the answer)");
-    if (at(SEC(3) - 4.6)) press("HOME", PG_VECTOR);   /* BEACON for THEME III, in the answer's last bar */
+    if (at(SEC(3) - 4.6)) press("HOME", PG_NAV);   /* BEACON for THEME III, in the answer's last bar */
     if (at(SEC(3) - 3.6)) preset(SD_P_BEACON);
     if (at(SEC(3) - 2.8)) press("SEQ", PG_SEQA);
     pot(__LINE__, 4092, SEC(3) - 3.4, SEC(3) - 1);   /* MASTER up for BEACON, far back already */
     load(3, &LE[3], "THEME III");
-    if (at(SEC(4) - 4.6)) press("HOME", PG_VECTOR);   /* back to U01, in THEME III's last half bar */
-    if (at(SEC(4) - 3.6)) preset_user(&U01, "CELLO HALL");
+    if (at(SEC(4) - 4.6)) press("HOME", PG_NAV);   /* back to U01, in THEME III's last half bar */
+    if (at(SEC(4) - 3.6)) preset_user(&U01, "U01 CELLO HALL");
     if (at(SEC(4) - 2.8)) press("SEQ", PG_SEQA);
     pot(__LINE__, 1500, SEC(4) - 3.4, SEC(4) - 1);
     load(4, &LE[4], "THEME I (over II)");
@@ -341,81 +331,8 @@ static int (*const SCORE[PASSES])(void) = {chords_score, pulse_score, low_score,
 static void setup(void) { patterns(); SETUP[pass](); }
 static int score(void) { return SCORE[pass](); }
 
-/* ---- the layering: the stems at their faders, then one master gain to -1 dBFS at the peak */
-static int16_t *read_wav(const char *path, uint32_t *frames)
-{
-    FILE *f = fopen(path, "rb");
-    uint32_t bytes;
-    int16_t *x;
-    if (!f) { perror(path); return NULL; }
-    fseek(f, 40, SEEK_SET);
-    if (fread(&bytes, 4, 1, f) != 1) { fclose(f); return NULL; }
-    x = malloc(bytes);
-    if (!x || fread(x, 1, bytes, f) != bytes) { fclose(f); free(x); return NULL; }
-    fclose(f);
-    *frames = bytes / 4u;
-    return x;
-}
-static int mix(const char *out, char stems[PASSES][512])
-{
-    int16_t *x[PASSES];
-    uint32_t n[PASSES], len = 0, i, k;
-    double *m, peak = 0.0, g;
-    FILE *f;
-    for (k = 0; k < PASSES; k++) {
-        double e2 = 0.0;
-        if (!(x[k] = read_wav(stems[k], &n[k]))) return 1;
-        if (n[k] > len) len = n[k];
-        for (i = 0; i < 2u * n[k]; i++) e2 += (double)x[k][i] * x[k][i];
-        printf("stem %-6s %6.1f s, RMS %.1f dBFS, fader %.2f\n", PASS_NAME[k], n[k] / (double)SD_FS,
-               10.0 * log10(e2 / (2.0 * n[k]) / (32767.0 * 32767.0) + 1e-12), GAIN[k]);
-    }
-    m = calloc(2u * len, sizeof *m);
-    if (!m) return 1;
-    for (k = 0; k < PASSES; k++)
-        for (i = 0; i < 2u * n[k]; i++) m[i] += GAIN[k] * x[k][i];
-    for (i = 0; i < 2u * len; i++) if (fabs(m[i]) > peak) peak = fabs(m[i]);
-    g = 32767.0 * pow(10.0, -1.0 / 20.0) / (peak > 1.0 ? peak : 1.0);
-    while (len > SD_FS && fabs(m[2u * len - 1u] * g) < 3.3 && fabs(m[2u * len - 2u] * g) < 3.3) len--;   /* -80 dBFS */
-    len = len + SD_FS / 2u > n[CHORDS_] ? len : len + SD_FS / 2u;   /* the end: half a second past the last sound */
-    f = fopen(out, "wb");
-    if (!f) { perror(out); return 1; }
-    {
-        uint32_t fs = SD_FS, br = SD_FS * 4u, bytes = len * 4u, riff = bytes + 36u;
-        fwrite("RIFF", 1, 4, f); fwrite(&riff, 4, 1, f);
-        fwrite("WAVEfmt \x10\0\0\0\x01\0\x02\0", 1, 16, f);
-        fwrite(&fs, 4, 1, f); fwrite(&br, 4, 1, f);
-        fwrite("\x04\0\x10\0data", 1, 8, f); fwrite(&bytes, 4, 1, f);
-    }
-    for (i = 0; i < 2u * len; i++) { int16_t o = (int16_t)lrint(m[i] * g); fwrite(&o, 2, 1, f); }
-    fclose(f);
-    printf("derelict -> %s (%.1f s, four passes layered; the master %+.1f dB to a -1 dBFS peak)\n", out,
-           len / (double)SD_FS, 20.0 * log10(g));
-    for (k = 0; k < PASSES; k++) free(x[k]);
-    free(m);
-    return 0;
-}
-
 int main(int argc, char **argv)
 {
-    char stems[PASSES][512], dir[400];
-    const char *slash;
-    if (argc < 2) { fprintf(stderr, "usage: sd_derelict OUT.wav [STEMS_DIR]\n"); return 2; }
-    slash = strrchr(argv[1], '/');
-    if (argc > 2) snprintf(dir, sizeof dir, "%s", argv[2]);
-    else if (slash) snprintf(dir, sizeof dir, "%.*s", (int)(slash - argv[1]), argv[1]);
-    else snprintf(dir, sizeof dir, ".");
     bpm = 84;
-    for (pass = 0; pass < PASSES; pass++) {
-        pid_t pid;
-        int st_;
-        snprintf(stems[pass], sizeof stems[pass], "%s/derelict_%s.wav", dir, PASS_NAME[pass]);
-        printf("---- pass %d: %s\n", pass + 1, PASS_NAME[pass]);
-        fflush(stdout);
-        pid = fork();
-        if (pid < 0) { perror("fork"); return 1; }
-        if (pid == 0) exit(play_run(stems[pass], PASS_NAME[pass], setup, score));   /* a fresh FM-1 */
-        if (waitpid(pid, &st_, 0) < 0 || !WIFEXITED(st_) || WEXITSTATUS(st_)) return 1;
-    }
-    return mix(argv[1], stems);
+    return layer_main(argc, argv, "derelict", PASS_NAME, GAIN, PASSES, setup, score);
 }

@@ -6,10 +6,10 @@
  *                                              name (SD_PATCH_NAME, any case: distroy) or its number from 0
  *   sd_render hold OUT.wav PATCH [NOTE] [cmp]  one note held 2 s and let ring 2 s (cmp: DESTROY's complementary
  *                                              crossover instead of the patch's, D1's A/B)
- *   sd_render field OUT.wav [SECONDS]          TOUR held, X/Y round the field's edge and across it (Gate D VOICE)
+ *   sd_render field OUT.wav [SECONDS]          VOYAGE held, X/Y round the field's edge and across it (Gate D VOICE)
  *   sd_render mode poly|duo OUT.wav PATCH      POLY: a chord C E G B; DUO: two notes a fifth apart
  *   sd_render sweep wp|fd|xm|dt|pos OUT.wav [SECONDS] [NOTE]   a held note, one control 0 -> max: WP and FD on one
- *                                              oscillator, XM on a 1:1 pair, DT on four carriers, the Rider's POS
+ *                                              oscillator, XM on a 1:1 pair, DT on four carriers, the Reactor's POS
  *                                              on VOWEL (stage 1 -> 6, its clock off)
  *   sd_render macros OUT.wav PATCH             C1: the loop at 110 BPM, each macro in turn (MUTATE MOVE BREAK MACRO 4)
  *                                              up 0 -> 99 over 4.8 s, held 1.2 s, back to 0 in 1.2 s: ~29 s
@@ -191,15 +191,15 @@ static double now_s(void)
     return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 }
 
-/* TOUR held, VEC2 off, X/Y walked round the field's edge A -> B -> C -> D -> A and through the centre */
+/* VOYAGE held, COURSE off, X/Y walked round the field's edge A -> B -> C -> D -> A and through the centre */
 static int field(const char *path, uint32_t secs)
 {
     uint32_t frames = secs * SD_FS, done = 0;
     int32_t buf[2u * HALF];
-    SdPatch p = SD_PATCH[SD_P_TOUR];
+    SdPatch p = SD_PATCH[SD_P_VOYAGE];
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
-    p.vec = 0;
+    p.course = 0;
     p.e1_s = 127;
     SD_INIT(&eng);
     sd_engine_note(&eng, 45, 110);
@@ -472,7 +472,7 @@ typedef struct {
     uint8_t mac_lo[4], mac_hi[4];               /* its range, 0..99 */
 } TourPart;
 static const TourPart TOUR_PARTS[] = {
-    {"tour", SD_P_TOUR, 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
+    {"voyage", SD_P_VOYAGE, 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
      {0}, {0}, 96, {3, 1, 0, 2}, {0, 20, 0, 10}, {30, 80, 0, 60}},
     {"comet", SD_P_COMET, 112, 2, 38, 16, SD_MODE_MONO, {0, RST_, 12, 0, SLD_ + 3, RST_, 0, 10, 0, RST_, 15, SLD_ + 12, 7, RST_, 5, SLD_ + 3},
      {0}, {0}, 60, {2, 0, 1, 4}, {0, 0, 0, 0}, {60, 0, 70, 50}},

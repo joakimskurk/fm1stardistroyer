@@ -24,16 +24,16 @@ static inline int params(const char *path, SdPatch *p)   /* "key value ..." line
             for (k = 0; k < 4; k++) p->stage[(int)v[0]].pitch[k] = hz_m256(v[1 + k]);
         } else if (!strcmp(key, "levels") && n == 5) {   /* levels STAGE l1 l2 l3 l4 (dB, 0 = 1x) */
             for (k = 0; k < 4; k++) p->stage[(int)v[0]].level[k] = db_lv(v[1 + k]);
-        } else if (!strcmp(key, "rider") && n == 5) {   /* rider MODEL RES MIX POS (0..65535; POS 0..1535) */
+        } else if (!strcmp(key, "reactor") && n == 5) {   /* reactor MODEL RES MIX POS (0..65535; POS 0..1535) */
             p->r_model = (uint8_t)v[0]; p->r_res = (uint16_t)v[1]; p->r_mix = (uint16_t)v[2]; p->r_pos = (uint16_t)v[3];
             p->r_drive = (uint16_t)v[4];
-        } else if (!strcmp(key, "rider") && n == 4) {
+        } else if (!strcmp(key, "reactor") && n == 4) {
             p->r_model = (uint8_t)v[0]; p->r_res = (uint16_t)v[1]; p->r_mix = (uint16_t)v[2]; p->r_pos = (uint16_t)v[3];
         } else if (!strcmp(key, "keypos")) p->mod[0] = (SdModSlot){SD_MS_KEY, SD_MD_RPOS, (int16_t)v[0]};
         else if (!strcmp(key, "keytame")) p->mod[2] = (SdModSlot){SD_MS_KEY, SD_MD_DTAME, (int16_t)v[0]};
         else if (!strcmp(key, "keyx")) p->mod[3] = (SdModSlot){SD_MS_KEY, SD_MD_X, (int16_t)v[0]};   /* A -> B */
         else if (!strcmp(key, "keyx2")) p->mod[4] = (SdModSlot){SD_MS_KEY, SD_MD_X, (int16_t)v[0]};   /* (twice: steeper) */
-        else if (!strcmp(key, "vx")) p->x = (uint16_t)v[0];
+        else if (!strcmp(key, "nav_x")) p->x = (uint16_t)v[0];
         else if (!strcmp(key, "track")) p->r_track = (uint8_t)v[0];   /* 1 KEY, 2 HARM: the body onto the note's harmonics */
         else if (!strcmp(key, "keyx3")) p->mod[5] = (SdModSlot){SD_MS_KEY, SD_MD_X, (int16_t)v[0]};
         else if (!strcmp(key, "keyx4")) p->mod[6] = (SdModSlot){SD_MS_KEY, SD_MD_X, (int16_t)v[0]};

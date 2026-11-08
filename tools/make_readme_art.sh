@@ -12,7 +12,7 @@ sh tests/run_host.sh tests/scripts/readme.txt >/dev/null
 python3 - <<'PY'
 from pathlib import Path
 from PIL import Image
-NAMES = {700: "splash", 2600: "vector", 3600: "macros", 4400: "rider", 5200: "destroy", 6000: "space", 6800: "env",
+NAMES = {700: "splash", 2600: "nav", 3600: "macros", 4400: "reactor", 5200: "destroy", 6000: "space", 6800: "env",
          7700: "filter", 8500: "lfo", 9400: "mod", 10200: "seq", 11700: "turing", 12800: "arp"}
 out = Path("docs/readme")
 out.mkdir(parents=True, exist_ok=True)
