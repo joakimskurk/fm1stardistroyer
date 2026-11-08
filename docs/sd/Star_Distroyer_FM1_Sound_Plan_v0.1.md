@@ -1226,6 +1226,26 @@ do. It goes on the page with its own player.
   and its eight layers. So the first one (eight parts layered as a multitrack) is back as it was, and it is the
   page's CINEMATIC. What stays from the remake is the shared layering in `tools/sd_layer.h` (DERELICT uses it, bit for
   bit as before).
+- *RANGE fine-tuned (2026-11-08).* The user: "it must be fine-tuned and pull things further to the extreme, still
+  musical; both the first and the fourth patch have internal feedback toward the end." Measured bar by bar (the share
+  over 5 kHz, and the 2–12 kHz band's flatness, 1 = noise):
+  - *Scene 1 (VOYAGE):* at bar 7, over a third of the sound was above 5 kHz (−3.9 dB of the whole). XM sat at 70
+    under the generators RND and CLUST. Now XM rises to 66 and comes back to 38, WARP comes back toward the sine, and
+    the generators are spun past RND and CLUST to MAJ (4 5 6 8), then DOM7 (4 5 6 7). MIN and MIN7 are harmonics 10 to
+    20, 3 to 6 kHz on a D4, which is shrill. Bar 7 now reads −12.3 dB and bar 8 −20.1, both tonal.
+  - *Scene 4 (DISTROY):* BREAK at 85 raised the band gains inside DISTROY's own loop, and it howled (flatness 0.10 at
+    bars 6–9). Now BREAK goes to 62 and MOVE to 78. On DESTROY's LOOP, FDBK comes down to 7 and TAME goes up to 45, and
+    then the top band's GAIN rises to 86. The end reads flatness 0.04, the top −18 dB.
+  - *Further, every scene:*
+    - Scene 2: RES 66, and the filter opened to 54000 with RES 76 over the last bar and a half.
+    - Scene 3: the Reactor's DRIVE 44 and RES 74.
+    - Scene 5: the arp over four octaves at the end.
+    - Scene 6: TURING's CHANGE 60, the tempo to 132.
+    - Scene 7: SPACE's FDBK 76 and DECAY 92.
+  - *Playable:* the harness refused three gestures on the way, and the score was changed for each: the filter opened
+    too fast, a transpose made off its page, and SELECT turned back too fast.
+  - *Levels:* MASTER evens out scenes 2 and 3 (3400 and 2000 in the bars before them). Every scene now reads −18.2 to
+    −20.6 dBFS RMS, and the whole −20.1, as before.
 - *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
   spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
 

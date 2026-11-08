@@ -15,21 +15,21 @@
  * MASTER pot as platform.c applies it; the player rides MASTER in the bars between scenes (the patches' levels
  * differ by ~10 dB). No other mix.
  *
- * Seven scenes at 112 BPM (124 in the sixth), each a pattern and a patch, a bar between them to stop, load the next
+ * Seven scenes at 112 BPM (to 132 in the sixth), each a pattern and a patch, a bar between them to stop, load the next
  * patch and pattern, change the mode, and start again:
- *   1 NAV   VOYAGE, MONO: COURSE moving the nav on every note; WARP and XM up, FOLD in, a harmonic generator
- *              re-rolling bank A on each bar's one
+ *   1 NAV      VOYAGE, MONO: COURSE moving the nav on every note; WARP and XM up, FOLD in, a harmonic generator
+ *              re-rolling bank A on each bar's one (ALL, ODD, then spun to MAJ and DOM7), XM and WARP back
  *   2 FILTER   GROWL, MONO: an acid line (SLIDE, accents, a ratchet, PROB, swing); the lowpass switched on, LP24,
  *              closed with RES, ENV 3 made short, then TURING on (the line evolves at each one) and the line
  *              transposed up a fourth and a minor third at the ones; the filter opens to end
- *   3 REACTOR    VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
- *              ones; the Reactor's POS through the vowels, its MODEL changed
+ *   3 REACTOR  VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
+ *              ones; the Reactor's POS through the vowels, its MODEL changed, DRIVE and RES up into its saturation
  *   4 DESTROY  DISTROY, DUO: a riff in four segments (one in random order, one ping-pong), a ratchet, PROB; BREAK
- *              and MOVE up, then the top band's GAIN destroyed
+ *              and MOVE up; the LOOP tamed (FDBK down, TAME up), then the top band's GAIN up
  *   5 POLY     CHORDS, POLY: three-note chords on SEQ A, the arpeggiator on top (HOLD, two octaves), A transposed up a
- *              tone at the fifth bar with a new hand for the arp; UP-DN, three octaves, 1/32, RND
+ *              tone at the fifth bar with a new hand for the arp; UP-DN, three octaves, 1/32, RND over four
  *   6 TURING   ORBITAL, MONO: a 16th ostinato that TURING rewrites (CHANGE 35, RANGE 5), MOVE stepping the nav
- *              around the field's middle, MUTATE, the tempo pushed to 124, a bar at 1/32
+ *              around the field's middle, MUTATE, CHANGE 60, the tempo pushed to 132, a bar at 1/32
  *   7 SPACE    BEACON, MONO: long notes into the delay and the room, FDBK and DECAY up; the sequence stops, a held
  *              key, the echoes left to fall */
 #include <math.h>
@@ -93,21 +93,32 @@ static void s1_nav(double s0)
 {
 #define S(x) (s0 + (x))
     if (at(S(0))) { play(1); }
-    KNOB99(PG_NAV, pat.warp, 40, S(2), S(64));
-    KNOB99(PG_NAV, pat.xm, 70, S(32), S(62));
-    KNOB99(PG_NAV, pat.fold, 22, S(66), S(124));
-    {                                           /* SCL + K4: a generator a detent on bank A, each bar's one */
+    KNOB99(PG_NAV, pat.warp, 52, S(2), S(64));
+    KNOB99(PG_NAV, pat.xm, 66, S(24), S(60));
+    KNOB99(PG_NAV, pat.xm, 38, S(84), S(120));  /* XM back as the generators make the bank richer (at 70 under RND
+                                                   and CLUST, a third of it was over 5 kHz: the user heard feedback) */
+    KNOB99(PG_NAV, pat.fold, 26, S(66), S(96));
+    KNOB99(PG_NAV, pat.warp, 16, S(92), S(120));  /* K2: WARP back toward the sine under the chord generators: the
+                                                   chords ring glassy (on the saw their partials were shrill) */
+    {                                           /* SCL + K4: a generator on bank A each bar's one: ALL, ODD, then
+                                                   spun past RND and CLUST (a few ms each) to MAJ (4 5 6 8), then on
+                                                   to DOM7 (4 5 6 7: its seventh the harmonic one). (MIN and MIN7 are
+                                                   the 10th to the 20th: on a D4, 3 to 6 kHz, shrill) */
         static const double G[4] = {64, 80, 96, 112};
+        static const uint32_t DETENTS[4] = {1, 1, 3, 4};
         int i;
         for (i = 0; i < 4; i++)
             if (at(S(G[i]) - 0.5)) {
-                char t[48];
+                char t[64];
+                uint32_t d;
                 on_page(PG_NAV, "GEN off NAV");
-                gen = gen >= SD_GENS ? 0u : (gen + 1u) % SD_GENS;
+                act();
+                for (d = 0; d < DETENTS[i]; d++) gen = gen >= SD_GENS ? 0u : (gen + 1u) % SD_GENS;
                 gen_seed += frame;
                 sd_gen(&pat, 0, gen, &gen_seed);
                 dirty = 1;
-                snprintf(t, sizeof t, "SCL + K4: GEN %s on bank A", sd_gen_name(gen));
+                snprintf(t, sizeof t, "SCL + K4: GEN %s on bank A (%u detent%s)", sd_gen_name(gen), DETENTS[i],
+                         DETENTS[i] > 1u ? "s" : "");
                 say(t);
             }
     }
@@ -118,7 +129,7 @@ static void s1_nav(double s0)
     if (at(S(137))) press("ENV", PG_ENV);
     if (at(S(138))) press("ENV", PG_FILTER);
     if (at(S(141))) preset(SD_P_GROWL);
-    pot(__LINE__, 2740, S(139), S(143));
+    pot(__LINE__, 3400, S(139), S(143));   /* (more RES: the lowpass a little quieter) */
 #undef S
 }
 
@@ -139,7 +150,7 @@ static void s2_filter(double s0)
     if (at(S(2))) { pat.f_type = SD_FT_LP24; dirty = 1; say("ALGORITHM: LP24"); }
     on_ramp_page(PG_FILTER, S(2), S(30));
     if (ramp(__LINE__, pat.f_cut / 147, 33000 / 147, S(2), S(30), &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
-    KNOB99(PG_FILTER, pat.f_res, 62, S(2), S(30));
+    KNOB99(PG_FILTER, pat.f_res, 66, S(2), S(30));
     if (q >= S(32) && pq <= S(48)) {            /* SCL + K3: ENV 3's SUSTAIN down (2 a detent) */
         on_page(PG_FILTER, "ENV 3 off FILTER");
         if (ramp(__LINE__, pat.e3_s / 2, 5, S(32), S(48), &v)) { pat.e3_s = (uint8_t)(v * 2); dirty = 1; }
@@ -160,21 +171,22 @@ static void s2_filter(double s0)
     }
     if (at(S(88))) xpose(0, 5);
     if (at(S(104))) xpose(0, 3);
-    if (at(S(113))) xpose(0, 0);                /* (taken at the next PLAY's start) */
-    if (at(S(114))) press("ENV", PG_ENV);
-    if (at(S(115))) press("ENV", PG_FILTER);
-    on_ramp_page(PG_FILTER, S(116), S(127));
-    if (ramp(__LINE__, pat.f_cut / 147, 40000 / 147, S(116), S(127), &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
+    if (at(S(105))) press("ENV", PG_ENV);
+    if (at(S(106))) press("ENV", PG_FILTER);
+    on_ramp_page(PG_FILTER, S(107), S(127));    /* the filter open all the way over the last bar and a half */
+    if (ramp(__LINE__, pat.f_cut / 147, 54000 / 147, S(107), S(127), &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
+    KNOB99(PG_FILTER, pat.f_res, 76, S(110), S(127));   /* and RES up with it: the acid screams, at the end */
     if (at(S(128))) play(0);
-    /* the bar between: DUO, VOWEL, the melody on A, the bass on B */
+    /* the bar between: DUO, the transpose back, VOWEL, the melody on A, the bass on B */
     if (at(S(129))) glo(SD_MODE_DUO);
     if (at(S(130))) press("SEQ", PG_SEQA);
-    if (at(S(131))) pattern(0, &A3, "MELODY (64)");
+    if (at(S(131))) xpose(0, 0);                /* (taken at the next PLAY's start) */
+    if (at(S(132))) pattern(0, &A3, "MELODY (64)");
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) pattern(1, &B3, "BASS (16)");
     if (at(S(137))) press("FX", PG_REACTOR);
     if (at(S(141))) preset(SD_P_VOWEL);
-    pot(__LINE__, 2380, S(139), S(143));
+    pot(__LINE__, 2000, S(139), S(143));   /* (DRIVE: the Reactor a little louder) */
 #undef S
 }
 
@@ -201,7 +213,9 @@ static void s3_reactor(double s0)
         dirty = 1;
         say("SCL + K2: MODEL BP12");
     }
-    if (at(S(86))) press("SEQ", PG_SEQA);
+    KNOB99(PG_REACTOR, pat.r_drive, 44, S(62), S(84));   /* K4: DRIVE into the loops' saturation */
+    KNOB99(PG_REACTOR, pat.r_res, 74, S(66), S(84));
+    if (at(S(86))) press("SEQ", PG_SEQA);       /* (the bass's transposes, on SEQ B) */
     if (at(S(87))) press("SEQ", PG_SEQB);
     if (at(S(128))) play(0);
     /* the bar between: DISTROY, the riff on A, the bass on B */
@@ -221,13 +235,17 @@ static void s4_destroy(double s0)
 #define S(x) (s0 + (x))
     int32_t v;
     if (at(S(0))) play(1);
-    KNOB99(PG_MACROS, pat.mac[2], 85, S(1), S(80));    /* BREAK */
-    KNOB99(PG_MACROS, pat.mac[1], 60, S(48), S(96));   /* MOVE */
-    if (at(S(97))) press("FX", PG_REACTOR);
-    if (at(S(98))) press("FX", PG_DESTROY);
-    if (at(S(100))) say("ALGORITHM: band 4 (the top)");
-    on_ramp_page(PG_DESTROY, S(102), S(124));
-    if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 95, S(102), S(124), &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
+    KNOB99(PG_MACROS, pat.mac[2], 62, S(1), S(64));    /* BREAK (at 85 its gains, inside DISTROY's own loop, made
+                                                   it howl: the user heard feedback) */
+    KNOB99(PG_MACROS, pat.mac[1], 78, S(32), S(80));   /* MOVE: the nav jumping on the beat, the stages with it */
+    if (at(S(81))) press("FX", PG_REACTOR);
+    if (at(S(82))) press("FX", PG_DESTROY);
+    if (at(S(83.5))) { act(); say("ALGORITHM: LOOP"); }
+    KNOB99(PG_DESTROY, pat.d_fb, 7, S(85), S(96));     /* K1: FDBK down */
+    KNOB99(PG_DESTROY, pat.d_tame, 45, S(85), S(96));  /* K4: TAME up: what is left of it darker */
+    if (at(S(98))) { act(); say("ALGORITHM: band 4 (the top)"); }
+    on_ramp_page(PG_DESTROY, S(100), S(124));
+    if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 86, S(100), S(124), &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
     if (at(S(128))) play(0);
     /* the bar between: POLY, CHORDS, the chords on A, B off (the arp needs its voice), the ARP page */
     if (at(S(129))) glo(SD_MODE_POLY);
@@ -265,6 +283,7 @@ static void s5_poly(double s0)
     if (at(S(70))) { e.arp_oct = 3; say("K3: OCTAVES 3"); }
     if (at(S(96))) { e.arp_div = 0; say("K2: RATE 1/32"); }
     if (at(S(112))) { e.arp_mode = SD_AM_RND; say("K1: MODE RND"); }
+    if (at(S(113))) { e.arp_oct = 4; say("K3: OCTAVES 4"); }
     if (at(S(128))) play(0);
     /* the bar between: ARP off (MONO next), MONO, PULSAR, the transpose back, the ostinato, TURING on */
     if (at(S(129))) { e.arp_on = 0; say("EDIT: ARP OFF"); }
@@ -295,12 +314,16 @@ static void s6_turing(double s0)
     if (at(S(16))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 70, S(18), S(60));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 40, S(40), S(70));   /* MUTATE */
-    if (ramp(__LINE__, (int32_t)bpm, 124, S(32), S(112), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* SELECT: any page */
+    if (ramp(__LINE__, (int32_t)bpm, 132, S(32), S(112), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* SELECT: any page */
+    if (at(S(72))) press("SEQ", PG_SEQA);
+    if (at(S(73))) press("SEQ", PG_SEQB);
+    if (at(S(74))) press("SEQ", PG_TURING);
+    if (at(S(75.5))) { act(); pa_cur = e.t[0].pat; pa_cur.mutate = 60; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 60"); }
     if (at(S(96))) press("SEQ", PG_SEQA);
     if (at(S(100))) { pa_cur = e.t[0].pat; pa_cur.div = 0; sd_engine_pattern_to(&e, 0, &pa_cur); say("SCL + K2: DIV 1/32"); }
     if (at(S(112))) { pa_cur = e.t[0].pat; pa_cur.div = 2; sd_engine_pattern_to(&e, 0, &pa_cur); say("SCL + K2: DIV 1/16"); }
     if (at(S(128))) play(0);
-    if (ramp(__LINE__, (int32_t)bpm, 112, S(129), S(131), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }
+    if (ramp(__LINE__, (int32_t)bpm, 112, S(129), S(135), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* (SELECT back) */
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
     if (at(S(134))) press("FX", PG_REACTOR);
@@ -314,8 +337,8 @@ static int s7_space(double s0)                  /* 1: the end */
 {
 #define S(x) (s0 + (x))
     if (at(S(0))) play(1);
-    KNOB99(PG_SPACE, pat.s_fb, 70, S(1), S(32));
-    KNOB99(PG_SPACE, pat.s_decay, 85, S(16), S(48));
+    KNOB99(PG_SPACE, pat.s_fb, 76, S(1), S(32));
+    KNOB99(PG_SPACE, pat.s_decay, 92, S(16), S(48));
     KNOB99(PG_SPACE, pat.s_dlevel, 70, S(48), S(64));   /* SCL + K1: D-LEVEL */
     if (at(S(64))) play(0);
     if (at(S(66))) key(62, 1);
