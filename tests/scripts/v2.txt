@@ -1,4 +1,4 @@
-# V2: the loop in GROWL (the default), then PRESETS to BELL, ALGORITHM one step, XM up, WP to the saw (40), FD up, stop
+# V2: the loop in DISTROY (the default), then PRESETS two back (GROWL), ALGORITHM one step, XM up, WP to the saw (40), FD up, stop
 200 btn 12
 1500 shot
 2000 enc 6 -2

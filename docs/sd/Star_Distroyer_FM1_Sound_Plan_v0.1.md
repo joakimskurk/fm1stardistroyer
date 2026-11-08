@@ -1079,6 +1079,140 @@ nearly manage to bake one in"; on the envelopes: "is it impossible with today's 
   interrupt of the last second, higher (47–53 % here); the user saw 64 % on some patch, not yet found.
   `tools/emu_cpu.sh` takes a scenario now (EMU_KEYS).
 
+**The edge (2026-11-08).** The user wants the plain FM patches to sound as they should, an EPIANO an EPIANO, "but
+the Star Distroyer version": a small edge that makes each its own.
+- *Which:* the six plain FM patches. Five are V2's one-bank patches (GLASS, BELL, EPIANO, GROWL, ORGAN); the sixth is
+  AURORA, which is GLASS as a pad. DEPTH, a sine sub, stays clean, because the lows stay clean.
+- *The rule:* `SD_EDGE` in `sd_patches.h`.
+  - Under the top split, DESTROY passes the sound as it was (NONE through LR4).
+  - The top band alone is destroyed.
+  - Something steps on the beat (a synced S&H).
+  - It works in MONO, DUO and POLY alike; a twist on the vector would not, since POLY plays bank A alone.
+- *Each:*
+
+  | Patch | Its edge |
+  |---|---|
+  | EPIANO | the tine's top (over 5 kHz) folded and SHARP: a note's bark glints and spits, the body untouched; the drive a new step each eighth, more on harder notes; a dark dotted-eighth echo far back |
+  | BELL | four KP combs snapped to its own harmonics (2 3 4 6 and kin), a new set each quarter (RANDOM), wide, the lows past them, a ninth wet; the strike's top folded |
+  | GLASS | a fold that takes a new depth each quarter; its top (over 2.5 kHz) folded to a sheen; a small dark room and echo |
+  | ORGAN | a rotary that steps: AP2 a quarter wet, its notches jumping each eighth, all over 800 Hz; the upper mids driven SOFT, the top folded a little |
+  | GROWL | the top (over 5 kHz) folded, its drive stepping on eighths with the voice's fold |
+  | AURORA | GLASS's sheen, its fold a new depth each bar |
+
+- *Found on the way:*
+  - **CMP let the body in.** Its gentle slopes gave the top band's shaper the 1.2–5 kHz range too, +5 to +7 dB there
+    on EPIANO and GLASS. The edge uses LR4 instead.
+  - **LR4 raises peaks.** Its allpass sums flat in level but 1–3 dB higher in peaks, so the macro's BODY (the level
+    under the top) gives a hot patch its headroom back: BELL 27500, GROWL 31000.
+  - **A shaper needs drive.** At +3 dB, HARD and SOFT on the top added −51 and −36 dB of new content to it, which is
+    nothing. Each top is now driven until the shaper's own content is −4 to −8 dB of the top, with the band's level
+    set so the top lands +3 to +6 dB over the patch before.
+  - **SHARP and the D HIGH slots lift peaks.** VEL → D HIGH alone added 4 dB to EPIANO's top at velocity 100, so both
+    are kept small.
+  - **ORGAN's allpasses took its body.** In FILL the Rider adds the allpasses' wet on the dry, and below 800 Hz their
+    phase took 2 dB of the organ's body. The stages moved over 800 Hz, and the Rider went a quarter wet.
+- *Hear it:* `build/audio/twist/ab/StarDistroyer_edge_*.m4a`, each the patch's `sd_render scene` before, a second of
+  silence, then after.
+- *Measured* (the scene, before → after):
+
+  | Patch | RMS (dB) | Peak (dBFS) | 1.2–5 kHz | Over 5 kHz |
+  |---|---|---|---|---|
+  | GLASS | −21.0 → −21.0 | −5.9 → −7.3 | +1.3 dB | −70 → −41 dB of all: a sheen where there was none |
+  | BELL | −18.8 → −18.8 | −3.3 → −2.1 | +0.4 dB | +4.2 dB |
+  | EPIANO | −21.8 → −22.0 | −4.1 → −3.1 | +1.6 dB | +6.0 dB |
+  | GROWL | −19.4 → −20.4 | −4.1 → −1.2 | +1.0 dB | +3.9 dB |
+  | ORGAN | −17.1 → −17.4 | −1.7 → −1.4 | −0.4 dB (L+R) | +11 dB of almost none |
+  | AURORA | −25.7 → −25.6 | −4.8 → −4.4 | +0.8 dB | −69 → −40 dB of all |
+
+  GROWL's RMS includes its DC offset, which DESTROY's DC blockers now take off. No patch has a sample at the ceiling.
+- *Tests:* `test_edge`. Each of the six plays an A3 in MONO and a chord in POLY, with the engines the edge gave it on
+  and off. The body (30 Hz – 1.2 kHz) must stay within 2 dB (the worst is −1.2), the top must rise less than 12 dB
+  (the most is +10.3), and no sample may reach the ceiling. `test_mod` uses GLASS as V2 left it.
+- *Fit it:* fm1-emu, in POLY with SEQ A and a four-note chord held: GROWL 33.8 %, EPIANO 37.0 %, GLASS 38.0 %,
+  AURORA 39.0 %, ORGAN 40.7 %, BELL 44.5 %.
+  - *Open:* DISTROY reads **50.9 %** in the same scenario, over the 50 % rule. Each of its four voices plays bank A,
+    the GROWL chain in the costliest kernel. Nothing here caused it; that scenario was not measured before.
+- *Demos:* the song, RANGE and the demo play GROWL, and cue 2 plays AURORA, so they now play the new patches.
+
+**Four out (2026-11-08, later).** The user listened to the A/Bs: GLASS, BELL, EPIANO and ORGAN still sounded like
+classic FM, edge or not. Given the choice of rebuilding them or taking them out, the user took them out. AURORA ("sounds
+fantastic") and GROWL stay, with their edge.
+- *The bank:* 29 patches, GROWL first. DISTROY, the boot patch, is now P03. The banks live on inside TOUR, DISTROY and
+  the cue's patches (`BK_GLASS`, `BK_BELL`, `BK_ORGAN`, `BK_EPIANO_LIGHT`); `BK_EPIANO`, used by EPIANO alone, went.
+- *By name:* the code names a patch by `SD_P_*` (an enum in `sd_patches.h`), never by its number, and `test_names`
+  checks each against its name. `sd_render` takes a patch's name (`sd_render hold out.wav distroy 45`), and
+  `tests/run_sd.sh` uses names.
+- *Tests:* GLASS and BELL as V2 made them are now the tests' plain sounds (`T_GLASS`, `T_BELL` in `tests/sd_test.c`).
+  `test_edge` checks GROWL and AURORA: the body −0.5 dB at worst, the top +10.3 dB at most, no sample at the ceiling.
+- *Renders:* AURORA's loop, hold and macros, and POLY on NEBULA and AURORA, take the four's place.
+- *Demos:* the song, RANGE, the demo and both cues play the patches they played before, now named.
+- *Fit it:* the image is 132184 B (from 134072), and DISTROY in MONO still reads 40.7 %. DISTROY's 50.9 % in POLY with
+  a chord is still open.
+
+**DERELICT and the page (2026-11-08).** With four patches gone, the user asked for a new demo: about two minutes, at
+most three or four tracks at once, "a little noisy, a little cinematic, a little staccato, a little flowing, a little
+beautiful, a little melancholic", all the banks used, the app's own tools and not classic FM, nothing an FM-1 could not
+do. It goes on the page with its own player.
+- *How:* `tools/sd_derelict.c`. There are four passes on one FM-1, each in its own process (a fresh FM-1) under
+  `tools/sd_play.h`'s rules, so the tool stops at any gesture the FM-1 could not make. They are recorded to the same
+  tempo and layered at fixed faders, with one master gain to a −1 dBFS peak and nothing else added.
+- *The music:* C minor, 84 BPM, 40 bars.
+
+  | Part | Bars | What plays |
+  |---|---|---|
+  | DRIFT | 1–8 | AURORA's chords in POLY swell in (MASTER from nothing). DISTROY is held on C2, its four banks at the centre, with BREAK bringing up the noise and MOVE orbiting the vector. It is cut at the bar line. |
+  | SIGNAL | 9–24 | PULSAR's staccato 16ths in MONO, with a ratchet and PROB, its vector jumping across its four banks. SCL + key moves it with the chords, and its figure of roots, fifths and ninths has no third to clash. UNDERTOW plays eighths, and the STRINGS cello comes in at bar 17. |
+  | BREACH | 25–32 | The chords move to Fm, Abmaj7, Cm9 and G7. PULSAR holds a pedal C with TURING rewriting it (CHANGE 35, RANGE 4); its top band goes to CRUSH with the GAIN up, and BREAK and MOVE rise. The bass's WARP turns toward the saw, and the cello climbs with its Rider on the brighter stages. |
+  | AFTERGLOW | 33–40 | BRAAM hits on the downbeat. PULSAR fades out by MASTER, the cello's last phrase falls to a low C, and the chords drown under MACRO 4, then MASTER lets the hall go. |
+
+- *Levels:* the faders are set from each pass's RMS part by part. In SIGNAL, with all four playing, the cello is
+  −20 dBFS, the chords and the bass −25.5 and the pulse −28.6. The whole piece reads RMS −19.4 dBFS (the song is −18.5
+  and RANGE −20.1). The first faders put BREAK's spikes on the pulse at bar 32, 11 dB over everything else, so BREAK
+  went to 50, CRUSH's GAIN to 50 and the pulse's fader down.
+- *Not heard:* the levels and the noise are set by measurement only. Over 5 kHz, the mix sits about 29 dB under the
+  whole in DRIFT and BREACH, and about 35 dB under in SIGNAL and AFTERGLOW. Whether that is "a little noisy" is the
+  user's call.
+- *Heard, and rebuilt as an overture.* The user said it had "a beautiful sound, but only two parts. More an
+  overture, its themes closer together; the lead with much more reverb and delay, and lower." So there are now ten
+  sections of four bars with a chord a bar, and four themes that follow each other, then come back changed:
+
+  | Bars | Section | What plays |
+  |---|---|---|
+  | 1–4 | THE CALL | BRAAM's hits on C, Ab and G, under AURORA's chords swelling in |
+  | 5–8 | THEME I | the cello's melody over the chords and the bass's long roots |
+  | 9–12 | THEME II | PULSAR's staccato 16ths under the cello's answer; the bass in eighths |
+  | 13–16 | THEME III | BEACON's high line far back (TOUR's banks, VEC2), PULSAR's glints |
+  | 17–20 | THEME IV | a pedal C in Phrygian, saved with TURING on (CHANGE 35, RANGE 4), its top band to CRUSH, BREAK and MOVE up; the bass in 16ths, its WARP up |
+  | 21–24 | I over II | |
+  | 25–28 | III on the cello | |
+  | 29–32 | IV again, harder | CHANGE 50, BREAK 66 |
+  | 33–40 | the coda | BRAAM, the cello down to a low C, the chords drowning under MACRO 4 |
+
+  Then the user said: "one place is a little disharmonic, and it can be shorter, so there is less repetition." The
+  breach was the place. Its G7 bar sat under a pedal in C Phrygian that TURING rewrites, and the scale's Db, Ab and
+  Eb clash with G7's B and D. The breach's chords are now Fm, Db, Ab and Fm, all in the pedal's scale, and the repeats
+  (III on the cello, IV again) are gone. That leaves 32 bars, 1:41:
+
+  | Bars | Section |
+  |---|---|
+  | 1–4 | THE CALL |
+  | 5–8 | THEME I |
+  | 9–12 | THEME II |
+  | 13–16 | THEME III (BEACON; its last half bar a rest, so the change back to U01 cuts no note) |
+  | 17–20 | THEME I over II |
+  | 21–24 | THEME IV, the one breach: CHANGE 45, CRUSH's GAIN 58, BREAK 62, MOVE 65 |
+  | 25–32 | the coda |
+
+  The levels, per section: the cello is −27.2 to −28.2 dBFS against the chords' −26.7 to −27.1, and the breach is the
+  loudest part (mix −18.7 dBFS, over 5 kHz −47). The whole reads RMS −21.3 dBFS.
+
+  The lead is U01, the player's own place: STRINGS with its SPACE opened and saved (SYNC PP, TIME 1/4D, FDBK 52,
+  SIZE 90, DECAY 84). Its MASTER sits at 1500, so it is at the chords' level (−28.7 against −28.0 dBFS in THEME I,
+  where before it was 6 dB over). MASTER goes to 4092 for BEACON. The mix reads RMS −21.8 dBFS, with its loudest
+  bars in the second breach (bars 29–32).
+- *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
+  spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
+
 **HW, the checklist (prepared 2026-11-05, brought up to the Firmware Hub's author checklist and the unified
 controls; on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
 `build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is

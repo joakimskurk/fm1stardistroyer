@@ -38,6 +38,22 @@ static int fails;
 static int32_t a[2u * N], b[2u * N];
 static SdEngine e1, e2;
 
+/* GLASS and BELL as V2 made them, the plain test sounds (stock patches until 2026-11-08, when the user took them out
+ * of the bank for sounding like classic FM). GLASS: four carriers on harmonics 1 2 3 4, no FM, AFTER -> XM and WHEEL
+ * -> WARP and nothing else; BELL: two FM stacks, 7 on 2 and 5 on 1, its FM falling away, in a room */
+#define C_ SD_ROLE_C
+#define S_ SD_ROLE_S
+static const SdPatch T_GLASS = {
+    .bank = SD_SAME(BK_GLASS), SD_CORNER_A,
+    .e1_a = 20, .e1_d = 80, .e1_s = 90, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
+    .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_AIR};
+static const SdPatch T_BELL = {
+    .bank = SD_SAME(BK_BELL), SD_CORNER_A, .xm = 40000,
+    .e1_a = 0, .e1_d = 110, .e1_s = 0, .e1_r = 90, .e2_a = 0, .e2_d = 85, .e2_s = 0, .e2_r = 80,
+    .s_size = 52000, .s_decay = 46000, .s_rtone = 42000, .s_rlevel = 14000};
+#undef C_
+#undef S_
+
 static void run(SdEngine *e, int32_t *out, uint32_t frames, uint32_t chunk)
 {
     uint32_t done = 0;
@@ -448,7 +464,7 @@ static void test_vec2(void)                     /* TOUR's VEC2: from the gate, A
     static const struct { double s; uint16_t x, y; } AT[] = {{0.02, 0, 65535}, {1.5, 65535, 65535}, {3.0, 65535, 0},
                                                             {4.5, 0, 0}, {6.0, 0, 0}};
     uint32_t i, done = 0;
-    SdPatch p = SD_PATCH[5];
+    SdPatch p = SD_PATCH[SD_P_TOUR];
     memset(p.mod, 0, sizeof p.mod);             /* VEC2 alone (TOUR's LFOs move X and Y on top: C1) */
     sd_engine_init(&e1);
     sd_engine_patch(&e1, &p);
@@ -468,7 +484,7 @@ static void test_modes(void)                    /* POLY and DUO allocate and ste
     int32_t o[2u * SD_SUB];
     uint32_t i;
     sd_engine_init(&e1);
-    sd_engine_patch(&e1, &SD_PATCH[1]);
+    sd_engine_patch(&e1, &T_BELL);
     sd_engine_note(&e1, 60, 100);
     run(&e1, o, SD_SUB, SD_SUB);
     e1.mode = SD_MODE_POLY;
@@ -502,10 +518,10 @@ static void test_stereo(void)                   /* WIDTH 0: both sides the same;
     uint32_t i;
     double l = 0, r = 0;
     int same = 1;
-    SdPatch p = SD_PATCH[5];
+    SdPatch p = SD_PATCH[SD_P_TOUR];
     p.vec = 0;
     sd_engine_init(&e1);
-    sd_engine_patch(&e1, &SD_PATCH[0]);
+    sd_engine_patch(&e1, &T_GLASS);
     sd_engine_note(&e1, 57, 100);
     run(&e1, a, SD_FS / 4u, 256);
     for (i = 0; i < SD_FS / 4u; i++) same &= a[2u * i] == a[2u * i + 1u];
@@ -561,11 +577,11 @@ static void test_alias(void)
 
 static void test_gen(void)                      /* the generators */
 {
-    SdPatch p = SD_PATCH[1];
+    SdPatch p = T_BELL;
     uint32_t seed = 1, g, k, i;
     sd_gen(&p, 1, 0, &seed);
     CHECK(p.bank[1].osc[0].harm == 1 && p.bank[1].osc[3].harm == 4, "ALL");
-    CHECK(p.bank[1].osc[1].level == SD_PATCH[1].bank[1].osc[1].level, "ALL changed a level");
+    CHECK(p.bank[1].osc[1].level == T_BELL.bank[1].osc[1].level, "ALL changed a level");
     sd_gen(&p, 1, 1, &seed);
     CHECK(p.bank[1].osc[1].harm == 3 && p.bank[1].osc[3].harm == 7, "ODD");
     for (i = 0; i < 200u; i++)
@@ -777,7 +793,7 @@ static void test_rider_rest(void)               /* a comb rings out, then rests:
 /* ---- R3: each model's level against the dry voice: a saw through VOWEL's stage A, RES and level one half */
 static double rider_vs_dry(uint32_t model)
 {
-    SdPatch p = SD_PATCH[7];
+    SdPatch p = SD_PATCH[SD_P_VOWEL];
     uint32_t i;
     double d = 0, w = 0;
     p.r_div = 0; p.r_pos = 0; p.r_slew = 0; p.e1_s = 127;
@@ -975,8 +991,8 @@ static void test_destroy(void)
         CHECK(n == 4u, "CRUSH's step at ALT max is not 2^13");
     }
     {   /* MIX 0: no DESTROY at all, bit for bit */
-        SdPatch p = SD_PATCH[5];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[5]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
+        SdPatch p = SD_PATCH[SD_P_TOUR];
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
         p.d_type[0] = SD_DS_FOLD; p.d_gain[0] = 65535; p.d_mix = 0;
         sd_engine_init(&e2); sd_engine_patch(&e2, &p); sd_engine_note(&e2, 50, 100); run(&e2, b, SD_FS / 2u, 256);
         for (i = 0; i < SD_FS; i++) if (a[i] != b[i]) break;
@@ -1287,8 +1303,8 @@ static void test_space(void)
         CHECK(t[1] > t[0] + 10, "DECAY does not lengthen the tail");
     }
     {   /* both levels 0: no SPACE, bit for bit */
-        SdPatch p = SD_PATCH[5];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[5]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
+        SdPatch p = SD_PATCH[SD_P_TOUR];
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
         p.s_time = 9000; p.s_fb = 50000; p.s_decay = 50000; p.s_dlevel = 0; p.s_rlevel = 0;
         memset(&tsm, 0, sizeof tsm);
         sd_engine_init(&e2); e2.sm = &tsm; sd_engine_patch(&e2, &p); sd_engine_note(&e2, 50, 100); run(&e2, b, SD_FS / 2u, 256);
@@ -1374,13 +1390,13 @@ static void test_rider_r4(void)
 
 static void test_rider_bypass(void)             /* MIX 0: the Rider is not there, bit for bit */
 {
-    SdPatch p = SD_PATCH[5];
+    SdPatch p = SD_PATCH[SD_P_TOUR];
     uint32_t i;
     sd_engine_init(&e1);
-    sd_engine_patch(&e1, &SD_PATCH[5]);
+    sd_engine_patch(&e1, &SD_PATCH[SD_P_TOUR]);
     sd_engine_note(&e1, 50, 100);
     run(&e1, a, SD_FS / 2u, 256);
-    p.stage[0] = SD_PATCH[7].stage[0];
+    p.stage[0] = SD_PATCH[SD_P_VOWEL].stage[0];
     p.r_model = SD_RM_BP12; p.r_res = 60000; p.r_drive = 65535; p.r_mix = 0;
     sd_engine_init(&e2);
     sd_engine_patch(&e2, &p);
@@ -1480,7 +1496,7 @@ static void mod_init(SdEngine *e, const SdPatch *p)
 }
 static void test_mod(void)
 {
-    SdPatch p = SD_PATCH[0];
+    SdPatch p = T_GLASS;
     uint32_t t, k, lo, hi, cyc, last, wraps;
     /* LFO1 (sine, ~1 Hz free) -> XM at +25 %: XM swings +-25 % of the range around the patch's (100 %: +-all) */
     p.xm = 32768;
@@ -1499,7 +1515,7 @@ static void test_mod(void)
           "LFO1 -> XM swings %u .. %u", lo, hi);
     CHECK(e1.base.xm == 32768u, "the matrix wrote the base: %u", e1.base.xm);
     /* SYNC: 4 sixteenths (a beat) at 120 BPM is 0.5 s: 689 ticks a cycle */
-    p = SD_PATCH[0];
+    p = T_GLASS;
     p.lfo_mode[0] = SD_LM_SYNC;
     p.lfo_rate[0] = (uint16_t)(3u * 65536u / SD_LFO_DIVS + 100u);   /* the 4th division: 4 sixteenths */
     p.lfo_shape[0] = SD_LS_RAMP;
@@ -1523,7 +1539,7 @@ static void test_mod(void)
     mod_run(&e1, &p, 1);
     CHECK(e1.lfo_ph[0] == 0u, "KEY: the phase after a note is %u", e1.lfo_ph[0]);
     /* ONE: a SAW once a note: from the top down to the bottom over its cycle, held there, again at the next note */
-    p = SD_PATCH[0];
+    p = T_GLASS;
     p.lfo_shape[0] = SD_LS_SAW; p.lfo_mode[0] = SD_LM_ONE; p.lfo_rate[0] = 34000;   /* ~1 Hz: a second down */
     p.mod[0] = (SdModSlot){SD_MS_LFO1, SD_MD_XM, 8192};
     mod_init(&e1, &p);
@@ -1542,7 +1558,7 @@ static void test_mod(void)
         SdPattern q;
         int32_t st0 = 0, st1 = 0, dl = 0, ec = 0;
         uint32_t t;
-        p = SD_PATCH[6];                        /* DISTROY: DESTROY and SPACE on */
+        p = SD_PATCH[SD_P_DISTROY];                        /* DISTROY: DESTROY and SPACE on */
         sd_pattern_default(&q);
         mod_init(&e1, &p);
         sd_engine_pattern(&e1, &q);
@@ -1561,7 +1577,7 @@ static void test_mod(void)
         CHECK(ec > 300, "ECHO never rose: %d", ec);
     }
     /* PITCH: the wheel at full, +50 %: +12 semitones, an octave */
-    p = SD_PATCH[0];
+    p = T_GLASS;
     p.mod[0] = (SdModSlot){SD_MS_WHEEL, SD_MD_PITCH, 16384};
     mod_init(&e1, &p);
     e1.wheel = 127;
@@ -1577,7 +1593,7 @@ static void test_mod(void)
     {
         uint32_t d, kind;
         for (kind = 0; kind < SD_M4S; kind++) {
-            p = SD_PATCH[6];
+            p = SD_PATCH[SD_P_DISTROY];
             for (d = 1; d < SD_MDSTS && d - 1u < SD_MODS * 3u; d++)
                 p.mod[(d - 1u) % SD_MODS] = (SdModSlot){(uint8_t)(1u + d % (SD_MSRCS - 1u)), (uint8_t)d, 32767};
             for (k = 0; k < 4u; k++) p.mac[k] = 65535;
@@ -1638,7 +1654,7 @@ static uint32_t seq_trace(SdEngine *e, const SdPattern *p, uint32_t steps, uint8
     static int32_t o[2u * SD_SUB];
     uint32_t n = 0, last = 0xFFFFFFFFu, f = 0;
     sd_engine_init(e);
-    sd_engine_patch(e, &SD_PATCH[0]);
+    sd_engine_patch(e, &T_GLASS);
     sd_engine_pattern(e, p);
     e->bpm = 120;
     e->seq_run = 1;
@@ -1785,7 +1801,7 @@ static void test_seq(void)
             for (k = 0; k < 16u; k++) { p.step[k].type = SD_ST_REST; }
             p.step[0].type = SD_ST_NOTE; p.step[0].ratchet = 3; p.step[0].gate = 40; p.step[0].vel = 120;
             sd_engine_init(&e1);
-            sd_engine_patch(&e1, &SD_PATCH[0]);
+            sd_engine_patch(&e1, &T_GLASS);
             sd_engine_pattern(&e1, &p);
             e1.bpm = (uint16_t)bpm;
             e1.seq_run = 1;
@@ -1810,7 +1826,7 @@ static void test_seq(void)
         sd_pattern_default(&p);
         for (k = 0; k < 16u; k++) { p.step[k].type = SD_ST_NOTE; p.step[k].prob = 50; p.step[k].gate = 30; }
         sd_engine_init(&e1);
-        sd_engine_patch(&e1, &SD_PATCH[0]);
+        sd_engine_patch(&e1, &T_GLASS);
         sd_engine_pattern(&e1, &p);
         e1.seq_run = 1;
         for (i = 0; i < 64u * 5512u / SD_SUB; i++) {   /* 64 steps at 120 BPM */
@@ -1898,7 +1914,7 @@ static void test_filter_seq_arp(void)
     sd_pattern_default(&q);
     for (i = 0; i < q.len; i++) { q.step[i].type = SD_ST_NOTE; q.step[i].note = 48; q.step[i].gate = 50; }
     q.step[0].chord[0] = 4; q.step[0].chord[1] = 7; q.step[0].chord[2] = 12;
-    sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+    sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
     e1.mode = SD_MODE_POLY; run_ms(&e1, 5);
     sd_engine_pattern(&e1, &q); e1.bpm = 120; e1.seq_run = 1;
     run_ms(&e1, 20);
@@ -1916,7 +1932,7 @@ static void test_filter_seq_arp(void)
             q.step[i].note = 72; qb.step[i].note = 36; q.step[i].gate = qb.step[i].gate = 90;
         }
         q.len = 16; qb.len = 3; qb.seg_count = 1;
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+        sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
         e1.mode = SD_MODE_DUO; run_ms(&e1, 5);
         sd_engine_pattern_to(&e1, 0, &q); sd_engine_pattern_to(&e1, 1, &qb);
         e1.seqb = 1; e1.bpm = 120; e1.seq_run = 1;
@@ -1931,7 +1947,7 @@ static void test_filter_seq_arp(void)
     {
         static const uint8_t UP[8] = {48, 52, 55, 60, 64, 67, 48, 52};
         uint8_t got[8];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+        sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
         e1.arp_on = 1; e1.arp_oct = 2; e1.arp_mode = SD_AM_UP; e1.bpm = 120;
         sd_engine_note(&e1, 55, 100); sd_engine_note(&e1, 48, 100); sd_engine_note(&e1, 52, 100);
         for (i = 0; i < 8u; i++) {
@@ -1972,7 +1988,7 @@ static void render_patch(const SdPatch *p, int32_t *o, uint32_t frames)
  * the voice's age stays). Keys let go out of order, three keys, and DUO's stolen voice too. */
 static void hand_keys(SdEngine *e, uint32_t mode)
 {
-    sd_engine_init(e); sd_engine_patch(e, &SD_PATCH[0]);
+    sd_engine_init(e); sd_engine_patch(e, &T_GLASS);
     e->mode = mode; run_ms(e, 5);
 }
 static void test_hand(void)
@@ -2037,6 +2053,98 @@ static void test_hand(void)
     printf("hand: MONO back to the key still held (legato), out of order, three keys; DUO's taken voice back\n");
 }
 
+/* The edge (the user, 2026-11-08: a plain FM patch sounds as it should, with an edge that makes it Star Distroyer's).
+ * GROWL and AURORA, an A3 in MONO and a C major chord in POLY, each with the engine the edge gave it, DESTROY, on and
+ * off (fx_off): the body (30 Hz .. 1.2 kHz) within 2 dB, the top (over 5 kHz) up by less than 12 dB, no sample at the
+ * ceiling */
+typedef struct { double b0, b1, b2, a1, a2, z1, z2; } EdgeBq;
+static EdgeBq edge_bq(double hz, int high)       /* RBJ's Butterworth biquad, Q 0.707 */
+{
+    double w = 2.0 * 3.14159265358979 * hz / SD_FS, c = cos(w), al = sin(w) / (2.0 * 0.70710678), a0 = 1.0 + al;
+    EdgeBq q = {0};
+    q.b0 = (high ? (1.0 + c) : (1.0 - c)) / 2.0 / a0;
+    q.b1 = (high ? -(1.0 + c) : (1.0 - c)) / a0;
+    q.b2 = q.b0;
+    q.a1 = -2.0 * c / a0;
+    q.a2 = (1.0 - al) / a0;
+    return q;
+}
+static double edge_db(const int32_t *x, uint32_t n, double lo, double hi)   /* the mid's band, dB (two of each) */
+{
+    EdgeBq f[4];
+    uint32_t i, k, m = 0;
+    double e = 0.0;
+    f[0] = f[1] = edge_bq(lo, 1);
+    f[2] = f[3] = edge_bq(hi, 0);
+    for (i = 0; i < n; i++) {
+        double v = 0.5 * ((double)x[2u * i] + (double)x[2u * i + 1u]);
+        for (k = 0; k < 4u; k++) {
+            double y = f[k].b0 * v + f[k].z1;
+            f[k].z1 = f[k].b1 * v - f[k].a1 * y + f[k].z2;
+            f[k].z2 = f[k].b2 * v - f[k].a2 * y;
+            v = y;
+        }
+        if (i >= 2048u) { e += v * v; m++; }
+    }
+    return 10.0 * log10(e / (double)m + 1e-9);
+}
+static void edge_play(const SdPatch *p, uint32_t mode, int32_t *out, uint32_t frames)
+{
+    static const uint8_t CHORD[4] = {48, 52, 55, 60};
+    uint32_t k;
+    mod_init(&e1, p);
+    e1.mode = (uint8_t)mode;
+    mod_run(&e1, p, 4);
+    if (mode == SD_MODE_POLY) for (k = 0; k < 4u; k++) sd_engine_note(&e1, CHORD[k], 100);
+    else sd_engine_note(&e1, 57, 100);
+    run(&e1, out, frames, 256);
+}
+static void test_edge(void)
+{
+    static const uint8_t EDGE[2] = {SD_P_GROWL, SD_P_AURORA};
+    const uint32_t frames = SD_FS * 3u / 2u;
+    uint32_t i, m, k;
+    double worst_body = 0.0, worst_top = -99.0;
+    for (i = 0; i < 2u; i++)
+        for (m = 0; m < 2u; m++) {
+            SdPatch on = SD_PATCH[EDGE[i]], off = on;
+            uint32_t mode = m ? SD_MODE_POLY : SD_MODE_MONO;
+            int32_t peak = 0;
+            double body, top;
+            off.fx_off = SD_FX_DESTROY;
+            edge_play(&on, mode, a, frames);
+            edge_play(&off, mode, b, frames);
+            for (k = 0; k < 2u * frames; k++) if ((a[k] < 0 ? -a[k] : a[k]) > peak) peak = a[k] < 0 ? -a[k] : a[k];
+            body = edge_db(a, frames, 30.0, 1200.0) - edge_db(b, frames, 30.0, 1200.0);
+            top = edge_db(a, frames, 5000.0, 20000.0) - edge_db(b, frames, 5000.0, 20000.0);
+            if (fabs(body) > fabs(worst_body)) worst_body = body;
+            if (top > worst_top) worst_top = top;
+            CHECK(fabs(body) < 2.0, "%s %s: the body moved %+.1f dB", SD_PATCH_NAME[EDGE[i]], m ? "POLY" : "MONO", body);
+            CHECK(top < 12.0, "%s %s: the top rose %+.1f dB", SD_PATCH_NAME[EDGE[i]], m ? "POLY" : "MONO", top);
+            CHECK(peak < 32767, "%s %s: a sample at the ceiling (%d)", SD_PATCH_NAME[EDGE[i]], m ? "POLY" : "MONO", peak);
+        }
+    printf("edge: GROWL and AURORA keep their body (worst %+.1f dB), the top up at most %+.1f dB\n",
+           worst_body, worst_top);
+}
+
+/* The code names a patch by SD_P_* (sd_patches.h): each the patch of its name */
+static void test_names(void)
+{
+#define PN(x) {SD_P_##x, #x}
+    static const struct { uint32_t i; const char *name; } P[] = {
+        PN(GROWL), PN(TOUR), PN(DISTROY), PN(VOWEL), PN(CHORDS), PN(PLUCKS), PN(FLANGE), PN(PHASER), PN(RIDE),
+        PN(SPLIT), PN(COMET), PN(NEBULA), PN(PULSAR), PN(ION), PN(ORBITAL), PN(MONOLITH), PN(STRINGS), PN(HALO),
+        PN(AURORA), PN(TITAN), PN(DRIVE), PN(UNDERTOW), PN(IMPACT), PN(BRAAM), PN(SCREAM), PN(BEACON), PN(DEPTH),
+        PN(SHARDS), PN(PRISM)};
+#undef PN
+    uint32_t k;
+    CHECK(SD_P_COUNT == SD_PATCHES && sizeof P / sizeof P[0] == SD_PATCHES, "SD_P_* has %u names, the bank %u patches",
+          (unsigned)SD_P_COUNT, SD_PATCHES);
+    for (k = 0; k < sizeof P / sizeof P[0]; k++)
+        CHECK(P[k].i < SD_PATCHES && !strcmp(SD_PATCH_NAME[P[k].i], P[k].name), "SD_P_%s is patch %u, %s", P[k].name,
+              P[k].i, P[k].i < SD_PATCHES ? SD_PATCH_NAME[P[k].i] : "none");
+}
+
 static void test_switches(void)
 {
     static int32_t a[2u * 2048u], b[2u * 2048u];
@@ -2050,7 +2158,7 @@ static void test_switches(void)
             const SdPatch *s = &SD_PATCH[i];
             if ((k == 0u && s->r_mix) || (k == 1u && s->d_mix) || (k == 2u && (s->s_dlevel || s->s_rlevel)) || (k == 3u && s->f_type)) break;
         }
-        if (i == SD_PATCHES) { p = SD_PATCH[0]; p.f_type = SD_FT_LP12; p.f_cut = 30000; p.e3_s = 127; }   /* (no stock filter) */
+        if (i == SD_PATCHES) { p = T_GLASS; p.f_type = SD_FT_LP12; p.f_cut = 30000; p.e3_s = 127; }   /* (no stock filter) */
         else p = SD_PATCH[i];
         q = p;
         p.fx_off = BITS[k];
@@ -2069,7 +2177,7 @@ static void test_switches(void)
     }
     pa.len = pb.len = 4; pa.seg_count = pb.seg_count = 1;
     /* B in MONO: silent (A plays); in DUO both */
-    sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+    sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
     run_ms(&e1, 5);
     sd_engine_pattern_to(&e1, 0, &pa); sd_engine_pattern_to(&e1, 1, &pb);
     e1.seqb = 1; e1.bpm = 120; e1.seq_run = 1;
@@ -2096,7 +2204,7 @@ static void test_switches(void)
     {
         uint32_t sub, cutA = 0, onA = 0, arpSounds = 0;
         for (i = 0; i < SD_PSTEPS; i++) { pa.step[i].note = 60; pa.step[i].gate = 95; }
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+        sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
         e1.mode = SD_MODE_POLY; run_ms(&e1, 5);
         sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
         e1.arp_on = 1; e1.arp_gate = 20; e1.arp_div = 0;   /* ARP on 60 too, short gates, 1/32 */
@@ -2110,7 +2218,7 @@ static void test_switches(void)
         }
         CHECK(onA > 100u && cutA * 50u < onA, "POLY: ARP's note offs cut A's same note (%u of %u)", cutA, onA);
         for (k = 0; k < 2u; k++) {              /* MONO, then DUO: A plays with ARP on */
-            sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);
+            sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
             e1.mode = k ? SD_MODE_DUO : SD_MODE_MONO; run_ms(&e1, 5);
             sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
             e1.arp_on = 1; sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100);
@@ -2128,7 +2236,7 @@ static void test_switches(void)
             CHECK(onA > 100u && !cutA, "%s: A cut by ARP %u of %u times", k ? "DUO" : "MONO", cutA, onA);
             CHECK(k ? arpSounds > 100u : !arpSounds, "%s: ARP %s (%u)", k ? "DUO" : "MONO", k ? "silent" : "took the voice", arpSounds);
         }
-        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]);   /* MONO, A playing: the hand has no voice */
+        sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);   /* MONO, A playing: the hand has no voice */
         run_ms(&e1, 5);
         sd_engine_pattern_to(&e1, 0, &pa); e1.bpm = 120; e1.seq_run = 1;
         run_ms(&e1, 30);
@@ -2179,8 +2287,10 @@ int main(void)
     test_mod();
     test_seq();
     test_filter_seq_arp();
+    test_names();
     test_switches();
     test_hand();
+    test_edge();
     test_env();
     test_silence();
     test_chunking();

@@ -2,8 +2,8 @@
 /* The sound engine (firmware/src/sd_engine.h) on this computer, without the platform (Sound Plan v0.1 §1).
  *
  *   sd_render render OUT.wav [SECONDS] [BPM] [PATCH]   the 16-step loop -> a stereo 16-bit WAV, as the FM-1 renders
- *                                              it (256-frame interrupts, Dinghy's clip at +-32767); PATCH 0..6 is
- *                                              SD_PATCH_NAME (GLASS BELL EPIANO GROWL ORGAN TOUR DISTROY)
+ *                                              it (256-frame interrupts, Dinghy's clip at +-32767). A PATCH is its
+ *                                              name (SD_PATCH_NAME, any case: distroy) or its number from 0
  *   sd_render hold OUT.wav PATCH [NOTE] [cmp]  one note held 2 s and let ring 2 s (cmp: DESTROY's complementary
  *                                              crossover instead of the patch's, D1's A/B)
  *   sd_render field OUT.wav [SECONDS]          TOUR held, X/Y round the field's edge and across it (Gate D VOICE)
@@ -36,6 +36,17 @@
 #include "sd_engine.h"
 
 #define HALF 256u                               /* frames per audio interrupt on Dinghy */
+
+static uint32_t patch_arg(const char *a)        /* a patch by name, any case, or by number */
+{
+    uint32_t i, k;
+    for (i = 0; i < SD_PATCHES; i++) {
+        for (k = 0; a[k] && SD_PATCH_NAME[i][k] && (a[k] & ~0x20) == SD_PATCH_NAME[i][k]; k++) {}
+        if (!a[k] && !SD_PATCH_NAME[i][k]) return i;
+    }
+    if (a[0] < '0' || a[0] > '9') { fprintf(stderr, "sd_render: no patch %s\n", a); exit(2); }
+    return (uint32_t)atoi(a) % SD_PATCHES;
+}
 
 static SdEngine eng;
 static SdSpaceMem spmem;                        /* SPACE's memory (the pool, on the FM-1) */
@@ -145,7 +156,7 @@ static int sweep(const char *what, const char *path, uint32_t secs, uint32_t not
         p.bank[0].osc[0] = (SdOscPatch){1, 0, SD_ROLE_S, 0, 65535};
         p.bank[0].osc[1] = (SdOscPatch){1, 0, SD_ROLE_C, 0, 65535};
     } else if (!strcmp(what, "pos")) {          /* VOWEL held, its clock off: POS from stage 1 through 6, a glide */
-        p = SD_PATCH[7];
+        p = SD_PATCH[SD_P_VOWEL];
         p.r_div = 0;
         p.r_slew = 20000;
         p.e1_s = 127;
@@ -185,7 +196,7 @@ static int field(const char *path, uint32_t secs)
 {
     uint32_t frames = secs * SD_FS, done = 0;
     int32_t buf[2u * HALF];
-    SdPatch p = SD_PATCH[5];
+    SdPatch p = SD_PATCH[SD_P_TOUR];
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     p.vec = 0;
@@ -461,25 +472,25 @@ typedef struct {
     uint8_t mac_lo[4], mac_hi[4];               /* its range, 0..99 */
 } TourPart;
 static const TourPart TOUR_PARTS[] = {
-    {"tour", 5, 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
+    {"tour", SD_P_TOUR, 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
      {0}, {0}, 96, {3, 1, 0, 2}, {0, 20, 0, 10}, {30, 80, 0, 60}},
-    {"comet", 14, 112, 2, 38, 16, SD_MODE_MONO, {0, RST_, 12, 0, SLD_ + 3, RST_, 0, 10, 0, RST_, 15, SLD_ + 12, 7, RST_, 5, SLD_ + 3},
+    {"comet", SD_P_COMET, 112, 2, 38, 16, SD_MODE_MONO, {0, RST_, 12, 0, SLD_ + 3, RST_, 0, 10, 0, RST_, 15, SLD_ + 12, 7, RST_, 5, SLD_ + 3},
      {0}, {0}, 60, {2, 0, 1, 4}, {0, 0, 0, 0}, {60, 0, 70, 50}},
-    {"nebula", 15, 70, 5, 50, 0, SD_MODE_POLY, {0}, {0}, {0}, 100, {0, 1, 0, 2}, {0, 10, 0, 20}, {0, 70, 0, 80}},
-    {"pulsar", 16, 100, 4, 50, 16, SD_MODE_MONO, {0, 7, 12, 15, 19, 15, 12, TIE_, 3, 10, 15, 22, 24, 22, 15, TIE_},
+    {"nebula", SD_P_NEBULA, 70, 5, 50, 0, SD_MODE_POLY, {0}, {0}, {0}, 100, {0, 1, 0, 2}, {0, 10, 0, 20}, {0, 70, 0, 80}},
+    {"pulsar", SD_P_PULSAR, 100, 4, 50, 16, SD_MODE_MONO, {0, 7, 12, 15, 19, 15, 12, TIE_, 3, 10, 15, 22, 24, 22, 15, TIE_},
      {0}, {0}, 80, {2, 1, 4, 3}, {0, 0, 0, 0}, {45, 60, 40, 70}},
-    {"ion", 17, 124, 2, 33, 16, SD_MODE_MONO, {0, 0, 12, RST_, 0, 10, RST_, 0, 3, RST_, 0, 12, 0, RST_, 7, 5},
+    {"ion", SD_P_ION, 124, 2, 33, 16, SD_MODE_MONO, {0, 0, 12, RST_, 0, 10, RST_, 0, 3, RST_, 0, 12, 0, RST_, 7, 5},
      {1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1}, {0, 70, 0, 0, 0, 60, 0, 80, 0, 0, 0, 50, 0, 0, 0, 70}, 55,
      {2, 0, 1, 0}, {0, 0, 10, 0}, {50, 0, 80, 0}},
-    {"orbital", 18, 96, 4, 45, 16, SD_MODE_MONO, {0, RST_, 7, 0, RST_, 12, 3, RST_, 0, 10, RST_, 7, 15, RST_, 0, 5},
+    {"orbital", SD_P_ORBITAL, 96, 4, 45, 16, SD_MODE_MONO, {0, RST_, 7, 0, RST_, 12, 3, RST_, 0, 10, RST_, 7, 15, RST_, 0, 5},
      {0}, {0, 0, 70, 0, 0, 60, 80, 0, 0, 70, 0, 50, 60, 0, 0, 80}, 70, {1, 0, 2, 3}, {10, 0, 0, 10}, {70, 0, 50, 70}},
-    {"monolith", 19, 64, 6, 31, 8, SD_MODE_MONO, {0, TIE_, 3, TIE_, SLD_ + 7, TIE_, 5, RST_}, {0}, {0}, 98,
+    {"monolith", SD_P_MONOLITH, 64, 6, 31, 8, SD_MODE_MONO, {0, TIE_, 3, TIE_, SLD_ + 7, TIE_, 5, RST_}, {0}, {0}, 98,
      {2, 0, 2, 4}, {0, 0, 0, 0}, {60, 0, 50, 50}},
-    {"distroy", 6, 100, 4, 38, 16, SD_MODE_MONO, {0, 0, 12, SLD_ + 10, 0, RST_, 7, SLD_ + 5, 0, 0, 15, SLD_ + 12, 3, RST_, 10, 7},
+    {"distroy", SD_P_DISTROY, 100, 4, 38, 16, SD_MODE_MONO, {0, 0, 12, SLD_ + 10, 0, RST_, 7, SLD_ + 5, 0, 0, 15, SLD_ + 12, 3, RST_, 10, 7},
      {0}, {0}, 70, {1, 2, 1, 4}, {0, 0, 0, 0}, {80, 70, 60, 60}},
-    {"split", 13, 118, 2, 40, 16, SD_MODE_MONO, {0, RST_, 0, 12, RST_, 0, 10, 0, RST_, 7, 0, RST_, 3, 5, 0, RST_},
+    {"split", SD_P_SPLIT, 118, 2, 40, 16, SD_MODE_MONO, {0, RST_, 0, 12, RST_, 0, 10, 0, RST_, 7, 0, RST_, 3, 5, 0, RST_},
      {0}, {0}, 50, {2, 1, 1, 0}, {0, 0, 0, 0}, {50, 60, 80, 0}},
-    {"growl", 3, 92, 4, 31, 16, SD_MODE_MONO, {0, 0, SLD_ + 12, 0, RST_, 0, SLD_ + 7, 5, 0, 0, SLD_ + 15, 12, RST_, 10, SLD_ + 7, 3},
+    {"growl", SD_P_GROWL, 92, 4, 31, 16, SD_MODE_MONO, {0, 0, SLD_ + 12, 0, RST_, 0, SLD_ + 7, 5, 0, 0, SLD_ + 15, 12, RST_, 10, SLD_ + 7, 3},
      {0}, {0}, 75, {2, 0, 1, 3}, {0, 0, 0, 0}, {50, 0, 60, 60}},
 };
 #define TOUR_N (sizeof TOUR_PARTS / sizeof TOUR_PARTS[0])
@@ -587,21 +598,21 @@ int main(int argc, char **argv)
 {
     if (argc >= 3 && !strcmp(argv[1], "tour")) return tour(argv[2]);
     if (argc >= 4 && !strcmp(argv[1], "evolve"))
-        return evolve(argv[2], (uint32_t)atoi(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 90u);
+        return evolve(argv[2], patch_arg(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 90u);
     if (argc >= 4 && !strcmp(argv[1], "pattern"))
-        return pattern(argv[2], (uint32_t)atoi(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 0u);
-    if (argc >= 4 && !strcmp(argv[1], "macros")) return macros(argv[2], (uint32_t)atoi(argv[3]));
-    if (argc >= 4 && !strcmp(argv[1], "scene")) return scene(argv[2], (uint32_t)atoi(argv[3]));
+        return pattern(argv[2], patch_arg(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 0u);
+    if (argc >= 4 && !strcmp(argv[1], "macros")) return macros(argv[2], patch_arg(argv[3]));
+    if (argc >= 4 && !strcmp(argv[1], "scene")) return scene(argv[2], patch_arg(argv[3]));
     if (argc >= 3 && !strcmp(argv[1], "render"))
         return render(argv[2], argc > 3 ? (uint32_t)atoi(argv[3]) : 8u, argc > 4 ? (uint32_t)atoi(argv[4]) : 120u,
-                      argc > 5 ? (uint32_t)atoi(argv[5]) : 0u);
+                      argc > 5 ? patch_arg(argv[5]) : SD_P_DISTROY);
     if (argc >= 3 && !strcmp(argv[1], "field"))
         return field(argv[2], argc > 3 ? (uint32_t)atoi(argv[3]) : 15u);
     if (argc >= 5 && !strcmp(argv[1], "mode"))
-        return mode(argv[3], !strcmp(argv[2], "poly") ? SD_MODE_POLY : SD_MODE_DUO, (uint32_t)atoi(argv[4]));
+        return mode(argv[3], !strcmp(argv[2], "poly") ? SD_MODE_POLY : SD_MODE_DUO, patch_arg(argv[4]));
     if (argc >= 4 && !strcmp(argv[1], "hold")) {
         xover_cmp = argc > 5 && !strcmp(argv[5], "cmp");
-        return hold(argv[2], (uint32_t)atoi(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 57u);
+        return hold(argv[2], patch_arg(argv[3]), argc > 4 ? (uint32_t)atoi(argv[4]) : 57u);
     }
     if (argc >= 4 && !strcmp(argv[1], "sweep"))
         return sweep(argv[2], argv[3], argc > 4 ? (uint32_t)atoi(argv[4]) : 8u, argc > 5 ? (uint32_t)atoi(argv[5]) : 45u);

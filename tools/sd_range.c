@@ -117,7 +117,7 @@ static void s1_vector(double s0)
     if (at(S(131))) pattern(0, &A2, "ACID (16, SLIDE, ratchet, PROB, swing 56)");
     if (at(S(137))) press("ENV", PG_ENV);
     if (at(S(138))) press("ENV", PG_FILTER);
-    if (at(S(141))) preset(3);
+    if (at(S(141))) preset(SD_P_GROWL);
     pot(__LINE__, 2740, S(139), S(143));
 #undef S
 }
@@ -173,7 +173,7 @@ static void s2_filter(double s0)
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) pattern(1, &B3, "BASS (16)");
     if (at(S(137))) press("FX", PG_RIDER);
-    if (at(S(141))) preset(7);
+    if (at(S(141))) preset(SD_P_VOWEL);
     pot(__LINE__, 2380, S(139), S(143));
 #undef S
 }
@@ -211,7 +211,7 @@ static void s3_rider(double s0)
     if (at(S(133))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
     if (at(S(135))) press("HOME", PG_VECTOR);
     if (at(S(136))) press("HOME", PG_MACROS);
-    if (at(S(141))) preset(6);
+    if (at(S(141))) preset(SD_P_DISTROY);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
 }
@@ -236,7 +236,7 @@ static void s4_destroy(double s0)
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) { e.t[1].mute = 1; say("EDIT: SEQ B OFF"); }
     if (at(S(136))) press("ARP", PG_ARP);
-    if (at(S(141))) preset(8);
+    if (at(S(141))) preset(SD_P_CHORDS);
     pot(__LINE__, 2130, S(139), S(143));
 #undef S
 }
@@ -282,7 +282,7 @@ static void s5_poly(double s0)
     if (at(S(137))) { pa_cur.mutate = 35; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 35"); }
     if (at(S(138))) { pa_cur.range = 5; sd_engine_pattern_to(&e, 0, &pa_cur); say("K2: RANGE 5"); }
     if (at(S(139))) press("HOME", PG_VECTOR);
-    if (at(S(141))) preset(18);
+    if (at(S(141))) preset(SD_P_ORBITAL);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
 }
@@ -306,7 +306,7 @@ static void s6_turing(double s0)
     if (at(S(134))) press("FX", PG_RIDER);
     if (at(S(135))) press("FX", PG_DESTROY);
     if (at(S(136))) press("FX", PG_SPACE);
-    if (at(S(141))) preset(29);
+    if (at(S(141))) preset(SD_P_BEACON);
 #undef S
 }
 
@@ -328,7 +328,7 @@ static int s7_space(double s0)                  /* 1: the end */
 static void setup(void)
 {
     patterns();
-    preset(5);                                  /* TOUR */
+    preset(SD_P_TOUR);
     page = PG_SEQA;
     pattern(0, &A1, "LINE (16)");
     page = PG_VECTOR;

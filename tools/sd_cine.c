@@ -93,7 +93,8 @@ static void bass_pattern(uint32_t ch)           /* eighths on the root, an octav
 static void setup(void)
 {
     uint32_t i, k;
-    static const uint8_t PATCH[NT] = {15, 5, 16, 17, 18, 19, 6, 0};
+    static const uint8_t PATCH[NT] = {SD_P_NEBULA, SD_P_TOUR, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH,
+                                       SD_P_DISTROY, 0 /* T_SUB: the sine */};
     for (i = 0; i < NT; i++) {
         Track *t = &tr[i];
         sd_engine_init(&t->e);

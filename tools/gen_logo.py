@@ -3,8 +3,9 @@
 """Writes firmware/src/sd_logo.h: the Star Distroyer logo, traced from the user's drawing of it (docs/sd/
 logo_source.png, the "/// STAR DISTROYER" cut from the user's first mockup), as 4-bit masks for the 240 x 240
 screen; and
-docs/readme/banner.png, the README's banner, and docs/readme/slash.png, its "///" for the headings, traced the
-same way at their own sizes.
+docs/readme/banner.png, the README's banner, docs/readme/slash.png, its "///" for the headings, and
+docs/readme/logo_line.png, the banner's line alone on nothing (the page's, web/: its stars move), traced the same way
+at their own sizes.
 
 The shapes are the drawing's own. What a plain resize of it lost (2026-11-06, the user: it looked like a resized
 original, its colours off) is put back:
@@ -33,6 +34,7 @@ SRC = os.path.join(HERE, "..", "docs", "sd", "logo_source.png")
 OUT = os.path.join(HERE, "..", "firmware", "src", "sd_logo.h")
 BANNER = os.path.join(HERE, "..", "docs", "readme", "banner.png")
 SLASH = os.path.join(HERE, "..", "docs", "readme", "slash.png")
+LOGO_LINE = os.path.join(HERE, "..", "docs", "readme", "logo_line.png")
 PREVIEW = os.path.join(HERE, "..", "build", "logo_preview.png")
 TOP, BOTTOM = 0, 36                     # the logo's rows in the drawing, with a margin (glyphs at 4..31)
 SLASH_STAR = (38, 258)                  # "///" 42..107 and "STAR" 125..254
@@ -222,6 +224,11 @@ def main():
     wb, rb = masks(img, U_BANNER)
     cw, cr = coverage(wb, rb, U_BANNER, *LINE, BANNER_CAP, edges(wb, U_BANNER, 120, 594))
     banner(cw, cr)
+    a = np.clip(cw + cr, 0, 1)                  # the line alone: ice and red at their coverage, on nothing
+    rgb = (np.array(ICE, np.float64) * cw[..., None] + np.array(RED, np.float64) * cr[..., None]) / \
+        np.maximum(cw + cr, 1e-9)[..., None]
+    line = np.dstack([np.clip(np.rint(rgb), 0, 255), np.rint(255 * a)]).astype(np.uint8)
+    Image.fromarray(line, "RGBA").save(LOGO_LINE, optimize=True)
     sw, sr = coverage(wb, rb, U_BANNER, *SLASHES, SLASH_CAP, edges(wb, U_BANNER, 120, 594))
     rgba = np.zeros(sw.shape + (4,), np.uint8)   # red on nothing: it sits on GitHub's light or dark page
     rgba[..., :3] = RED

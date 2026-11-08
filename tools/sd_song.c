@@ -32,7 +32,7 @@
 #include "sd_gen.h"
 #include "sd_play.h"
 
-enum { P_GROWL = 3, P_VOWEL = 7, P_CHORDS = 8, P_ORBITAL = 18 };
+enum { P_GROWL = SD_P_GROWL, P_VOWEL = SD_P_VOWEL, P_CHORDS = SD_P_CHORDS, P_ORBITAL = SD_P_ORBITAL };
 
 /* ---- the patterns (saved before: PRESETS on SEQ loads them). A's are 64 steps, B's 64: a pattern loaded inside
    the last bar plays on from its own next step, so two that share their last bar change seamlessly there */

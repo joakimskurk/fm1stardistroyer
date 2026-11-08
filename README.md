@@ -15,6 +15,10 @@
 </p>
 
 <p align="center">
+  <a href="https://joakimskurk.github.io/fm1stardistroyer/"><b>The page: hear it, and install it from the browser →</b></a>
+</p>
+
+<p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
   <img src="docs/readme/screen_vector.png" width="256" alt="VECTOR: the X/Y diamond, the bank's four oscillators and their roles">
   <img src="docs/readme/screen_turing.png" width="256" alt="TURING: the steps it rewrote last underlined red">
@@ -24,7 +28,7 @@ Star Distroyer turns the FM-1 into one instrument with four engines in a row. A 
 morphed across an X/Y field; a **Rider** of four resonators that sweep through vowels, chords and combs; **DESTROY**,
 which splits the sound into four bands and wrecks each its own way; and **SPACE**, a delay feeding a room. Around them
 are a modulation matrix, four macros, a two-track step sequencer with segments and a Turing machine, and an
-arpeggiator. 33 patches come with it, and 32 places of your own.
+arpeggiator. 29 patches come with it, and 32 places of your own.
 
 > **Status:** in development. Everything here runs on the host (the same C, the sound as WAV, the screen as images)
 > and in the FM-1 emulator. It has **not yet been tested on a real FM-1**, and there is no release yet.
@@ -199,22 +203,30 @@ The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/sta
 ## <img src="docs/readme/slash.png" height="14" alt=""> The patches
 
 <p align="center">
-<code>GLASS</code> <code>BELL</code> <code>EPIANO</code> <code>GROWL</code> <code>ORGAN</code> <code>TOUR</code> <code>DISTROY</code> <code>VOWEL</code> <code>CHORDS</code> <code>PLUCKS</code> <code>FLANGE</code><br>
-<code>PHASER</code> <code>RIDE</code> <code>SPLIT</code> <code>COMET</code> <code>NEBULA</code> <code>PULSAR</code> <code>ION</code> <code>ORBITAL</code> <code>MONOLITH</code> <code>STRINGS</code> <code>HALO</code><br>
-<code>AURORA</code> <code>TITAN</code> <code>DRIVE</code> <code>UNDERTOW</code> <code>IMPACT</code> <code>BRAAM</code> <code>SCREAM</code> <code>BEACON</code> <code>DEPTH</code> <code>SHARDS</code> <code>PRISM</code>
+<code>GROWL</code> <code>TOUR</code> <code>DISTROY</code> <code>VOWEL</code> <code>CHORDS</code> <code>PLUCKS</code> <code>FLANGE</code> <code>PHASER</code> <code>RIDE</code> <code>SPLIT</code><br>
+<code>COMET</code> <code>NEBULA</code> <code>PULSAR</code> <code>ION</code> <code>ORBITAL</code> <code>MONOLITH</code> <code>STRINGS</code> <code>HALO</code> <code>AURORA</code> <code>TITAN</code><br>
+<code>DRIVE</code> <code>UNDERTOW</code> <code>IMPACT</code> <code>BRAAM</code> <code>SCREAM</code> <code>BEACON</code> <code>DEPTH</code> <code>SHARDS</code> <code>PRISM</code>
 </p>
 
-DISTROY is the one it starts on: everything at once. The patches live in
-[`firmware/src/sd_patches.h`](firmware/src/sd_patches.h).
+DISTROY is the one it starts on: everything at once.
+
+Two patches start from a plain FM sound and carry the Star Distroyer edge: the body stays as it was, only the top
+band is destroyed, and something steps on the beat.
+- **GROWL:** its top is destroyed in time with its fold.
+- **AURORA:** a glass pad, its top folded to a sheen that takes a new depth each bar.
+
+The patches live in [`firmware/src/sd_patches.h`](firmware/src/sd_patches.h).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
-There is no release yet. Until there is, you build the package yourself (below), and installing it is on you.
+There is no release yet. [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build of
+`main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
+`tools/fm1_install.py`. Either way, installing it is on you.
 
 1. **Back up your FM-1's flash first**, with M-Flasher or MvaveFM1Unbricker. Star Distroyer saves where the Felucca
    family keeps its data (settings at 0xFC000, patches and patterns from 0x97000). It reads only its own saves, and
    its first SAVE can overwrite another firmware's projects.
-2. Install the package over USB:
+2. Install it from [the page](https://joakimskurk.github.io/fm1stardistroyer/#install), or the package over USB:
 
    ```sh
    pip3 install mido python-rtmidi
@@ -242,6 +254,9 @@ sh tests/run_tests.sh                        # the update path, the loader, the 
 
 `tests/run_sd.sh` also renders the demos into `build/audio/`. Each is played the way one person plays one FM-1: a
 stock patch, the app's own controls and the voice rules.
+- **DERELICT** (`derelict/`, ~1:41, C minor at 84 BPM): an overture of four themes in four-bar turns, four such
+  passes on one FM-1 layered, never more than four at once, with each pass's stem and every gesture in
+  `performance.txt`.
 - **The song** (`song/`, ~3:25, D minor at 112 BPM).
 - **RANGE** (`range/`, ~135 s): the instrument's span in seven scenes, with every gesture listed in
   `performance.txt`.
@@ -265,6 +280,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `tools/build.py`: the identity FM-1_962XY.
+  - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Credits and licence
 

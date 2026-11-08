@@ -249,7 +249,7 @@ static uint16_t knob_q(uint16_t v, int32_t e)
 static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate, ahold, pad[2]; } set =
     {0, 120, SD_PATCH_WORST, SD_MODE_MONO, 0, SD_AM_UP, 2, 1, 50, 0, {0}};
                                                 /* kept in flash; DISTROY first: the costliest patch, so fm1-emu
-                                                   measures it. patch: the factory's 0..13, then the user's */
+                                                   measures it. patch: the factory's SD_PATCHES, then the user's */
 
 /* ---- what the player saves (SAVE): 32 patches in slot 0, 32 patterns in slot 1, in the pool (no RAM). A change of
  * either struct's size reads as nothing saved (store.h's length check): the factory and defaults then */

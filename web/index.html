@@ -1,0 +1,514 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Star Distroyer's page and installer (web/make_site.py makes the site). The install flow is SLOOP's installer
+     page's (web/index_pkg.html, Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments; isod89); its
+     protocol is SLOOP's own, unchanged: web/fm1pkg.js, web/fm1ota.js. The look is the FM-1 screen's: near black,
+     ice-white lines, red accents, the "///" marks. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Distroyer</title>
+<meta name="description" content="Star Distroyer: a vector FM synth firmware for the M-VAVE FM-1. Four banks of oscillators on an X/Y vector, a morphing resonator, multiband destruction, delay and room, a two-track sequencer with a Turing machine. Install it from the browser.">
+<link rel="canonical" href="https://joakimskurk.github.io/fm1stardistroyer/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Star Distroyer">
+<meta property="og:title" content="Star Distroyer: a vector FM synth for the M-VAVE FM-1">
+<meta property="og:description" content="Sixteen oscillators on an X/Y vector, a morphing resonator, multiband destruction, delay and room. Free firmware, installed from the browser.">
+<meta property="og:url" content="https://joakimskurk.github.io/fm1stardistroyer/">
+<meta property="og:image" content="https://joakimskurk.github.io/fm1stardistroyer/screens/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The /// STAR DISTROYER logo over three of its FM-1 screens: the splash, VECTOR and TURING">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#06080c">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="screens/icon.png">
+<style>
+  :root { --bg: #06080c; --panel: #0b1017; --panel2: #0f1620; --line: #1b232c; --line2: #2a3642; --fg: #d3e6ef;
+          --ice: #cde6f0; --dim: #8fa5b2; --mute: #546874; --red: #eb1c1c; --red2: #ff4a3d; --good: #6ee7a0;
+          --bad: #ff6b5a;
+          --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+  body { margin: 0; color: var(--fg); background: var(--bg);
+         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  #sky { position: absolute; left: 0; top: 0; width: 100%; height: 620px; display: block; pointer-events: none;
+         -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+  main { position: relative; max-width: 880px; margin: 0 auto; padding: 0 16px 56px; }
+  a { color: var(--ice); text-decoration-color: var(--mute); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--red); }
+  header { padding: 96px 0 8px; text-align: center; }
+  h1 { margin: 0; line-height: 0; }
+  h1 img { display: inline-block; width: min(632px, 100%); height: auto; }
+  .tag { margin: 22px 0 0; font: 700 17px/1.4 var(--mono); letter-spacing: .06em; color: var(--ice); }
+  .sub { margin: 6px 0 0; color: var(--dim); font-size: 15px; }
+  .nw { white-space: nowrap; }
+  h2 { display: flex; align-items: center; gap: 10px; margin: 56px 0 14px; font: 700 17px/1.2 var(--mono);
+       letter-spacing: .16em; text-transform: uppercase; color: var(--ice); }
+  h2 img { height: 14px; width: auto; flex: none; }
+  h3 { margin: 0 0 6px; font: 700 14px/1.3 var(--mono); letter-spacing: .12em; color: var(--ice); }
+  h3 span { color: var(--red); }
+  p { margin: 0 0 14px; }
+  .notes { display: grid; gap: 10px; margin: 36px 0 0; }
+  .warn { margin: 0; padding: 12px 16px; border: 1px solid var(--red); border-left-width: 4px; background: #1a0b0c;
+          font-size: 15px; line-height: 1.5; }
+  .warn b { color: var(--red2); }
+  .testers { margin: 0; padding: 12px 16px; border-left: 4px solid var(--ice); background: var(--panel); font-size: 15px;
+             line-height: 1.5; }
+  .testers b { color: var(--ice); }
+  .hero { display: grid; grid-template-columns: repeat(3, minmax(0, 240px)); gap: 16px; justify-content: center;
+          margin: 32px 0 28px; }
+  .hero img, .scr { display: block; width: 100%; height: auto; border: 1px solid var(--line2); background: var(--bg); }
+  .lead { font-size: 18px; }
+  .lead b { color: var(--ice); }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 22px 0 0; }
+  .fact { background: var(--panel); border-top: 2px solid var(--red); padding: 12px 12px 14px; }
+  .fact b { display: block; font: 700 26px/1.1 var(--mono); color: var(--ice); }
+  .fact span { display: block; color: var(--dim); font-size: 13px; line-height: 1.4; margin-top: 6px; }
+  /* the demos */
+  .demo { margin: 0 0 18px; padding: 14px 14px 12px; background: var(--panel); border: 1px solid var(--line); }
+  .demo-top { display: flex; gap: 14px; align-items: flex-start; margin: 0 0 12px; }
+  .pp { flex: none; width: 46px; height: 46px; border: 1px solid var(--ice); background: transparent; color: var(--ice);
+        cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .pp:hover { background: var(--ice); color: var(--bg); }
+  .pp.on { background: var(--red); border-color: var(--red); color: #fff; }
+  .pp svg { width: 18px; height: 18px; fill: currentColor; }
+  .demo-top b { font: 700 15px/1.3 var(--mono); letter-spacing: .12em; color: var(--ice); }
+  .demo-top .len { margin-left: 8px; font: 13px var(--mono); color: var(--dim); }
+  .demo-top p { margin: 2px 0 0; color: var(--dim); font-size: 14px; line-height: 1.45; }
+  .spec { position: relative; height: 128px; border: 1px solid var(--line2); background: var(--bg); overflow: hidden;
+          touch-action: none; }
+  .spec img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .spec .hz { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(143, 165, 178, .22); pointer-events: none; }
+  .spec .hz span { position: absolute; left: 4px; top: -8px; font: 10px/1 var(--mono); color: var(--dim);
+                   background: rgba(6, 8, 12, .7); padding: 1px 3px; }
+  .spec .head { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--red);
+                box-shadow: 0 0 8px var(--red); pointer-events: none; }
+  .spec .hover { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(205, 230, 240, .5); display: none;
+                 pointer-events: none; }
+  .spec:hover .hover { display: block; }
+  .spec input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .spec input:focus-visible + .ring { outline: 2px solid var(--ice); outline-offset: -2px; }
+  .ring { position: absolute; inset: 0; pointer-events: none; }
+  .clock { display: flex; justify-content: space-between; margin: 6px 0 0; font: 12px var(--mono); color: var(--dim);
+           font-variant-numeric: tabular-nums; }
+  .clock .now { color: var(--ice); }
+  .chain { display: block; width: 100%; height: auto; margin: 44px 0 0; }
+  /* the install */
+  .box { background: var(--panel); border: 1px solid var(--line2); padding: 20px; }
+  ol { margin: 0 0 16px; padding-left: 22px; } li { margin: 0 0 6px; }
+  .ack { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; cursor: pointer; font-size: 15px;
+         line-height: 1.5; }
+  .ack input { width: 18px; height: 18px; margin: 3px 0 0; flex: none; accent-color: var(--red); }
+  button#go { width: 100%; padding: 16px 0; border: 0; background: var(--red); color: #fff;
+              font: 700 16px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase; cursor: pointer; }
+  button#go:hover:not(:disabled) { background: var(--red2); }
+  button#go:disabled { background: var(--line2); color: var(--dim); cursor: default; }
+  progress { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; margin: 14px 0 0; border: 0;
+             background: var(--line2); }
+  progress::-webkit-progress-bar { background: var(--line2); }
+  progress::-webkit-progress-value { background: var(--ice); }
+  progress::-moz-progress-bar { background: var(--ice); }
+  #status { margin: 12px 0 0; min-height: 1.6em; font-variant-numeric: tabular-nums; }
+  #status.good { color: var(--good); } #status.bad { color: var(--bad); }
+  .pkg { color: var(--dim); font: 12px/1.5 var(--mono); margin: 10px 0 0; overflow-wrap: anywhere; }
+  details { margin: 12px 0 0; } summary { cursor: pointer; color: var(--dim); font-size: 14px; }
+  pre { color: var(--dim); font-size: 12px; white-space: pre-wrap; max-height: 180px; overflow: auto; margin: 8px 0 0; }
+  .small { color: var(--dim); font-size: 14px; margin: 12px 0 0; }
+  /* the engines */
+  .eng { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: start; padding: 16px 0;
+         border-top: 1px solid var(--line); }
+  h2 + .eng { border-top: 0; padding-top: 4px; }
+  .eng ul { margin: 0; padding-left: 18px; color: var(--fg); font-size: 15px; line-height: 1.5; }
+  .eng li { margin: 0 0 4px; }
+  .eng b { color: var(--ice); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  td { border-top: 1px solid var(--line); padding: 8px 10px 8px 0; vertical-align: top; }
+  td:first-child { white-space: nowrap; font: 700 13px/1.6 var(--mono); letter-spacing: .06em; color: var(--ice);
+                   padding-right: 18px; }
+  code { background: var(--panel2); padding: 1px 5px; font: 13px var(--mono); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; }
+  .chips li { margin: 0; padding: 3px 8px; border: 1px solid var(--line2); background: var(--panel);
+              font: 13px/1.4 var(--mono); letter-spacing: .06em; color: var(--ice); }
+  .chips li.boot { border-color: var(--red); color: #fff; background: #1a0b0c; }
+  .shots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0 0; }
+  .shots figure { margin: 0; }
+  .shots figcaption { margin: 4px 0 0; font: 11px/1.3 var(--mono); letter-spacing: .08em; color: var(--dim); text-align: center; }
+  ul.links { padding-left: 20px; } ul.links li { margin: 0 0 6px; }
+  .coffee { margin: 22px 0 0; text-align: center; }
+  .coffee a { display: inline-block; padding: 10px 18px; border-radius: 8px; background: #ffdd00; color: #1b1309;
+              font-weight: 700; text-decoration: none; }
+  .coffee a:hover { background: #ffe74d; }
+  footer { margin-top: 56px; border-top: 1px solid var(--line); padding-top: 16px; color: var(--dim); font-size: 13px; }
+  footer p { margin: 0 0 8px; }
+  @media (max-width: 640px) {
+    header { padding-top: 64px; }
+    .hero { gap: 8px; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .eng { grid-template-columns: 104px 1fr; gap: 12px; }
+    .shots { grid-template-columns: repeat(3, 1fr); }
+    td:first-child { white-space: normal; }
+    .spec { height: 104px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .spec .head { box-shadow: none; } }
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<main>
+  <header>
+    <h1><img src="screens/logo.png" width="1263" height="64" alt="/// STAR DISTROYER"></h1>
+    <p class="tag">A vector FM synth for the <span class="nw">M-VAVE FM-1</span></p>
+    <p class="sub">Four banks of oscillators on an X/Y vector · a morphing resonator · multiband destruction · delay and room</p>
+  </header>
+
+  <div class="notes">
+    <p class="warn" role="note"><b>⚠ Not yet tried on a real FM-1.</b> Star Distroyer is built and tested on a computer
+      and in the FM-1 emulator, but no FM-1 has run it yet. Install it at your own risk, and back up your FM-1 first.</p>
+    <p class="testers" role="note"><b>Testers wanted.</b> Have an FM-1, and know how to get it back (below the Install
+      button)? Be the first to play Star Distroyer on one, and tell how it went in an
+      <a href="https://github.com/joakimskurk/fm1stardistroyer/issues/new?title=Tried+on+an+FM-1">issue on GitHub</a>:
+      what worked, what did not, what the screen showed, and how it sounded.</p>
+  </div>
+
+  <div class="hero">
+    <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
+    <img src="screens/vector.png" width="240" height="240" alt="VECTOR: the X/Y diamond, the bank's four oscillators and their roles">
+    <img src="screens/turing.png" width="240" height="240" alt="TURING: the steps it rewrote last underlined red">
+  </div>
+
+  <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
+    sixteen oscillators, morphed across an X/Y field; a <b>Rider</b> of four resonators that sweep through vowels,
+    chords and combs; <b>DESTROY</b>, which splits the sound into four bands and wrecks each its own way; and
+    <b>SPACE</b>, a delay feeding a room. Around them: a modulation matrix, four macros, a two-track step sequencer
+    with segments and a Turing machine, and an arpeggiator.</p>
+
+  <div class="facts">
+    <div class="fact"><b>16</b><span>oscillators in four banks, morphed on an X/Y field</span></div>
+    <div class="fact"><b>4</b><span>engines in a row: VOICE, RIDER, DESTROY, SPACE</span></div>
+    <div class="fact"><b>29</b><span>patches, and 32 places of your own</span></div>
+    <div class="fact"><b>2×64</b><span>sequencer steps, with segments and a Turing machine</span></div>
+  </div>
+
+  <h2 id="hear"><img src="screens/slash.png" width="68" height="28" alt="">Hear it</h2>
+  <p>Each part of these is played the way one person plays one FM-1: one stock patch at a time, the app's own controls,
+    the voice rules. DERELICT is four such passes on one FM-1, layered at fixed levels, never more than four at once; the
+    song and RANGE are one pass each, with nothing mixed in. All three are rendered on a computer by the firmware's own
+    sound engine, the same C the FM-1 runs. The picture under each is its spectrum, low to high, from start to end: tap
+    it to jump.</p>
+  <div id="demos"></div>
+
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into RIDER into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
+
+  <h2 id="install"><img src="screens/slash.png" width="68" height="28" alt="">Install</h2>
+  <div class="box">
+    <ol>
+      <li><b>Back up your FM-1's flash first</b> (M-Flasher or MvaveFM1Unbricker). Star Distroyer saves where the
+        Felucca family keeps its data, and its first SAVE can overwrite another firmware's projects.</li>
+      <li>Open this page in <b>Chrome or Edge</b> on a computer (they can talk to the FM-1 over USB MIDI).</li>
+      <li>Connect the FM-1 <b>directly</b> to the computer with a USB data cable, and switch it on.</li>
+      <li>Close other apps that use MIDI, tick the box, press <b>Install</b> and allow MIDI when the browser asks.</li>
+    </ol>
+    <label class="ack"><input type="checkbox" id="ack"><span>I understand that Star Distroyer has not been tried on a
+      real FM-1 yet, that I should back up my FM-1 first, and that I install it at my own risk.</span></label>
+    <button id="go" disabled>Install</button>
+    <progress id="bar" max="100" value="0"></progress>
+    <p id="status">Loading the firmware…</p>
+    <p class="pkg" id="pkg"></p>
+    <details><summary>Log</summary><pre id="log"></pre></details>
+  </div>
+  <p class="small">Do not unplug the cable while it writes (about a minute). If an install is cut off, the FM-1 stays
+    in update mode: replug it and press Install again, and it finishes. If the FM-1 does not start at all, hold
+    <b>OCT−</b> while switching it on: it starts in the USB rescue, where an installer always works. To go back, install
+    any firmware from the FM-1 Firmware Hub, or the official one with M-VAVE's own updater M-UPGRADE. Both FM-1 flash
+    chips are supported. Installing firmware is at your own risk.</p>
+
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">The sound</h2>
+  <div class="eng">
+    <img class="scr" src="screens/vector.png" width="240" height="240" alt="VECTOR">
+    <div><h3>VOICE <span>·</span> four banks of four oscillators</h3>
+      <ul>
+        <li>Each oscillator is a harmonic 1–32 of the note with a fine tune, a carrier or a modulator.</li>
+        <li><b>XM</b> sets the FM, <b>WARP</b> turns sine → triangle → saw → pulse, <b>FOLD</b> folds, <b>DETUNE</b> spreads.</li>
+        <li>The <b>vector</b> X/Y blends the four banks; <b>VEC2</b> plays four stored X/Y cells from each note.</li>
+        <li>Harmonic generators re-roll a bank. <b>MONO</b>, <b>DUO</b> or <b>POLY</b>.</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/rider.png" width="240" height="240" alt="RIDER">
+    <div><h3>RIDER <span>·</span> a quad morphing resonator</h3>
+      <ul>
+        <li>Four filters of one model: BP6, BP12, a variable BPF, KP combs, or two kinds of allpass.</li>
+        <li>Six stages hold every filter's pitch and level; <b>POS</b> moves through them, <b>SLEW</b> jumps or glides.</li>
+        <li>A stage clock and key tracking; <b>HARM</b> snaps the filters to the note's harmonics.</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/destroy.png" width="240" height="240" alt="DESTROY">
+    <div><h3>DESTROY <span>·</span> multiband destruction</h3>
+      <ul>
+        <li>Four bands, each with <b>GAIN</b>, <b>BIAS</b>, a shaper (SOFT HARD FOLD CRUSH), <b>LEVEL</b> and <b>PAN</b>.</li>
+        <li><b>PHAT</b> lifts quiet parts and tails, <b>SHARP</b> spits transients.</li>
+        <li>A feedback loop with <b>TAME</b> to darken it, and a limiter so it never blows up.</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/space.png" width="240" height="240" alt="SPACE">
+    <div><h3>SPACE <span>·</span> a delay into a room</h3>
+      <ul>
+        <li>Stereo or ping-pong, free (1 ms – 1 s) or on the beat, with feedback and tone.</li>
+        <li>The room: four diffusers into a four-line network, with <b>SIZE</b>, <b>DECAY</b> and <b>TONE</b>.</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/macros.png" width="240" height="240" alt="MACROS">
+    <div><h3>MOVEMENT <span>·</span> macros and the matrix</h3>
+      <ul>
+        <li>Four macros: <b>MUTATE</b> the voice, <b>MOVE</b> the vector and the Rider, <b>BREAK</b> the destruction,
+          <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
+        <li>Eight modulation slots: envelopes, two LFOs, the vector, velocity, the wheel, aftertouch, random, and the
+          engines themselves (the step, the bands, the Rider's stage, the echoes).</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/seq.png" width="240" height="240" alt="SEQ A">
+    <div><h3>PLAYING IT <span>·</span> two tracks, a Turing machine, an arpeggiator</h3>
+      <ul>
+        <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.</li>
+        <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
+        <li><b>TURING</b> rewrites a share of the steps at each loop's one: the loop plays, the next is a variation.</li>
+        <li>The voices are shared by rules: no source cuts another's note.</li>
+      </ul></div>
+  </div>
+
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
+  <table>
+    <tr><td>HOME</td><td>VECTOR → MACROS</td></tr>
+    <tr><td>FX</td><td>RIDER → DESTROY → SPACE</td></tr>
+    <tr><td>ENV</td><td>ENV → FILTER</td></tr>
+    <tr><td>LFO</td><td>LFO 1 → LFO 2 → MOD</td></tr>
+    <tr><td>ARP</td><td>the arpeggiator</td></tr>
+    <tr><td>SEQ</td><td>SEQ A → SEQ B → TURING</td></tr>
+    <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ and TURING, the keys transpose the track</td></tr>
+    <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
+    <tr><td>EDIT</td><td>ON / OFF of what the page shows</td></tr>
+    <tr><td>PRESETS</td><td>the patch; on SEQ and TURING the pattern</td></tr>
+    <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM) · MONO → DUO → POLY</td></tr>
+    <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own</td></tr>
+  </table>
+  <div class="shots">
+    <figure><img class="scr" src="screens/env.png" width="240" height="240" alt="ENV"><figcaption>ENV</figcaption></figure>
+    <figure><img class="scr" src="screens/filter.png" width="240" height="240" alt="FILTER"><figcaption>FILTER</figcaption></figure>
+    <figure><img class="scr" src="screens/lfo.png" width="240" height="240" alt="LFO 1"><figcaption>LFO</figcaption></figure>
+    <figure><img class="scr" src="screens/mod.png" width="240" height="240" alt="MOD"><figcaption>MOD</figcaption></figure>
+    <figure><img class="scr" src="screens/arp.png" width="240" height="240" alt="ARP"><figcaption>ARP</figcaption></figure>
+  </div>
+
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">The patches</h2>
+  <ul class="chips" aria-label="The 29 patches">
+    <li>GROWL</li><li>TOUR</li><li class="boot" title="The one it starts on">DISTROY</li><li>VOWEL</li><li>CHORDS</li>
+    <li>PLUCKS</li><li>FLANGE</li><li>PHASER</li><li>RIDE</li><li>SPLIT</li><li>COMET</li><li>NEBULA</li><li>PULSAR</li>
+    <li>ION</li><li>ORBITAL</li><li>MONOLITH</li><li>STRINGS</li><li>HALO</li><li>AURORA</li><li>TITAN</li><li>DRIVE</li>
+    <li>UNDERTOW</li><li>IMPACT</li><li>BRAAM</li><li>SCREAM</li><li>BEACON</li><li>DEPTH</li><li>SHARDS</li><li>PRISM</li>
+  </ul>
+  <p>DISTROY is the one it starts on: everything at once. SAVE keeps 32 patches and 32 patterns of your own.</p>
+
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">More</h2>
+  <ul class="links">
+    <li><a href="https://github.com/joakimskurk/fm1stardistroyer">The source on GitHub</a>, with the README, the
+      <a href="https://github.com/joakimskurk/fm1stardistroyer/blob/main/docs/sd/Star_Distroyer_FM1_Sound_Plan_v0.1.md">sound plan</a>
+      and the <a href="https://github.com/joakimskurk/fm1stardistroyer/blob/main/docs/sd/Star_Distroyer_FM1_Sequencer_Plan_v0.2.md">sequencer plan</a>,
+      every step with its measurements.</li>
+    <li><a id="dl" href="#">Download the firmware file</a> (<code>.fwsc</code>), to install it another way
+      (<code>tools/fm1_install.py</code>).</li>
+    <li>Try the firmware without an FM-1: open the file in
+      <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">fm1-emu</a>, the FM-1 emulator,
+      in the browser.</li>
+  </ul>
+
+  <footer>
+    <p>Star Distroyer is free software under the GPL-3.0, with no warranty. It runs on
+      <a href="https://github.com/zvenson/dinghy">Dinghy</a> (zvenson), built on
+      <a href="https://github.com/hugelton/Felucca">Felucca</a> by Leo Kuroshita (Hügelton Instruments) and the platform of
+      <a href="https://github.com/isod89/sloop-fm1">SLOOP</a> (isod89), whose installer this page uses.</p>
+    <p>"M-VAVE" and "FM-1" belong to their owners; this is a fan project, not an official M-VAVE product.</p>
+    <p class="coffee"><a href="https://buymeacoffee.com/skurk" target="_blank" rel="noopener">☕ Buy me a coffee</a></p>
+  </footer>
+</main>
+<script type="module">
+/*LIB*/
+const $ = (id) => document.getElementById(id);
+const meta = /*META*/;
+const DEMOS = /*DEMOS*/;
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---- the sky: the splash's stars streaming right to left, now and then one shooting across */
+(() => {
+  const cv = $("sky"), cx = cv.getContext("2d");
+  let w = 0, h = 0, stars = [], shot = null, nextShot = 2500, last = 0, seen = true;
+  const size = () => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    w = cv.clientWidth; h = cv.clientHeight;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    stars = Array.from({ length: Math.round((w * h) / 3600) }, () => ({ x: Math.random() * w, y: Math.random() * h, z: Math.random() }));
+  };
+  const draw = (dt) => {
+    cx.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      s.x -= (0.006 + s.z * s.z * 0.09) * dt;
+      if (s.x < -30) { s.x = w + Math.random() * 30; s.y = Math.random() * h; }
+      const a = 0.18 + s.z * 0.62, len = 1 + s.z * s.z * 22;
+      const g = cx.createLinearGradient(s.x, 0, s.x + len, 0);
+      g.addColorStop(0, `rgba(205,230,240,${a})`); g.addColorStop(1, "rgba(205,230,240,0)");
+      cx.fillStyle = g; cx.fillRect(s.x, s.y, len, s.z > 0.75 ? 1.5 : 1);
+    }
+    nextShot -= dt;
+    if (!shot && nextShot < 0) { shot = { x: w * (0.45 + Math.random() * 0.5), y: h * (0.04 + Math.random() * 0.25), t: 0 }; }
+    if (shot) {
+      shot.t += dt;
+      const k = shot.t / 900, hx = shot.x - k * 340, hy = shot.y + k * 170;
+      const g = cx.createLinearGradient(hx, hy, hx + 180, hy - 90);
+      const fade = Math.max(0, 1 - Math.max(0, k - 0.6) / 0.4);
+      g.addColorStop(0, `rgba(205,230,240,${fade})`); g.addColorStop(0.25, `rgba(235,28,28,${0.8 * fade})`);
+      g.addColorStop(1, "rgba(235,28,28,0)");
+      cx.strokeStyle = g; cx.lineWidth = 1.5; cx.beginPath(); cx.moveTo(hx, hy); cx.lineTo(hx + 180, hy - 90); cx.stroke();
+      if (k >= 1) { shot = null; nextShot = 5000 + Math.random() * 7000; }
+    }
+  };
+  const frame = (t) => {
+    const dt = Math.min(50, last ? t - last : 16); last = t;
+    if (seen) draw(dt);
+    requestAnimationFrame(frame);
+  };
+  size();
+  window.addEventListener("resize", size);
+  new IntersectionObserver(([e]) => { seen = e.isIntersecting; }).observe(cv);
+  if (still) draw(0); else requestAnimationFrame(frame);
+})();
+
+/* ---- the demos: a player each, its spectrum the seek bar */
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const ICON = { play: '<svg viewBox="0 0 18 18"><path d="M4 2l12 7-12 7z"/></svg>',
+               pause: '<svg viewBox="0 0 18 18"><path d="M3 2h4v14H3zM11 2h4v14h-4z"/></svg>' };
+const HZ = [10000, 1000, 100];                   /* the guides: the picture is 40 Hz .. 16 kHz, log */
+const players = [];
+for (const d of DEMOS) {
+  const el = document.createElement("div");
+  el.className = "demo";
+  el.innerHTML = `<div class="demo-top"><button class="pp" aria-label="Play ${d.title}">${ICON.play}</button>
+    <div><b>${d.title}</b><span class="len">${mmss(d.secs)}</span><p>${d.about}</p></div></div>
+    <div class="spec"><img src="${d.spectrum}" alt="${d.title}'s spectrum from start to end, low to high">
+    ${HZ.map((f) => `<div class="hz" style="top:${(100 * Math.log(16000 / f) / Math.log(16000 / 40)).toFixed(1)}%"><span>${f >= 1000 ? f / 1000 + "k" : f}</span></div>`).join("")}
+    <div class="hover"></div><div class="head"></div>
+    <input type="range" min="0" max="1000" value="0" step="1" aria-label="Position in ${d.title}"><div class="ring"></div></div>
+    <div class="clock"><span>0:00</span><span class="now">0:00</span><span>${mmss(d.secs)}</span></div>`;
+  $("demos").append(el);
+  const audio = new Audio();
+  audio.preload = "none";
+  audio.src = d.src;
+  const pp = el.querySelector(".pp"), head = el.querySelector(".head"), range = el.querySelector("input"),
+        now = el.querySelector(".now"), hover = el.querySelector(".hover"), spec = el.querySelector(".spec");
+  const dur = () => (isFinite(audio.duration) && audio.duration > 0 ? audio.duration : d.secs);
+  let want = null;                              /* a jump asked for before the file's length is known */
+  const show = () => {
+    const t = want !== null ? want * dur() : audio.currentTime, f = Math.min(1, t / dur());
+    head.style.left = `${(f * 100).toFixed(3)}%`;
+    range.value = Math.round(f * 1000);
+    now.textContent = mmss(t);
+  };
+  const seek = (f) => { if (audio.readyState >= 1) audio.currentTime = f * dur(); else want = f; show(); };
+  audio.addEventListener("loadedmetadata", () => { if (want !== null) { audio.currentTime = want * dur(); want = null; } });
+  const set = (on) => { pp.classList.toggle("on", on); pp.innerHTML = on ? ICON.pause : ICON.play;
+                        pp.setAttribute("aria-label", `${on ? "Pause" : "Play"} ${d.title}`); };
+  let raf = 0;
+  const tick = () => { show(); if (!audio.paused) raf = requestAnimationFrame(tick); };
+  audio.addEventListener("play", () => { for (const p of players) if (p !== audio) p.pause(); set(true); tick(); });
+  audio.addEventListener("pause", () => { set(false); cancelAnimationFrame(raf); show(); });
+  audio.addEventListener("ended", () => { audio.currentTime = 0; show(); });
+  pp.addEventListener("click", () => { if (audio.paused) audio.play(); else audio.pause(); });
+  range.addEventListener("input", () => { seek(range.value / 1000); if (audio.paused) audio.play(); });
+  spec.addEventListener("pointermove", (e) => { const r = spec.getBoundingClientRect(); hover.style.left = `${e.clientX - r.left}px`; });
+  players.push(audio);
+}
+
+/* ---- the installer (SLOOP's protocol: Updater, productOf, logicalImage above) */
+const TEXT = {
+  nomidi: "This browser cannot talk to the FM-1. Open the page in Chrome or Edge on a computer.",
+  loadfail: "Could not load the firmware: ", badpkg: "The firmware file is damaged. Reload the page.",
+  start: "Starting", verify: "Checking", loader: "Switching the FM-1 to update mode", write: "Writing",
+  reboot: "Restarting", done: "Done: Star Distroyer is installed.",
+  stopped: "Stopped. Replug the USB cable and press Install again.",
+  error: "Error: ",
+  denied: "MIDI (SysEx) was not allowed. Allow MIDI in the site settings (the address bar) and press Install again.",
+  notfound: "FM-1 not found. Check the USB cable (a data cable, directly to the computer), close other apps that use MIDI, and press Install again.",
+  model: "The connected device is not an FM-1.",
+  lost: "The USB connection was lost. Replug it and press Install again.",
+  noloader: "The FM-1 in update mode was not found. Replug the USB cable and press Install again (it stays in update mode until it is finished).",
+  noreturn: "The FM-1 did not come back. Switch it off and on.",
+  mismatch: "Written, but the FM-1 reports another version: ",
+  foreign: "The FM-1 is in the update mode of another firmware. Finish that update with its own updater (M-UPGRADE), then press Install again: ",
+  leave: "Writing. Do not close the page.",
+};
+const say = (k, arg = "", cls = "") => { const s = $("status"); s.textContent = (TEXT[k] ?? k) + arg; s.className = cls; };
+const log = (t) => { $("log").textContent += t + "\n"; };
+let image = null, writing = false;
+const lock = (on) => { writing = on; $("go").disabled = on || !image || !$("ack").checked; };   /* (not tried on an FM-1: the box first) */
+$("ack").addEventListener("change", () => lock(writing));
+window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = TEXT.leave; } });
+$("dl").href = meta.pkg;
+$("dl").setAttribute("download", meta.pkg.split("/").pop());
+$("pkg").textContent = `Star Distroyer ${meta.version} · ${meta.product} · SHA-256 ${meta.sha256}`;
+(async () => {
+  try {
+    const sha = async (b) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", b))].map((x) => x.toString(16).padStart(2, "0")).join("");
+    const get = async (cache) => {
+      const r = await fetch(meta.pkg, { cache });
+      if (!r.ok) throw new Error(`${meta.pkg}: HTTP ${r.status}`);
+      return new Uint8Array(await r.arrayBuffer());
+    };
+    let pkg = await get("no-cache");                 /* (a copy the browser kept of an older build: fetched again) */
+    const check = self.crypto && crypto.subtle;
+    if (check && (await sha(pkg)) !== meta.sha256) pkg = await get("reload");
+    if (productOf(pkg) !== meta.product || (check && (await sha(pkg)) !== meta.sha256)) { say("badpkg", "", "bad"); return; }
+    image = logicalImage(pkg);
+    if (!navigator.requestMIDIAccess) { say("nomidi", "", "bad"); return; }
+    say(`Ready: Star Distroyer ${meta.version}.`);
+    lock(false);
+  } catch (e) { say("loadfail", e.message, "bad"); }
+})();
+const step = (k, a) => {
+  const total = 74 + Math.ceil((image ? image.length : 0) / 512);   /* the reads: the check, then the write */
+  log(`${k} ${a ?? ""}`);
+  if (k === "verify") $("bar").value = Math.min(100, (a / total) * 100);
+  if (k === "write") $("bar").value = Math.min(100, ((74 + a) / total) * 100);
+  if (k === "done") { $("bar").value = 100; say("done", "", "good"); return; }
+  if (["start", "verify", "loader", "write", "reboot"].includes(k)) say(k);
+};
+$("go").addEventListener("click", async () => {
+  if (writing || !$("ack").checked) return;
+  lock(true);
+  let midi;
+  try { midi = await navigator.requestMIDIAccess({ sysex: true }); }
+  catch (e) { say("denied", "", "bad"); lock(false); return; }
+  try {
+    const up = new Updater(midi, log);
+    const ota = await up.find((id) => /^ota-/i.test(id.model), true);   /* an install cut off: finish it */
+    if (ota) {
+      ota.link.close();
+      if (await up.resume(image, step)) say("done", "", "good"); else say("stopped", "", "bad");
+    } else {
+      await up.install(image, meta.product, step);
+    }
+  } catch (e) {
+    if (e && e.code && TEXT[e.code]) say(e.code, e.detail || "", "bad"); else say("error", e && e.message, "bad");
+    log(String(e && e.stack || e));
+  }
+  lock(false);
+});
+</script>
+</body>
+</html>

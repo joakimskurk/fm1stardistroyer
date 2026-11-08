@@ -16,6 +16,7 @@ cc $CFLAGS -o build/sd/sd_strings tools/sd_strings.c -lm
 cc $CFLAGS -o build/sd/sd_epic tools/sd_epic.c -lm
 cc $CFLAGS -o build/sd/sd_range tools/sd_range.c -lm
 cc $CFLAGS -o build/sd/sd_song tools/sd_song.c -lm
+cc $CFLAGS -o build/sd/sd_derelict tools/sd_derelict.c -lm
 build/sd/sd_test
 if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: overflow, a shift of a negative, memory
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
@@ -24,41 +25,39 @@ if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: ove
     echo "sd_test: clean under the sanitizers"
 fi
 rm -f build/audio/*.wav
-NAMES="glass bell epiano growl organ tour distroy vowel chords plucks flange phaser ride split"   # SD_PATCH_NAME
-p=0
+NAMES="growl tour distroy vowel chords plucks flange phaser ride split aurora"   # sd_render takes SD_PATCH_NAME's
 for n in $NAMES; do                         # each patch in the loop, and one note held 2 s then let ring
-    build/sd/sd_render render build/audio/loop_$n.wav 8 120 $p
-    build/sd/sd_render hold build/audio/hold_$n.wav $p 57
-    p=$((p + 1))
+    build/sd/sd_render render build/audio/loop_$n.wav 8 120 $n
+    build/sd/sd_render hold build/audio/hold_$n.wav $n 57
 done
-build/sd/sd_render hold build/audio/hold_growl_low.wav 3 33
+build/sd/sd_render hold build/audio/hold_growl_low.wav growl 33
 build/sd/sd_render field build/audio/v3_field_tour.wav 15            # Gate D VOICE: the XY field
-build/sd/sd_render mode poly build/audio/v3_poly_bell.wav 1           # four voices: a chord
-build/sd/sd_render mode poly build/audio/v3_poly_epiano.wav 2
-build/sd/sd_render mode duo build/audio/v3_duo_tour.wav 5             # two voices, A <-> B by X
-build/sd/sd_render hold build/audio/d1_split_lr4.wav 13 40                # D1's A/B: SPLIT's crossover, LR4
-build/sd/sd_render hold build/audio/d1_split_cmp.wav 13 40 cmp            #   and complementary
-build/sd/sd_render hold build/audio/d2_split_phat.wav 13 33                # D2's A/B: PHAT on SPLIT's low band
-SD_NODYN=1 build/sd/sd_render hold build/audio/d2_split_nodyn.wav 13 33    #   and without
-build/sd/sd_render render build/audio/d2_distroy_dyn.wav 8 120 6           # DISTROY: PHAT low, SHARP crush + hard
-SD_NODYN=1 build/sd/sd_render render build/audio/d2_distroy_nodyn.wav 8 120 6   #   and without
-build/sd/sd_render render build/audio/d3_distroy_fb.wav 8 120 6            # D3's A/B: DISTROY's feedback + TAME
-SD_NOFB=1 build/sd/sd_render render build/audio/d3_distroy_nofb.wav 8 120 6     #   and without
-build/sd/sd_render hold build/audio/d3_distroy_hold_fb.wav 6 45
+build/sd/sd_render mode poly build/audio/v3_poly_nebula.wav nebula    # four voices: a chord
+build/sd/sd_render mode poly build/audio/v3_poly_aurora.wav aurora
+build/sd/sd_render mode duo build/audio/v3_duo_tour.wav tour             # two voices, A <-> B by X
+build/sd/sd_render hold build/audio/d1_split_lr4.wav split 40                # D1's A/B: SPLIT's crossover, LR4
+build/sd/sd_render hold build/audio/d1_split_cmp.wav split 40 cmp            #   and complementary
+build/sd/sd_render hold build/audio/d2_split_phat.wav split 33                # D2's A/B: PHAT on SPLIT's low band
+SD_NODYN=1 build/sd/sd_render hold build/audio/d2_split_nodyn.wav split 33    #   and without
+build/sd/sd_render render build/audio/d2_distroy_dyn.wav 8 120 distroy           # DISTROY: PHAT low, SHARP crush + hard
+SD_NODYN=1 build/sd/sd_render render build/audio/d2_distroy_nodyn.wav 8 120 distroy   #   and without
+build/sd/sd_render render build/audio/d3_distroy_fb.wav 8 120 distroy            # D3's A/B: DISTROY's feedback + TAME
+SD_NOFB=1 build/sd/sd_render render build/audio/d3_distroy_nofb.wav 8 120 distroy     #   and without
+build/sd/sd_render hold build/audio/d3_distroy_hold_fb.wav distroy 45
 mkdir -p build/audio/evolve
 mkdir -p build/audio/tour
 build/sd/sd_render tour build/audio/tour                            # ten patches, a phrase each, ~3.7 min
-build/sd/sd_render evolve build/audio/evolve/evolve_tour.wav 5 90             # the essence: slow lines, the macros drifting
-build/sd/sd_render evolve build/audio/evolve/evolve_distroy.wav 6 90
-build/sd/sd_render pattern build/audio/q1_pattern_growl.wav 3                     # the sequencer: segments, ratchets, PROB
-build/sd/sd_render pattern build/audio/q1_pattern_distroy_mutate.wav 6 25
-build/sd/sd_render macros build/audio/c1_macros_glass.wav 0                      # C1: each macro in turn, ~29 s
-build/sd/sd_render macros build/audio/c1_macros_growl.wav 3
-build/sd/sd_render macros build/audio/c1_macros_tour.wav 5
-build/sd/sd_render macros build/audio/c1_macros_distroy.wav 6
-build/sd/sd_render macros build/audio/c1_macros_vowel.wav 7
-build/sd/sd_render macros build/audio/c1_macros_plucks.wav 9
-build/sd/sd_render macros build/audio/c1_macros_split.wav 13
+build/sd/sd_render evolve build/audio/evolve/evolve_tour.wav tour 90             # the essence: slow lines, the macros drifting
+build/sd/sd_render evolve build/audio/evolve/evolve_distroy.wav distroy 90
+build/sd/sd_render pattern build/audio/q1_pattern_growl.wav growl                     # the sequencer: segments, ratchets, PROB
+build/sd/sd_render pattern build/audio/q1_pattern_distroy_mutate.wav distroy 25
+build/sd/sd_render macros build/audio/c1_macros_aurora.wav aurora                      # C1: each macro in turn, ~29 s
+build/sd/sd_render macros build/audio/c1_macros_growl.wav growl
+build/sd/sd_render macros build/audio/c1_macros_tour.wav tour
+build/sd/sd_render macros build/audio/c1_macros_distroy.wav distroy
+build/sd/sd_render macros build/audio/c1_macros_vowel.wav vowel
+build/sd/sd_render macros build/audio/c1_macros_plucks.wav plucks
+build/sd/sd_render macros build/audio/c1_macros_split.wav split
 build/sd/sd_render sweep pos build/audio/r1_sweep_pos.wav 12 45      # the Rider: VOWEL, POS 1 -> 6, 2 s a stage
 build/sd/sd_render sweep wp build/audio/q_sweep_wp.wav 10    # sine, triangle (2 s), saw (4 s), pulse (10 s)
 build/sd/sd_render sweep fd build/audio/q_sweep_fd.wav 10    # fold regions at 3, 6.5, 8.5 s
@@ -80,4 +79,7 @@ tail -1 build/audio/range/performance.txt                           # (it stops 
 mkdir -p build/audio/song                                           # the song, the same rules: one patch at a time,
 build/sd/sd_song build/audio/song/star_distroyer_song.wav > build/audio/song/performance.txt   # no layering, ~3:25
 tail -1 build/audio/song/performance.txt
+mkdir -p build/audio/derelict                                       # DERELICT: four such passes layered, ~2:06,
+build/sd/sd_derelict build/audio/derelict/star_distroyer_derelict.wav > build/audio/derelict/performance.txt   # stems too
+tail -1 build/audio/derelict/performance.txt
 build/sd/sd_render bench "${SD_BENCH_S:-60}"

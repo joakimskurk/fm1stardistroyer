@@ -1,11 +1,13 @@
 # Dinghy: build the packages on GitHub, run the host tests, and on a tag vX.Y publish the release with a build
 # attestation (actions/attest-build-provenance): the Firmware Hub shows "Built from source" for exactly these files.
+# Star Distroyer's: on every push to main also the page (the site job below).
 # The JieLi toolchain comes from pkgman.jieliapp.com (tools/get_toolchain.sh), the AC79 SDK from gitee.com, as in
 # sloopDX's and OberVave's workflows. Run by hand (workflow_dispatch) for a test build without a release.
 name: release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -82,3 +84,51 @@ jobs:
             build/stardistroyer-[0-9]*.fwsc
             build/SHA256SUMS
           generate_release_notes: true
+
+  # The page (GitHub Pages, https://joakimskurk.github.io/fm1stardistroyer/): Star Distroyer's page and its installer
+  # in the browser (Web MIDI), with the package this run built and tested, and the demos as the engine renders them
+  # (tests/run_sd.sh, web/make_site.py). From main only; Pages takes its site from GitHub Actions (Settings -> Pages).
+  site:
+    needs: firmware
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stardistroyer-fwsc
+          path: build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Python packages and ffmpeg (the spectra, the audio)
+        run: |
+          python3 -m pip install Pillow numpy
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: The engine's tests and the demos (tests/run_sd.sh)
+        run: SD_ASAN=0 SD_BENCH_S=5 sh tests/run_sd.sh
+
+      - name: The site
+        run: python3 web/make_site.py build/stardistroyer.fwsc "dev-${GITHUB_SHA::7}" _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -4,8 +4,8 @@
  * FD DT for all banks; ENV1 on the level, ENV2 on the FM amount; the vector X/Y, VEC2's cells, the stereo width.
  * Included by sd_engine.h after the patch's types.
  *
- * The one-bank patches of V2 (GLASS .. ORGAN) have their bank in all four and the vector at corner A: in MONO they
- * sound as they did, in DUO and POLY every voice plays the same bank. */
+ * A one-bank patch (GROWL, AURORA, ...) has its bank in all four and the vector at corner A: in DUO and POLY every
+ * voice plays the same bank. */
 #ifndef SD_PATCHES_H
 #define SD_PATCHES_H
 
@@ -36,7 +36,6 @@ static const SdPatch SD_PATCH_SINE = {
 /* banks, by sound: the ones the patches below are made of */
 #define BK_GLASS SD_BANK(SD_OSC(1, 0, 36000, C_), SD_OSC(2, 0, 16000, C_), SD_OSC(3, 0, 9000, C_), SD_OSC(4, 0, 6000, C_))
 #define BK_BELL SD_BANK(SD_OSC(7, 0, 34000, S_), SD_OSC(2, 0, 30000, C_), SD_OSC(5, 4, 26000, S_), SD_OSC(1, 0, 40000, C_))
-#define BK_EPIANO SD_BANK(SD_OSC(14, 0, 9000, S_), SD_OSC(1, 0, 30000, C_), SD_OSC(1, 0, 30000, S_), SD_OSC(1, 3, 36000, C_))
 #define BK_GROWL SD_BANK(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_), SD_OSC(1, 0, 60000, C_))
 /* DISTROY's middle banks (C1): BELL and EPIANO under the squash (WP -17000: at most the saw with its LFO) and
  * without fold: two of four banks in the costliest kernel instead of four (the V3 fallback, the user 2026-11-05) */
@@ -50,11 +49,19 @@ static const SdPatch SD_PATCH_SINE = {
 #define SD_SPDIV(i) ((uint16_t)((i) * 65536u / 12u + 100u))
 #define SD_SPMS(ms) ((uint16_t)(((ms) - 1u) * 65535u / 999u + 1u))
 
-#define SD_PATCHES 33u
-static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GLASS", "BELL", "EPIANO", "GROWL", "ORGAN", "TOUR", "DISTROY",
-                                                      "VOWEL", "CHORDS", "PLUCKS", "FLANGE", "PHASER", "RIDE", "SPLIT",
-                                                      "COMET", "NEBULA", "PULSAR", "ION", "ORBITAL", "MONOLITH",
-                                                      "STRINGS",
+/* GLASS, BELL, EPIANO and ORGAN are gone (the user, 2026-11-08: they still sounded like classic FM, edge or not);
+ * their banks live on inside TOUR, DISTROY and the cue's patches. The code names a patch by SD_P_*, never by number:
+ * tests/sd_test.c checks each against SD_PATCH_NAME */
+enum {
+    SD_P_GROWL, SD_P_TOUR, SD_P_DISTROY, SD_P_VOWEL, SD_P_CHORDS, SD_P_PLUCKS, SD_P_FLANGE, SD_P_PHASER, SD_P_RIDE,
+    SD_P_SPLIT, SD_P_COMET, SD_P_NEBULA, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH, SD_P_STRINGS,
+    SD_P_HALO, SD_P_AURORA, SD_P_TITAN, SD_P_DRIVE, SD_P_UNDERTOW, SD_P_IMPACT, SD_P_BRAAM, SD_P_SCREAM, SD_P_BEACON,
+    SD_P_DEPTH, SD_P_SHARDS, SD_P_PRISM, SD_P_COUNT
+};
+#define SD_PATCHES 29u
+static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "TOUR", "DISTROY", "VOWEL", "CHORDS", "PLUCKS", "FLANGE",
+                                                      "PHASER", "RIDE", "SPLIT", "COMET", "NEBULA", "PULSAR", "ION",
+                                                      "ORBITAL", "MONOLITH", "STRINGS",
                                                       /* cue 2's (tools/sd_epic.c) */
                                                       "HALO", "AURORA", "TITAN", "DRIVE", "UNDERTOW", "IMPACT", "BRAAM",
                                                       "SCREAM", "BEACON", "DEPTH", "SHARDS", "PRISM"};
@@ -62,33 +69,30 @@ static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GLASS", "BELL", "EPIANO",
 #define SD_DHZ_200 14170u                       /* MIDI 55.35 */
 #define SD_DHZ_1200 22111u                      /* MIDI 86.37 */
 #define SD_DHZ_5000 28436u                      /* MIDI 111.08 */
+#define SD_DHZ_2500 25362u                      /* MIDI 99.07 */
+/* The Star Distroyer edge (the user, 2026-11-08: a plain FM patch must sound as it should, with an edge that makes it
+ * Star Distroyer's; GROWL's and AURORA's): under the top split DESTROY passes the sound as it was (NONE
+ * through LR4, so the top's shaper sees the top alone: CMP's gentler slopes let the body in, +5 .. +7 dB at 1.2 ..
+ * 5 kHz); the top band alone is destroyed (its shaper, gain, ALT and level); and something steps on the beat (S&H, in
+ * the patch). LR4's bands sum to an allpass, flat in level but a few dB higher in peaks: BODY, the level under the
+ * top (32768 = 1x), gives a hot patch its headroom back */
+#define SD_EDGE(split3, type, gain, alt, level, body) .d_split = {SD_DHZ_200, SD_DHZ_1200, split3}, \
+    .d_xover = SD_DX_LR4, .d_type = {SD_DS_NONE, SD_DS_NONE, SD_DS_NONE, type}, .d_gain = {0, 0, 0, gain}, \
+    .d_alt = {0, 0, 0, alt}, .d_level = {body, body, body, level}, .d_mix = 65535
 /* the AP modes' stages: four pitches close together, high up (where the allpasses work best), at a level for all */
 #define SD_RAP(a, b, c, d) {{a * 256u, b * 256u, c * 256u, d * 256u}, {32768u, 32768u, 32768u, 32768u}}
 static const SdPatch SD_PATCH[SD_PATCHES] = {
-    {   /* GLASS: four carriers on harmonics 1 2 3 4 (the Oscillator Menu's ALL), no FM, no warp, no fold */
-        .bank = SD_SAME(BK_GLASS), SD_CORNER_A,
-        .e1_a = 20, .e1_d = 80, .e1_s = 90, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
-        /* C1: aftertouch opens FM, the wheel warps */
-        .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_AIR},
-    {   /* BELL: two stacks, 7 on 2 (3.5:1) and 5 on 1 a few cents sharp; ENV2 lets the FM amount fall away */
-        .bank = SD_SAME(BK_BELL), SD_CORNER_A, .xm = 40000,
-        .e1_a = 0, .e1_d = 110, .e1_s = 0, .e1_r = 90, .e2_a = 0, .e2_d = 85, .e2_s = 0, .e2_r = 80,
-        .s_size = 52000, .s_decay = 46000, .s_rtone = 42000, .s_rlevel = 14000},
-    {   /* EPIANO: a 14:1 tine on one carrier, a 1:1 body on another a hair sharp (the beat) */
-        .bank = SD_SAME(BK_EPIANO), SD_CORNER_A, .xm = 36000,
-        .e1_a = 2, .e1_d = 95, .e1_s = 20, .e1_r = 55, .e2_a = 0, .e2_d = 60, .e2_s = 10, .e2_r = 50,
-        .s_size = 40000, .s_decay = 36000, .s_rtone = 36000, .s_rlevel = 10000},
     {   /* GROWL: a chain 1 -> 2 -> 3 -> 4 between triangle and saw, folded a little, low. (Past the saw toward pulse
          * with more fold and FM it was, the user: "so noisy it is nearly unusable": the chain's aliasing, -14 dB of it
          * off the harmonics on a held D2; now -24) */
         .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 24000, .warp = 20000, .fold = 8000, .e2_fold = 6000,
         .e1_a = 5, .e1_d = 70, .e1_s = 80, .e1_r = 40, .e2_a = 0, .e2_d = 48, .e2_s = 40, .e2_r = 40,
-        /* the fold stepping on eighths (S&H: a rhythm, not a wobble), harder notes growl more */
-        .mod = {{SD_MS_LFO1, SD_MD_FOLD, 6620}, {SD_MS_VEL, SD_MD_XM, 6620}}, .lfo_shape = {SD_LS_SH},
-        .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {5561}, .mac4 = SD_M4_BODY},
-    {   /* ORGAN: an organ stop: harmonics 1 and 3 only, the 3rd steady at ~0.77 of the 1st */
-        .bank = SD_SAME(BK_ORGAN), SD_CORNER_A,
-        .e1_a = 8, .e1_d = 20, .e1_s = 127, .e1_r = 35, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45},
+        /* the edge: the bottom clean, the top destroyed in time: over 5 kHz folded, its drive a new step each eighth
+         * with the voice's fold (no SHARP: that fold spits already) */
+        SD_EDGE(SD_DHZ_5000, SD_DS_FOLD, 16000, 36000, 10000, 31000u),
+        /* the fold stepping on eighths (S&H: a rhythm, not a wobble), the top's gain with it; harder notes growl more */
+        .mod = {{SD_MS_LFO1, SD_MD_FOLD, 6620}, {SD_MS_VEL, SD_MD_XM, 6620}, {SD_MS_LFO1, SD_MD_DHIGH, 2600}},
+        .lfo_shape = {SD_LS_SH}, .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {5561}, .mac4 = SD_M4_BODY},
     {   /* TOUR (§7 VECTOR TOUR): clean additive (A) -> FM bell (B) -> folded growl (C) -> organ (D), VEC2 from the gate
          * around the field, the banks spread in stereo. C warps and folds by its own offsets, as a mod slot would */
         .bank = {BK_GLASS, BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
@@ -386,14 +390,17 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_ECHO, SD_MD_FOLD, 3310}},
         .lfo_shape = {SD_LS_SH, SD_LS_RAMP}, .lfo_mode = {SD_LM_SYNC, SD_LM_ONE}, .lfo_rate = {38329, 21777},
         .mac4 = SD_M4_DROWN},
-    {   /* AURORA (cue 2): GLASS slow in and out (85 / 90), wide, in the big hall, its delay on dotted quarters;
-         * DROWN on MACRO 4 (POLY in the cue) */
+    {   /* AURORA (cue 2): the GLASS bank (harmonics 1 2 3 4) slow in and out (85 / 90), wide, in the big hall, its
+         * delay on dotted quarters; DROWN on MACRO 4 (POLY in the cue) */
         .bank = SD_SAME(BK_GLASS),
         .e1_a = 85, .e1_d = 80, .e1_s = 120, .e1_r = 90, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A, .width = 65535,
         .s_time = 56000, .s_fb = 38000, .s_dtone = 22000, .s_dlevel = 22937, .s_size = 64000, .s_decay = 57000,
         .s_rtone = 30000, .s_rlevel = 34000, .s_mode = SD_SP_SYNC | SD_SP_PP,
-        .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_DROWN},
+        /* the edge: its top (over 2.5 kHz) folded to a sheen, the fold a new depth each bar */
+        SD_EDGE(SD_DHZ_2500, SD_DS_FOLD, 18000, 32000, 16000, 32768u),
+        .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}, {SD_MS_LFO1, SD_MD_FOLD, 2600}},
+        .lfo_shape = {SD_LS_SH}, .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {38300}, .mac4 = SD_M4_DROWN},
     {   /* TITAN (cue 2): DISTROY's chords swelling in (55) and out long (80), its top tamed (POLY in the cue) */
         .bank = {BK_GROWL,
                  BK_BELL_LIGHT,
@@ -554,8 +561,8 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 65535, C_), SD_OFF, SD_OFF, SD_OFF)),
         .e1_a = 70, .e1_d = 20, .e1_s = 120, .e1_r = 85, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A},
-    {   /* SHARDS (cue 2's 32nd arp): GLASS short (no sustain), wide, without detune (up there any reads as out of
-         * tune), its top tamed, in the big hall with dotted-eighth delays; DROWN on MACRO 4 */
+    {   /* SHARDS (cue 2's 32nd arp): the GLASS bank short (no sustain), wide, without detune (up there any reads as
+         * out of tune), its top tamed, in the big hall with dotted-eighth delays; DROWN on MACRO 4 */
         .bank = SD_SAME(BK_GLASS),
         .e1_a = 0, .e1_d = 50, .e1_s = 0, .e1_r = 45, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A, .width = 65535,
@@ -574,7 +581,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_DROWN},
 
 };
-#define SD_PATCH_WORST 6u                       /* the boot patch: fm1-emu measures the worst case */
+#define SD_PATCH_WORST SD_P_DISTROY                       /* the boot patch: fm1-emu measures the worst case */
 
 /* The algorithms the ALGORITHM encoder steps through: roles of oscillators 1..4, left to right. PPCC: 1 and 2
  * in parallel on 3, 4 unmodulated; SCSC: two chains of two. */

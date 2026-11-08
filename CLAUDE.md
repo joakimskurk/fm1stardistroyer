@@ -28,4 +28,6 @@
 - The look: the palette and feel of the built screens (`docs/readme/screen_*.png`, `tools/make_readme_art.sh`): near
   black, ice-white lines, red accents, the "///" marks.
   The logo comes only from `tools/gen_logo.py`.
+- The page: `web/` (`web/make_site.py` builds it from the package and `tests/run_sd.sh`'s demos; CI publishes it from
+  `main`). A demo is one FM-1 played by one person (`tools/sd_play.h`'s rules); DERELICT layers four such passes.
 - Never install on an FM-1, push, or tag a release without asking.
