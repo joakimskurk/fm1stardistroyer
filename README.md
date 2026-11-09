@@ -288,8 +288,9 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 Star Distroyer is by [joakimskurk](https://github.com/joakimskurk). It is built on
 [Dinghy](https://github.com/zvenson/dinghy) by zvenson, which is based on
 [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (Hügelton Instruments), with its platform as
-[SLOOP](https://github.com/isod89/sloop-fm1) (isod89) carries it. Who made which part is in
-[LICENSING.md](LICENSING.md).
+[SLOOP](https://github.com/isod89/sloop-fm1) (isod89) carries it. The logo's letters are
+[Orbitron](https://github.com/theleagueof/orbitron) (The League of Moveable Type, SIL Open Font License). Who made
+which part is in [LICENSING.md](LICENSING.md).
 
 GPL-3.0-only: you may change and share it, and whoever gets your firmware gets its source. "M-VAVE" and "FM-1"
 belong to their owners. Star Distroyer is not made or endorsed by them.
