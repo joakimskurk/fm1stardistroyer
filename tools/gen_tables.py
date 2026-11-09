@@ -18,8 +18,8 @@
                  and +25 dB (LP24) at full, never self-oscillating
     SD_RLEVEL    the Reactor's level law, 128 steps (+1), Q12: clean 0 .. 1 over the first half (2x), then 1 .. 4
                  exponentially into the soft clip (a zone of saturation)
-    SD_DGAIN     DESTROY's band gain before its shaper, 128 steps (+1), Q8: 0 .. +36 dB (1 .. 63 x), even in dB
-    SD_DLOG      DESTROY's dynamics: 20 log10(1 + i / 64) in dB x 256, 64 steps (+1): a level's dB from its top bits
+    SD_DGAIN     DISTROY's band gain before its shaper, 128 steps (+1), Q8: 0 .. +36 dB (1 .. 63 x), even in dB
+    SD_DLOG      DISTROY's dynamics: 20 log10(1 + i / 64) in dB x 256, 64 steps (+1): a level's dB from its top bits
     SD_DEXP      and back: 2^(i / 64), Q14, 64 steps (+1): a gain from its log2's fraction
     SD_RMIX      the Reactor's MIX law (R4), 128 steps (+1), Q15 pairs {dry, wet}: the dry whole to the middle and the
                  wet in on top, past it the dry fading; both x 1 / sqrt(dry^2 + wet^2), so the loudness holds

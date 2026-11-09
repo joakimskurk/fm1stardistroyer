@@ -1,7 +1,9 @@
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # V1: the loop in DISTROY (the default), then PRESETS one on (VOWEL), warp and fold up on the knobs, TIMBRE down, stop
 200 btn 12
 1500 shot
 2000 enc 6 1
+2050 btn 6
 2600 enc 2 64
 3200 enc 3 40
 3600 enc 5 -30

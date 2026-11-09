@@ -65,13 +65,13 @@ static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "VOYAGE", "DISTRO
                                                       /* cue 2's (tools/sd_epic.c) */
                                                       "HALO", "AURORA", "TITAN", "DRIVE", "UNDERTOW", "IMPACT", "BRAAM",
                                                       "SCREAM", "BEACON", "DEPTH", "SHARDS", "PRISM"};
-/* DESTROY's splits as MIDI x 256: the pitch of hz, rounded (sd_tables.h's macros are for vowels) */
+/* DISTROY's splits as MIDI x 256: the pitch of hz, rounded (sd_tables.h's macros are for vowels) */
 #define SD_DHZ_200 14170u                       /* MIDI 55.35 */
 #define SD_DHZ_1200 22111u                      /* MIDI 86.37 */
 #define SD_DHZ_5000 28436u                      /* MIDI 111.08 */
 #define SD_DHZ_2500 25362u                      /* MIDI 99.07 */
 /* The Star Distroyer edge (the user, 2026-11-08: a plain FM patch must sound as it should, with an edge that makes it
- * Star Distroyer's; GROWL's and AURORA's): under the top split DESTROY passes the sound as it was (NONE
+ * Star Distroyer's; GROWL's and AURORA's): under the top split DISTROY passes the sound as it was (NONE
  * through LR4, so the top's shaper sees the top alone: CMP's gentler slopes let the body in, +5 .. +7 dB at 1.2 ..
  * 5 kHz); the top band alone is destroyed (its shaper, gain, ALT and level); and something steps on the beat (S&H, in
  * the patch). LR4's bands sum to an allpass, flat in level but a few dB higher in peaks: BODY, the level under the
@@ -120,7 +120,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .r_pan = {-24000, 24000, -8000, 8000}, .r_model = SD_RM_BP12, .r_res = 36000, .r_slew = 24000,
         .r_drive = 9000, .r_mix = 26000, .r_track = SD_RT_HARM, .r_low = 20000, .r_div = 2, .r_cmode = SD_RC_RND,
         .r_max = 5,
-        /* and DESTROY, CMP (the user's choice at S1: LR4 here with SPACE reads 52 %), a shaper in every band */
+        /* and DISTROY, CMP (the user's choice at S1: LR4 here with SPACE reads 52 %), a shaper in every band */
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
         .d_type = {SD_DS_SOFT, SD_DS_CRUSH, SD_DS_FOLD, SD_DS_HARD}, .d_gain = {5000, 14000, 22000, 24000},
         .d_alt = {20000, 34000, 34000, 24000}, .d_bias = {4000, 0, -6000, 0}, .d_level = {26000, 15500, 15500, 10000},
@@ -347,7 +347,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
          * - The source: a plain saw (WARP 25544), slow in (70), a long bow (sustain 118), 8 cents of vibrato at 5.5 Hz.
          * - The body: the Reactor's four BP6s snapped to the note's harmonics (HARM), stages 1-3 a cello's
          *   (~100 200 320 Hz, 1 kHz), 4-6 brighter (~280 420 Hz, 1.05 1.65 kHz); POS on stage 2.
-         * - The tilt: DESTROY unshaped as four levels (-22 -4.8 -0.1 +6.8 dB at 262 750 2380 Hz) and TAME; a small
+         * - The tilt: DISTROY unshaped as four levels (-22 -4.8 -0.1 +6.8 dB at 262 750 2380 Hz) and TAME; a small
          *   room, mono (the duo's and cue 2's strings pan by the part).
          * The earlier STRINGS (matched to a cello's and a violin's scale, KEY moving it from the one to the other) is
          * in the docs' history; sd_strings PARAMS still builds a patch from key-value lines for tuning, and

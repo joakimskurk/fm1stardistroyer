@@ -18,7 +18,7 @@
  * Bars (16 sixteenths, 2.4 s): 0-5 pad; 6-11 + plucks; 12-19 + bass, vowel lead; 20-27 the weird break;
  * 28-37 everything, VOYAGE lead; 38-43 the pad and a flanged swell.
  *
- * SD_FIRST=1 renders it as the first demo was (2026-11-04, after R3): no SPACE, no DESTROY, the Reactor's MIX a plain
+ * SD_FIRST=1 renders it as the first demo was (2026-11-04, after R3): no SPACE, no DISTROY, the Reactor's MIX a plain
  * crossfade with no low keep and no HARM, the patches' Reactor values from then, POLY at -3 dB a voice. */
 #include <math.h>
 #include <stdio.h>

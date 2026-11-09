@@ -1,6 +1,9 @@
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # PRESETS (encoder 6) turned: the list over the panel; after 1.5 s the page is back.
 1800 enc 6 3
+1850 btn 6
 1900 shot
 2100 enc 6 -5
+2150 btn 6
 2200 shot
 4000 shot

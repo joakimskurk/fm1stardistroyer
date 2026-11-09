@@ -1,7 +1,9 @@
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # V2: the loop in DISTROY (the default), then PRESETS two back (GROWL), ALGORITHM one step, XM up, WP to the saw (40), FD up, stop
 200 btn 12
 1500 shot
 2000 enc 6 -2
+2050 btn 6
 2400 enc 1 1
 2800 enc 2 20
 3200 enc 3 40

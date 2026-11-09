@@ -1,0 +1,16 @@
+# B1 (2026-11-09): PRESETS turns a list, the sound as it is; EDIT (6) loads, HOME (8) not now. On NAV: PRESETS (6)
+# +2: the list (P05 picked, P03 NOW), shot 1800; EDIT: P05 loaded, shot 2200; +1, HOME: not now (still P05, still
+# NAV), shot 2700; SEQ (11): +1, the patterns' list, shot 3100; EDIT: P02, shot 3500.
+1700 enc 6 2
+1800 shot
+2000 btn 6
+2200 shot
+2400 enc 6 1
+2500 btn 8
+2700 shot
+2800 btn 11
+3000 enc 6 1
+3100 shot
+3300 btn 6
+3500 shot
+3600 end

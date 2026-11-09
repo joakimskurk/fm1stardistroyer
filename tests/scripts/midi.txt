@@ -1,3 +1,4 @@
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # MIDI in: USB, the TRS jack, a clock at 96 BPM with START / STOP, the channel (PRESETS) filtering
 200 midi 0x90 60 100
 600 midi 0x80 60 0
@@ -7,6 +8,7 @@
 1000 midi 0xFA 0 0
 2500 shot
 3000 enc 6 3
+3050 btn 6
 3200 trs 0x90 67 100
 3400 trs 0x80 67 0
 3500 trs 0x92 72 100

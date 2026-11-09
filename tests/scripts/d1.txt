@@ -1,6 +1,8 @@
-# D1: SPLIT (PRESETS +7 from DISTROY) in the loop on the DESTROY page (FX twice); EDIT to band 2, its shaper one
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
+# D1: SPLIT (PRESETS +7 from DISTROY) in the loop on the DISTROY page (FX twice); EDIT to band 2, its shaper one
 # step on (CRUSH -> NONE), GAIN up; SEL held: the split up, XOVER to CMP. Buttons: SEL 3, FX 2, EDIT 6, PLAY 12.
 1700 enc 6 7
+1750 btn 6
 1800 btn 12
 2000 btn 2
 2100 btn 2

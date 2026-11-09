@@ -4,7 +4,7 @@
  *   sd_render render OUT.wav [SECONDS] [BPM] [PATCH]   the 16-step loop -> a stereo 16-bit WAV, as the FM-1 renders
  *                                              it (256-frame interrupts, Dinghy's clip at +-32767). A PATCH is its
  *                                              name (SD_PATCH_NAME, any case: distroy) or its number from 0
- *   sd_render hold OUT.wav PATCH [NOTE] [cmp]  one note held 2 s and let ring 2 s (cmp: DESTROY's complementary
+ *   sd_render hold OUT.wav PATCH [NOTE] [cmp]  one note held 2 s and let ring 2 s (cmp: DISTROY's complementary
  *                                              crossover instead of the patch's, D1's A/B)
  *   sd_render field OUT.wav [SECONDS]          VOYAGE held, X/Y round the field's edge and across it (Gate D VOICE)
  *   sd_render mode poly|duo OUT.wav PATCH      POLY: a chord C E G B; DUO: two notes a fifth apart
@@ -75,11 +75,11 @@ static void wav_put(FILE *f, const int32_t *buf, uint32_t n)
     }
 }
 
-static void no_dyn(SdPatch *p)                  /* SD_NODYN=1: DESTROY's dynamics off (D2's A/B) */
+static void no_dyn(SdPatch *p)                  /* SD_NODYN=1: DISTROY's dynamics off (D2's A/B) */
 {
     const char *v = getenv("SD_NODYN");
     if (v && *v == '1') memset(p->d_shape, 0, sizeof p->d_shape);
-    v = getenv("SD_NOFB");                      /* SD_NOFB=1: DESTROY's feedback and TAME off (D3's A/B) */
+    v = getenv("SD_NOFB");                      /* SD_NOFB=1: DISTROY's feedback and TAME off (D3's A/B) */
     if (v && *v == '1') p->d_fb = p->d_tame = 0;
 }
 
@@ -109,7 +109,7 @@ static int render(const char *path, uint32_t secs, uint32_t bpm, uint32_t patch)
     return 0;
 }
 
-static int xover_cmp;                           /* hold ... cmp: DESTROY's complementary crossover (D1's A/B) */
+static int xover_cmp;                           /* hold ... cmp: DISTROY's complementary crossover (D1's A/B) */
 
 static int hold(const char *path, uint32_t patch, uint32_t note)
 {

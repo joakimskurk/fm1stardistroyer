@@ -1,0 +1,33 @@
+# O1 (2026-11-09): ORBIT, SEQ's third page. PLAY (12), SEQ (11) three times: A, B, ORBIT; EDIT (6) on. Step 2 (the
+# 2nd white key, key 2): XPOSE A +5 (K1, encoder 2); step 3 (key 4): +7. SETUP (the last black key, key 25): DEST 1
+# to XM (K3, encoder 4); back; step 2: lane 1 +40 %, step 3: -30 %; SCL held (3): step 3's MOVE +30 (K2). Shots: 2800
+# SETUP, 3500 the macros (SCL), 4000 the steps playing.
+1700 btn 12
+1800 btn 11
+1900 btn 11
+2000 btn 11
+2100 btn 6
+2200 keys 0x4
+2250 keys 0
+2300 enc 2 5
+2400 keys 0x10
+2450 keys 0
+2500 enc 2 7
+2600 keys 0x2000000
+2650 keys 0
+2700 enc 4 2
+2800 shot
+2900 keys 0x2000000
+2950 keys 0
+3000 keys 0x4
+3050 keys 0
+3100 enc 4 40
+3200 keys 0x10
+3250 keys 0
+3300 enc 4 -30
+3400 btndown 3
+3450 enc 3 30
+3500 shot
+3600 btnup 3
+4000 shot
+4100 end
