@@ -1,5 +1,5 @@
 # The README's screens (tools/make_readme_art.sh names them by their times): the splash, then each page while
-# DISTROY's loop plays, the macros up. Buttons: FX 2, SEL (SCL) 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10,
+# DISTROY's loop plays, the macros up; TURING on (to XM, 45 %) on LFO's third page. Buttons: FX 2, SEL (SCL) 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10,
 # SEQ 11, PLAY 12; encoders 2..5 are K1..K4 (0 SELECT, 1 ALGORITHM, 6 PRESETS).
 700 shot
 1700 btn 12
@@ -25,16 +25,16 @@
 8500 shot
 8600 btn 5
 8700 btn 5
-9400 shot
-9500 btn 11
-10200 shot
-10300 btn 11
-10400 btn 11
-10500 btn 6
-11700 shot
-11800 btn 12
-11900 btn 10
-12000 btn 6
-12100 keys 0x91
-12800 shot
-12900 end
+8800 btn 6
+8900 enc 5 15
+11000 shot
+11100 btn 5
+11800 shot
+11900 btn 11
+12600 shot
+12700 btn 12
+12800 btn 10
+12900 btn 6
+13000 keys 0x91
+13700 shot
+13800 end

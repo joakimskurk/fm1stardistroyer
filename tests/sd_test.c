@@ -1766,23 +1766,6 @@ static void test_seq(void)
         CHECK(abs((int)(e1.voice[0].inc - e1.voice[0].inc_tgt)) < (int)(e1.voice[0].inc_tgt / 1000u),
               "SLIDE has not arrived after 46 ms");
     }
-    /* TURING CHANGE 0: the pattern never changes; CHANGE 50 (on): once a loop, at its one */
-    sd_pattern_default(&p);
-    seq_trace(&e1, &p, 16u * 6u, tr, 0);
-    CHECK(e1.t[0].mut_count == 0u && !memcmp(&e1.t[0].pat, &p, sizeof p), "MUTATE 0 changed the pattern");
-    p.mutate = 50;                              /* CHANGE 50, TURING still off: nothing */
-    seq_trace(&e1, &p, 16u * 6u + 1u, tr, 0);
-    CHECK(e1.t[0].mut_count == 0u, "TURING off rewrote the pattern (%u)", e1.t[0].mut_count);
-    p.tur |= 1u;
-    seq_trace(&e1, &p, 16u * 6u + 1u, tr, 0);
-    CHECK(e1.t[0].mut_count == 6u, "MUTATE 50: %u rewrites in 6 loops", e1.t[0].mut_count);
-    {
-        uint32_t diff = 0;
-        for (k = 0; k < 16u; k++) diff += memcmp(&e1.t[0].pat.step[k], &p.step[k], sizeof p.step[k]) != 0;
-        CHECK(diff > 2u, "MUTATE 50 left the pattern almost alone (%u steps)", diff);
-        for (k = 0; k < 16u; k++)
-            CHECK(e1.t[0].pat.step[k].note >= 33u && e1.t[0].pat.step[k].note <= 69u, "MUTATE wandered to %u", e1.t[0].pat.step[k].note);
-    }
     /* the segment editing: a cut, a join, EVEN, a length, a new pattern length */
     sd_pattern_default(&p);
     {
@@ -1858,7 +1841,7 @@ static void test_seq(void)
         }
         CHECK(played > 20u && played < 44u, "PROB 50: %u of 64 steps played", played);
     }
-    printf("seq: segments, orders, skips, DIV, SWING, TIE, SLIDE, RATCHET, PROB, MUTATE at the one, the editing\n");
+    printf("seq: segments, orders, skips, DIV, SWING, TIE, SLIDE, RATCHET, PROB, the editing\n");
 }
 
 /* 2026-11-06: the filter, the chords, track B, the arpeggiator */
@@ -2274,6 +2257,91 @@ static void test_switches(void)
            "the voices' owners and quotas\n");
 }
 
+/* TURING (2026-11-09): a modulation source in the patch. Off by default; CHANGE 0 a locked loop of LENGTH steps;
+ * DEST XM moves the patch's XM in steps; NOTES moves SEQ A's notes in the scale and never rewrites the pattern */
+static void test_turing(void)
+{
+    static SdEngine e1;
+    static int32_t o[2u * SD_SUB];
+    SdPatch pt = T_GLASS;
+    SdPattern p, p0;
+    uint32_t k, f, last, xmax = 0, xmin = 65535;
+    int32_t vals[64];
+    uint8_t notes[64];
+    CHECK(!SD_TUR_ON(&pt) && SD_TUR_LEN(&pt) == 8u && SD_TUR_DIV(&pt) == 2u, "TURING's zero: off, LENGTH 8, 1/16");
+    /* a locked loop: CHANGE 0, LENGTH 5, every 16th: the output repeats every 5 steps (once the 8 bits it reads are
+       all the loop's: 3 steps in) */
+    pt.tur_set = 0x80u; pt.tur_ld = 5u; pt.tur_dst = SD_MD_XM; pt.tur_amt = 50; pt.xm = 32768;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &pt);
+    e1.bpm = 120;
+    for (k = 0, f = 0, last = e1.tur_count; k < 40u && f < 20u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.tur_count != last) { last = e1.tur_count; vals[k++] = e1.tur_out; }
+        if (e1.patch.xm > xmax) xmax = e1.patch.xm;
+        if (e1.patch.xm < xmin) xmin = e1.patch.xm;
+    }
+    CHECK(k == 40u, "TURING stepped %u times in 20 s", k);
+    {
+        uint32_t same = 1, varied = 0;
+        for (k = 8; k < 40u; k++) same &= vals[k] == vals[k - 5u];
+        for (k = 4; k < 8u; k++) varied |= vals[k] != vals[3];
+        CHECK(same && varied, "CHANGE 0: not a loop of 5 (same %u, varied %u)", same, varied);
+    }
+    CHECK(xmax > 32768u + 3000u && xmin < 32768u - 3000u, "DEST XM at 50 %%: XM moved only %u .. %u", xmin, xmax);
+    /* CHANGE 100: each pass the inverse, so a loop of twice LENGTH */
+    pt.tur_set = 0x80u | 100u;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &pt);
+    for (k = 0, f = 0, last = e1.tur_count; k < 40u && f < 20u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.tur_count != last) { last = e1.tur_count; vals[k++] = e1.tur_out; }
+    }
+    {
+        uint32_t same = 1, half = 1;
+        for (k = 13; k < 40u; k++) same &= vals[k] == vals[k - 10u];
+        for (k = 13; k < 40u; k++) half &= vals[k] == vals[k - 5u];
+        CHECK(same && !half, "CHANGE 100: not a loop of 10 (same %u, of 5 %u)", same, half);
+    }
+    /* off: nothing moves */
+    pt.tur_set = 25u;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &pt);
+    last = e1.tur_count;
+    for (f = 0; f < 2u * SD_FS; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    CHECK(e1.tur_count == last && e1.patch.xm == e1.base.xm, "TURING off still stepped or moved XM");
+    /* NOTES: SEQ A's notes move in the scale (C minor), the pattern stays as written */
+    sd_pattern_default(&p);
+    for (k = 0; k < 16u; k++) { p.step[k].note = 60; p.step[k].type = SD_ST_NOTE; }
+    p.scale = SD_SC_MINOR;
+    p0 = p;
+    pt.tur_set = 0x80u | 30u; pt.tur_ld = 16u; pt.tur_dst = SD_TD_NOTES; pt.tur_amt = 50;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &pt);
+    sd_engine_pattern(&e1, &p);
+    e1.bpm = 120;
+    e1.seq_run = 1;
+    for (k = 0, f = 0, last = 0xFFFFFFFFu; k < 48u && f < 30u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.t[0].seq_on && e1.t[0].seq_count != last) { last = e1.t[0].seq_count; notes[k++] = e1.voice[e1.m_last].note; }
+    }
+    {
+        uint32_t moved = 0, inscale = 1;
+        for (k = 0; k < 48u; k++) {
+            moved += notes[k] != 60u;
+            inscale &= (SD_SCALE_MASK[SD_SC_MINOR] >> ((notes[k] + 12u - 60u % 12u) % 12u)) & 1u;
+            CHECK(notes[k] >= 60u - 14u && notes[k] <= 60u + 14u, "NOTES at 50 %%: %u is past +-6 degrees", notes[k]);
+        }
+        CHECK(moved > 10u && inscale, "NOTES: %u of 48 steps moved, in the scale %u", moved, inscale);
+    }
+    CHECK(!memcmp(&e1.t[0].pat, &p0, sizeof p0), "NOTES rewrote the pattern");
+    printf("turing: off by default; CHANGE 0 a loop of LENGTH, 100 of twice it; DEST XM %u .. %u; NOTES in the scale, "
+           "the pattern untouched\n", xmin, xmax);
+}
+
 int main(void)
 {
     test_lut();
@@ -2290,6 +2358,7 @@ int main(void)
     test_stereo();
     test_alias();
     test_nowhere();
+    test_turing();
     test_gen();
     test_reactor_bypass();
     test_reactor_response();

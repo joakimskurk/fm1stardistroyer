@@ -8,15 +8,15 @@ const ship = $('ship');
 if (ship) {
   const BTN = { OCT_DOWN: 0, OCT_UP: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13 };
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
-  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SCL', 3, '2ND LAYER'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · MOD'],
+  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SCL', 3, '2ND LAYER'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · TURING'],
                 ['EDIT', 6, 'ON · OFF'], ['GLO', 7, 'VOICES']];
-  const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARPEGGIO'], ['SEQ', 11, 'SEQ · TURING'],
+  const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARPEGGIO'], ['SEQ', 11, 'SEQ A · B'],
                 ['PLAY', 12, 'RUN', 'red'], ['REC', 13, 'RECORD', 'red']];
   const ABOUT = { 0: 'OCT−: an octave down (on SEQ: the step bank)', 1: 'OCT+: an octave up (on SEQ: the step bank)',
     2: 'FX: REACTOR, DESTROY, SPACE', 3: 'SCL held: the second layer. A click locks it, another lets it go (or hold Shift)',
-    4: 'ENV: the envelopes, the filter', 5: 'LFO: LFO 1, LFO 2, the matrix', 6: 'EDIT: what the page shows, on or off',
+    4: 'ENV: the envelopes, the filter', 5: 'LFO: LFO 1, LFO 2, TURING, the matrix', 6: 'EDIT: what the page shows, on or off',
     7: 'GLO: MONO, DUO, POLY', 8: 'HOME: NAV, the macros', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
-    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, TURING', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps' };
+    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps' };
   // the encoders: name, id, note
   const ENCS = { SELECT: [0, 'TEMPO'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
                  'KNOB 1': [2, 'K1'], 'KNOB 2': [3, 'K2'], 'KNOB 3': [4, 'K3'], 'KNOB 4': [5, 'K4'] };

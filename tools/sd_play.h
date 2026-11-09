@@ -27,9 +27,10 @@ static uint32_t mode = SD_MODE_MONO;            /* GLO's */
 static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform.c: (k10 x k10) >> 8, ~1 full) */
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
-enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DESTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_SEQA, PG_SEQB, PG_TURING };
-static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DESTROY", "SPACE", "ENV", "FILTER", "ARP", "SEQ A",
-                                      "SEQ B", "TURING"};
+enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DESTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_TURING,
+       PG_MOD, PG_SEQA, PG_SEQB };            /* (SEQ last: page >= PG_SEQA is SEQ) */
+static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DESTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
+                                      "LFO 2", "TURING", "MOD", "SEQ A", "SEQ B"};
 static int page = PG_NAV;
 
 static void say(const char *what)
@@ -54,7 +55,7 @@ static void act(void)
 static void press(const char *button, int to) { act(); page = to; say(button); }
 
 /* ---- knobs: a value from where it is to a target over [s0, s1], a detent at a time */
-typedef struct { int line; int32_t from; int started; } RampSt;
+typedef struct { int line; int32_t from; int started; int32_t done; } RampSt;
 static RampSt rs[96];
 static RampSt *ramp_state(int line)
 {
@@ -123,7 +124,7 @@ static void line(SdPattern *p, const int16_t *n, uint32_t len, uint32_t gate)
         if (n[k] & AC) s->vel = 124;
     }
 }
-static SdPattern pa_cur;                        /* track A's pattern as the player left it (for TURING's switch) */
+static SdPattern pa_cur;                        /* track A's pattern as the player left it */
 static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS on SEQ: a saved pattern */
 {
     char t[48];
@@ -134,11 +135,11 @@ static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS 
     snprintf(t, sizeof t, "PRESETS: pattern %s", name);
     say(t);
 }
-static void xpose(int trk, int semis)           /* SCL held + a key on SEQ / TURING: the transpose, at the one */
+static void xpose(int trk, int semis)           /* SCL held + a key on SEQ: the transpose, at the one */
 {
     char t[48];
     uint32_t key = (uint32_t)(60 + semis), base = (uint32_t)(53 + 12 * oct);
-    if (page != (trk ? PG_SEQB : PG_SEQA) && !(page == PG_TURING && !trk)) fail("a transpose off its track's page");
+    if (page != (trk ? PG_SEQB : PG_SEQA)) fail("a transpose off its track's page");
     if (key < base || key > base + 26u) fail("the transpose's key is not on the keyboard");
     act();
     e.t[trk].xpose_next = (int8_t)semis;
@@ -200,6 +201,54 @@ static void rules(void)                         /* the app's voice rules, every 
     if (e.seq_run && e.arp_on && !e.quota[SD_SRC_ARP]) fail("ARP with no voice left");
     if (e.seq_run && !e.t[1].mute && e.t[1].width && mode != SD_MODE_MONO &&
         (e.t[0].mute ? 0u : e.t[0].width) >= n) fail("SEQ B with no voice left");
+}
+
+/* TURING (LFO's third page): its knobs, as the app turns them; EDIT on / off (the first time on: to XM, 30 %,
+   CHANGE 25, unless they are set). DEST turns round its list: n detents from where it is (OFF, then -1: NOTES) */
+#define TUR_CHANGE(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TURING, s0, s1); \
+    if (ramp(__LINE__, (int32_t)SD_TUR_CHANGE(&pat), to, s0, s1, &v_)) { \
+        pat.tur_set = (uint8_t)((pat.tur_set & 0x80u) | (uint32_t)v_); dirty = 1; } } while (0)
+#define TUR_LENGTH(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TURING, s0, s1); \
+    if (ramp(__LINE__, (int32_t)SD_TUR_LEN(&pat), to, s0, s1, &v_)) { \
+        pat.tur_ld = (uint8_t)((pat.tur_ld & 0xE0u) | (uint32_t)v_); dirty = 1; } } while (0)
+#define TUR_AMOUNT(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TURING, s0, s1); \
+    if (ramp(__LINE__, (int32_t)pat.tur_amt, to, s0, s1, &v_)) { pat.tur_amt = (int8_t)v_; dirty = 1; } } while (0)
+#define TUR_DEST_BY(n, s0, s1) tur_dest_by(__LINE__, n, s0, s1)
+static void tur_dest_by(int line, int32_t n, double s0, double s1)
+{
+    RampSt *r;
+    int32_t v;
+    uint32_t i;
+    on_ramp_page(PG_TURING, s0, s1);
+    if (q < s0 || pq > s1) return;
+    r = ramp_state(line);
+    if (!ramp(line, r->done, n, s0, s1, &v)) return;
+    i = pat.tur_dst == SD_TD_NOTES ? SD_MDSTS : pat.tur_dst < SD_MDSTS ? pat.tur_dst : 0u;
+    i = (uint32_t)(((int32_t)i + (v - r->done) % (int32_t)(SD_MDSTS + 1u) + (int32_t)(SD_MDSTS + 1u)) % (int32_t)(SD_MDSTS + 1u));
+    pat.tur_dst = (uint8_t)(i == SD_MDSTS ? SD_TD_NOTES : i);
+    r->done = v;
+    dirty = 1;
+}
+static void tur_edit(void)
+{
+    char t[48];
+    on_page(PG_TURING, "TURING's EDIT off its page");
+    act();
+    pat.tur_set ^= 0x80u;
+    if (SD_TUR_ON(&pat) && !pat.tur_dst) {
+        pat.tur_dst = SD_MD_XM;
+        if (!pat.tur_amt) pat.tur_amt = 30;
+        if (!(pat.tur_set & 127u)) pat.tur_set |= 25u;
+    }
+    dirty = 1;
+    snprintf(t, sizeof t, "EDIT: TURING %s (CHANGE %u, AMOUNT %+d)", SD_TUR_ON(&pat) ? "ON" : "OFF", SD_TUR_CHANGE(&pat), pat.tur_amt);
+    say(t);
+}
+static void lfo_to_turing(double s0)            /* LFO three times: LFO 1, LFO 2, TURING (a sixteenth apart) */
+{
+    if (at(s0)) press("LFO", PG_LFO1);
+    if (at(s0 + 1)) press("LFO", PG_LFO2);
+    if (at(s0 + 2)) press("LFO", PG_TURING);
 }
 
 /* the edit switches, as EDIT on their pages */

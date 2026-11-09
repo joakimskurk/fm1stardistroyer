@@ -18,7 +18,7 @@
  *                                banks, under the cello's answer
  *   THEME III (the aurora)       BEACON's high line far back (VOYAGE's banks, COURSE round the field), PULSAR's glints
  *   THEME I over THEME II        the cello's melody again, over the staccato
- *   THEME IV (the breach)        a pedal C in Phrygian that TURING rewrites each bar, over Fm Db Ab Fm (all in its
+ *   THEME IV (the breach)        a pedal C in Phrygian that TURING's NOTES moves in its scale, over Fm Db Ab Fm (all in its
  *                                scale), its top band CRUSHed, BREAK and MOVE up; UNDERTOW in 16ths, its warp up
  *   the coda                     BRAAM, the cello down to a low C, the chords drowning
  * The layering: tools/sd_layer.h (each pass in its own process, a fresh FM-1; its performance printed in turn). The
@@ -135,7 +135,7 @@ static void patterns(void)
     static const int16_t sig[16] = {60 | AC, RS, 67, 72, 74, RS, 67, 72, 60, 67, RS, 74, 72, RS, 67, 62};
     /* THEME III's glints: high eighths, fifths and ninths */
     static const int16_t gli[8] = {72 | AC, RS, 79, RS, 74, 72, RS, 79};
-    /* THEME IV: a pedal C, C Phrygian, TURING rewriting it each bar */
+    /* THEME IV: a pedal C, C Phrygian, TURING's NOTES moving it in the scale */
     static const int16_t ped[16] = {60 | AC, 60, 72, 60, 67, 60, 72, 68, 60 | AC, 60, 72, 60, 70, 60, 67, 63};
     /* the lead, eighths, a chord a bar */
     static const int16_t th1[32] = {            /* THEME I: Cm Ab Eb Bb */
@@ -166,10 +166,10 @@ static void patterns(void)
     figure(&PU[4], 4, sig, 16, 2, 28);
     for (k = 2; k <= 4; k += 2)                 /* THEME II's ratchet and chance, each bar */
         for (b = 0; b < 4u; b++) { PU[k].step[b * 16u + 7u].ratchet = 2; PU[k].step[b * 16u + 11u].prob = 70; }
-    begin(&PU[5], 16, 2);                       /* THEME IV, saved with TURING on: CHANGE 45, RANGE 4, Phrygian */
+    begin(&PU[5], 16, 2);                       /* THEME IV, saved in Phrygian (what TURING's NOTES moves in) */
     for (k = 0; k < 16; k++) put(st(&PU[5], (uint32_t)k, 30), ped[k]);
     PU[5].step[6].ratchet = 2; PU[5].step[14].ratchet = 3; PU[5].step[3].prob = 75;
-    PU[5].tur = 1u | (10u << 1); PU[5].mutate = 45; PU[5].range = 4; PU[5].scale = SD_SC_PHRYG;
+    PU[5].scale = SD_SC_PHRYG;
     bass(&LO[1], 1, 0);
     bass(&LO[2], 2, 1);
     bass(&LO[3], 3, 1);
@@ -222,7 +222,8 @@ static int chords_score(void)
     return q >= BAR(36);
 }
 
-/* the pulse: PULSAR in MONO; THEME II, III's glints, IV (TURING); CRUSH on its top band, BREAK and MOVE */
+/* the pulse: PULSAR in MONO; THEME II, III's glints, IV (TURING's NOTES, set in II's last section while off, on as
+   IV starts); CRUSH on its top band, BREAK and MOVE */
 static void pulse_setup(void)
 {
     preset(SD_P_PULSAR);
@@ -237,22 +238,29 @@ static int pulse_score(void)
     pot(__LINE__, 2700, SEC(3) - 1, SEC(3));    /* MASTER: the glints under the high line */
     pot(__LINE__, 4092, SEC(4) - 1, SEC(4));
     load(4, &PU[4], "THEME II (16ths)");
-    load(5, &PU[5], "THEME IV (TURING ON, Phrygian)");
-    if (at(SEC(5) + 1)) press("FX", PG_REACTOR);
-    if (at(SEC(5) + 2.5)) press("FX", PG_DESTROY);
-    if (at(SEC(5) + 4)) { act(); say("ALGORITHM: band 4 (the top)"); }
-    if (at(SEC(5) + 5.5)) {                     /* SCL + ALGORITHM: the top band's shaper to CRUSH */
+    lfo_to_turing(SEC(4) + 2);                  /* TURING, set while off: NOTES, 33 % (+-4 degrees), CHANGE 30 */
+    TUR_DEST_BY(-1, SEC(4) + 4.5, SEC(4) + 5.5);
+    TUR_AMOUNT(33, SEC(4) + 6, SEC(4) + 12);
+    TUR_CHANGE(30, SEC(4) + 12, SEC(4) + 16);
+    if (at(SEC(4) + 18)) press("SEQ", PG_SEQA);
+    load(5, &PU[5], "THEME IV (Phrygian)");
+    lfo_to_turing(SEC(5) + 0.5);
+    if (at(SEC(5) + 3.5)) tur_edit();           /* on: the pedal moves */
+    if (at(SEC(5) + 5)) press("FX", PG_REACTOR);
+    if (at(SEC(5) + 6.5)) press("FX", PG_DESTROY);
+    if (at(SEC(5) + 8)) { act(); say("ALGORITHM: band 4 (the top)"); }
+    if (at(SEC(5) + 9.5)) {                     /* SCL + ALGORITHM: the top band's shaper to CRUSH */
         on_page(PG_DESTROY, "a shaper off DESTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
         say("SCL + ALGORITHM: SHAPE CRUSH (band 4)");
     }
-    KNOB99(PG_DESTROY, pat.d_gain[3], 58, SEC(5) + 6, SEC(5) + 18);   /* K1: its GAIN */
-    if (at(SEC(5) + 20)) press("HOME", PG_NAV);
-    if (at(SEC(5) + 21.5)) press("HOME", PG_MACROS);
-    KNOB99(PG_MACROS, pat.mac[2], 62, SEC(5) + 22, SEC(6) - 6);   /* BREAK */
-    KNOB99(PG_MACROS, pat.mac[1], 65, SEC(5) + 22, SEC(6) - 6);   /* MOVE */
+    KNOB99(PG_DESTROY, pat.d_gain[3], 58, SEC(5) + 10, SEC(5) + 22);   /* K1: its GAIN */
+    if (at(SEC(5) + 24)) press("HOME", PG_NAV);
+    if (at(SEC(5) + 25.5)) press("HOME", PG_MACROS);
+    KNOB99(PG_MACROS, pat.mac[2], 62, SEC(5) + 26, SEC(6) - 6);   /* BREAK */
+    KNOB99(PG_MACROS, pat.mac[1], 65, SEC(5) + 26, SEC(6) - 6);   /* MOVE */
     if (at(SEC(6) - 0.4)) play(0);
     return q >= SEC(6);
 }

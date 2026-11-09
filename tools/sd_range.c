@@ -20,7 +20,7 @@
  *   1 NAV      VOYAGE, MONO: COURSE moving the nav on every note; WARP and XM up, FOLD in, a harmonic generator
  *              re-rolling bank A on each bar's one (ALL, ODD, then spun to MAJ and DOM7), XM and WARP back
  *   2 FILTER   GROWL, MONO: an acid line (SLIDE, accents, a ratchet, PROB, swing); the lowpass switched on, LP24,
- *              closed with RES, ENV 3 made short, then TURING on (the line evolves at each one) and the line
+ *              closed with RES, ENV 3 made short, then TURING on, to the CUTOFF (a step a 16th), and the line
  *              transposed up a fourth and a minor third at the ones; the filter opens to end
  *   3 REACTOR  VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
  *              ones; the Reactor's POS through the vowels, its MODEL changed, DRIVE and RES up into its saturation
@@ -28,8 +28,9 @@
  *              and MOVE up; the LOOP tamed (FDBK down, TAME up), then the top band's GAIN up
  *   5 POLY     CHORDS, POLY: three-note chords on SEQ A, the arpeggiator on top (HOLD, two octaves), A transposed up a
  *              tone at the fifth bar with a new hand for the arp; UP-DN, three octaves, 1/32, RND over four
- *   6 TURING   ORBITAL, MONO: a 16th ostinato that TURING rewrites (CHANGE 35, RANGE 5), MOVE stepping the nav
- *              around the field's middle, MUTATE, CHANGE 60, the tempo pushed to 132, a bar at 1/32
+ *   6 TURING   ORBITAL, MONO: a 16th ostinato that TURING's NOTES moves in the scale (CHANGE 35, AMOUNT 42: +-5
+ *              degrees; the pattern as written), MOVE stepping the nav around the field's middle, MUTATE, CHANGE 60,
+ *              the tempo pushed to 132, a bar at 1/32
  *   7 SPACE    BEACON, MONO: long notes into the delay and the room, FDBK and DECAY up; the sequence stops, a held
  *              key, the echoes left to fall */
 #include <math.h>
@@ -159,16 +160,12 @@ static void s2_filter(double s0)
         on_page(PG_FILTER, "ENV off FILTER");
         if (ramp(__LINE__, (pat.f_env * 99 + 16383) / 32767, 60, S(48), S(64), &v)) { pat.f_env = (int16_t)(v * 32767 / 99); dirty = 1; }
     }
-    if (at(S(65))) press("SEQ", PG_SEQA);
-    if (at(S(66))) press("SEQ", PG_SEQB);
-    if (at(S(67))) press("SEQ", PG_TURING);
-    if (at(S(68))) {                            /* EDIT on TURING: on, CHANGE 25 (the app's first) */
-        on_page(PG_TURING, "TURING's EDIT off its page");
-        pa_cur.tur |= 1u;
-        pa_cur.mutate = 25;
-        sd_engine_pattern_to(&e, 0, &pa_cur);
-        say("EDIT: TURING ON (CHANGE 25)");
-    }
+    lfo_to_turing(S(65));                       /* TURING, set while off: to the CUTOFF, 40 %, CHANGE 25; then on */
+    TUR_DEST_BY(-3, S(67.5), S(68.5));          /* (OFF, NOTES, F RES, F CUT) */
+    TUR_AMOUNT(40, S(69), S(75));
+    TUR_CHANGE(25, S(75), S(79));
+    if (at(S(80))) tur_edit();
+    if (at(S(86))) press("SEQ", PG_SEQA);
     if (at(S(88))) xpose(0, 5);
     if (at(S(104))) xpose(0, 3);
     if (at(S(105))) press("ENV", PG_ENV);
@@ -285,21 +282,12 @@ static void s5_poly(double s0)
     if (at(S(112))) { e.arp_mode = SD_AM_RND; say("K1: MODE RND"); }
     if (at(S(113))) { e.arp_oct = 4; say("K3: OCTAVES 4"); }
     if (at(S(128))) play(0);
-    /* the bar between: ARP off (MONO next), MONO, PULSAR, the transpose back, the ostinato, TURING on */
+    /* the bar between: ARP off (MONO next), MONO, the transpose back, the ostinato, ORBITAL */
     if (at(S(129))) { e.arp_on = 0; say("EDIT: ARP OFF"); }
     if (at(S(130))) glo(SD_MODE_MONO);
     if (at(S(131))) press("SEQ", PG_SEQA);
     if (at(S(132))) xpose(0, 0);
     if (at(S(133))) pattern(0, &A6, "OSTINATO (16)");
-    if (at(S(134))) press("SEQ", PG_SEQB);
-    if (at(S(135))) press("SEQ", PG_TURING);
-    if (at(S(136))) {
-        pa_cur.tur |= 1u; pa_cur.mutate = 25;
-        sd_engine_pattern_to(&e, 0, &pa_cur);
-        say("EDIT: TURING ON (CHANGE 25)");
-    }
-    if (at(S(137))) { pa_cur.mutate = 35; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 35"); }
-    if (at(S(138))) { pa_cur.range = 5; sd_engine_pattern_to(&e, 0, &pa_cur); say("K2: RANGE 5"); }
     if (at(S(139))) press("HOME", PG_NAV);
     if (at(S(141))) preset(SD_P_ORBITAL);
     pot(__LINE__, 4092, S(139), S(143));
@@ -311,14 +299,18 @@ static void s6_turing(double s0)
 #define S(x) (s0 + (x))
     int32_t v;
     if (at(S(0))) play(1);
-    if (at(S(16))) press("HOME", PG_MACROS);
-    KNOB99(PG_MACROS, pat.mac[1], 70, S(18), S(60));   /* MOVE */
+    lfo_to_turing(S(1));                        /* TURING, set while off: NOTES, 42 % (+-5 degrees), CHANGE 35; on */
+    TUR_DEST_BY(-1, S(3.5), S(4.5));            /* (OFF, NOTES) */
+    TUR_AMOUNT(42, S(5), S(11));
+    TUR_CHANGE(35, S(11), S(16));
+    if (at(S(16))) tur_edit();
+    if (at(S(17))) press("HOME", PG_NAV);
+    if (at(S(18))) press("HOME", PG_MACROS);
+    KNOB99(PG_MACROS, pat.mac[1], 70, S(19), S(60));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 40, S(40), S(70));   /* MUTATE */
     if (ramp(__LINE__, (int32_t)bpm, 132, S(32), S(112), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* SELECT: any page */
-    if (at(S(72))) press("SEQ", PG_SEQA);
-    if (at(S(73))) press("SEQ", PG_SEQB);
-    if (at(S(74))) press("SEQ", PG_TURING);
-    if (at(S(75.5))) { act(); pa_cur = e.t[0].pat; pa_cur.mutate = 60; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 60"); }
+    lfo_to_turing(S(72));
+    TUR_CHANGE(60, S(75), S(80));
     if (at(S(96))) press("SEQ", PG_SEQA);
     if (at(S(100))) { pa_cur = e.t[0].pat; pa_cur.div = 0; sd_engine_pattern_to(&e, 0, &pa_cur); say("SCL + K2: DIV 1/32"); }
     if (at(S(112))) { pa_cur = e.t[0].pat; pa_cur.div = 2; sd_engine_pattern_to(&e, 0, &pa_cur); say("SCL + K2: DIV 1/16"); }

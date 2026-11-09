@@ -18,7 +18,7 @@
  *   (break)      GLO to POLY, CHORDS
  *   CHORUS   16  CHORDS, POLY: Dm Bb F C on A (three voices), the hook on B (the fourth); MOVE in the second half
  *   (break)      GLO to MONO, ORBITAL
- *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, TURING rewriting it, MOVE stepping the nav, MUTATE
+ *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, TURING's NOTES moving it, MOVE stepping the nav, MUTATE
  *   BUILD    8   GROWL (the same line, still evolving): the lowpass on, closed, then opened all the way, RES up
  *   (break)      GLO to POLY, CHORDS, the last chorus's pattern
  *   CHORUS   16  again, BREAK's grit, MOVE; at bar 9 both tracks up a tone (E minor)
@@ -161,21 +161,14 @@ static void chorus1(double s0)
     pot(__LINE__, 2900, S(268), S(271));
 }
 
-static void bridge(double s0)                   /* ORBITAL: TURING rewrites the line; MOVE, MUTATE */
+static void bridge(double s0)                   /* ORBITAL: TURING's NOTES moves the line; MOVE, MUTATE */
 {
     if (at(S(0))) play(1);
-    if (at(S(8))) press("SEQ", PG_SEQA);
-    if (at(S(10))) press("SEQ", PG_SEQB);
-    if (at(S(12))) press("SEQ", PG_TURING);
-    if (at(S(14))) {                            /* EDIT on TURING: on (the app's first: CHANGE 25) */
-        on_page(PG_TURING, "TURING's EDIT off its page");
-        act();
-        pa_cur = e.t[0].pat; pa_cur.tur |= 1u; pa_cur.mutate = 25;
-        sd_engine_pattern_to(&e, 0, &pa_cur);
-        say("EDIT: TURING ON (CHANGE 25)");
-    }
-    if (at(S(18))) { act(); pa_cur = e.t[0].pat; pa_cur.mutate = 32; sd_engine_pattern_to(&e, 0, &pa_cur); say("K1: CHANGE 32"); }
-    if (at(S(20))) { act(); pa_cur = e.t[0].pat; pa_cur.range = 5; sd_engine_pattern_to(&e, 0, &pa_cur); say("K2: RANGE 5"); }
+    lfo_to_turing(S(8));                        /* TURING, set while off: NOTES, 42 %, CHANGE 32; then on */
+    TUR_DEST_BY(-1, S(10.5), S(11.5));
+    TUR_AMOUNT(42, S(12), S(18));
+    TUR_CHANGE(32, S(18), S(23));
+    if (at(S(24))) tur_edit();
     if (at(S(32))) press("HOME", PG_NAV);
     if (at(S(34))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 60, S(36), S(120));   /* MOVE */

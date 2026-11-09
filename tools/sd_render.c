@@ -13,9 +13,9 @@
  *                                              on VOWEL (stage 1 -> 6, its clock off)
  *   sd_render macros OUT.wav PATCH             C1: the loop at 110 BPM, each macro in turn (MUTATE MOVE BREAK MACRO 4)
  *                                              up 0 -> 99 over 4.8 s, held 1.2 s, back to 0 in 1.2 s: ~29 s
- *   sd_render pattern OUT.wav PATCH [MUTATE]   the sequencer at 110 BPM, ~35 s: a 32-step line in segments (A x2, B
+ *   sd_render pattern OUT.wav PATCH [NOTES]    the sequencer at 110 BPM, ~35 s: a 32-step line in segments (A x2, B
  *                                              reversed, C ping-pong, D shuffled), ratchets, PROB, SLIDE and TIE;
- *                                              MUTATE (0..100, 0 off) rewrites it at each loop's one
+ *                                              NOTES (0..100, 0 off): TURING on, its NOTES at that AMOUNT
  *   sd_render evolve OUT.wav PATCH [SECONDS]   the synth's essence (the user: "something that evolves … I want to
  *                                              hear the sonic spectrum"): a slow line in long tied notes at 76 BPM,
  *                                              quarters, while the four macros step through the patch's range: a
@@ -383,10 +383,17 @@ static int pattern(const char *path, uint32_t patch, uint32_t mut)
     q.step[18].type = SD_ST_SLIDE; q.step[22].type = SD_ST_TIE; q.step[30].type = SD_ST_SLIDE;
     q.seg_count = 4; q.seg_split[0] = 8; q.seg_split[1] = 16; q.seg_split[2] = 24;
     q.seg_rep[0] = 2; q.seg_order[1] = SD_SO_REV; q.seg_order[2] = SD_SO_PP; q.seg_order[3] = SD_SO_RND;
-    q.mutate = (uint8_t)(mut > 100u ? 100u : mut);
-    if (q.mutate) q.tur |= 1u;                  /* TURING on */
     SD_INIT(&eng);
-    sd_engine_patch(&eng, &SD_PATCH[patch % SD_PATCHES]);
+    {                                           /* mut: TURING on, its NOTES at that AMOUNT (CHANGE 25, LENGTH 16) */
+        SdPatch pt = SD_PATCH[patch % SD_PATCHES];
+        if (mut) {
+            pt.tur_set = 0x80u | 25u;
+            pt.tur_ld = 16u;
+            pt.tur_dst = SD_TD_NOTES;
+            pt.tur_amt = (int8_t)(mut > 100u ? 100u : mut);
+        }
+        sd_engine_patch(&eng, &pt);
+    }
     sd_engine_pattern(&eng, &q);
     eng.bpm = 110;
     eng.seq_run = 1;
@@ -398,7 +405,7 @@ static int pattern(const char *path, uint32_t patch, uint32_t mut)
         done += n;
     }
     fclose(f);
-    printf("pattern -> %s (%s, MUTATE %u %%)\n", path, SD_PATCH_NAME[patch % SD_PATCHES], q.mutate);
+    printf("pattern -> %s (%s, TURING's NOTES %u %%)\n", path, SD_PATCH_NAME[patch % SD_PATCHES], mut);
     return 0;
 }
 

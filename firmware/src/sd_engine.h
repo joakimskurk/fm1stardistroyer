@@ -203,6 +203,7 @@ enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD
           echoes (ECHO: their level, followed) */
        SD_MS_STEP, SD_MS_SEG, SD_MS_DLOW, SD_MS_DTOP, SD_MS_RSTAGE, SD_MS_ECHO,
        SD_MS_ENV3,                              /* the filter's envelope */
+       SD_MS_TUR,                               /* TURING: the shift register's 8 newest bits, a step on its clock */
        SD_MSRCS };
 enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD_X, SD_MD_Y, SD_MD_WIDTH,
        SD_MD_RPOS, SD_MD_RFREQ, SD_MD_RRES, SD_MD_RDRIVE, SD_MD_RMIX, SD_MD_DGAIN, SD_MD_DBIAS, SD_MD_DFB,
@@ -256,25 +257,37 @@ typedef struct {
                                                    right line up to 30 % shorter) */
     uint16_t d_tame;                            /* TAME: 0 off, then a lowpass 15 kHz .. 1.2 kHz, resonant at the top */
     uint16_t d_mix;                             /* 0 = no DESTROY */
-    uint8_t d_xover, d_pad;                     /* SD_DX_CMP / SD_DX_LR4 */
+    uint8_t d_xover, tur_dst;                   /* SD_DX_CMP / SD_DX_LR4; TURING's DEST (below) */
     /* SPACE */
     uint16_t s_time, s_fb, s_dtone, s_dlevel;   /* 0..65535: TIME (free 1..1000 ms, or a division), FDBK, TONE, LEVEL */
     uint16_t s_size, s_decay, s_rtone, s_rlevel;
-    uint8_t s_mode, s_pad;                      /* SD_SP_SYNC | SD_SP_PP */
+    uint8_t s_mode;                             /* SD_SP_SYNC | SD_SP_PP */
+    int8_t tur_amt;                             /* TURING's AMOUNT, -100 .. +100 % */
     /* C1: the modulation. All zero: none (every patch before C1 plays as it did) */
     SdModSlot mod[SD_MODS];
     uint8_t lfo_shape[2], lfo_mode[2];          /* SD_LS_*; SD_LM_* */
     uint16_t lfo_rate[2];                       /* free: 0.02 .. 40 Hz (SD_LFO_INC); SYNC: a division, 0..65535 */
     uint16_t mac[4];                            /* MUTATE MOVE BREAK MACRO 4, 0..65535: 0 = the patch as programmed */
-    uint8_t mac4, m_pad;                        /* MACRO 4's kind, SD_M4_* */
+    uint8_t mac4, tur_set;                      /* MACRO 4's kind, SD_M4_*; TURING: bit 7 on, bits 0..6 CHANGE % */
     /* the filter (the user, 2026-11-06: "I miss a lowpass filter"): a lowpass on each voice, on its banks' carriers
        before the nav's balance; ENV3 on its cutoff. All zero: off (every patch before it plays as it did) */
     uint8_t f_type, f_key;                      /* SD_FT_*; KEY 0..100 % (100: the cutoff follows the note) */
     uint16_t f_cut, f_res;                      /* 0..65535: CUTOFF MIDI 16 .. 130 (21 Hz .. 15 kHz); RES */
     int16_t f_env;                              /* ENV3's depth, -32767..32767 = -/+ 60 semitones */
-    uint8_t f_vel, f_pad;                       /* VEL: 0..100 % = up to +24 semitones at velocity 127 */
+    uint8_t f_vel, tur_ld;                      /* VEL: 0..100 % = up to +24 semitones at velocity 127; TURING's
+                                                   LENGTH (bits 0..4: 2..16, 0 reads as 8) and DIV (bits 5..7: the
+                                                   SD_SDIV index + 1, 0 reads as 1/16) */
     uint8_t e3_a, e3_d, e3_s, e3_r;             /* ENV3, the filter's: as ENV1 */
 } SdPatch;
+/* TURING (the user, 2026-11-09: "it should work more like a modulation source, to parameters in the synth, the
+   filter"): a looping shift register on the tempo, its four fields in the patch's four spare bytes (so a patch saved
+   before reads as TURING off). DEST is a matrix destination (SD_MD_*), or NOTES: SEQ A's notes moved in its scale as
+   they play, the pattern itself never rewritten. 0: none */
+#define SD_TD_NOTES 0x80u
+#define SD_TUR_ON(p) ((p)->tur_set >> 7)
+#define SD_TUR_CHANGE(p) ((uint32_t)((p)->tur_set & 127u) > 100u ? 100u : (uint32_t)((p)->tur_set & 127u))
+#define SD_TUR_LEN(p) (((p)->tur_ld & 31u) ? ((p)->tur_ld & 31u) < 2u ? 2u : ((p)->tur_ld & 31u) > 16u ? 16u : (uint32_t)((p)->tur_ld & 31u) : 8u)
+#define SD_TUR_DIV(p) (((p)->tur_ld >> 5) ? (uint32_t)((p)->tur_ld >> 5) - 1u > SD_SDIVS - 1u ? SD_SDIVS - 1u : (uint32_t)((p)->tur_ld >> 5) - 1u : 2u)
 enum { SD_FT_OFF, SD_FT_LP12, SD_FT_LP24, SD_FTYPES };
 enum { SD_AM_UP, SD_AM_DOWN, SD_AM_UPDN, SD_AM_RND, SD_AM_ORDER, SD_AMODES };   /* the arpeggiator's orders */
 
@@ -432,9 +445,9 @@ typedef struct {                                /* a sequencer track: its patter
                                                    where it plays */
     volatile uint32_t pat_seq;                  /* odd while the main loop writes pat_in */
     SdPattern pat_in;                           /* written by the main loop (sd_engine_pattern) */
-    SdPattern pat;                              /* the audio's copy (and MUTATE's: published by mut_count) */
+    SdPattern pat;                              /* the audio's copy */
     uint32_t pat_taken;
-    volatile uint32_t mut_count;                /* MUTATE rewrote pat: the main loop takes it back from here */
+    int8_t tur_deg;                             /* TURING's NOTES on the step playing: degrees (A only) */
     uint8_t seq_on, seq_step, seq_note_on, seq_nn;   /* running; the step playing; notes held; how many */
     uint8_t seq_note[4];                        /* the notes it holds: the step's, then its chord's */
     uint32_t seq_pos_q8, seq_gate_q8;           /* samples x 256 into the step; the step's gate */
@@ -486,6 +499,11 @@ typedef struct {
     uint32_t pmul;                              /* PITCH: the note's increment x pmul, Q16 */
     int32_t mvx, mvy;                           /* the nav's offset (the matrix's X / Y, MOVE's orbit), Q16 */
     int32_t echo_env;                           /* ECHO: SPACE's wet level, followed (~60 ms release), Q15 */
+    /* TURING: the register (bit 0 the newest), its clock, its output and where it glides (Q15) */
+    volatile uint16_t tur_reg;
+    uint32_t tur_pos_q8, tur_rng;
+    int32_t tur_out, tur_g;
+    volatile uint32_t tur_count;                /* its steps so far (the screen draws its history from them) */
 
     uint8_t mode_on, nvoices;
     uint32_t ages;
@@ -578,6 +596,17 @@ static void sd_map_banks(SdEngine *e)           /* which voice plays which bank,
     }
 }
 
+/* TURING's DAC: the register's 8 newest bits, the newest the top one (the last coin weighs most), as -1 .. +1 */
+static int32_t sd_tur_dac(uint32_t reg)
+{
+    uint32_t v = 0, k;
+    for (k = 0; k < 8u; k++) v |= ((reg >> k) & 1u) << (7u - k);
+    {
+        int32_t o = (int32_t)(v * 257u) - 32767;   /* 0 .. 255: -32767 .. +32768 */
+        return o > 32767 ? 32767 : o;
+    }
+}
+
 static void sd_engine_init(SdEngine *e)
 {
     uint8_t *p = (uint8_t *)e;
@@ -599,6 +628,9 @@ static void sd_engine_init(SdEngine *e)
     e->rec_trk = 0xFF;
     e->pmul = 65536;
     e->m_seed = 0x5EED1u;
+    e->tur_reg = 0x9A5Cu;                       /* TURING's first loop: any bits, as at power-on */
+    e->tur_rng = 0x7E57u;
+    e->tur_out = sd_tur_dac(e->tur_reg);
     for (i = 0; i < SD_BANKS; i++) e->bank[i].sh.fg = e->bank[i].sh.fg_next = 4096;
     sd_map_banks(e);
     sd_seq_retime(e);
@@ -1162,10 +1194,47 @@ static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, o
     t->seq_nn = 0;
 }
 
-static uint32_t sd_seq_xn(const SdSeqT *t, uint32_t n)   /* a step's note, transposed */
+static uint32_t sd_seq_xn(const SdSeqT *t, uint32_t n)   /* a step's note, TURING's NOTES on it, transposed */
 {
-    int32_t v = (int32_t)n + t->xpose;
+    int32_t v;
+    if (t->tur_deg) {                           /* NOTES: degrees of the pattern's scale, from its key (step 1) */
+        uint32_t key = t->pat.step[0].note, sc = t->pat.scale;
+        n = sd_scale_note(key, sc, sd_scale_degree(key, sc, n) + t->tur_deg);
+    }
+    v = (int32_t)n + t->xpose;
     return (uint32_t)(v < 0 ? 0 : v > 127 ? 127 : v);
+}
+
+/* TURING's NOTES now: its output x AMOUNT as degrees, +-12 at 100 % (0: not NOTES, or off) */
+static int32_t sd_tur_degrees(const SdEngine *e)
+{
+    const SdPatch *p = &e->patch;
+    int32_t d;
+    if (!SD_TUR_ON(p) || p->tur_dst != SD_TD_NOTES || !p->tur_amt) return 0;
+    d = e->tur_out * p->tur_amt * 12;           /* 32767 x 100 x 12: fits */
+    d = d < 0 ? -((-d + 1638350) / 3276700) : (d + 1638350) / 3276700;   /* (once a step: not the audio's path) */
+    return d;
+}
+
+/* TURING's clock, once a sub-block before the tracks: a step every DIV of the tempo. The bit leaving the loop
+ * (LENGTH bits) comes back in at the newest place, flipped CHANGE % of the time: CHANGE 0 a locked loop, 100 its
+ * inverse every pass (a loop twice as long), between them it drifts. START lines it up with step 1. */
+static void sd_tur_tick(SdEngine *e, uint32_t start)
+{
+    const SdPatch *p = &e->patch;
+    uint32_t d = SD_TUR_DIV(p), len = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
+    if (!SD_TUR_ON(p)) return;
+    if (start) e->tur_pos_q8 = len;
+    if (e->tur_pos_q8 >= len) {
+        uint32_t n = SD_TUR_LEN(p), b = (e->tur_reg >> (n - 1u)) & 1u;
+        e->tur_pos_q8 -= len;
+        if (e->tur_pos_q8 >= len) e->tur_pos_q8 = 0;   /* (the tempo jumped: no catching up) */
+        if (sd_seq_rand(&e->tur_rng) % 100u < SD_TUR_CHANGE(p)) b ^= 1u;
+        e->tur_reg = (uint16_t)(e->tur_reg << 1 | b);
+        e->tur_out = sd_tur_dac(e->tur_reg);
+        e->tur_count++;
+    }
+    e->tur_pos_q8 += SD_SUB << 8;
 }
 
 static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* the step's note and its chord */
@@ -1231,15 +1300,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
             return;
         }
         if (one) t->xpose = t->xpose_next;      /* SCL + a key: the transpose at the one */
-        if (one && (t->pat.tur & 1u) && t->pat.mutate) {   /* TURING: the loop played as it was; this one varies */
-            sd_pattern_mutate(&t->pat, &t->sq_rng);
-            t->width = (uint8_t)sd_pattern_width(&t->pat);   /* (a rest may have become a note) */
-            sd_plan(e);
-            t->mut_count++;
-            t->sq_n[t->sq_cur] = (uint8_t)sd_seq_build(t, t->sq_seg, t->sq_ord[t->sq_cur]);
-            if (t->sq_pos >= t->sq_n[t->sq_cur]) t->sq_pos = 0;
-            sd_seq_next_pass(t);
-        }
+        t->tur_deg = (int8_t)(main ? sd_tur_degrees(e) : 0);   /* TURING's NOTES: this step's place (A) */
         t->seq_count++;
         t->seq_step = t->sq_ord[t->sq_cur][t->sq_pos];
         t->seq_shown = t->seq_step;
@@ -1299,6 +1360,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
 static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks, A first */
 {
     sd_seq_retime(e);                           /* first: START measures step 1 in this tempo */
+    sd_tur_tick(e, e->seq_run && !e->t[0].seq_on);   /* TURING first: a step at the same time sees its new place */
     sd_seq_track(e, &e->t[0], e->seq_run, 1);
     if (e->seqb || e->t[1].seq_on) sd_seq_track(e, &e->t[1], e->seq_run && e->seqb, 0);
 }
@@ -1578,6 +1640,11 @@ static void sd_mod_tick(SdEngine *e)
             if (e->echo_env < 0) e->echo_env = 0;
             src[SD_MS_ECHO] = e->echo_env * 2 > 32767 ? 32767 : e->echo_env * 2;   /* (echoes sit at half scale) */
         }
+        {                                       /* TURING: its step, glided an eighth a tick (no click) */
+            int32_t d = e->tur_out - e->tur_g;
+            e->tur_g += d / 8 + (d > 0) - (d < 0);
+            src[SD_MS_TUR] = SD_TUR_ON(p) ? e->tur_g : 0;
+        }
         e->lfo_out[0] = (int16_t)src[SD_MS_LFO1];
         e->lfo_out[1] = (int16_t)src[SD_MS_LFO2];
         e->m_trig = 0;
@@ -1587,6 +1654,10 @@ static void sd_mod_tick(SdEngine *e)
         const SdModSlot *s = &p->mod[k];
         if (!s->src || !s->dst || !s->amt || s->src >= SD_MSRCS || s->dst >= SD_MDSTS) continue;
         acc[s->dst] += (src[s->src] * s->amt) >> 15;
+        any = 1;
+    }
+    if (SD_TUR_ON(p) && p->tur_dst && p->tur_dst < SD_MDSTS && p->tur_amt) {   /* TURING's own DEST and AMOUNT */
+        acc[p->tur_dst] += (src[SD_MS_TUR] * ((int32_t)p->tur_amt * 327)) >> 15;
         any = 1;
     }
     for (k = 0; k < 4u; k++) { m[k] = p->mac[k] >> 1; any |= (uint32_t)m[k]; }

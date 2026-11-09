@@ -99,6 +99,31 @@ and Turing should be the same". On the choices: EDIT is ON / OFF ("a toggle, not
   A cut 100 % of its steps by ARP in MONO, in DUO with B, in POLY with chords and B; now never (`test_switches`).
   Every render bit for bit as before; fm1-emu 41.2 % (+0.5).
 
+**Built 2026-11-09: TURING is a modulation source, not the pattern's.** The user, after playing it in the browser:
+"I struggle with the routing from the Turing machine: it goes to pitch by default and I don't understand how to
+change that, and pitch is perhaps the last thing I want as the default"; "it also changes my whole sequencer loop
+without me understanding why"; "it should work more like a modulation source, to parameters in the synth, the
+filter and so on". On the choices: NOTES stays as one destination, the pattern never rewritten; XM the default; the
+page on LFO, after the two LFOs; its own DEST and AMOUNT, and a SOURCE in MOD too.
+- *The machine* (`sd_tur_tick`, sd_engine.h): a 16-bit register, a step every DIV of the tempo (1/32 .. 1/4,
+  ALGORITHM; START lines it up with step 1). The bit LENGTH places back (2..16) comes in again at the newest place,
+  flipped CHANGE % of the time: 0 a locked loop, 100 the loop and its inverse. Its 8 newest bits (the newest the
+  top) are the output, -1 .. +1, glided an eighth a control tick as S&H is (no click).
+- *The patch's* (its four spare bytes: `tur_set` on and CHANGE, `tur_ld` LENGTH and DIV, `tur_dst`, `tur_amt`), so it
+  is saved with SAVE and a patch saved before reads as TURING off; the patch's size is unchanged.
+- *DEST*: any matrix destination, at AMOUNT −100 .. +100 %; or NOTES: SEQ A's notes moved in the pattern's scale as
+  each step starts (`SdSeqT.tur_deg`, ±12 degrees at 100 %), the pattern as written. In MOD, TURING is a source
+  (`SD_MS_TUR`) for any slot.
+- *The page:* LFO 1 → LFO 2 → TURING → MOD. K1 CHANGE, K2 LENGTH, K3 DEST, K4 AMOUNT, ALGORITHM DIV; EDIT on / off
+  (the first time on: XM, 30 %, CHANGE 25). The picture: the last 16 steps as a stepped line, the loop's bits under
+  it, where it goes and how many MOD slots it feeds. SEQ is SEQ A → SEQ B again, and its keys transpose only there.
+- *Gone:* the rewrites (`sd_pattern_mutate`), their take-back and undo in the app; `SdPattern`'s three TURING bytes
+  are kept, unread, so the saved patterns still read.
+- *The demos* set it as a player would, while it is off (DEST, AMOUNT, CHANGE), then EDIT on: RANGE's acid line to
+  the CUTOFF, its sixth scene's ostinato and DERELICT's pedal by NOTES, THE SONG's bridge by NOTES.
+- Tests: `test_turing` (off by default; CHANGE 0 a loop of LENGTH, 100 of twice it; DEST XM moves XM; NOTES in the
+  scale, the pattern untouched).
+
 ---
 
 ## 0. Decision in one paragraph

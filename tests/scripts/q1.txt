@@ -1,7 +1,7 @@
 # The sequencer: PLAY, SEQ (11); step 3 (the 3rd white key, key 4) picked, its note +5 and SLIDE (K1, K4);
 # SCL held: XPOSE +5 (K4); SEG (the last black key, key 25): a cut at step 7 (key 11), B on the black keys (key 3),
 # its order REV (K2); SEG back, PLAY stops; REC (13): step recording C4 D4 (keys 7 9), LFO (5) a rest, ENV (4) a tie;
-# REC off, SEQ twice: TURING, EDIT (6) on. Buttons: SEL 3, ENV 4, LFO 5, EDIT 6, SEQ 11, PLAY 12, REC 13.
+# REC off, LFO three times: TURING, EDIT (6) on (to XM). Buttons: SEL 3, ENV 4, LFO 5, EDIT 6, SEQ 11, PLAY 12, REC 13.
 # Encoders: ALGORITHM 1, K1..K4 2..5.
 1700 btn 12
 1800 btn 11
@@ -34,8 +34,9 @@
 4600 btn 4
 4900 shot
 5000 btn 13
-5100 btn 11
-5200 btn 11
+5100 btn 5
+5200 btn 5
+5250 btn 5
 5300 btn 6
 5400 shot
 5500 end

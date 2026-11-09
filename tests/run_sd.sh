@@ -57,7 +57,7 @@ build/sd/sd_render tour build/audio/tour                            # ten patche
 build/sd/sd_render evolve build/audio/evolve/evolve_voyage.wav voyage 90             # the essence: slow lines, the macros drifting
 build/sd/sd_render evolve build/audio/evolve/evolve_distroy.wav distroy 90
 build/sd/sd_render pattern build/audio/q1_pattern_growl.wav growl                     # the sequencer: segments, ratchets, PROB
-build/sd/sd_render pattern build/audio/q1_pattern_distroy_mutate.wav distroy 25
+build/sd/sd_render pattern build/audio/q1_pattern_distroy_turing.wav distroy 25   # ... TURING's NOTES on it
 build/sd/sd_render macros build/audio/c1_macros_aurora.wav aurora                      # C1: each macro in turn, ~29 s
 build/sd/sd_render macros build/audio/c1_macros_growl.wav growl
 build/sd/sd_render macros build/audio/c1_macros_voyage.wav voyage

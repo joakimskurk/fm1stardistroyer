@@ -6,10 +6,9 @@
  * SLIDE: a glide into it, no new attack), a TIE (the note before held on), a REST, or SKIPped (out of the pattern).
  * A NOTE can RATCHET (2 or 3 hits in its time, each softer, never closer than 50 ms: the user asked for ratchets
  * "not as extreme and fast") and has a PROB, the chance it plays at all (else a rest).
- * TURING (off by default; the user, 2026-11-07: "EVOLVE and the Turing machine should be the same") rewrites CHANGE %
- * of the steps once at each loop's one, so the loop plays as it is and the next one is a
- * variation: a new note RANGE degrees of the scale either way, or, RESTS % of the time, a rest. CHANGE 0
- * is a locked loop. RANDOMIZE rewrites them all now.
+ * RANDOMIZE rewrites the steps now. TURING is not the pattern's (since 2026-11-09, the user: it changed the loop
+ * "without me understanding why"): it is a modulation source in the patch (sd_engine.h), and its NOTES moves track
+ * A's notes in the scale as they play, the pattern as it was written.
  *
  * Everything here is plain data and functions on it: the main loop edits a pattern with them, the audio plays a copy
  * (sd_engine.h: the hand-over, the traversal, the timing). The segment editing: the bounds, a cut or a
@@ -34,7 +33,7 @@ typedef struct {
     uint8_t ratchet;                            /* 1..3 hits in the step (0 reads as 1) */
     uint8_t prob;                               /* 0..100 %: the chance it plays (the default: 100) */
     int8_t chord[3];                            /* a chord (the user, 2026-11-06): up to three more notes, semitones
-                                                   from note (0: none); they move with it (MUTATE, RND, transpose) */
+                                                   from note (0: none); they move with it (TURING's NOTES, RND, transpose) */
 } SdStep;
 #define SD_RATCHET_MAX 3u
 #define SD_RATCHET_MIN_SAMPLES 2205u            /* 50 ms: hits never closer */
@@ -44,17 +43,16 @@ typedef struct {
     uint8_t len;                                /* 1..64 */
     uint8_t div;                                /* SD_SDIV index; 2 = 1/16 */
     uint8_t swing;                              /* 50..75 %: the first of each pair of steps that much of the pair */
-    uint8_t mutate;                             /* TURING's CHANGE, 0..100 %: the chance a step is rewritten at the
-                                                   loop's one (only while tur's bit 0 is on) */
+    uint8_t old_change;                         /* (TURING's CHANGE before 2026-11-09: unread, its place kept so the
+                                                   saved patterns still read) */
     uint8_t seg_count;                          /* 1..6 */
     uint8_t seg_split[SD_SEGS - 1u];            /* where segments 2.. start (steps, rising) */
     uint8_t seg_rep[SD_SEGS];                   /* 1..4 */
     uint8_t seg_order[SD_SEGS];                 /* SD_SO_* */
     uint8_t seg_skip;                           /* bit k: segment k is skipped */
-    uint8_t scale;                              /* SD_SC_*: what RANDOMIZE and TURING choose notes from; the key is
-                                                   the first step's note */
-    uint8_t tur;                                /* TURING: bit 0 on; bits 1..7 RESTS, 0..100 % of its rewrites */
-    uint8_t range;                              /* TURING's RANGE: 1..12 degrees either way (0 reads as 3) */
+    uint8_t scale;                              /* SD_SC_*: what RANDOMIZE and TURING's NOTES choose notes from; the
+                                                   key is the first step's note */
+    uint8_t old_tur, old_range;                 /* (the old TURING's switch, RESTS and RANGE: unread, as above) */
 } SdPattern;
 
 /* the scales as the semitones they hold, a bit each from the key */
@@ -196,28 +194,6 @@ static int32_t sd_scale_degree(uint32_t key, uint32_t scale, uint32_t note)   /*
     return d;
 }
 
-#define SD_TUR_RESTS(p) ((uint32_t)(p)->tur >> 1)
-#define SD_TUR_RANGE(p) ((p)->range ? ((p)->range > 12u ? 12u : (uint32_t)(p)->range) : 3u)
-/* TURING's rewrite of one step: RESTS % of the time a rest, else a note RANGE degrees either way (the key's two
- * octaves around; a rest becomes that note); a TIE or SKIP stays (the pattern's shape is the player's) */
-static void sd_step_mutate(SdStep *s, uint32_t key, uint32_t scale, uint32_t rests, uint32_t range, uint32_t *rng)
-{
-    uint32_t r = sd_seq_rand(rng);
-    if (s->type == SD_ST_TIE || s->type == SD_ST_SKIP) return;
-    if (r % 100u < rests) {
-        s->type = SD_ST_REST;
-        return;
-    }
-    {
-        int32_t d = sd_scale_degree(key, scale, s->note) + (int32_t)((r >> 7) % (2u * range + 1u)) - (int32_t)range;
-        uint32_t n = sd_scale_note(key, scale, d);
-        if (n + 12u < key) n += 12u;
-        if (n > key + 24u) n -= 12u;
-        s->note = (uint8_t)n;
-        if (s->type == SD_ST_REST) s->type = SD_ST_NOTE;
-    }
-}
-
 static uint32_t sd_pattern_width(const SdPattern *p)   /* the most notes a step plays at once (0: no notes) */
 {
     uint32_t k, w = 0, n = p->len < SD_PSTEPS ? p->len : SD_PSTEPS;
@@ -227,13 +203,6 @@ static uint32_t sd_pattern_width(const SdPattern *p)   /* the most notes a step 
         if (s->type <= SD_ST_SLIDE && c > w) w = c;
     }
     return w;
-}
-
-static void sd_pattern_mutate(SdPattern *p, uint32_t *rng)   /* TURING: each step by its chance (CHANGE) */
-{
-    uint32_t k, key = p->step[0].note, rests = SD_TUR_RESTS(p), range = SD_TUR_RANGE(p);
-    for (k = 1; k < p->len && k < SD_PSTEPS; k++)   /* (step 1 keeps the key: what the scale is on) */
-        if (sd_seq_rand(rng) % 100u < p->mutate) sd_step_mutate(&p->step[k], key, p->scale, rests, range, rng);
 }
 
 static void sd_pattern_randomize(SdPattern *p, uint32_t *rng)   /* RANDOMIZE: a new line in the scale, now */
@@ -275,8 +244,6 @@ static void sd_pattern_default(SdPattern *p)
     p->seg_split[0] = 4; p->seg_split[1] = 8; p->seg_split[2] = 12;
     for (k = 0; k < SD_SEGS; k++) p->seg_rep[k] = 1;
     p->scale = SD_SC_MINOR;
-    p->tur = 12u << 1;                          /* TURING off; RESTS 12 % (about the 1 in 8 MUTATE had), RANGE 3 */
-    p->range = 3;
 }
 static void sd_pattern_empty(SdPattern *p)      /* the default, every step a rest: track B's start */
 {

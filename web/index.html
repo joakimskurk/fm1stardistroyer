@@ -394,7 +394,7 @@
   <div class="hero">
     <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
     <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
-    <img src="screens/turing.png" width="240" height="240" alt="TURING: the steps it rewrote last underlined red">
+    <img src="screens/turing.png" width="240" height="240" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
   </div>
   <p class="cta"><a href="#try">▶ Play it in the browser</a></p>
 
@@ -419,7 +419,7 @@
     picture under each is its spectrum, low to high, from start to end: tap it to jump.</p>
   <div id="demos"></div>
 
-  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
 
   <h2 id="try"><img src="screens/slash.png" width="68" height="28" alt="">Try it here</h2>
   <p>The firmware itself, compiled for the browser: the same C the FM-1 runs, its sound, its screen and its lights,
@@ -502,17 +502,27 @@
       <ul>
         <li>Four macros: <b>MUTATE</b> the voice, <b>MOVE</b> the nav and the Reactor, <b>BREAK</b> the destruction,
           <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
-        <li>Eight modulation slots: envelopes, two LFOs, the nav, velocity, the wheel, aftertouch, random, and the
-          engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
+        <li>Eight modulation slots: envelopes, two LFOs, TURING, the nav, velocity, the wheel, aftertouch, random,
+          and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
+      </ul></div>
+  </div>
+  <div class="eng">
+    <img class="scr" src="screens/turing.png" width="240" height="240" alt="TURING">
+    <div><h3>TURING <span>·</span> a Turing machine as a modulation source</h3>
+      <ul>
+        <li>A loop of 2–16 bits steps on the tempo. <b>CHANGE</b> is the chance a bit flips as it comes round: 0 locks
+          the loop, a little lets it drift.</li>
+        <li>Its newest 8 bits are a stepped value: <b>DEST</b> and <b>AMOUNT</b> send it anywhere the matrix can, XM
+          by default, and in MOD it is a source for more.</li>
+        <li><b>NOTES</b> moves SEQ A's notes in the scale as they play; the pattern stays as you wrote it.</li>
       </ul></div>
   </div>
   <div class="eng">
     <img class="scr" src="screens/seq.png" width="240" height="240" alt="SEQ A">
-    <div><h3>PLAYING IT <span>·</span> two tracks, a Turing machine, an arpeggiator</h3>
+    <div><h3>PLAYING IT <span>·</span> two tracks and an arpeggiator</h3>
       <ul>
         <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.</li>
         <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
-        <li><b>TURING</b> rewrites a share of the steps at each loop's one: the loop plays, the next is a variation.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
       </ul></div>
   </div>
@@ -522,14 +532,14 @@
     <tr><td>HOME</td><td>NAV → MACROS</td></tr>
     <tr><td>FX</td><td>REACTOR → DESTROY → SPACE</td></tr>
     <tr><td>ENV</td><td>ENV → FILTER</td></tr>
-    <tr><td>LFO</td><td>LFO 1 → LFO 2 → MOD</td></tr>
+    <tr><td>LFO</td><td>LFO 1 → LFO 2 → TURING → MOD</td></tr>
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
-    <tr><td>SEQ</td><td>SEQ A → SEQ B → TURING</td></tr>
+    <tr><td>SEQ</td><td>SEQ A → SEQ B</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ and TURING, the keys transpose the track</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
     <tr><td>EDIT</td><td>ON / OFF of what the page shows</td></tr>
-    <tr><td>PRESETS</td><td>the patch; on SEQ and TURING the pattern</td></tr>
+    <tr><td>PRESETS</td><td>the patch; on SEQ the pattern</td></tr>
     <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM) · MONO → DUO → POLY</td></tr>
     <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own</td></tr>
   </table>

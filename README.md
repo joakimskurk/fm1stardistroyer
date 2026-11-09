@@ -21,20 +21,20 @@
 <p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
   <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
-  <img src="docs/readme/screen_turing.png" width="256" alt="TURING: the steps it rewrote last underlined red">
+  <img src="docs/readme/screen_turing.png" width="256" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
 </p>
 
 Star Distroyer turns the FM-1 into one instrument with four engines in a row. A **voice** of sixteen oscillators,
 morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DESTROY**,
 which splits the sound into four bands and wrecks each its own way; and **SPACE**, a delay feeding a room. Around them
-are a modulation matrix, four macros, a two-track step sequencer with segments and a Turing machine, and an
+are a modulation matrix with a Turing machine, four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
 > **Status:** in development. Everything here runs on the host (the same C, the sound as WAV, the screen as images)
 > and in the FM-1 emulator. It has **not yet been tested on a real FM-1**, and there is no release yet.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B with TURING, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
@@ -122,11 +122,24 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top">
 
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
-- **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and RAND.
-  The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
+- **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, TURING, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and
+  RAND. The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
 - **Destinations:** across all four engines, from PITCH and XM to the Reactor's POS, DESTROY's SPLIT and SPACE's DECAY.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars), restarted by a note, or
   ONE cycle a note.
+
+</td>
+</tr>
+<tr>
+<td valign="top"><img src="docs/readme/screen_turing.png" width="256" alt="TURING"></td>
+<td valign="top">
+
+**TURING**, on LFO after the two LFOs: a Turing machine, a modulation source of the patch. Off until you switch it on.
+- A loop of **LENGTH** bits (2–16) steps on the tempo (ALGORITHM: 1/32 … 1/4). As each bit comes round, **CHANGE**
+  is the chance it flips: 0 locks the loop, a little lets it drift, 100 plays it and its inverse.
+- Its 8 newest bits are the output: a stepped value, every step a new one.
+- **DEST** and **AMOUNT** send it anywhere the matrix can, XM by default. **NOTES** moves SEQ A's notes in the
+  pattern's scale as they play, and never rewrites the pattern. In MOD it is a SOURCE too, for more places.
 
 </td>
 </tr>
@@ -146,17 +159,6 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   random), SKIP and LENGTH.
 - **REC** records from the keys: stopped, step by step; playing, into the step that plays.
 - **SCL held** transposes a track from the keys, taken at its next one.
-
-</td>
-</tr>
-<tr>
-<td valign="top"><img src="docs/readme/screen_turing.png" width="256" alt="TURING"></td>
-<td valign="top">
-
-**TURING**: a Turing machine on a track. It is off until you switch it on.
-- At each loop's one it rewrites **CHANGE** % of the steps: a new note **RANGE** degrees of the scale either way, or a
-  rest (**RESTS** %). The loop plays as it is, and the next one is a variation.
-- CHANGE 0 locks the loop. **UNDO** takes the last rewrite back. Step 1 keeps the key.
 
 </td>
 </tr>
@@ -187,14 +189,14 @@ LEDs show what the keys do.
 | **HOME** | NAV → MACROS |
 | **FX** | REACTOR → DESTROY → SPACE |
 | **ENV** | ENV → FILTER |
-| **LFO** | LFO 1 → LFO 2 → MOD |
+| **LFO** | LFO 1 → LFO 2 → TURING → MOD |
 | **ARP** | the arpeggiator |
-| **SEQ** | SEQ A → SEQ B → TURING |
+| **SEQ** | SEQ A → SEQ B |
 | **K1–K4** | the four values in the row on top |
-| **SCL** held | the second layer (the names turn red); on SEQ and TURING, the keys transpose the track |
+| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track |
 | **ALGORITHM** | the page's choice, named on the hint line; SCL + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DESTROY, SPACE, FILTER, ARP, a track, TURING |
-| **PRESETS** | the patch; on SEQ and TURING the pattern |
+| **PRESETS** | the patch; on SEQ the pattern |
 | **SELECT** · **GLO** | the tempo (40–240 BPM) · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
 
