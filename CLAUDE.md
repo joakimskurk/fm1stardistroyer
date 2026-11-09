@@ -30,4 +30,8 @@
   The logo comes only from `tools/gen_logo.py`.
 - The page: `web/` (`web/make_site.py` builds it from the package and `tests/run_sd.sh`'s demos; CI publishes it from
   `main`). A demo is one FM-1 played by one person (`tools/sd_play.h`'s rules); DERELICT layers four such passes.
+  Its player (`web/app/`) is the firmware as WebAssembly: when the app changes, also `sh web/app/build.sh` (here in
+  Docker: an image with clang and lld) and `node tests/web_test.mjs build/web/stardistroyer.wasm`. In
+  `stardistroyer.c`, `DINGHY_WEB` makes `app_main` one pass a call (`APP_STATE`); keep its loop free of `continue`
+  and `return`.
 - Never install on an FM-1, push, or tag a release without asking.

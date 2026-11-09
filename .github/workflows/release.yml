@@ -86,8 +86,9 @@ jobs:
           generate_release_notes: true
 
   # The page (GitHub Pages, https://joakimskurk.github.io/fm1stardistroyer/): Star Distroyer's page and its installer
-  # in the browser (Web MIDI), with the package this run built and tested, and the demos as the engine renders them
-  # (tests/run_sd.sh, web/make_site.py). From main only; Pages takes its site from GitHub Actions (Settings -> Pages).
+  # in the browser (Web MIDI), with the package this run built and tested, the demos as the engine renders them
+  # (tests/run_sd.sh, web/make_site.py), and the player: the firmware as WebAssembly (web/app/). From main only;
+  # Pages takes its site from GitHub Actions (Settings -> Pages).
   site:
     needs: firmware
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -114,14 +115,19 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Python packages and ffmpeg (the spectra, the audio)
+      - name: Python packages, ffmpeg (the spectra, the audio), clang and lld (the player)
         run: |
           python3 -m pip install Pillow numpy
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          sudo apt-get install -y -qq ffmpeg clang lld
 
       - name: The engine's tests and the demos (tests/run_sd.sh)
         run: SD_ASAN=0 SD_BENCH_S=5 sh tests/run_sd.sh
+
+      - name: The player (the firmware as WebAssembly, web/app/) and its test
+        run: |
+          APP_VER="dev-${GITHUB_SHA::7}" sh web/app/build.sh build/web/stardistroyer.wasm
+          node tests/web_test.mjs build/web/stardistroyer.wasm
 
       - name: The site
         run: python3 web/make_site.py build/stardistroyer.fwsc "dev-${GITHUB_SHA::7}" _site

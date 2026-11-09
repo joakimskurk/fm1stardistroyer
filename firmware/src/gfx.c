@@ -17,8 +17,8 @@ typedef struct {               /* proportional, see tools/gen_font.py */
 #ifndef CV_MAX
 #define CV_MAX (240u * 124u)      /* the graph strip is 240 x 124 */
 #endif
-#if defined(DINGHY_HOST) && defined(__APPLE__)
-static uint16_t cv_px[CV_MAX];   /* (the host on macOS: Mach-O has no .pool section; Star Distroyer) */
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
+static uint16_t cv_px[CV_MAX];   /* (the host on macOS: Mach-O has no .pool section; in a browser: zeros in the file; Star Distroyer) */
 #else
 static uint16_t cv_px[CV_MAX] __attribute__((section(".pool")));
 #endif
