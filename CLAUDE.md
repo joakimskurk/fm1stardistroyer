@@ -22,7 +22,7 @@
 - The oscillator's laws (warp, fold, envelope times, cents) live in `tools/gen_tables.py`; change them there and rerun it,
   never edit `sd_tables.h`.
 - When a sound choice is open, follow the design the Sound Plan sets out (the user's rule): §3.0 for VOICE, §4.0 for
-  the Reactor, §5.0 for DESTROY.
+  the Reactor, §5.0 for DISTROY.
 - Name no product or other firmware as a model or an inspiration, anywhere in the repository (code, docs, commit
   messages). Dinghy and its lineage stay credited: that is the code's licence, not inspiration.
 - The look: the palette and feel of the built screens (`docs/readme/screen_*.png`, `tools/make_readme_art.sh`): near

@@ -52,7 +52,7 @@ static inline int params(const char *path, SdPatch *p)   /* "key value ..." line
             p->mod[1] = (SdModSlot){SD_MS_LFO2, SD_MD_PITCH, (int16_t)lround(v[1] / 2400.0 * 32767.0)};
         } else if (!strcmp(key, "splits") && n == 3) {
             for (k = 0; k < 3; k++) p->d_split[k] = hz_m256(v[k]);
-        } else if (!strcmp(key, "bands") && n == 4) {   /* bands dB dB dB dB: DESTROY's four levels, no shaping */
+        } else if (!strcmp(key, "bands") && n == 4) {   /* bands dB dB dB dB: DISTROY's four levels, no shaping */
             for (k = 0; k < 4; k++) { p->d_level[k] = db_lv(v[k]); p->d_type[k] = SD_DS_NONE; p->d_gain[k] = 0; }
             p->d_mix = 65535; p->d_xover = SD_DX_CMP;
         } else if (!strcmp(key, "tame")) p->d_tame = (uint16_t)v[0];

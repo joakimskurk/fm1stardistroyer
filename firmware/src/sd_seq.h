@@ -55,6 +55,23 @@ typedef struct {
     uint8_t old_tur, old_range;                 /* (the old TURING's switch, RESTS and RANGE: unread, as above) */
 } SdPattern;
 
+/* ORBIT (2026-11-09, the user: "a sub-sequencer: different parameters in 2-8 steps, so I can make a bigger change,
+ * like transposing a sequence over time"): 2..8 steps, each RATE loops of SEQ A long (1, 2, 4: a step changes at A's
+ * one), each a change from where the player is: SEQ A's and B's transpose, two free lanes (each its matrix DEST), the
+ * four macros. 0 changes nothing. The lanes and the macros jump at a step's start or glide through it to the next
+ * step's value (GLIDE, a lane each: lane 1, lane 2, the macros). The pattern's, saved with it (SEQ A's). */
+#define SD_ORB_STEPS 8u
+enum { SD_OG_L1 = 1, SD_OG_L2 = 2, SD_OG_MAC = 4 };   /* GLIDE's bits */
+typedef struct {
+    uint8_t on, len, rate, glide;               /* on; 2..8 (0 reads as 4); 0 1 2: 1, 2, 4 loops of A; SD_OG_* */
+    uint8_t dst[2], pad[2];                     /* the free lanes' destinations (SD_MD_*, 0 none) */
+    int8_t xa[SD_ORB_STEPS], xb[SD_ORB_STEPS];  /* XPOSE A, B: -24..24 semitones */
+    int8_t lane[2][SD_ORB_STEPS];               /* the free lanes: -100..100 % */
+    int8_t mac[4][SD_ORB_STEPS];                /* MUTATE MOVE BREAK MACRO 4: -99..99 */
+} SdOrbit;
+#define SD_ORB_LEN(o) ((o)->len ? (o)->len < 2u ? 2u : (o)->len > 8u ? 8u : (uint32_t)(o)->len : 4u)
+#define SD_ORB_LOOPS(o) (1u << ((o)->rate > 2u ? 2u : (o)->rate))
+
 /* the scales as the semitones they hold, a bit each from the key */
 static const uint16_t SD_SCALE_MASK[SD_SCALES] = {0x5AD, 0xAB5, 0x6AD, 0x5AB, 0x4A9, 0x295, 0xFFF};
 

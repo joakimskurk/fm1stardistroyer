@@ -1,6 +1,8 @@
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # R1: VOWEL (PRESETS +1 from DISTROY) in the loop, the REACTOR page (FX), POS and RES turned; SEL held: MODEL, DIV
 # Buttons: SEL 3, FX 2, PLAY 12. Encoders: K1..K4 2..5, PRESETS 6.
 1700 enc 6 1
+1750 btn 6
 1800 btn 12
 2000 btn 2
 2600 shot

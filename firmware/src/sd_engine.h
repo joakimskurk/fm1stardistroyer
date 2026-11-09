@@ -48,7 +48,7 @@
  *   AP2         eight first-order IIR allpasses in series, two a filter: no skating
  *   AP outputs  the four levels' mean, no pan: left the wet minus RES x the dry, right the wet plus it (a
  *               subtracted and an added dry): RES 0 a flat allpass, RES up the notches
- * R3, the Reactor's nonlinear layer, before DESTROY's:
+ * R3, the Reactor's nonlinear layer, before DISTROY's:
  *   in the loop  a soft saturation where each filter's energy turns back on itself: an SVF's band-pass before it
  *               updates its integrator (it rings to ~6 x full scale, then flattens), KP's line (to ~3 x): high
  *               RES and DRIVE ring into saturation, never away
@@ -57,7 +57,7 @@
  *               loudness growing with RES stays, by design
  *   dry path    stereo: MIX blends the voice's own stereo with the Reactor's panned wet
  *
- * D1, DESTROY (Sound Plan §5.0): four frequency bands, each with its distortion: a GAIN, a type, an ALT, and BIAS,
+ * D1, DISTROY (Sound Plan §5.0): four frequency bands, each with its distortion: a GAIN, a type, an ALT, and BIAS,
  * a DC offset before the distortion:
  *   crossover   two, a patch's choice (D1's A/B, Sound Plan §5.1):
  *               CMP  per channel three 2-pole lowpasses (TPT SVFs, Butterworth) at the splits; the bands LP1,
@@ -72,7 +72,7 @@
  *               HARD  a clip at full scale; ALT = the knee (0 a brick wall, up to half the range a shoulder)
  *               FOLD  the voice's triangle fold of x / t; ALT = the spacing (t from full scale to a quarter)
  *               CRUSH clipped, then bits taken off toward zero; ALT = the depth (15 bits .. 2)
- *   MIX         dry <-> wet; 0 is no DESTROY at all
+ *   MIX         dry <-> wet; 0 is no DISTROY at all
  *
  * S1, SPACE (Sound Plan §5.5, the user's design): a delay into a reverb, last in the chain.
  *   delay       stereo, or ping-pong (the mono sum in on the left, the sides crossing back); TIME free 1..1000 ms or
@@ -85,6 +85,12 @@
  *               comes in and its tails have stayed under the floor for 2 s
  *   memory      ~213 KB (SdSpaceMem), the app's (the pool on the FM-1): the engine only points at it
  *
+ * The output (2026-11-09, the user: "a little internal clipping with extreme modulations"; measured: 20 of the 29
+ * patches flattened up to a fifth of their samples at the output with the macros and four slots at full, one even
+ * as it is, a POLY chord at velocity 127): a limiter, 64 frames (1.45 ms) ahead, to 0.85 of full scale (-1.4 dBFS): a
+ * sub-block's gain reaches what the next two need before they come out, so a peak is turned down, never squared off;
+ * back up over ~0.2 s. The shoulder after it (linear to 0.85, a cubic one to full scale) stays, a last safety.
+ *
  * Rules (docs/RULES.md): integers only, no 64-bit division, no loop whose length a parameter sets. */
 #ifndef SD_ENGINE_H
 #define SD_ENGINE_H
@@ -94,6 +100,8 @@
 
 #define SD_FS 44100u
 #define SD_SUB 32u                              /* frames per sub-block = the control period (1378 Hz) */
+#define SD_LIM_D 64u                            /* the output limiter's look-ahead: two sub-blocks */
+#define SD_LIM_T 27853                          /* its ceiling: 0.85 of full scale (where the shoulder starts) */
 #define SD_SUB_SHIFT 5u
 #define SD_QLEN 32u                             /* main loop -> audio note queue */
 #define SD_HELD 12u                             /* the hand's keys remembered while held (more: the oldest goes) */
@@ -185,20 +193,20 @@ static const int32_t SD_RMAKEUP[6] = {2769, 4240, 18939, 720, 3736, 3779};   /* 
 enum { SD_RC_FWD, SD_RC_BWD, SD_RC_PP, SD_RC_RND, SD_RCMODES };
 enum { SD_DS_NONE, SD_DS_SOFT, SD_DS_HARD, SD_DS_FOLD, SD_DS_CRUSH, SD_DSHAPES };
 enum { SD_DX_CMP, SD_DX_LR4 };
-#define SD_DFLEN 1024u                          /* DESTROY's feedback line, a channel (a power of two: masked) */
+#define SD_DFLEN 1024u                          /* DISTROY's feedback line, a channel (a power of two: masked) */
 #define SD_DFMIN 44                             /* its shortest delay, 1 ms: longer than a call (32 frames), so a
                                                    call's feedback is read before the call writes any */
 #define SD_SP_DMAX 44100u                       /* SPACE's delay line, a channel: 1 s */
 #define SD_SP_FLEN 2048u                        /* its reverb's lines (a power of two: masked), at half rate */
 #define SD_SP_APLEN 256u                        /* its diffusers, at half rate */
 enum { SD_SP_SYNC = 1, SD_SP_PP = 2 };          /* s_mode's bits */
-enum { SD_FX_REACTOR = 1, SD_FX_DESTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8 };   /* fx_off's bits */
+enum { SD_FX_REACTOR = 1, SD_FX_DISTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8 };   /* fx_off's bits */
 
 /* C1: the modulation (Sound Plan §7.x; the spec's "one global matrix"): sources, destinations, a slot */
 enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY,
        SD_MS_WHEEL, SD_MS_AFTER, SD_MS_RAND,
        /* the engines talking to each other (the user: "everything talking together, in unorthodox ways"): where the
-          sequencer is in its pattern (STEP, -1 .. +1 across it) and which segment (SEG); DESTROY's low and top bands'
+          sequencer is in its pattern (STEP, -1 .. +1 across it) and which segment (SEG); DISTROY's low and top bands'
           energy (D LOW, D TOP: -48 .. 0 dBFS as 0 .. 1); the Reactor's stage (R STAGE, 1..6 as -1 .. +1); SPACE's
           echoes (ECHO: their level, followed) */
        SD_MS_STEP, SD_MS_SEG, SD_MS_DLOW, SD_MS_DTOP, SD_MS_RSTAGE, SD_MS_ECHO,
@@ -246,7 +254,7 @@ typedef struct {
     uint8_t r_model, r_track;                   /* SD_RM_*; key tracking on (1) */
     uint8_t r_div, r_cmode, r_min, r_max;       /* the stage clock: steps a stage (0 off), SD_RC_*, the range 0..5 */
     uint16_t r_low;                             /* R4: the lows that skip the Reactor: 0 none, else 50 .. 400 Hz */
-    /* DESTROY */
+    /* DISTROY */
     uint16_t d_split[3];                        /* the crossover, MIDI x 256 (log pitch), rising */
     uint8_t d_type[4];                          /* each band's shaper, SD_DS_* */
     uint16_t d_gain[4], d_alt[4], d_level[4];   /* 0..65535: 0 .. +36 dB; ALT; the level law (32768 = 1x) */
@@ -256,7 +264,7 @@ typedef struct {
     uint16_t d_fb, d_ftime, d_spread;           /* feedback: FB 0 .. 0.9 (0 = off), TIME 1 .. 20 ms, SPREAD (the
                                                    right line up to 30 % shorter) */
     uint16_t d_tame;                            /* TAME: 0 off, then a lowpass 15 kHz .. 1.2 kHz, resonant at the top */
-    uint16_t d_mix;                             /* 0 = no DESTROY */
+    uint16_t d_mix;                             /* 0 = no DISTROY */
     uint8_t d_xover, tur_dst;                   /* SD_DX_CMP / SD_DX_LR4; TURING's DEST (below) */
     /* SPACE */
     uint16_t s_time, s_fb, s_dtone, s_dlevel;   /* 0..65535: TIME (free 1..1000 ms, or a division), FDBK, TONE, LEVEL */
@@ -390,7 +398,7 @@ typedef struct {                                /* the Reactor's state */
     volatile uint16_t shown_pos;                /* where it is, x 256: for the screen */
 } SdReactor;
 
-typedef struct {                                /* DESTROY's state */
+typedef struct {                                /* DISTROY's state */
     int32_t ic1[2][11], ic2[2][11];             /* the crossover's SVFs, a channel, Q19 (CMP uses 3, LR4 11) */
     int32_t a1[3], a2[3], a3[3];                /* their coefficients, Q30 */
     int32_t dx[2], dy[2];                       /* the DC blocker, a channel, after the bands' sum: its output x 256 */
@@ -415,7 +423,7 @@ typedef struct {                                /* DESTROY's state */
     uint8_t tame;                               /* TAME on */
     uint8_t type[4], on, rest, xover;           /* rest: nothing in, the blockers settled: no work, no output */
     int32_t mix;
-} SdDestroy;
+} SdDistroy;
 
 typedef struct {                                /* SPACE's memory: the app's (the pool) */
     int16_t dl[2][SD_SP_DMAX];                  /* the delay, a channel, Q14 (2 x full scale) */
@@ -448,6 +456,7 @@ typedef struct {                                /* a sequencer track: its patter
     SdPattern pat;                              /* the audio's copy */
     uint32_t pat_taken;
     int8_t tur_deg;                             /* TURING's NOTES on the step playing: degrees (A only) */
+    int8_t orb_x;                               /* ORBIT's transpose of the track, semitones (with xpose) */
     uint8_t seq_on, seq_step, seq_note_on, seq_nn;   /* running; the step playing; notes held; how many */
     uint8_t seq_note[4];                        /* the notes it holds: the step's, then its chord's */
     uint32_t seq_pos_q8, seq_gate_q8;           /* samples x 256 into the step; the step's gate */
@@ -499,6 +508,14 @@ typedef struct {
     uint32_t pmul;                              /* PITCH: the note's increment x pmul, Q16 */
     int32_t mvx, mvy;                           /* the nav's offset (the matrix's X / Y, MOVE's orbit), Q16 */
     int32_t echo_env;                           /* ECHO: SPACE's wet level, followed (~60 ms release), Q15 */
+    /* ORBIT (sd_seq.h): handed over as a pattern is (orb_in, odd orb_seq while the main loop writes it); the step,
+       the loops of A in it, the sub-blocks into it and in A's last loop (the glide's span) */
+    volatile uint32_t orb_seq;
+    SdOrbit orb_in, orb;
+    uint32_t orb_taken;
+    uint8_t orb_step, orb_loops;
+    volatile uint8_t orb_shown;                 /* the step playing (the screen) */
+    uint32_t orb_t, orb_loop_t, orb_loop_sb;
     /* TURING: the register (bit 0 the newest), its clock, its output and where it glides (Q15) */
     volatile uint16_t tur_reg;
     uint32_t tur_pos_q8, tur_rng;
@@ -544,10 +561,15 @@ typedef struct {
 
     uint32_t sub_left;                          /* frames left in the current sub-block */
     uint32_t frames;                            /* frames rendered since start (wraps) */
+    /* the output's limiter: the line (64 frames, L R), its gain (Q15, the sub-block's ramp), the peaks in (the last
+       block's, this one's so far) */
+    int32_t lim_buf[2u * SD_LIM_D];
+    int32_t lim_g, lim_step, lim_end;
+    int32_t lim_pk1, lim_acc;
     SdReactor r;
     int32_t vbuf[2u * SD_SUB];                  /* the voice, before the Reactor */
-    SdDestroy d;
-    int32_t dbuf[2u * SD_SUB];                  /* the voice and the Reactor, before DESTROY */
+    SdDistroy d;
+    int32_t dbuf[2u * SD_SUB];                  /* the voice and the Reactor, before DISTROY */
     SdSpace sp;
     SdSpaceMem *sm;                             /* SPACE's memory (0: no SPACE); set after sd_engine_init */
     int32_t sbuf[2u * SD_SUB];                  /* everything, before SPACE */
@@ -576,6 +598,14 @@ static void sd_engine_pattern_to(SdEngine *e, uint32_t k, const SdPattern *p)   
     t->pat_seq++;
 }
 static void sd_engine_pattern(SdEngine *e, const SdPattern *p) { sd_engine_pattern_to(e, 0, p); }
+static void sd_engine_orbit(SdEngine *e, const SdOrbit *o)   /* the main loop hands over ORBIT */
+{
+    e->orb_seq++;
+    SD_BARRIER();
+    e->orb_in = *o;
+    SD_BARRIER();
+    e->orb_seq++;
+}
 
 static void sd_engine_patch(SdEngine *e, const SdPatch *p)
 {
@@ -628,6 +658,7 @@ static void sd_engine_init(SdEngine *e)
     e->rec_trk = 0xFF;
     e->pmul = 65536;
     e->m_seed = 0x5EED1u;
+    e->lim_g = e->lim_end = 32768;              /* the limiter open */
     e->tur_reg = 0x9A5Cu;                       /* TURING's first loop: any bits, as at power-on */
     e->tur_rng = 0x7E57u;
     e->tur_out = sd_tur_dac(e->tur_reg);
@@ -898,7 +929,7 @@ static void sd_reactor_params(SdEngine *e)        /* once a sub-block: position,
     r->on = 1;
 }
 
-/* ---- DESTROY: control */
+/* ---- DISTROY: control */
 static void sd_knee_params(int32_t t, int32_t l, int32_t *T, int32_t *S, int32_t *inv)   /* a knee at t, a ceiling at l */
 {
     *T = t;
@@ -906,7 +937,7 @@ static void sd_knee_params(int32_t t, int32_t l, int32_t *T, int32_t *S, int32_t
     *inv = *S > 0 ? (int32_t)(((1u << 31) / (uint32_t)(3 * *S)) << 1) : 0;   /* 2^23 x 2^8 / (1.5 S): Q8 */
 }
 
-/* ---- DESTROY's dynamics (§5.2: SHAPE and BODY): at control rate, from each band's peak */
+/* ---- DISTROY's dynamics (§5.2: SHAPE and BODY): at control rate, from each band's peak */
 static int32_t sd_db(int32_t x)                 /* a Q19 magnitude in dB x 256 against full scale (2^19); 0: -120 dB */
 {
     uint32_t u = (uint32_t)x, e = 0;
@@ -928,7 +959,7 @@ static int32_t sd_db(int32_t x)                 /* a Q19 magnitude in dB x 256 a
  *   SHARP (SHAPE > 0): an expander that spits transients: + 2 x (fast - slow) (the attack up, the tail down),
  *   and below T down by the distance (a gentle gate). -30 .. +12 dB.
  * The envelopes: fast holds the peak and falls 60 dB in 80 ms; slow is a one-pole, 15 ms up, 150 ms down. */
-static int32_t sd_dyn(SdDestroy *d, const SdPatch *p, uint32_t k)
+static int32_t sd_dyn(SdDistroy *d, const SdPatch *p, uint32_t k)
 {
     int32_t lv = sd_db(d->pk[k]), a = p->d_shape[k] < 0 ? -p->d_shape[k] : p->d_shape[k], g, T;
     d->pk[k] = 0;
@@ -950,10 +981,10 @@ static int32_t sd_dyn(SdDestroy *d, const SdPatch *p, uint32_t k)
     return d->dyn[k] = g;
 }
 
-static void sd_destroy_params(SdEngine *e)      /* once a sub-block */
+static void sd_distroy_params(SdEngine *e)      /* once a sub-block */
 {
     const SdPatch *p = &e->patch;
-    SdDestroy *d = &e->d;
+    SdDistroy *d = &e->d;
     uint32_t k;
     for (k = 0; k < 3u; k++) {                  /* the splits: Butterworth lowpasses (k = sqrt 2) */
         int32_t n = p->d_split[k] < SD_R_LO * 256 ? SD_R_LO * 256 : p->d_split[k] > SD_R_HI * 256 ? SD_R_HI * 256 : p->d_split[k];
@@ -1201,8 +1232,32 @@ static uint32_t sd_seq_xn(const SdSeqT *t, uint32_t n)   /* a step's note, TURIN
         uint32_t key = t->pat.step[0].note, sc = t->pat.scale;
         n = sd_scale_note(key, sc, sd_scale_degree(key, sc, n) + t->tur_deg);
     }
-    v = (int32_t)n + t->xpose;
+    v = (int32_t)n + t->xpose + t->orb_x;
     return (uint32_t)(v < 0 ? 0 : v > 127 ? 127 : v);
+}
+
+/* ORBIT's transposes on both tracks, from its step (0 when it is off) */
+static void sd_orb_xpose(SdEngine *e)
+{
+    const SdOrbit *o = &e->orb;
+    uint32_t s = e->orb_step % SD_ORB_STEPS;
+    e->t[0].orb_x = o->on ? o->xa[s] : 0;
+    e->t[1].orb_x = o->on ? o->xb[s] : 0;
+}
+/* at SEQ A's one: A's loop measured (the glide's span), and after RATE loops the next step */
+static void sd_orb_one(SdEngine *e)
+{
+    const SdOrbit *o = &e->orb;
+    e->orb_loop_sb = e->orb_loop_t;
+    e->orb_loop_t = 0;
+    if (o->on && ++e->orb_loops >= SD_ORB_LOOPS(o)) {
+        e->orb_loops = 0;
+        e->orb_step = (uint8_t)((e->orb_step + 1u) % SD_ORB_LEN(o));
+        e->orb_t = 0;
+    }
+    if (e->orb_step >= SD_ORB_LEN(o)) e->orb_step = 0;   /* (LENGTH made shorter meanwhile) */
+    e->orb_shown = e->orb_step;
+    sd_orb_xpose(e);
 }
 
 /* TURING's NOTES now: its output x AMOUNT as degrees, +-12 at 100 % (0: not NOTES, or off) */
@@ -1282,6 +1337,15 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
             t->seq_count = 0xFFFFFFFFu;
             t->seq_step_q8 = e->seq_len_q8;
             t->seq_pos_q8 = t->seq_step_q8;
+            if (main) {                         /* ORBIT: its first step, A's loop as its length says (until one) */
+                uint32_t d = t->pat.div < SD_SDIVS ? t->pat.div : 2u;
+                uint32_t step = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];   /* (32-bit: <= 17 M) */
+                e->orb_step = e->orb_loops = 0;
+                e->orb_t = e->orb_loop_t = 0;
+                e->orb_loop_sb = ((step >> 8) * t->pat.len) >> SD_SUB_SHIFT;   /* (<= 66150 x 64: fits) */
+                e->orb_shown = 0;
+                sd_orb_xpose(e);
+            }
         } else if (t->seq_note_on) {
             sd_seq_off(e, t);
         }
@@ -1300,6 +1364,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
             return;
         }
         if (one) t->xpose = t->xpose_next;      /* SCL + a key: the transpose at the one */
+        if (one && main) sd_orb_one(e);         /* ORBIT: its step at A's one (B's notes take it from now on) */
         t->tur_deg = (int8_t)(main ? sd_tur_degrees(e) : 0);   /* TURING's NOTES: this step's place (A) */
         t->seq_count++;
         t->seq_step = t->sq_ord[t->sq_cur][t->sq_pos];
@@ -1361,6 +1426,17 @@ static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks
 {
     sd_seq_retime(e);                           /* first: START measures step 1 in this tempo */
     sd_tur_tick(e, e->seq_run && !e->t[0].seq_on);   /* TURING first: a step at the same time sees its new place */
+    {                                           /* ORBIT: a new one from the main loop (its step kept), its clocks */
+        uint32_t sq = e->orb_seq;
+        if (!(sq & 1u) && sq != e->orb_taken) {
+            e->orb_taken = sq;
+            e->orb = e->orb_in;
+            if (e->orb_step >= SD_ORB_LEN(&e->orb)) e->orb_step = 0;
+            sd_orb_xpose(e);
+        }
+        e->orb_t++;
+        e->orb_loop_t++;
+    }
     sd_seq_track(e, &e->t[0], e->seq_run, 1);
     if (e->seqb || e->t[1].seq_on) sd_seq_track(e, &e->t[1], e->seq_run && e->seqb, 0);
 }
@@ -1660,7 +1736,36 @@ static void sd_mod_tick(SdEngine *e)
         acc[p->tur_dst] += (src[SD_MS_TUR] * ((int32_t)p->tur_amt * 327)) >> 15;
         any = 1;
     }
-    for (k = 0; k < 4u; k++) { m[k] = p->mac[k] >> 1; any |= (uint32_t)m[k]; }
+    {                                           /* ORBIT, while A plays: the lanes, the macros' changes (gliding:
+                                                   from this step's value to the next's through the step) */
+        const SdOrbit *o = &e->orb;
+        int32_t om[4] = {0, 0, 0, 0};
+        if (o->on && e->t[0].seq_on) {
+            uint32_t s = e->orb_step % SD_ORB_STEPS, nx = (e->orb_step + 1u) % SD_ORB_LEN(o);
+            uint32_t span = e->orb_loop_sb * SD_ORB_LOOPS(o);
+            uint32_t sh = span > 65535u ? 8u : 0u;   /* (a long step: both scaled, so the product fits) */
+            int32_t f = !span || e->orb_t >= span ? 32767 :
+                        (int32_t)(((e->orb_t >> sh) * 32767u) / ((span >> sh) ? (span >> sh) : 1u));   /* (a tick's
+                                                   one 32-bit divide) */
+            for (k = 0; k < 2u; k++) {
+                int32_t v = o->lane[k][s];
+                if (!o->dst[k] || o->dst[k] >= SD_MDSTS) continue;
+                if (o->glide & (1u << k)) v += ((o->lane[k][nx] - v) * f) >> 15;   /* (200 x 32767: fits) */
+                acc[o->dst[k]] += v * 327;
+                any = 1;
+            }
+            for (k = 0; k < 4u; k++) {
+                int32_t v = o->mac[k][s];
+                if (o->glide & SD_OG_MAC) v += ((o->mac[k][nx] - v) * f) >> 15;
+                om[k] = v * 331;                /* 99: 32769 */
+            }
+        }
+        for (k = 0; k < 4u; k++) {
+            int32_t v = (p->mac[k] >> 1) + om[k];
+            m[k] = v < 0 ? 0 : v > 32767 ? 32767 : v;
+            any |= (uint32_t)m[k];
+        }
+    }
     if (!any) { e->pmul = 65536u; return; }    /* nothing: the patch as it is */
     e->m_dirty = 1;                             /* (sd_mod_restore must know every field written below) */
     /* the macros: offsets around the patch as programmed (spec §8); 0 is the patch itself */
@@ -1690,9 +1795,9 @@ static void sd_mod_tick(SdEngine *e)
         acc[SD_MD_RPOS] += sd_mw(e->move_cur[2], sd_mw(m[1], 16384));
         acc[SD_MD_WIDTH] += sd_mw(m[1], 13000);
     }
-    if (m[2] && !e->base.d_mix) {               /* BREAK on a patch without DESTROY: one of its own, the lows clean,
+    if (m[2] && !e->base.d_mix) {               /* BREAK on a patch without DISTROY: one of its own, the lows clean,
                                                    SOFT and HARD on the top two bands, at unity (else BREAK only
-                                                   faded the voice into an empty DESTROY: -5 dB, nothing gained) */
+                                                   faded the voice into an empty DISTROY: -5 dB, nothing gained) */
         static const uint8_t DT[4] = {SD_DS_NONE, SD_DS_NONE, SD_DS_SOFT, SD_DS_HARD};
         p->d_split[0] = 14170u; p->d_split[1] = 22111u; p->d_split[2] = 28436u;   /* 200 Hz, 1.2 kHz, 5 kHz */
         p->d_xover = SD_DX_CMP;
@@ -1971,7 +2076,7 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
     if (p->fx_off) {                            /* EDIT's OFF: after the matrix and the macros, so none reopens it */
         SdPatch *q = &e->patch;
         if (q->fx_off & SD_FX_REACTOR) q->r_mix = 0;
-        if (q->fx_off & SD_FX_DESTROY) q->d_mix = 0;
+        if (q->fx_off & SD_FX_DISTROY) q->d_mix = 0;
         if (q->fx_off & SD_FX_SPACE) q->s_dlevel = q->s_rlevel = 0;
         if (q->fx_off & SD_FX_FILTER) q->f_type = SD_FT_OFF;
     }
@@ -2013,7 +2118,7 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
         e->r.on = 0;                            /* off: its states keep, its coefficients refresh when it returns */
     }
     if (p->d_mix) {
-        sd_destroy_params(e);
+        sd_distroy_params(e);
         e->d.rest = 0;
         if (sd_engine_silent(e) && (!e->r.on || e->r.rest)) {   /* nothing comes in: rest once the blockers and
                                                                    the crossover have settled */
@@ -2296,7 +2401,7 @@ static void sd_reactor_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_
     }
 }
 
-/* ---- DESTROY: audio */
+/* ---- DISTROY: audio */
 SD_INLINE int32_t sd_lp(int32_t x, int32_t *ic1, int32_t *ic2, int32_t a1, int32_t a2, int32_t a3)
 {                                               /* a TPT SVF's lowpass, Q19, no saturation (k = 1.414: no ring) */
     int32_t v3 = x - *ic2;
@@ -2363,7 +2468,7 @@ SD_INLINE int32_t sd_knee(int32_t a, int32_t T, int32_t S, int32_t inv)   /* a m
         }                                                                                            \
     }
 
-static void sd_dband(SdDestroy *d, uint32_t k, uint32_t m, uint32_t pos)
+static void sd_dband(SdDistroy *d, uint32_t k, uint32_t m, uint32_t pos)
 {
     uint32_t c, i;
     int32_t gs = d->gs[k], g0 = d->g0[k] + gs * (int32_t)pos, pk = d->pk[k];   /* the gain ramps through the sub-block */
@@ -2392,7 +2497,7 @@ static void sd_dband(SdDestroy *d, uint32_t k, uint32_t m, uint32_t pos)
 /* The crossover, one channel, m frames, into the band buffers; LR4 and FB constants: each variant compiles without
  * the other's branches (C1: they were tested every sample), the coefficients in locals (the band buffers' stores
  * could alias them) */
-SD_INLINE void sd_dx_loop(SdDestroy *d, const int32_t *in, uint32_t m, uint32_t c, const int LR4, const int FB)
+SD_INLINE void sd_dx_loop(SdDistroy *d, const int32_t *in, uint32_t m, uint32_t c, const int LR4, const int FB)
 {
     uint32_t i, k;
     int32_t a1[3], a2[3], a3[3];
@@ -2436,9 +2541,9 @@ SD_INLINE void sd_dx_loop(SdDestroy *d, const int32_t *in, uint32_t m, uint32_t 
     }
 }
 
-static void sd_destroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+static void sd_distroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
 {
-    SdDestroy *d = &e->d;
+    SdDistroy *d = &e->d;
     uint32_t i, c, k;
     for (c = 0; c < 2u; c++) {
         if (d->xover == SD_DX_LR4) {
@@ -2608,7 +2713,7 @@ static void sd_space_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t 
 
 /* Render n stereo frames into out (L R L R ..., Q15 full scale +-32767, already zero: add to it).
  * n is any count; sub-blocks continue across calls. */
-/* The filter on a bank's mix, in place: one or two TPT SVF lowpass stages (as DESTROY's sd_lp), the mix x 8 inside
+/* The filter on a bank's mix, in place: one or two TPT SVF lowpass stages (as DISTROY's sd_lp), the mix x 8 inside
  * (the states' resolution at low cutoffs); out at most 4 x full scale, where the render's sum is written for it */
 static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m, uint32_t two)
 {
@@ -2628,15 +2733,30 @@ static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m
     bk->fic1[0] = i1; bk->fic2[0] = i2; bk->fic1[1] = j1; bk->fic2[1] = j2;
 }
 
+/* The limiter at a sub-block's start: the block coming out now (two back) and the one after it (just in) are
+ * measured, so the gain ramps over this block to what both need, and never stands above what this one needs (it did
+ * reach that by the end of the block before). Down within a block; up an 1/256 of the way a block (~0.19 s). */
+static void sd_lim_block(SdEngine *e)
+{
+    int32_t pk = e->lim_pk1 > e->lim_acc ? e->lim_pk1 : e->lim_acc, tgt = 32768, g = e->lim_end;
+    if (pk > SD_LIM_T) tgt = (int32_t)(((uint32_t)SD_LIM_T << 15) / (uint32_t)pk);   /* (32-bit: one a block) */
+    e->lim_pk1 = e->lim_acc;
+    e->lim_acc = 0;
+    e->lim_g = g;                               /* (where the last ramp meant to end) */
+    e->lim_end = tgt < g ? tgt : g + ((tgt - g) >> 8);
+    e->lim_step = sd_tz(e->lim_end - g, SD_SUB_SHIFT);
+    if (e->lim_end < g && e->lim_step * (int32_t)SD_SUB > e->lim_end - g) e->lim_step--;   /* (down: never short of it) */
+}
+
 static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
 {
     while (n) {
         uint32_t m, pos, i, b, k;
         int32_t *dst;
-        if (!e->sub_left) { sd_control_tick(e); e->sub_left = SD_SUB; }
+        if (!e->sub_left) { sd_control_tick(e); sd_lim_block(e); e->sub_left = SD_SUB; }
         m = n < e->sub_left ? n : e->sub_left;
         pos = SD_SUB - e->sub_left;             /* where in the sub-block this call starts: ramps continue */
-        {                                       /* voice -> (Reactor) -> (DESTROY) -> (SPACE) -> out */
+        {                                       /* voice -> (Reactor) -> (DISTROY) -> (SPACE) -> out */
             int32_t *last = e->sp.on ? e->sbuf : out, *post = e->d.on ? e->dbuf : last;
             if (e->sp.on)
                 for (i = 0; i < 2u * m; i++) e->sbuf[i] = 0;
@@ -2669,8 +2789,25 @@ static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
         }
         if (e->r.on && !e->r.rest)              /* resting: the voice is silent too */
             sd_reactor_run(e, e->vbuf, e->d.on ? e->dbuf : e->sp.on ? e->sbuf : out, m, pos);
-        if (e->d.on && !e->d.rest) sd_destroy_run(e, e->dbuf, e->sp.on ? e->sbuf : out, m, pos);
+        if (e->d.on && !e->d.rest) sd_distroy_run(e, e->dbuf, e->sp.on ? e->sbuf : out, m, pos);
         if (e->sp.on && !e->sp.rest) sd_space_run(e, e->sbuf, out, m, pos);
+        {                                       /* the limiter: each frame in, the one 64 back out, at the gain */
+            int32_t g = e->lim_g, st = e->lim_step, acc = e->lim_acc;
+            int32_t *lb = e->lim_buf;
+            for (i = 0; i < m; i++) {
+                uint32_t r = ((e->frames + i) & (SD_LIM_D - 1u)) * 2u;
+                int32_t l = out[2u * i], rr = out[2u * i + 1u], al = l < 0 ? -l : l, ar = rr < 0 ? -rr : rr;
+                acc = al > acc ? al : acc;
+                acc = ar > acc ? ar : acc;
+                out[2u * i] = (int32_t)(((int64_t)lb[r] * g) >> 15);
+                out[2u * i + 1u] = (int32_t)(((int64_t)lb[r + 1u] * g) >> 15);
+                lb[r] = l;
+                lb[r + 1u] = rr;
+                g += st;
+            }
+            e->lim_g = g;
+            e->lim_acc = acc;
+        }
         for (i = 0; i < 2u * m; i++) {          /* the output's shoulder: linear to 0.85 of full scale, then a cubic
                                                    one to it (the macros together, long tied notes, could clip hard) */
             int32_t v = out[i];

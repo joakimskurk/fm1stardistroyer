@@ -10,7 +10,7 @@
  * The patch: SD_PATCH's STRINGS (tools/cello_v4.txt, V4), or, with PARAMS (key value lines, see below), one built from them, for tuning.
  * The model: a bowed string is a sawtooth through a body. The source is the banks at the saw; the body is the
  * Reactor's four band-passes on fixed frequencies (no tracking), stages 1-3 a cello's body and 4-6 a violin's, KEY
- * moving POS so the low notes sound through the cello and the high ones through the violin; DESTROY with no
+ * moving POS so the low notes sound through the cello and the high ones through the violin; DISTROY with no
  * shaping is a four-band level (the tilt) and TAME the top's fall. */
 #include <math.h>
 #include <stdio.h>

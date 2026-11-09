@@ -24,7 +24,7 @@
  *              transposed up a fourth and a minor third at the ones; the filter opens to end
  *   3 REACTOR  VOWEL, DUO: a 4-bar melody on SEQ A, a 1-bar bass on SEQ B transposed under it (D D Bb C) at its
  *              ones; the Reactor's POS through the vowels, its MODEL changed, DRIVE and RES up into its saturation
- *   4 DESTROY  DISTROY, DUO: a riff in four segments (one in random order, one ping-pong), a ratchet, PROB; BREAK
+ *   4 DISTROY  DISTROY, DUO: a riff in four segments (one in random order, one ping-pong), a ratchet, PROB; BREAK
  *              and MOVE up; the LOOP tamed (FDBK down, TAME up), then the top band's GAIN up
  *   5 POLY     CHORDS, POLY: three-note chords on SEQ A, the arpeggiator on top (HOLD, two octaves), A transposed up a
  *              tone at the fifth bar with a new hand for the arp; UP-DN, three octaves, 1/32, RND over four
@@ -227,7 +227,7 @@ static void s3_reactor(double s0)
 #undef S
 }
 
-static void s4_destroy(double s0)
+static void s4_distroy(double s0)
 {
 #define S(x) (s0 + (x))
     int32_t v;
@@ -236,12 +236,12 @@ static void s4_destroy(double s0)
                                                    it howl: the user heard feedback) */
     KNOB99(PG_MACROS, pat.mac[1], 78, S(32), S(80));   /* MOVE: the nav jumping on the beat, the stages with it */
     if (at(S(81))) press("FX", PG_REACTOR);
-    if (at(S(82))) press("FX", PG_DESTROY);
+    if (at(S(82))) press("FX", PG_DISTROY);
     if (at(S(83.5))) { act(); say("ALGORITHM: LOOP"); }
-    KNOB99(PG_DESTROY, pat.d_fb, 7, S(85), S(96));     /* K1: FDBK down */
-    KNOB99(PG_DESTROY, pat.d_tame, 45, S(85), S(96));  /* K4: TAME up: what is left of it darker */
+    KNOB99(PG_DISTROY, pat.d_fb, 7, S(85), S(96));     /* K1: FDBK down */
+    KNOB99(PG_DISTROY, pat.d_tame, 45, S(85), S(96));  /* K4: TAME up: what is left of it darker */
     if (at(S(98))) { act(); say("ALGORITHM: band 4 (the top)"); }
-    on_ramp_page(PG_DESTROY, S(100), S(124));
+    on_ramp_page(PG_DISTROY, S(100), S(124));
     if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 86, S(100), S(124), &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
     if (at(S(128))) play(0);
     /* the bar between: POLY, CHORDS, the chords on A, B off (the arp needs its voice), the ARP page */
@@ -319,7 +319,7 @@ static void s6_turing(double s0)
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
     if (at(S(134))) press("FX", PG_REACTOR);
-    if (at(S(135))) press("FX", PG_DESTROY);
+    if (at(S(135))) press("FX", PG_DISTROY);
     if (at(S(136))) press("FX", PG_SPACE);
     if (at(S(141))) preset(SD_P_BEACON);
 #undef S
@@ -353,7 +353,7 @@ static int score(void)
     s1_nav(0);
     s2_filter(144);
     s3_reactor(288);
-    s4_destroy(432);
+    s4_distroy(432);
     s5_poly(576);
     s6_turing(720);
     return s7_space(864);

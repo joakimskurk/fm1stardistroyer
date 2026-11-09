@@ -400,13 +400,13 @@
 
   <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
     sixteen oscillators, morphed across an X/Y field; a <b>Reactor</b> of four resonators that sweep through vowels,
-    chords and combs; <b>DESTROY</b>, which splits the sound into four bands and wrecks each its own way; and
+    chords and combs; <b>DISTROY</b>, which splits the sound into four bands and wrecks each its own way; and
     <b>SPACE</b>, a delay feeding a room. Around them: a modulation matrix, four macros, a two-track step sequencer
     with segments and a Turing machine, and an arpeggiator.</p>
 
   <div class="facts">
     <div class="fact"><b>16</b><span>oscillators in four banks, morphed on an X/Y field</span></div>
-    <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DESTROY, SPACE</span></div>
+    <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DISTROY, SPACE</span></div>
     <div class="fact"><b>29</b><span>patches, and 32 places of your own</span></div>
     <div class="fact"><b>2×64</b><span>sequencer steps, with segments and a Turing machine</span></div>
   </div>
@@ -419,7 +419,7 @@
     picture under each is its spectrum, low to high, from start to end: tap it to jump.</p>
   <div id="demos"></div>
 
-  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
 
   <h2 id="try"><img src="screens/slash.png" width="68" height="28" alt="">Try it here</h2>
   <p>The firmware itself, compiled for the browser: the same C the FM-1 runs, its sound, its screen and its lights,
@@ -480,10 +480,11 @@
       </ul></div>
   </div>
   <div class="eng">
-    <img class="scr" src="screens/destroy.png" width="240" height="240" alt="DESTROY">
-    <div><h3>DESTROY <span>·</span> multiband destruction</h3>
+    <img class="scr" src="screens/distroy.png" width="240" height="240" alt="DISTROY">
+    <div><h3>DISTROY <span>·</span> multiband destruction</h3>
       <ul>
-        <li>Four bands, each with <b>GAIN</b>, <b>BIAS</b>, a shaper (SOFT HARD FOLD CRUSH), <b>LEVEL</b> and <b>PAN</b>.</li>
+        <li>Four bands, LOW to TOP, each its <b>TYPE</b> (SOFT HARD FOLD CRUSH), <b>DRIVE</b>, what the type does
+          (KNEE, SPACING, DEPTH), <b>LEVEL</b>, and <b>BIAS</b>, <b>PAN</b> and <b>SPLIT</b> on SCL.</li>
         <li><b>PHAT</b> lifts quiet parts and tails, <b>SHARP</b> spits transients.</li>
         <li>A feedback loop with <b>TAME</b> to darken it, and a limiter so it never blows up.</li>
       </ul></div>
@@ -519,10 +520,12 @@
   </div>
   <div class="eng">
     <img class="scr" src="screens/seq.png" width="240" height="240" alt="SEQ A">
-    <div><h3>PLAYING IT <span>·</span> two tracks and an arpeggiator</h3>
+    <div><h3>PLAYING IT <span>·</span> two tracks, ORBIT and an arpeggiator</h3>
       <ul>
         <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.</li>
         <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
+        <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
+          two lanes and the macros, jumping or gliding.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
       </ul></div>
   </div>
@@ -530,16 +533,16 @@
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
   <table>
     <tr><td>HOME</td><td>NAV → MACROS</td></tr>
-    <tr><td>FX</td><td>REACTOR → DESTROY → SPACE</td></tr>
+    <tr><td>FX</td><td>REACTOR → DISTROY → SPACE</td></tr>
     <tr><td>ENV</td><td>ENV → FILTER</td></tr>
     <tr><td>LFO</td><td>LFO 1 → LFO 2 → TURING → MOD</td></tr>
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
-    <tr><td>SEQ</td><td>SEQ A → SEQ B</td></tr>
+    <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track and OCT moves their octave</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
     <tr><td>EDIT</td><td>ON / OFF of what the page shows</td></tr>
-    <tr><td>PRESETS</td><td>the patch; on SEQ the pattern</td></tr>
+    <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT loads, HOME not now</td></tr>
     <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM) · MONO → DUO → POLY</td></tr>
     <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own</td></tr>
   </table>

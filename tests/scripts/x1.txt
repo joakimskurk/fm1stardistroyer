@@ -1,0 +1,13 @@
+# X1 (2026-11-09): SCL + OCT on SEQ is the octave (OCT alone the bank there). OCT+ on NAV (the octave +1), SEQ (11):
+# SCL held (3), the transpose keys from F4, C4 not on them; SCL + OCT- (0): the octave back to 0, C4 glows; SCL let go,
+# OCT+ (1): the bank (the octave stays 0). Shots: 2000 (OCT+1), 2200 (OCT+0, C4 lit), 2600 (OCT+0).
+1700 btn 1
+1800 btn 11
+1900 btndown 3
+2000 shot
+2100 btn 0
+2200 shot
+2300 btnup 3
+2400 btn 1
+2600 shot
+2700 end

@@ -79,7 +79,7 @@ static void test_chunking(void)
 {
     static const uint32_t CH[] = {1, 7, 31, 32, 33, 100, 256, 1000};
     uint32_t c, i, p;
-    for (p = 0; p < SD_PATCHES; p++) {       /* every patch: the fold ramp, the Reactor, DESTROY, SPACE continue
+    for (p = 0; p < SD_PATCHES; p++) {       /* every patch: the fold ramp, the Reactor, DISTROY, SPACE continue
                                                    across calls too */
         static SdSpaceMem cm1, cm2;
         memset(&cm1, 0, sizeof cm1);
@@ -893,8 +893,8 @@ static void test_reactor_saturation(void)         /* clean while small; DRIVE an
     for (i = 1; i < 129u; i++) CHECK(SD_RLEVEL[i] > SD_RLEVEL[i - 1u], "the level law falls at %u", i);
 }
 
-/* ---- D1: DESTROY's crossover, bias, shapers */
-static SdPatch destroy_patch(uint32_t type, uint16_t gain, uint16_t alt, int16_t bias)   /* every band alike */
+/* ---- D1: DISTROY's crossover, bias, shapers */
+static SdPatch distroy_patch(uint32_t type, uint16_t gain, uint16_t alt, int16_t bias)   /* every band alike */
 {
     SdPatch p = SD_PATCH_SINE;
     uint32_t k;
@@ -904,8 +904,8 @@ static SdPatch destroy_patch(uint32_t type, uint16_t gain, uint16_t alt, int16_t
     return p;
 }
 
-/* DESTROY alone on a sine of amp at hz: frames of output (left / right), after a settle */
-static void destroy_feed(const SdPatch *p, double hz, double amp, uint32_t frames, int32_t *outbuf)
+/* DISTROY alone on a sine of amp at hz: frames of output (left / right), after a settle */
+static void distroy_feed(const SdPatch *p, double hz, double amp, uint32_t frames, int32_t *outbuf)
 {
     static int32_t in[2u * SD_SUB];
     uint32_t i, b;
@@ -913,14 +913,14 @@ static void destroy_feed(const SdPatch *p, double hz, double amp, uint32_t frame
     sd_engine_init(&e1);
     e1.patch = *p;
     for (b = 0; b * SD_SUB < frames; b++) {
-        sd_destroy_params(&e1);
+        sd_distroy_params(&e1);
         for (i = 0; i < SD_SUB; i++) {
             int32_t x = (int32_t)lround(amp * sin(ph));
             ph += 2 * M_PI * hz / SD_FS;
             in[2u * i] = in[2u * i + 1u] = x;
             outbuf[2u * (b * SD_SUB + i)] = outbuf[2u * (b * SD_SUB + i) + 1u] = 0;
         }
-        sd_destroy_run(&e1, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
+        sd_distroy_run(&e1, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
 
@@ -938,7 +938,7 @@ static double harm_db(const int32_t *x, uint32_t n, double f, uint32_t h)   /* t
     return 20 * log10(sqrt(r[1] * r[1] + q[1] * q[1]) / sqrt(r[0] * r[0] + q[0] * q[0]) + 1e-12);
 }
 
-static void test_destroy(void)
+static void test_distroy(void)
 {
     static const double HZ[] = {60, 300, 1800, 9000};       /* a band's middle each, splits 150 800 4000 */
     uint32_t i, h, k, t, x;
@@ -946,26 +946,26 @@ static void test_destroy(void)
     {   /* neutral: the bands sum to the input (the DC blockers aside) */
         double worst = 0;
         for (h = 0; h < 4u; h++) {
-            SdPatch p = destroy_patch(SD_DS_NONE, 0, 0, 0);
+            SdPatch p = distroy_patch(SD_DS_NONE, 0, 0, 0);
             p.d_xover = (uint8_t)x;
             double ein = 0, eo = 0;
-            destroy_feed(&p, HZ[h] < 100 ? 200 : HZ[h], 8000, SD_FS / 2u, a);
+            distroy_feed(&p, HZ[h] < 100 ? 200 : HZ[h], 8000, SD_FS / 2u, a);
             for (i = SD_FS / 4u; i < SD_FS / 2u; i++) { double x = 8000 * sin(2 * M_PI * (HZ[h] < 100 ? 200 : HZ[h]) * i / SD_FS); ein += x * x; eo += (double)a[2u * i] * a[2u * i]; }
             if (fabs(10 * log10(eo / ein)) > worst) worst = fabs(10 * log10(eo / ein));
         }
-        printf("destroy %s neutral: the bands sum to the input within %.3f dB\n", x ? "LR4" : "CMP", worst);
-        CHECK(worst < 0.05, "DESTROY's bands do not sum back: %.3f dB", worst);
+        printf("distroy %s neutral: the bands sum to the input within %.3f dB\n", x ? "LR4" : "CMP", worst);
+        CHECK(worst < 0.05, "DISTROY's bands do not sum back: %.3f dB", worst);
     }
     {   /* the slope: each band alone (the others' level 0), a sine at each band's middle: how much of it it passes */
-        printf("destroy %s bands (rows: a sine at 60 300 1800 9000 Hz; columns: band 1..4 alone, dB)\n", x ? "LR4" : "CMP");
+        printf("distroy %s bands (rows: a sine at 60 300 1800 9000 Hz; columns: band 1..4 alone, dB)\n", x ? "LR4" : "CMP");
         for (h = 0; h < 4u; h++) {
             printf("   %5.0f Hz:", HZ[h]);
             for (k = 0; k < 4u; k++) {
-                SdPatch p = destroy_patch(SD_DS_NONE, 0, 0, 0);
+                SdPatch p = distroy_patch(SD_DS_NONE, 0, 0, 0);
                 double ein = 0, eo = 0;
                 p.d_xover = (uint8_t)x;
                 for (t = 0; t < 4u; t++) p.d_level[t] = t == k ? 32768 : 0;
-                destroy_feed(&p, HZ[h], 8000, SD_FS / 2u, a);
+                distroy_feed(&p, HZ[h], 8000, SD_FS / 2u, a);
                 for (i = SD_FS / 4u; i < SD_FS / 2u; i++) { double x = 8000 * sin(2 * M_PI * HZ[h] * i / SD_FS); ein += x * x; eo += (double)a[2u * i] * a[2u * i]; }
                 printf(" %6.1f", 10 * log10(eo / ein + 1e-12));
                 if (k == h) CHECK(10 * log10(eo / ein) > -3.5, "band %u passes its own middle at %.1f dB", k + 1u, 10 * log10(eo / ein));
@@ -978,13 +978,13 @@ static void test_destroy(void)
     {   /* the shapers at +24 dB on a 1 kHz sine of 0.25: each its own colour */
         static const char *const SN[SD_DSHAPES] = {"NONE", "SOFT", "HARD", "FOLD", "CRUSH"};
         for (t = SD_DS_SOFT; t < SD_DSHAPES; t++) {
-            SdPatch p = destroy_patch(t, 43690, 32768, 0);
+            SdPatch p = distroy_patch(t, 43690, 32768, 0);
             double h2, h3;
             int32_t peak = 0;
-            destroy_feed(&p, 1000, 8000, SD_FS / 2u, a);
+            distroy_feed(&p, 1000, 8000, SD_FS / 2u, a);
             h2 = harm_db(a + 2u * 8192u, 8192u, 1000, 2); h3 = harm_db(a + 2u * 8192u, 8192u, 1000, 3);
             for (i = 8192u; i < 16384u; i++) if (abs(a[2u * i]) > peak) peak = abs(a[2u * i]);
-            printf("destroy %-5s +24 dB ALT 50: h2 %6.1f h3 %6.1f dB, peak %d\n", SN[t], h2, h3, peak);
+            printf("distroy %-5s +24 dB ALT 50: h2 %6.1f h3 %6.1f dB, peak %d\n", SN[t], h2, h3, peak);
             CHECK(h3 > -30, "%s does not distort", SN[t]);
             CHECK(peak <= 4 * 32768, "%s reaches %d", SN[t], peak);
             if (t == SD_DS_SOFT) CHECK(h2 > -40, "SOFT is not asymmetric: h2 %.1f dB", h2);
@@ -992,32 +992,32 @@ static void test_destroy(void)
         }
     }
     {   /* BIAS: before HARD, even harmonics; after it no DC */
-        SdPatch p = destroy_patch(SD_DS_HARD, 43690, 0, 20000);
+        SdPatch p = distroy_patch(SD_DS_HARD, 43690, 0, 20000);
         double dc = 0;
-        destroy_feed(&p, 1000, 8000, SD_FS, a);
+        distroy_feed(&p, 1000, 8000, SD_FS, a);
         for (i = SD_FS / 2u; i < SD_FS; i++) dc += a[2u * i];
         dc /= SD_FS / 2u;
-        printf("destroy HARD with BIAS +0.3: h2 %.1f dB, DC %.1f\n", harm_db(a + 2u * 24000u, 8192u, 1000, 2), dc);
+        printf("distroy HARD with BIAS +0.3: h2 %.1f dB, DC %.1f\n", harm_db(a + 2u * 24000u, 8192u, 1000, 2), dc);
         CHECK(harm_db(a + 2u * 24000u, 8192u, 1000, 2) > -25, "BIAS makes no even harmonics");
         CHECK(fabs(dc) < 30, "a DC of %.1f after the blocker", dc);
     }
     {   /* CRUSH at ALT max: a handful of levels */
-        SdPatch p = destroy_patch(SD_DS_CRUSH, 0, 65535, 0);
+        SdPatch p = distroy_patch(SD_DS_CRUSH, 0, 65535, 0);
         uint32_t n = 0;
         int32_t seen[64];
         p.d_level[0] = p.d_level[1] = p.d_level[2] = 0;   /* the top band alone: the blocker barely moves it */
-        destroy_feed(&p, 9000, 30000, SD_FS / 4u, a);
+        distroy_feed(&p, 9000, 30000, SD_FS / 4u, a);
         (void)seen;
         for (i = 0; i < 4u; i++) n += (uint32_t)(e1.d.crush[i] == 8192);
         CHECK(n == 4u, "CRUSH's step at ALT max is not 2^13");
     }
-    {   /* MIX 0: no DESTROY at all, bit for bit */
+    {   /* MIX 0: no DISTROY at all, bit for bit */
         SdPatch p = SD_PATCH[SD_P_VOYAGE];
         sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[SD_P_VOYAGE]); sd_engine_note(&e1, 50, 100); run(&e1, a, SD_FS / 2u, 256);
         p.d_type[0] = SD_DS_FOLD; p.d_gain[0] = 65535; p.d_mix = 0;
         sd_engine_init(&e2); sd_engine_patch(&e2, &p); sd_engine_note(&e2, 50, 100); run(&e2, b, SD_FS / 2u, 256);
         for (i = 0; i < SD_FS; i++) if (a[i] != b[i]) break;
-        CHECK(i == SD_FS, "DESTROY at MIX 0 changed the sound");
+        CHECK(i == SD_FS, "DISTROY at MIX 0 changed the sound");
     }
     {   /* every shaper at every maximum, through the whole engine: bounded (and the sanitizers' second run) */
         for (t = 0; t < SD_DSHAPES; t++) {
@@ -1028,7 +1028,7 @@ static void test_destroy(void)
             sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 40, 127);
             run(&e1, a, SD_FS / 2u, 256);
             for (i = 0; i < SD_FS; i++) if (abs(a[i]) > peak) peak = abs(a[i]);
-            CHECK(peak <= 4 * 4 * 4 * 32768, "DESTROY shaper %u at max: peak %d", t, peak);   /* 4 bands x 4 FS x 4 */
+            CHECK(peak <= 4 * 4 * 4 * 32768, "DISTROY shaper %u at max: peak %d", t, peak);   /* 4 bands x 4 FS x 4 */
         }
     }
 }
@@ -1076,7 +1076,7 @@ static uint32_t first_peak(const int32_t *x, uint32_t ch, uint32_t from, uint32_
     return at;
 }
 
-/* ---- D2: DESTROY's dynamics. One band (2, 150 .. 800 Hz) alone, NONE, a 300 Hz sine whose peak follows env(t) */
+/* ---- D2: DISTROY's dynamics. One band (2, 150 .. 800 Hz) alone, NONE, a 300 Hz sine whose peak follows env(t) */
 static SdEngine dyn_e;
 static void dyn_feed(const SdPatch *p, double (*env)(double), uint32_t frames, int32_t *outbuf)
 {
@@ -1085,13 +1085,13 @@ static void dyn_feed(const SdPatch *p, double (*env)(double), uint32_t frames, i
     sd_engine_init(&dyn_e);
     dyn_e.patch = *p;
     for (b = 0; b * SD_SUB < frames; b++) {
-        sd_destroy_params(&dyn_e);
+        sd_distroy_params(&dyn_e);
         for (i = 0; i < SD_SUB; i++) {
             double t = (double)(b * SD_SUB + i) / SD_FS;
             in[2u * i] = in[2u * i + 1u] = (int32_t)lround(env(t) * sin(2 * M_PI * 300 * t));
             outbuf[2u * (b * SD_SUB + i)] = outbuf[2u * (b * SD_SUB + i) + 1u] = 0;
         }
-        sd_destroy_run(&dyn_e, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
+        sd_distroy_run(&dyn_e, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
 static double env_step(double t) { return t < 0.5 ? 328 : 10362; }            /* -40 dBFS, then -10 */
@@ -1106,7 +1106,7 @@ static double rms_db(const int32_t *a, uint32_t from, uint32_t to)
 }
 static SdPatch dyn_patch(int16_t shape, double t_db)
 {
-    SdPatch p = destroy_patch(SD_DS_NONE, 0, 0, 0);
+    SdPatch p = distroy_patch(SD_DS_NONE, 0, 0, 0);
     uint32_t k;
     p.d_xover = SD_DX_CMP;
     for (k = 0; k < 4u; k++) p.d_level[k] = k == 1u ? 32768 : 0;
@@ -1162,7 +1162,7 @@ static void test_dynamics(void)
     }
 }
 
-/* ---- D3: DESTROY's feedback, TAME, the limiter. Every band NONE at 0 dB, MIX full; input from a function */
+/* ---- D3: DISTROY's feedback, TAME, the limiter. Every band NONE at 0 dB, MIX full; input from a function */
 static SdEngine d3_e;
 static void d3_feed(const SdPatch *p, int32_t (*src)(uint32_t), uint32_t frames, int32_t *outbuf)
 {
@@ -1171,12 +1171,12 @@ static void d3_feed(const SdPatch *p, int32_t (*src)(uint32_t), uint32_t frames,
     sd_engine_init(&d3_e);
     d3_e.patch = *p;
     for (b = 0; b * SD_SUB < frames; b++) {
-        sd_destroy_params(&d3_e);
+        sd_distroy_params(&d3_e);
         for (i = 0; i < SD_SUB; i++) {
             in[2u * i] = in[2u * i + 1u] = src(b * SD_SUB + i);
             outbuf[2u * (b * SD_SUB + i)] = outbuf[2u * (b * SD_SUB + i) + 1u] = 0;
         }
-        sd_destroy_run(&d3_e, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
+        sd_distroy_run(&d3_e, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
 static int32_t src_burst(uint32_t i) { return i < 44u ? (int32_t)lround(8192 * sin(2 * M_PI * 1000 * i / SD_FS)) : 0; }
@@ -1185,7 +1185,7 @@ static double d3_hz;
 static int32_t src_sine(uint32_t i) { return (int32_t)lround(8192 * sin(2 * M_PI * d3_hz * i / SD_FS)); }
 static SdPatch d3_patch(void)
 {
-    SdPatch p = destroy_patch(SD_DS_NONE, 0, 0, 0);
+    SdPatch p = distroy_patch(SD_DS_NONE, 0, 0, 0);
     p.d_xover = SD_DX_CMP;
     return p;
 }
@@ -1225,10 +1225,10 @@ static void test_feedback(void)
         for (i = SD_FS * 3u / 2u; i < SD_FS * 2u; i++) mx = abs(a[2u * i]) > mx ? abs(a[2u * i]) : mx;
         printf("feedback FB 0.8: 1.5 .. 2 s after a burst, peak %d\n", (int)mx);
         CHECK(mx <= 2, "FB 0.8 leaves %d after 1.5 s (a limit cycle?)", (int)mx);   /* 2: the crossover's last
-                                                   bit through the DC blocker's floor, -84 dB; DESTROY rests there */
+                                                   bit through the DC blocker's floor, -84 dB; DISTROY rests there */
     }
     {   /* everything at max: +36 dB in every band, FB 0.9, noise in: it screams, bounded */
-        SdPatch p = destroy_patch(SD_DS_NONE, 65535, 0, 0);
+        SdPatch p = distroy_patch(SD_DS_NONE, 65535, 0, 0);
         int32_t mx = 0;
         p.d_xover = SD_DX_CMP;
         p.d_fb = 65535;
@@ -1241,7 +1241,7 @@ static void test_feedback(void)
         CHECK(d3_e.d.lg < 32768, "the limiter never acted at max");
     }
     {   /* the limiter alone: +36 dB NONE on a sine of 0.25 holds near 1.5 x full scale */
-        SdPatch p = destroy_patch(SD_DS_NONE, 65535, 0, 0);
+        SdPatch p = distroy_patch(SD_DS_NONE, 65535, 0, 0);
         int32_t mx = 0;
         p.d_xover = SD_DX_CMP;
         d3_hz = 300;
@@ -1579,7 +1579,7 @@ static void test_mod(void)
         SdPattern q;
         int32_t st0 = 0, st1 = 0, dl = 0, ec = 0;
         uint32_t t;
-        p = SD_PATCH[SD_P_DISTROY];                        /* DISTROY: DESTROY and SPACE on */
+        p = SD_PATCH[SD_P_DISTROY];                        /* DISTROY: DISTROY and SPACE on */
         sd_pattern_default(&q);
         mod_init(&e1, &p);
         sd_engine_pattern(&e1, &q);
@@ -1858,7 +1858,8 @@ static void run_ms(SdEngine *e, uint32_t ms)
 {
     static int32_t o[2u * SD_SUB];
     uint32_t f;
-    for (f = 0; f < ms * 441u / 10u; f += SD_SUB) sd_engine_render(e, o, SD_SUB);
+    for (f = 0; f < ms * 441u / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(e, o, SD_SUB); }   /* (zeroed
+                                                   each time, as the platform hands it: the limiter's line keeps it) */
 }
 static double band_db(const int32_t *x, uint32_t n, double f0, double f1)   /* left channel, a Hann DFT's bins */
 {
@@ -2058,7 +2059,7 @@ static void test_hand(void)
 }
 
 /* The edge (the user, 2026-11-08: a plain FM patch sounds as it should, with an edge that makes it Star Distroyer's).
- * GROWL and AURORA, an A3 in MONO and a C major chord in POLY, each with the engine the edge gave it, DESTROY, on and
+ * GROWL and AURORA, an A3 in MONO and a C major chord in POLY, each with the engine the edge gave it, DISTROY, on and
  * off (fx_off): the body (30 Hz .. 1.2 kHz) within 2 dB, the top (over 5 kHz) up by less than 12 dB, no sample at the
  * ceiling */
 typedef struct { double b0, b1, b2, a1, a2, z1, z2; } EdgeBq;
@@ -2115,7 +2116,7 @@ static void test_edge(void)
             uint32_t mode = m ? SD_MODE_POLY : SD_MODE_MONO;
             int32_t peak = 0;
             double body, top;
-            off.fx_off = SD_FX_DESTROY;
+            off.fx_off = SD_FX_DISTROY;
             edge_play(&on, mode, a, frames);
             edge_play(&off, mode, b, frames);
             for (k = 0; k < 2u * frames; k++) if ((a[k] < 0 ? -a[k] : a[k]) > peak) peak = a[k] < 0 ? -a[k] : a[k];
@@ -2152,7 +2153,7 @@ static void test_names(void)
 static void test_switches(void)
 {
     static int32_t a[2u * 2048u], b[2u * 2048u];
-    static const uint8_t BITS[4] = {SD_FX_REACTOR, SD_FX_DESTROY, SD_FX_SPACE, SD_FX_FILTER};
+    static const uint8_t BITS[4] = {SD_FX_REACTOR, SD_FX_DISTROY, SD_FX_SPACE, SD_FX_FILTER};
     SdPatch p, q;
     SdPattern pa, pb;
     uint8_t nt[8];
@@ -2214,7 +2215,7 @@ static void test_switches(void)
         e1.arp_on = 1; e1.arp_gate = 20; e1.arp_div = 0;   /* ARP on 60 too, short gates, 1/32 */
         sd_engine_note(&e1, 60, 100);
         for (sub = 0; sub < 2000u; sub++) {
-            int32_t oo[64];
+            int32_t oo[64] = {0};
             uint32_t v, s60 = 0;
             sd_engine_render(&e1, oo, 32);
             for (v = 0; v < e1.nvoices; v++) s60 += e1.voice[v].gate && e1.voice[v].note == 60u && e1.voice[v].src == SD_SRC_A;
@@ -2228,7 +2229,7 @@ static void test_switches(void)
             e1.arp_on = 1; sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100);
             cutA = onA = arpSounds = 0;
             for (sub = 0; sub < 2000u; sub++) {
-                int32_t oo[64];
+                int32_t oo[64] = {0};
                 uint32_t v, sa = 0;
                 sd_engine_render(&e1, oo, 32);
                 for (v = 0; v < e1.nvoices; v++) {
@@ -2253,8 +2254,116 @@ static void test_switches(void)
         sd_engine_note(&e1, 74, 0); run_ms(&e1, 2);
         CHECK(e1.voice[0].note != 74u || !e1.voice[0].gate, "MONO REC: the key's note stuck");
     }
-    printf("switches: EDIT OFF = level 0 (REACTOR DESTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one; "
+    printf("switches: EDIT OFF = level 0 (REACTOR DISTROY SPACE FILTER), track OFF, B in MONO, XPOSE at the one; "
            "the voices' owners and quotas\n");
+}
+
+/* ORBIT (2026-11-09): the steps on SEQ A's ones, XPOSE A moving the line, a lane to XM jumping or gliding, a macro's
+ * change, nothing when it is off, the pattern never rewritten */
+static void orbit_run(SdEngine *e, const SdPattern *p, const SdOrbit *o, uint32_t loops, uint8_t *notes, int32_t *xm,
+                      int32_t *xm_mid)
+{   /* each loop of A (4 steps): the note at its first step, XM there and half way through it */
+    static int32_t out[2u * SD_SUB];
+    uint32_t n = 0, f = 0, last = 0xFFFFFFFFu;
+    SdPatch pt = T_GLASS;
+    pt.xm = 30000;
+    sd_engine_init(e);
+    sd_engine_patch(e, &pt);
+    sd_engine_pattern(e, p);
+    if (o) sd_engine_orbit(e, o);
+    e->bpm = 120;
+    e->seq_run = 1;
+    while (n < loops && f < 60u * SD_FS) {
+        memset(out, 0, sizeof out);
+        sd_engine_render(e, out, SD_SUB);
+        f += SD_SUB;
+        if (e->t[0].seq_on && e->t[0].seq_count != last) {
+            last = e->t[0].seq_count;
+            if (e->t[0].seq_shown == 0u) { notes[n] = e->voice[e->m_last].note; xm[n] = e->patch.xm; }
+            if (e->t[0].seq_shown == 2u) xm_mid[n++] = e->patch.xm;
+        }
+    }
+}
+static void test_orbit(void)
+{
+    static SdEngine e3;
+    SdPattern p, p0;
+    SdOrbit o;
+    uint8_t nt[16];
+    int32_t xm[16], xmm[16];
+    uint32_t k;
+    sd_pattern_default(&p);
+    p.len = 4;
+    p.seg_count = 1;
+    for (k = 0; k < 4u; k++) { p.step[k].note = 60; p.step[k].type = SD_ST_NOTE; }
+    p0 = p;
+    memset(&o, 0, sizeof o);
+    CHECK(!o.on && SD_ORB_LEN(&o) == 4u && SD_ORB_LOOPS(&o) == 1u, "ORBIT's zero: off, 4 steps, a loop each");
+    o.len = 3;                                  /* off: the line as it is */
+    o.xa[1] = 5; o.xa[2] = 7;
+    orbit_run(&e3, &p, &o, 7, nt, xm, xmm);
+    CHECK(nt[0] == 60 && nt[1] == 60 && nt[2] == 60 && nt[3] == 60, "ORBIT off moved the notes (%u %u %u)", nt[0], nt[1], nt[2]);
+    o.on = 1;                                   /* on: C, F, G, C ... a loop each */
+    orbit_run(&e3, &p, &o, 7, nt, xm, xmm);
+    CHECK(nt[0] == 60 && nt[1] == 65 && nt[2] == 67 && nt[3] == 60 && nt[4] == 65 && nt[6] == 60,
+          "ORBIT XPOSE A: %u %u %u %u %u %u %u", nt[0], nt[1], nt[2], nt[3], nt[4], nt[5], nt[6]);
+    CHECK(!memcmp(&e3.t[0].pat, &p0, sizeof p0), "ORBIT rewrote the pattern");
+    o.rate = 1;                                 /* two loops a step */
+    orbit_run(&e3, &p, &o, 6, nt, xm, xmm);
+    CHECK(nt[0] == 60 && nt[1] == 60 && nt[2] == 65 && nt[3] == 65 && nt[4] == 67, "ORBIT RATE 2: %u %u %u %u %u",
+          nt[0], nt[1], nt[2], nt[3], nt[4]);
+    o.rate = 0;                                 /* a lane to XM, jumping: 0, +50 %, -50 % */
+    o.xa[1] = o.xa[2] = 0;
+    o.dst[0] = SD_MD_XM; o.lane[0][1] = 50; o.lane[0][2] = -50;
+    orbit_run(&e3, &p, &o, 4, nt, xm, xmm);
+    CHECK(xm[0] == 30000 && xm[1] > 30000 + 10000 && xm[2] < 30000 - 10000 && xmm[0] == xm[0],
+          "ORBIT lane, jumping: XM %d %d %d (mid %d)", xm[0], xm[1], xm[2], xmm[0]);
+    o.glide = SD_OG_L1;                         /* gliding: half way through step 1, half way to +50 % */
+    orbit_run(&e3, &p, &o, 4, nt, xm, xmm);
+    CHECK(xmm[0] > 30000 + 4000 && xmm[0] < xm[1], "ORBIT lane, gliding: XM %d, half way %d, then %d", xm[0], xmm[0], xm[1]);
+    o.glide = 0; o.dst[0] = 0;                  /* MUTATE +99 on step 2: XM up there */
+    o.mac[0][1] = 99;
+    orbit_run(&e3, &p, &o, 4, nt, xm, xmm);
+    CHECK(xm[0] == 30000 && xm[1] > 30000 + 5000 && xm[2] == 30000, "ORBIT MUTATE: XM %d %d %d", xm[0], xm[1], xm[2]);
+    printf("orbit: off by default; XPOSE A C F G a loop each, two with RATE 2; a lane jumping and gliding; MUTATE a "
+           "step's; the pattern untouched\n");
+}
+
+/* The output's limiter (2026-11-09: STRINGS' POLY chord at velocity 127 flattened 9 % of its samples, the macros and
+ * slots at full up to a fifth of them on 20 patches): the chord now never past its ceiling, a quiet note untouched (the
+ * gain open, the output the input 64 frames later) */
+static void test_limiter(void)
+{
+    static SdEngine e2;
+    static int32_t o[2u * 2048u];
+    uint32_t t, i, flat = 0;
+    int32_t pk = 0, gmin = 32768, g1;
+    sd_engine_init(&e2);
+    sd_engine_patch(&e2, &SD_PATCH[SD_P_STRINGS]);
+    e2.mode = SD_MODE_POLY;
+    run_ms(&e2, 20);
+    sd_engine_note(&e2, 48, 127); sd_engine_note(&e2, 55, 127); sd_engine_note(&e2, 60, 127); sd_engine_note(&e2, 63, 127);
+    for (t = 0; t < 60u; t++) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e2, o, 2048u);
+        for (i = 0; i < 2u * 2048u; i++) { int32_t a = abs(o[i]); if (a > pk) pk = a; flat += a >= 32767; }
+        if (e2.lim_g < gmin) gmin = e2.lim_g;
+    }
+    CHECK(pk <= SD_LIM_T + SD_LIM_T / 100 && !flat && gmin < 32768, "the limiter: STRINGS' chord at %d (ceiling %d), %u "
+          "samples flat, its gain down to %d", pk, SD_LIM_T, flat, gmin);
+    g1 = gmin;
+    sd_engine_init(&e2);
+    sd_engine_patch(&e2, &T_GLASS);
+    run_ms(&e2, 20);
+    sd_engine_note(&e2, 60, 60);
+    for (t = 0, gmin = 32768; t < 20u; t++) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e2, o, 2048u);
+        if (e2.lim_g < gmin) gmin = e2.lim_g;
+    }
+    CHECK(gmin == 32768, "the limiter acted on a quiet note (gain %d)", gmin);
+    printf("limiter: STRINGS' POLY chord at velocity 127 peaks %.3f x full scale, none flat (the gain down to %.1f dB); "
+           "a quiet note untouched\n", pk / 32768.0, 20.0 * log10(g1 / 32768.0));
 }
 
 /* TURING (2026-11-09): a modulation source in the patch. Off by default; CHANGE 0 a locked loop of LENGTH steps;
@@ -2359,6 +2468,8 @@ int main(void)
     test_alias();
     test_nowhere();
     test_turing();
+    test_limiter();
+    test_orbit();
     test_gen();
     test_reactor_bypass();
     test_reactor_response();
@@ -2370,7 +2481,7 @@ int main(void)
     test_reactor_rest();
     test_reactor_makeup();
     test_reactor_saturation();
-    test_destroy();
+    test_distroy();
     test_dynamics();
     test_reactor_r4();
     test_feedback();

@@ -14,7 +14,7 @@
  * the twelve after it are this cue's); only the notes, the macros' moves, the cello's opening and the mix are
  * this tool's:
  *   CELLO    STRINGS, the bowed cello (a saw through the Reactor's body, HARM): the melody, the heart.
- *            At the start it is filtered (TAME and DESTROY's upper bands) and opens over eight bars, in a long
+ *            At the start it is filtered (TAME and DISTROY's upper bands) and opens over eight bars, in a long
  *            hall with a dotted-quarter delay.
  *   CELLO 2  the same cello, a harmony under the melody (the nearest chord tone a third or more below)
  *   LOW STR  the same cello on the roots, a long note a chord: the section's floor
@@ -64,7 +64,7 @@ typedef struct {
     SdPattern q;
     uint8_t held[4];
     uint32_t nheld;
-    uint16_t l2, l3;                            /* the cellos: DESTROY's upper band levels as programmed */
+    uint16_t l2, l3;                            /* the cellos: DISTROY's upper band levels as programmed */
 } Track;
 static Track tr[NT];
 
@@ -392,7 +392,7 @@ static void play(Track *t, const Ev *ev, uint32_t n, double b0, double b1)   /* 
 }
 
 /* The cellos' filter and space through the form (the user: "at the start the melody lacks a proper filter, and
-   plenty of space"). TAME (1.2 kHz, resonant) and DESTROY's upper bands close the cello to ~700 Hz at the start
+   plenty of space"). TAME (1.2 kHz, resonant) and DISTROY's upper bands close the cello to ~700 Hz at the start
    and open it to its own 22000 over the first eight bars. The space is a long dark hall with a dotted-quarter
    ping-pong delay in A; it narrows to the patch's own hall through B, stays there for the climaxes, then opens
    again for the ending. */

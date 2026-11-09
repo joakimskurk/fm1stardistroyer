@@ -2,7 +2,7 @@
 
 **Status:** Plan v0.2, companion to *FM1 Design & Feasibility v0.1*, section 6
 **Instrument name:** Star Distroyer (decided 2026-11-02)
-**Priority:** sound first. The sequencer waits for VOICE, REACTOR and DESTROY (§7).
+**Priority:** sound first. The sequencer waits for VOICE, REACTOR and DISTROY (§7).
 **Scope:** Only the sequencer is advanced beyond the baseline spec. It stays a standard step sequencer; the one
 addition is **segments** (§3).
 
@@ -123,6 +123,32 @@ page on LFO, after the two LFOs; its own DEST and AMOUNT, and a SOURCE in MOD to
   the CUTOFF, its sixth scene's ostinato and DERELICT's pedal by NOTES, THE SONG's bridge by NOTES.
 - Tests: `test_turing` (off by default; CHANGE 0 a loop of LENGTH, 100 of twice it; DEST XM moves XM; NOTES in the
   scale, the pattern untouched).
+- *SCL + OCT on SEQ is the octave* (the user: an octave changed in REC "stays, but the buttons don't work on this
+  page"): OCT alone is still the step bank there; with SCL held it moves the keys' octave, so the transpose keys
+  reach every octave and C4 (no transpose) can always be found. `tests/scripts/x1.txt`.
+
+**Built 2026-11-09: ORBIT, a sequencer over the sequencer.** The user: "a sub-sequencer page where I can set
+different parameters in 2-8 steps, so I can make a bigger change, like transposing a sequence over time". On the
+choices: a step lasts loops of SEQ A; it sets XPOSE A, XPOSE B, two free lanes and the macros; GLIDE per lane; the
+name ORBIT, SEQ's third page, saved with the pattern.
+- *The data* (`SdOrbit`, sd_seq.h): on, LENGTH 2..8, RATE 1 / 2 / 4 loops, GLIDE bits (lane 1, lane 2, the macros),
+  the lanes' DEST; per step XPOSE A, XPOSE B (±24), the lanes (±100 %), the macros (±99). Every value a change from
+  where the player is: 0 changes nothing, so ORBIT never fights the knobs or SCL's transpose.
+- *The engine:* handed over as a pattern is (`sd_engine_orbit`); its step moves at A's one after RATE loops
+  (`sd_orb_one`), START from step 1; the transposes add to each track's (`SdSeqT.orb_x`); the lanes go into the
+  matrix and the macros' changes onto the macros, while A plays; a gliding lane runs from this step's value to the
+  next's over the step, its span A's last loop (measured at each one; at START the pattern's length).
+- *The page:* SEQ A → SEQ B → ORBIT. The first white keys (or ALGORITHM) pick a step: K1 XPOSE A, K2 XPOSE B, K3
+  lane 1, K4 lane 2; SCL: MUTATE MOVE BREAK MACRO 4. The last black key: SETUP (LENGTH RATE DEST 1 DEST 2; SCL:
+  GLIDE 1, GLIDE 2, GLIDE M). The keys play nothing there; their lights: the steps, the picked one full, the one
+  playing flipped. PRESETS and SAVE are SEQ A's pattern's, and its ORBIT with it (slot 3: the patterns' slots, and
+  the ones saved before, unchanged).
+- Tests: `test_orbit` (off by default; C F G a loop each, RATE 2; a lane jumping and gliding; a macro's change; the
+  pattern untouched); `tests/scripts/o1.txt` the page.
+- *PRESETS browses* (the user: "browse the presets without them changing at once"; EDIT, on the choice): turning
+  opens the list and the sound stays; EDIT loads the one picked (its light blinks meanwhile), HOME (or 8 s untouched)
+  is not now, another button closes the list and does its own. On SEQ and ORBIT the list is the patterns (SAVED,
+  EMPTY), the one playing marked NOW. `tests/scripts/b1.txt`; the host scripts press EDIT after their turns.
 
 ---
 
@@ -324,9 +350,9 @@ REC with EDIT on = live recording; stopped, a key writes the next step (step rec
 
 ## 7. Work plan
 
-**Sound comes first.** Phase 0–3 (benchmark harness, VOICE, REACTOR, DESTROY) get the attention; the sequencer does not
+**Sound comes first.** Phase 0–3 (benchmark harness, VOICE, REACTOR, DISTROY) get the attention; the sequencer does not
 run in parallel with them. The only sequencer work before then is a minimal note driver for auditioning patches
-(a fixed 16-step loop, no segments, no locks) — enough to hear VOICE → REACTOR → DESTROY move in time. S0–S6 start
+(a fixed 16-step loop, no segments, no locks) — enough to hear VOICE → REACTOR → DISTROY move in time. S0–S6 start
 when Gate D (musical identity) is passed for all three engines. Because the sequencer has almost no DSP risk, waiting
 costs nothing: the design here is settled.
 
@@ -338,7 +364,7 @@ costs nothing: the design here is settled.
 | S3 | Parameter locks (sparse pool), STEP + param grammar | Locks follow steps under REV/P-P/RND (test) |
 | S4 | Motion lanes, interpolation along playback order, REC + param | Reversed segment reverses motion without jumps (test) |
 | S5 | Pattern save/load in one flash sector; `SEQ.*` mod sources | Save/load round-trip; no flash access from audio (asserted) |
-| S6 | Connect to real VOICE / REACTOR / DESTROY | Seq + mod inside its 5–10 % CPU budget under the worst-case patch (Gate B) |
+| S6 | Connect to real VOICE / REACTOR / DISTROY | Seq + mod inside its 5–10 % CPU budget under the worst-case patch (Gate B) |
 
 ### Validation gates for the sequencer
 

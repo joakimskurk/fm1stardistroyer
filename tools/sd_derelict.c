@@ -247,16 +247,16 @@ static int pulse_score(void)
     lfo_to_turing(SEC(5) + 0.5);
     if (at(SEC(5) + 3.5)) tur_edit();           /* on: the pedal moves */
     if (at(SEC(5) + 5)) press("FX", PG_REACTOR);
-    if (at(SEC(5) + 6.5)) press("FX", PG_DESTROY);
+    if (at(SEC(5) + 6.5)) press("FX", PG_DISTROY);
     if (at(SEC(5) + 8)) { act(); say("ALGORITHM: band 4 (the top)"); }
     if (at(SEC(5) + 9.5)) {                     /* SCL + ALGORITHM: the top band's shaper to CRUSH */
-        on_page(PG_DESTROY, "a shaper off DESTROY");
+        on_page(PG_DISTROY, "a shaper off DISTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
         say("SCL + ALGORITHM: SHAPE CRUSH (band 4)");
     }
-    KNOB99(PG_DESTROY, pat.d_gain[3], 58, SEC(5) + 10, SEC(5) + 22);   /* K1: its GAIN */
+    KNOB99(PG_DISTROY, pat.d_gain[3], 58, SEC(5) + 10, SEC(5) + 22);   /* K1: its GAIN */
     if (at(SEC(5) + 24)) press("HOME", PG_NAV);
     if (at(SEC(5) + 25.5)) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[2], 62, SEC(5) + 26, SEC(6) - 6);   /* BREAK */

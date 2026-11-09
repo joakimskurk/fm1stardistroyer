@@ -45,7 +45,7 @@ PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", H
           HERE / "app" / "player.js": "player.js",
           ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf": "orbitron.ttf",
           ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
-SCREENS = ("splash", "nav", "macros", "reactor", "destroy", "space", "env", "filter", "lfo", "mod", "seq", "turing",
+SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "turing", "orbit",
            "arp")
 # the demos: each one FM-1 played by one person (tools/sd_play.h's rules); DERELICT four such passes layered
 DEMOS = [
@@ -58,7 +58,7 @@ DEMOS = [
               "back, PULSAR's 16ths, ION's bass and ORBITAL's taiko near, MONOLITH's and DISTROY's braams, a sine "
               "under it all, the macros stepping each bar. Eight parts layered as a multitrack."},
     {"id": "range", "wav": "build/audio/range/star_distroyer_range.wav", "title": "RANGE",
-     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DESTROY, POLY, TURING and SPACE."},
+     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DISTROY, POLY, TURING and SPACE."},
 ]
 # the spectrum's picture: 40 Hz .. 16 kHz on a log scale, 75 dB of range, in the screen's ice
 SPEC_W, SPEC_H, SPEC_N = 1600, 240, 8192

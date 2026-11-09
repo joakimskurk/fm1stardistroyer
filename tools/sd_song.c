@@ -251,7 +251,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     for (i = 0; i < 4; i++) { if (at(S(3) + i * 0.1)) key(HAND[i], 1); if (at(S(5) + i * 0.1)) key(HAND[i], 0); }
     if (at(S(16))) { act(); e.arp_mode = SD_AM_UPDN; say("K1: MODE UP-DN"); }
     if (at(S(32))) press("FX", PG_REACTOR);
-    if (at(S(34))) press("FX", PG_DESTROY);
+    if (at(S(34))) press("FX", PG_DISTROY);
     if (at(S(36))) press("FX", PG_SPACE);
     KNOB99(PG_SPACE, pat.s_fb, 62, S(38), S(80));
     KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* SCL + K1: D-LEVEL */

@@ -27,9 +27,9 @@ static uint32_t mode = SD_MODE_MONO;            /* GLO's */
 static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform.c: (k10 x k10) >> 8, ~1 full) */
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
-enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DESTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_TURING,
+enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DISTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_TURING,
        PG_MOD, PG_SEQA, PG_SEQB };            /* (SEQ last: page >= PG_SEQA is SEQ) */
-static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DESTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
+static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DISTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
                                       "LFO 2", "TURING", "MOD", "SEQ A", "SEQ B"};
 static int page = PG_NAV;
 
@@ -89,7 +89,8 @@ static uint16_t u99(int32_t d) { d = d < 0 ? 0 : d > 99 ? 99 : d; return (uint16
 static void on_ramp_page(int pg, double s0, double s1) { if (q >= s0 && pq <= s1) on_page(pg, "a knob of another page"); }
 
 /* ---- the patch, the patterns */
-static void preset(uint32_t i)                  /* PRESETS (not on SEQ): a stock patch */
+static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned to a stock patch, then EDIT to load it
+                                                   (since 2026-11-09; one gesture here) */
 {
     char t[48];
     if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
@@ -125,7 +126,7 @@ static void line(SdPattern *p, const int16_t *n, uint32_t len, uint32_t gate)
     }
 }
 static SdPattern pa_cur;                        /* track A's pattern as the player left it */
-static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS on SEQ: a saved pattern */
+static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS on SEQ: a saved pattern (and EDIT) */
 {
     char t[48];
     on_page(trk ? PG_SEQB : PG_SEQA, "a pattern loaded off its track's page");

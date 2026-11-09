@@ -25,7 +25,7 @@
 </p>
 
 Star Distroyer turns the FM-1 into one instrument with four engines in a row. A **voice** of sixteen oscillators,
-morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DESTROY**,
+morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DISTROY**,
 which splits the sound into four bands and wrecks each its own way; and **SPACE**, a delay feeding a room. Around them
 are a modulation matrix with a Turing machine, four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
@@ -34,7 +34,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 > and in the FM-1 emulator. It has **not yet been tested on a real FM-1**, and there is no release yet.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DESTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
@@ -68,13 +68,18 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="docs/readme/screen_destroy.png" width="256" alt="DESTROY"></td>
+<td valign="top"><img src="docs/readme/screen_distroy.png" width="256" alt="DISTROY"></td>
 <td valign="top">
 
-**DESTROY**: multiband destruction.
-- Four bands (LR4 or complementary crossovers), each with **GAIN**, **BIAS**, a shaper (NONE SOFT HARD FOLD CRUSH)
-  and its **ALT**, **LEVEL** and **PAN**.
-- Dynamics in each band: **PHAT** lifts quiet parts and tails, **SHARP** spits transients, and **BODY** sets where.
+**DISTROY**: multiband destruction.
+- Four bands, LOW, LO-MID, HI-MID and TOP (LR4 or complementary crossovers). ALGORITHM picks one, and the hint line
+  names it.
+- Each band: **TYPE** (NONE SOFT HARD FOLD CRUSH), **DRIVE**, what the type does (**KNEE**, **SPACING** or **DEPTH**)
+  and **LEVEL**; with SCL, **BIAS**, **PAN**, **DYNAMIC** and **SPLIT** (its upper edge, in Hz).
+- Dynamics in each band: **PHAT** lifts quiet parts and tails, **SHARP** spits transients, and **BODY** (SCL +
+  ALGORITHM) sets where.
+- The picture: the bands on a frequency axis, as tall as their drive, the splits in Hz under them. EDIT on a patch
+  with no bands yet sets four that sound.
 - A feedback loop (1–20 ms, spread) with **TAME** to darken it, and a safety limiter so it never blows up.
 
 </td>
@@ -112,7 +117,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 **Four macros** on HOME. 0 is the patch as programmed.
 - **MUTATE**: the voice's FM, warp, fold and detune.
 - **MOVE**: the nav in orbit or jumping on the beat, the Reactor's POS, the width.
-- **BREAK**: the Reactor's drive and DESTROY's gain, ALT, bias and feedback, the top bands first.
+- **BREAK**: the Reactor's drive and DISTROY's gain, ALT, bias and feedback, the top bands first.
 - **MACRO 4**: BODY, AIR or DROWN, as the patch chooses.
 
 </td>
@@ -124,7 +129,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
 - **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, TURING, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and
   RAND. The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
-- **Destinations:** across all four engines, from PITCH and XM to the Reactor's POS, DESTROY's SPLIT and SPACE's DECAY.
+- **Destinations:** across all four engines, from PITCH and XM to the Reactor's POS, DISTROY's SPLIT and SPACE's DECAY.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars), restarted by a note, or
   ONE cycle a note.
 
@@ -158,7 +163,21 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **Segments A–F:** the pattern cut on the white keys, each with REPEAT, ORDER (forwards, reverse, ping-pong,
   random), SKIP and LENGTH.
 - **REC** records from the keys: stopped, step by step; playing, into the step that plays.
-- **SCL held** transposes a track from the keys, taken at its next one.
+- **SCL held** transposes a track from the keys (C4 none), taken at its next one; SCL + OCT moves the keys' octave,
+  for a transpose past them (OCT alone turns the step bank there).
+
+</td>
+</tr>
+<tr>
+<td valign="top"><img src="docs/readme/screen_orbit.png" width="256" alt="ORBIT"></td>
+<td valign="top">
+
+**ORBIT**, SEQ's third page: a sequencer over the sequencer, for a change over time.
+- 2–8 steps on the first white keys, each **1, 2 or 4 loops** of SEQ A; a step changes at A's one.
+- Each step: **XPOSE A** and **XPOSE B** (±24), two free lanes each to its **DEST** (any matrix destination,
+  ±100 %), and with SCL the four macros' changes. Every value is a change from where you are: 0 changes nothing.
+- The last black key is SETUP: LENGTH, RATE, DEST 1, DEST 2; with SCL, **GLIDE** for each lane and the macros
+  (jump at the step, or glide through it to the next). EDIT switches it; it is saved with the pattern.
 
 </td>
 </tr>
@@ -187,16 +206,16 @@ LEDs show what the keys do.
 | Control | What it does |
 | --- | --- |
 | **HOME** | NAV → MACROS |
-| **FX** | REACTOR → DESTROY → SPACE |
+| **FX** | REACTOR → DISTROY → SPACE |
 | **ENV** | ENV → FILTER |
 | **LFO** | LFO 1 → LFO 2 → TURING → MOD |
 | **ARP** | the arpeggiator |
-| **SEQ** | SEQ A → SEQ B |
+| **SEQ** | SEQ A → SEQ B → ORBIT |
 | **K1–K4** | the four values in the row on top |
-| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track |
-| **ALGORITHM** | the page's choice, named on the hint line; SCL + ALGORITHM the second |
-| **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DESTROY, SPACE, FILTER, ARP, a track, TURING |
-| **PRESETS** | the patch; on SEQ the pattern |
+| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track and OCT moves their octave |
+| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); SCL + ALGORITHM the second |
+| **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DISTROY, SPACE, FILTER, ARP, a track, TURING |
+| **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** loads, HOME not now |
 | **SELECT** · **GLO** | the tempo (40–240 BPM) · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
 
@@ -282,6 +301,8 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 - **CPU:** in fm1-emu, DISTROY's loop takes **40.7 %** of the chip (POLY with SEQ and ARP: 44 %). The budget is under
   half, as Dinghy's [rules](docs/RULES.md) ask, because USB, the key scan and the screen need the rest. The emulator
   counts instructions, not cycles, so the real chip has the last word.
+- **The output:** a limiter that looks 1.45 ms ahead turns a peak down before it comes, to −1.4 dBFS, so extreme
+  modulation, the macros at full or a loud POLY chord never square off; a soft shoulder after it is the last safety.
 - **Generated:** the oscillator's laws are tables from `tools/gen_tables.py`.
 - **The plans:** [the sound](docs/sd/Star_Distroyer_FM1_Sound_Plan_v0.1.md) and
   [the sequencer](docs/sd/Star_Distroyer_FM1_Sequencer_Plan_v0.2.md), with every step's measurements.

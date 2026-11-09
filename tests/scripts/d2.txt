@@ -1,6 +1,8 @@
-# D2: SPLIT (PRESETS +7 from DISTROY) in the loop on the DESTROY page (FX twice); SEL held: band 1's SHAPE and BODY,
+# (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
+# D2: SPLIT (PRESETS +7 from DISTROY) in the loop on the DISTROY page (FX twice); SEL held: band 1's SHAPE and BODY,
 # then ALGORITHM (MIX) and GLO (XOVER). Buttons: SEL 3, FX 2, GLO 7, PLAY 12. Encoders: K1..K4 2..5, ALGORITHM 1, PRESETS 6.
 1700 enc 6 7
+1750 btn 6
 1800 btn 12
 2000 btn 2
 2100 btn 2
