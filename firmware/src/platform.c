@@ -45,7 +45,11 @@ enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_KNOB2 = 3, ENC_KNOB
 #endif
 
 #ifdef DINGHY_HOST
+#ifdef DINGHY_WEB
+#include "../../web/app/web_host.c"            /* in a browser: the page's FM-1 (web/app/), WebAssembly */
+#else
 #include "../../tests/host.c"                  /* on a computer: a fake FM-1 (tests/host.c) */
+#endif
 #else
 #include <stdint.h>
 #include "fm1_time.h"

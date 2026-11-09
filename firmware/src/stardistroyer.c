@@ -64,7 +64,7 @@ static void app_idle(void);
 
 static SdEngine eng;
 /* SPACE's memory, ~213 KB: the pool (as gfx.c's canvas; the host on macOS: Mach-O has no .pool section) */
-#if defined(DINGHY_HOST) && defined(__APPLE__)
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
 static SdSpaceMem space_mem;
 #else
 static SdSpaceMem space_mem __attribute__((section(".pool")));
@@ -88,12 +88,14 @@ static void app_audio(int32_t *out, uint32_t n)
     dt = sd_ticks() - t0;
     if (dt > cpu_worst) cpu_worst = dt;
     cpu_frames += n;
+#ifndef DINGHY_WEB                              /* (in a browser there is no chip to measure: CPU --) */
     if (cpu_frames >= SD_FS) {                  /* once a second: the worst, against one interrupt's period */
         uint32_t period = n * 1000u / 441u * SD_TICKS_PER_US * 10u;   /* n frames in ticks: n * 22.68 us */
         cpu_permille = period ? cpu_worst * 1000u / period : 0u;
         cpu_worst = 0;
         cpu_frames = 0;
     }
+#endif
 }
 
 /* ---- the screen's palette: near black, ice-white lines, red accents */
@@ -177,23 +179,37 @@ static char *put_u(char *p, uint32_t v)
 
 
 /* The splash: the logo, stars streaming past behind it and now and then one shooting across. 1.5 s, drawn in two
- * halves a frame; the main loop's platform_poll keeps USB and MIDI alive meanwhile. */
+ * halves a frame; the main loop's platform_poll keeps USB and MIDI alive meanwhile. (In a browser, web/app/, the
+ * main loop draws its frames a pass at a time: splash_begin, then splash_draw.) */
 #define SPLASH_MS 1500u
 #define STARS 56u
-static void splash(void)
+static int32_t sx[STARS], sy[STARS], sv[STARS];
+static void splash_begin(void)
 {
-    static int32_t sx[STARS], sy[STARS], sv[STARS];
-    uint32_t seed = 0x5D15u, i, t0 = fm1_ms, last = ~0u;
+    uint32_t seed = 0x5D15u, i;
     for (i = 0; i < STARS; i++) {
         seed = seed * 1103515245u + 12345u; sx[i] = (int32_t)(seed >> 8 & 0xFFFFu) % (240 << 4);
         seed = seed * 1103515245u + 12345u; sy[i] = (int32_t)(seed >> 8 & 0xFFFFu) % 240;
         seed = seed * 1103515245u + 12345u; sv[i] = 6 + (int32_t)(seed >> 8 & 0xFFFFu) % 70;   /* 1/16 px a ms */
     }
+}
+static void splash_draw(uint32_t now);
+static void splash(void)
+{
+    uint32_t t0 = fm1_ms, last = ~0u;
+    splash_begin();
     while (fm1_ms - t0 < SPLASH_MS) {
-        uint32_t now = fm1_ms - t0, half;
+        uint32_t now = fm1_ms - t0;
         platform_poll();
         if (now / 33u == last) continue;        /* ~30 frames a second */
         last = now / 33u;
+        splash_draw(now);
+    }
+}
+static void splash_draw(uint32_t now)           /* a frame, now ms in */
+{
+    uint32_t i, half;
+    {
         for (half = 0; half < 2u; half++) {
             int32_t y0 = (int32_t)half * 120;
             cv_begin(240, 120, C_BG);
@@ -261,7 +277,7 @@ typedef struct { uint32_t used; SdPattern p[UPATTERNS]; } UserPatterns;
 #define USEQ_HALF ((uint32_t)(uintptr_t)&((UserPatterns *)0)->p[UPATTERNS / 2u])
 _Static_assert(sizeof(UserPatches) <= SLOT_MAX, "a slot holds them");
 _Static_assert(sizeof(UserPatterns) / 2u + sizeof(SdPattern) <= SLOT_MAX, "two slots hold the patterns");
-#if defined(DINGHY_HOST) && defined(__APPLE__)
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
 static UserPatches upat;
 static UserPatterns useq;
 #else
@@ -1843,10 +1859,20 @@ static void app_idle(void)
     if (idle_ok) midi_in();
 }
 
+#ifdef DINGHY_WEB
+#define APP_STATE static                        /* in a browser (web/app/): a pass a call, its state kept between */
+#else
+#define APP_STATE
+#endif
 static void app_main(void)
 {
-    uint32_t prev = 0, k, t_change = 0, dirty = 0, frame_at = 0;
-    uint8_t held[27] = {0};
+    APP_STATE uint32_t prev = 0, k, t_change = 0, dirty = 0, frame_at = 0;
+    APP_STATE uint8_t held[27] = {0};
+#ifdef DINGHY_WEB
+    static uint32_t started, splash_t0, splash_last = ~0u;
+    if (!started) {
+        started = 1;
+#endif
 
     sd_engine_init(&eng);
     {                                           /* the pool is not cleared at boot: SPACE's lines start silent */
@@ -1877,10 +1903,28 @@ static void app_main(void)
     sd_engine_pattern_to(&eng, 1, &seq_other);
     eng.seqb = 1;
 
+#ifdef DINGHY_WEB
+        splash_begin();
+        splash_t0 = fm1_ms;
+    }
+    if (splash_t0 != ~0u) {                     /* the splash, as splash() draws it: a frame each 33 ms */
+        uint32_t now = fm1_ms - splash_t0;
+        platform_poll();
+        if (now < SPLASH_MS) {
+            if (now / 33u != splash_last) { splash_last = now / 33u; splash_draw(now); }
+            return;
+        }
+        splash_t0 = ~0u;
+        lcd_fill(0, 0, 240, 240, C_BG);
+        return;
+    }
+    do {                                        /* one pass (a millisecond) a call */
+#else
     splash();
     lcd_fill(0, 0, 240, 240, C_BG);
 
     for (;;) {
+#endif
         uint32_t keys, down, up, rel, b, lit = 0, sq;
         int32_t oct = (int8_t)set.oct, e;
         uint32_t base = (uint32_t)((int32_t)KEY0 + 12 * oct);
@@ -2296,5 +2340,9 @@ static void app_main(void)
             settings_save(&set, sizeof set);
             dirty = 0;
         }
+#ifdef DINGHY_WEB
+    } while (0);
+#else
     }
+#endif
 }

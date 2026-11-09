@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://joakimskurk.github.io/fm1stardistroyer/"><b>The page: hear it, and install it from the browser →</b></a>
+  <a href="https://joakimskurk.github.io/fm1stardistroyer/"><b>The page: hear it, play it in the browser, and install it →</b></a>
 </p>
 
 <p align="center">
@@ -250,7 +250,15 @@ tests/run_host.sh tests/scripts/q1.txt       # the whole firmware on the host: a
 ./build.sh                                   # -> build/stardistroyer.fwsc
 tools/emu_cpu.sh build/stardistroyer.fwsc    # the chip's load in fm1-emu
 sh tests/run_tests.sh                        # the update path, the loader, the installer, the flash maps
+sh web/app/build.sh                          # the player: the firmware as WebAssembly (clang + lld, wasm32)
+node tests/web_test.mjs build/web/stardistroyer.wasm   # ... boots, plays, turns pages, saves
 ```
+
+The page's player (`web/app/`) is the same `firmware/src/stardistroyer.c`, built on `web/app/web_host.c` (an FM-1 for
+the browser, as `tests/host.c` is one for a computer) instead of the chip: no imports, no C library. It runs in the
+page's audio thread (`worklet.js`), its main loop a pass for each millisecond its sound is worth; `player.js` draws
+the FM-1's panel around its screen. Without a wasm32 clang here, any Docker image with clang and lld builds it:
+`docker run --rm -v "$PWD":/w -w /w IMAGE sh web/app/build.sh`.
 
 `tests/run_sd.sh` also renders the demos into `build/audio/`. Each is played the way one person plays one FM-1: a
 stock patch, the app's own controls and the voice rules.
@@ -278,10 +286,12 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 - **The platform's docs:** [API](docs/API.md), [rules](docs/RULES.md), [SMK-37](docs/SMK37.md) and
   [make it yours](docs/MAKE-IT-YOURS.md).
 - **Departures from Dinghy 0.5's own files:**
-  - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host.
+  - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host and in the browser.
+  - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `tools/build.py`: the identity FM-1_962XY.
-  - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`).
+  - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`) with the
+    player built and tested.
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Credits and licence
 

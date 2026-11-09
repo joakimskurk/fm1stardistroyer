@@ -9,11 +9,14 @@ in the browser, the firmware, the demos.
                                    offered)
   audio/                           DERELICT, CINEMATIC and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
                                    and each one's spectrum as a picture (WebP), low to high, left to right
+  app/                             the player: the firmware as WebAssembly (web/app/build.sh: build/web/stardistroyer.wasm),
+                                   its audio thread (worklet.js), its panel (player.js), the logo's font for the panel (and its licence)
   screens/                         the pictures (docs/readme: the logo's line, the screens, the signal flow; web/og.png
                                    and web/icon.png from web/make_og.py)
   .nojekyll                        (served as it is)
 
   tests/run_sd.sh                  (first: the renders)
+  sh web/app/build.sh              (and the player)
   python3 web/make_site.py build/stardistroyer.fwsc VERSION OUT_DIR
 
 The package must be an FM-1 one of Star Distroyer's (its identity FM-1_962XY) with its update loader in it (which the
@@ -38,6 +41,10 @@ BLOCKS, BLK, KEEP = 20, 0x30, 0x2F
 ART = ROOT / "docs" / "readme"
 PICTURES = {ART / "logo_line.png": "logo.png", ART / "slash.png": "slash.png", ART / "chain.svg": "chain.svg",
             HERE / "og.png": "og.png", HERE / "icon.png": "icon.png"}
+PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", HERE / "app" / "worklet.js": "worklet.js",
+          HERE / "app" / "player.js": "player.js",
+          ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf": "orbitron.ttf",
+          ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
 SCREENS = ("splash", "nav", "macros", "reactor", "destroy", "space", "env", "filter", "lfo", "mod", "seq", "turing",
            "arp")
 # the demos: each one FM-1 played by one person (tools/sd_play.h's rules); DERELICT four such passes layered
@@ -125,14 +132,19 @@ def main(pkg, version, out):
     for d in DEMOS:
         if not (ROOT / d["wav"]).exists():
             raise SystemExit(f"{d['wav']}: missing (tests/run_sd.sh renders it)")
+    for src in PLAYER:
+        if not src.exists():
+            raise SystemExit(f"{src.relative_to(ROOT)}: missing (sh web/app/build.sh makes the player)")
     name = f"stardistroyer-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
     if out.exists():
         shutil.rmtree(out)
-    for sub in ("firmware", "screens", "audio"):
+    for sub in ("firmware", "screens", "audio", "app"):
         (out / sub).mkdir(parents=True)
     shutil.copy(pkg, out / "firmware" / name)
     for src, dst in PICTURES.items():
         shutil.copy(src, out / "screens" / dst)
+    for src, dst in PLAYER.items():
+        shutil.copy(src, out / "app" / dst)
     for s in SCREENS:
         shutil.copy(ART / f"screen_{s}.png", out / "screens" / f"{s}.png")
     demos = []
@@ -155,7 +167,8 @@ def main(pkg, version, out):
     (out / ".nojekyll").write_text("")
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     print(f"site: {out}: index.html ({len(html)} B), firmware/{name} ({len(raw)} B, {product}), "
-          f"{len(demos)} demos, {len(PICTURES) + len(SCREENS)} pictures, {size // 1024} KB in all")
+          f"{len(demos)} demos, {len(PICTURES) + len(SCREENS)} pictures, the player "
+          f"({(out / 'app' / 'stardistroyer.wasm').stat().st_size} B), {size // 1024} KB in all")
 
 
 if __name__ == "__main__":

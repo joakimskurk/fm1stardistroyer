@@ -21,7 +21,7 @@ complete source under the same licence too.
 | What | Licence | Where |
 | --- | --- | --- |
 | Terminus font 8x16 (ter-u16n), rendered into `firmware/gen/felucca_font.h` | SIL OFL 1.1 | `assets/fonts/Terminus-LICENSE.txt` |
-| Orbitron (The Orbitron Project Authors, The League of Moveable Type), unchanged in `assets/fonts/Orbitron-VariableFont_wght.ttf`: the logo's letters, rendered by `tools/gen_logo.py` into `firmware/src/sd_logo.h` and the pictures in `docs/readme/` and `web/` | SIL OFL 1.1 | `assets/fonts/Orbitron-OFL.txt` |
+| Orbitron (The Orbitron Project Authors, The League of Moveable Type), unchanged in `assets/fonts/Orbitron-VariableFont_wght.ttf`: the logo's letters, rendered by `tools/gen_logo.py` into `firmware/src/sd_logo.h` and the pictures in `docs/readme/` and `web/`; on the page, the player panel's letters (served with its licence, `app/orbitron-OFL.txt`) | SIL OFL 1.1 | `assets/fonts/Orbitron-OFL.txt` |
 | JieLi AC79 SDK: `uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin` are read from your SDK checkout at build time and placed in the package; no SDK files are in this tree | Apache-2.0 | <https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK> |
 
 ## The logo
