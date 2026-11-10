@@ -654,7 +654,10 @@ PHASER.
 - *Built:* the delay reads with linear interpolation and glides to a new TIME like a tape (~12 ms). It has a one-pole
   TONE, and FDBK up to 0.95 rounds toward zero. Every store has a shoulder past 1.5 × full scale, so a long feedback
   saturates instead of growing.
-  - Ping-pong takes the mono sum into the left and crosses the feedback.
+  - Ping-pong takes the mono sum into the left and crosses the feedback. (2026-11-10, the user: "I only got it on
+    one side": the right had only the left's echo x FDBK, so at a low FDBK the second echo was quiet or gone. Now the
+    left's echo goes into the right whole and the right's comes back x FDBK^2: the echoes in pairs, the right as loud
+    as the left, each down by FDBK on average, as in stereo; the patches' tails as long. `test_pingpong`.)
   - Synced, TIME steps through twelve divisions of the note driver's sixteenth.
   - The reverb takes the dry and the echoes (mono) through four Schroeder allpasses (g 0.625) into four lines with a
     Hadamard matrix.

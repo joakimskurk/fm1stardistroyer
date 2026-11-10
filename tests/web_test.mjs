@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // The page's player (web/app/): the firmware as WebAssembly, run here as the page's audio thread runs it. It boots
 // (the splash), a key plays, a press and release in one quantum still count, SCL held is held, a button turns a
-// page, an encoder changes the tempo, SAVE writes the store, a stored store comes back after a restart. Writes the
+// page, an encoder changes the tempo, SAVE writes the store, a stored store comes back after a restart, a MIDI clock
+// (as the page's MIDI button passes it on) leads the tempo and START plays. Writes the
 // screens it saw as PPM (OUT-*.ppm) to look at.
 //   node tests/web_test.mjs build/web/stardistroyer.wasm [OUT]
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -100,6 +101,24 @@ run(y, 2500);
 const set = new Uint8Array(y.memory.buffer, y.web_store(), 8);
 check(set[0] === 1, 'after a restart the settings are there');
 ppm(y, 'restart');
+
+let clkT = 0, nextP = 0;                           // a MIDI clock at 100 BPM, its pulses between the quanta
+function runClock(x, ms, bpm) {
+  for (let t = 0; t < ms; t += 128 / 44.1) {
+    x.web_run(128);
+    clkT += 128 / 44.1;
+    while (nextP <= clkT) { x.web_midi(0xF8, 0, 0); nextP += 60000 / bpm / 24; }
+  }
+}
+const stat = (x) => lcd(x).slice(222 * 240);
+const st0 = stat(y);
+runClock(y, 1500, 100);
+const st1 = stat(y);
+check(differ(st0, st1) > 20, `a MIDI clock leads: its tempo, CLK, on the status line (${differ(st0, st1)} pixels)`);
+y.web_midi(0xFA, 0, 0);
+runClock(y, 600, 100);
+check(differ(st1, stat(y)) > 10, `MIDI START plays: the status line's square (${differ(st1, stat(y))} pixels)`);
+ppm(y, 'clock');
 
 console.log(fails ? `web_test: ${fails} FAILED` : `web_test: all passed (${bytes.length} B of WebAssembly)`);
 process.exit(fails ? 1 : 0);
