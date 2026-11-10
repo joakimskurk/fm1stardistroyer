@@ -45,7 +45,7 @@ MUTATE "off by default, 0 %"; storage "whatever is best and actually fits".
   says so; a ratchet cuts its tower, a PROB under 100 puts a red dot over it. `sd_render pattern` plays a 32-step
   line with all of it (`build/audio/q1_pattern_*.wav`); `tests/scripts/q3.txt`. fm1-emu: 47.1 % worst, 39.9 % on
   average (within the readout's noise of before).
-- Not built: parameter locks, motion lanes, MIDI clock.
+- Not built: parameter locks, motion lanes. (MIDI clock: built 2026-11-10, below.)
 - *Fit it:* fm1-emu, DISTROY in the loop: the worst interrupt 46.9 % (46.6 % before), 39.7 % on average. Image
   110.8 KB, RAM 48.0 KB, pool 276 KB of 344 KB. Tests: `sd_test` (segments, orders, skips, DIV, SWING, TIE, SLIDE,
   MUTATE at the one, the editing), `tests/scripts/q1.txt` (the page, segments, REC), `q2.txt` (SAVE and recall).
@@ -149,6 +149,31 @@ name ORBIT, SEQ's third page, saved with the pattern.
   opens the list and the sound stays; EDIT loads the one picked (its light blinks meanwhile), HOME (or 8 s untouched)
   is not now, another button closes the list and does its own. On SEQ and ORBIT the list is the patterns (SAVED,
   EMPTY), the one playing marked NOW. `tests/scripts/b1.txt`; the host scripts press EDIT after their turns.
+
+**Built 2026-11-10: the transposes IN KEY.** The user: "if I transpose SEQ B, will it keep to SEQ A's key and
+root?" It did not: a transpose was semitones. Now, by default, a track's transpose (SCL + a key, K4 XPOSE, ORBIT's
+XPOSE) moves each note as many degrees of SEQ A's scale as A's key is from the key the transpose names (+5: up a
+fourth in the key), a note off the scale keeping its step off it, a chord tone by tone (`sd_seq_xn`, `SdEngine.xkey`).
+SCL + EDIT on SEQ or ORBIT switches it to CHROM (semitones, as before); it is the player's setting (`set.xchrom`,
+kept in flash), the values marked KEY while it is on, the hint line saying it with SCL held. The demos keep CHROM
+(sd_play.h), so they play as they did. `test_xkey` (A +2 in C minor: D F Ab Eb, CHROM D F A E; B +4 to Eb in A's
+key; C minor up to Eb major).
+
+**Built 2026-11-10: MIDI clock.** The user: "if I connect it to a device with MIDI sync, will the modulation and
+the sequencer sync?" They did not: the platform passed the clock and the transport on, and the app dropped them.
+Now the main loop counts the pulses (24 a quarter, USB or the jack; two clocks: the first, until it has been quiet
+for 500 ms) and the engine moves everything on the tempo by them (`sd_clk_tick`): the tracks, ORBIT (on A's one),
+ARP, TURING, the synced LFOs and MOVE advance by a clock time, `clk_adv` a sub-block, which on the FM-1's own tempo
+is the sub-block itself and with a clock goes as far as the pulses have, carried between them at their tempo and
+never as far as the next one, so nothing can drift. While the tracks play, the step's unit holds and the pulses
+carry a new tempo (a step stays 6 pulses); the tempo heard (SPACE's synced time, the status line, CLK) is the mean
+of the last 8 beats, taken when it moves by 0.4 % (two beats 6 % away: at once). START and CONTINUE play from step 1
+at the next pulse (CONTINUE too: the song position is not passed on); STOP stops; half a second without pulses, the
+FM-1's own tempo. The synced LFOs count their cycles on the clock time from the one at START (exact: they keep to
+the steps for good, with or without a clock), and MOVE draws on the one. SCL + PLAY switches SYNC AUTO / INT
+(`set.sync_int`, kept in flash); SELECT says the tempo is the clock's. `test_clock`
+(100 BPM against 120, 4 ms of random lateness, 140 BPM, STOP and START, the pulses gone: every step 0..5.4 ms after
+its 6th pulse, never before; the LFO's beat with every 24th), `tests/scripts/k1.txt`.
 
 ---
 

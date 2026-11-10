@@ -284,6 +284,8 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     memset(&sm, 0, sizeof sm);
     e.sm = &sm;
     e.seqb = 1;                                 /* the app: B there, silent until it has notes */
+    e.xkey = 0;                                 /* the transposes CHROM (SCL + EDIT, set before): these were played
+                                                   so, before IN KEY (the app's default since 2026-11-10) */
     e.bpm = (uint8_t)bpm;
     e.mode = SD_MODE_MONO;
     setup();

@@ -90,6 +90,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 
 **SPACE**: a delay into a room, last in the chain.
 - Stereo or ping-pong, free (1 ms – 1 s) or on the beat (1/32 … 1/2, triplets, dotted), with **FDBK** and **TONE**.
+  Ping-pong comes in pairs: an echo on the left, then one as loud on the right.
 - The room is four diffusers into a four-line network, with **SIZE**, **DECAY** and **TONE**. The echoes go into it.
 
 </td>
@@ -130,8 +131,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, TURING, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and
   RAND. The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
 - **Destinations:** across all four engines, from PITCH and XM to the Reactor's POS, DISTROY's SPLIT and SPACE's DECAY.
-- **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars), restarted by a note, or
-  ONE cycle a note.
+- **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars, from the one at PLAY),
+  restarted by a note, or ONE cycle a note.
 
 </td>
 </tr>
@@ -165,6 +166,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **REC** records from the keys: stopped, step by step; playing, into the step that plays.
 - **SCL held** transposes a track from the keys (C4 none), taken at its next one; SCL + OCT moves the keys' octave,
   for a transpose past them (OCT alone turns the step bank there).
+- **IN KEY** (the default): a transpose moves the notes in degrees of SEQ A's scale from its key, so B keeps to A's
+  key and root, and a chord moves tone by tone (C minor up a third in C minor: E♭ major). +5 is up a fourth in the
+  key, +7 a fifth. **SCL + EDIT** on SEQ switches to **CHROM**, in semitones. ORBIT's XPOSE follows it too.
 
 </td>
 </tr>
@@ -193,6 +197,12 @@ and the keys take the rest. No source cuts another's note. What does not fit is 
 The keys remember what is held: in MONO, hold a note, play a second and let it go, and the first sounds again,
 legato.
 
+**MIDI clock**, over USB or the TRS jack, leads while it comes (SYNC AUTO): both tracks, ORBIT, ARP, TURING, the
+synced LFOs and MOVE move by its pulses, so they cannot drift from the other gear, and SPACE's synced echoes take its
+tempo. START or CONTINUE plays from step 1 at the next pulse, STOP stops, and the status line shows the clock's tempo
+with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **SCL + PLAY** switches to SYNC INT,
+where a clock is not heard.
+
 </td>
 </tr>
 </table>
@@ -212,12 +222,12 @@ LEDs show what the keys do.
 | **ARP** | the arpeggiator |
 | **SEQ** | SEQ A → SEQ B → ORBIT |
 | **K1–K4** | the four values in the row on top |
-| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track and OCT moves their octave |
+| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track (IN KEY or CHROM: SCL + EDIT) and OCT moves their octave |
 | **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); SCL + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DISTROY, SPACE, FILTER, ARP, a track, TURING |
 | **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** loads, HOME not now |
-| **SELECT** · **GLO** | the tempo (40–240 BPM) · MONO → DUO → POLY |
-| **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
+| **SELECT** · **GLO** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
+| **PLAY** · **REC** · **SAVE** | the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own (32 patches, 32 patterns) |
 
 The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/stardistroyer.c).
 

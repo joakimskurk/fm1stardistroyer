@@ -493,7 +493,8 @@
     <img class="scr" src="screens/space.png" width="240" height="240" alt="SPACE">
     <div><h3>SPACE <span>·</span> a delay into a room</h3>
       <ul>
-        <li>Stereo or ping-pong, free (1 ms – 1 s) or on the beat, with feedback and tone.</li>
+        <li>Stereo or ping-pong (an echo left, then one as loud right), free (1 ms – 1 s) or on the beat, with feedback
+          and tone.</li>
         <li>The room: four diffusers into a four-line network, with <b>SIZE</b>, <b>DECAY</b> and <b>TONE</b>.</li>
       </ul></div>
   </div>
@@ -527,6 +528,8 @@
         <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
           two lanes and the macros, jumping or gliding.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
+        <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, TURING and the synced LFOs move by its
+          pulses and never drift; START plays from step 1, STOP stops. SCL + PLAY: SYNC AUTO or INT.</li>
       </ul></div>
   </div>
 
@@ -539,12 +542,12 @@
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
     <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track and OCT moves their octave</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), and OCT moves their octave</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
     <tr><td>EDIT</td><td>ON / OFF of what the page shows</td></tr>
     <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT loads, HOME not now</td></tr>
-    <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM) · MONO → DUO → POLY</td></tr>
-    <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own</td></tr>
+    <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM; a MIDI clock's while one leads: CLK) · MONO → DUO → POLY</td></tr>
+    <tr><td>PLAY · REC · SAVE</td><td>the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own</td></tr>
   </table>
   <div class="shots">
     <figure><img class="scr" src="screens/env.png" width="240" height="240" alt="ENV"><figcaption>ENV</figcaption></figure>

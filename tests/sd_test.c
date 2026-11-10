@@ -2258,6 +2258,192 @@ static void test_switches(void)
            "the voices' owners and quotas\n");
 }
 
+/* SPACE's ping-pong (2026-11-10, the user: "I only got it on one side"): the first echo on the left, the second on the
+ * right as loud, at FDBK 0 too; the third down by FDBK^2, as the stereo mode's after two */
+static void test_pingpong(void)
+{
+    static SdEngine e5;
+    static int32_t o[2u * 512u];
+    static const uint16_t FB[2] = {0, 32000};
+    uint32_t f, t, k, n, per = (uint32_t)(0.300 * SD_FS);
+    for (f = 0; f < 2u; f++) {
+        SdPatch p = T_GLASS;
+        double el[4] = {0, 0, 0, 0}, er[4] = {0, 0, 0, 0};
+        p.s_mode = SD_SP_PP; p.s_time = 65535u * 300u / 999u; p.s_fb = FB[f]; p.s_dlevel = 50000; p.s_rlevel = 0;
+        p.s_dtone = 65535;
+        sd_engine_init(&e5);
+        memset(&tsm, 0, sizeof tsm);
+        e5.sm = &tsm;
+        sd_engine_patch(&e5, &p);
+        run_ms(&e5, 20);
+        sd_engine_note(&e5, 60, 127);
+        for (t = 0, n = 0; t < 4u * per / 512u + 1u; t++) {
+            memset(o, 0, sizeof o);
+            if (t == 4u) sd_engine_note(&e5, 60, 0);
+            sd_engine_render(&e5, o, 512u);
+            for (k = 0; k < 512u; k++, n++)
+                if (n / per < 4u) { el[n / per] += (double)o[2u * k] * o[2u * k]; er[n / per] += (double)o[2u * k + 1u] * o[2u * k + 1u]; }
+        }
+        CHECK(el[1] > 100.0 * er[1] && er[2] > 100.0 * el[2] && fabs(10.0 * log10(er[2] / el[1])) < 1.0,
+              "ping-pong at FDBK %u: the 1st echo L %.1f dB (R %.1f), the 2nd R %.1f dB (L %.1f)", FB[f],
+              10.0 * log10(el[1] + 1), 10.0 * log10(er[1] + 1), 10.0 * log10(er[2] + 1), 10.0 * log10(el[2] + 1));
+    }
+    printf("ping-pong: the first echo left, the second right as loud (FDBK 0 and 49 %%)\n");
+}
+
+/* MIDI clock (2026-11-10, the user: "if I connect it to a device with MIDI sync, will the modulation and the sequencer
+ * sync?"). Pulses at 100 BPM against the FM-1's own 120, each up to 4 ms late at random (USB, the main loop), START
+ * at a pulse; from 60 s 140 BPM; STOP and START again; from 100 s none. Each step starts no sooner than its 6th
+ * pulse and within the lateness and two sub-blocks after it, for the whole run and through the change; a synced LFO
+ * of a beat starts its cycles with every 24th pulse; the tempo is measured; 0.5 s without pulses: the FM-1's own */
+static void test_clock(void)
+{
+    static SdEngine e6;
+    static int32_t o[2u * SD_SUB];
+    static double pt[16384];                    /* each pulse's time, frames */
+    static uint32_t st_f[4096];                 /* each step's first frame (the last START's on) */
+    SdPatch p = T_GLASS;
+    const uint32_t LAT = 176u, END = 102u * SD_FS, STOP_F = 100u * SD_FS;
+    double t = 1000.0, d_prev = 0, late_lo = 1e9, late_hi = -1e9, lfo_lo = 1e9, lfo_hi = -1e9, b100 = 0, b140 = 0;
+    uint32_t np = 0, nd = 0, f, k, rng = 0x1234567u, start_p = 48u, last_cnt = 0xFFFFFFFFu, nst = 0, cyc = 0;
+    uint32_t ph_last = 0, steps_on = 0, own_ok = 0, stopped = 0, restarted = 0, lfo0 = 0;
+    double dl[16384];
+    p.lfo_mode[0] = SD_LM_SYNC;
+    p.lfo_rate[0] = 16384u + 100u;              /* (12 divisions: the 4th, a beat) */
+    sd_engine_init(&e6);
+    sd_engine_patch(&e6, &p);
+    e6.bpm = 120;
+    while (np < 16384u && t < (double)STOP_F) { /* the pulses and when the main loop hands them over */
+        double d;
+        pt[np] = t;
+        rng = rng * 1103515245u + 12345u;
+        d = t + (double)((rng >> 16) % (LAT + 1u));
+        dl[np] = d < d_prev ? d_prev : d;       /* (in order) */
+        d_prev = dl[np];
+        t += SD_FS * 60.0 / ((t < 60.0 * SD_FS ? 100.0 : 140.0) * 24.0);
+        np++;
+    }
+    for (f = 0; f < END; f += SD_SUB) {
+        while (nd < np && dl[nd] <= (double)f) {   /* what the main loop read since the last sub-block (clk_rt) */
+            e6.clk_in++;
+            if (nd == start_p) { e6.seq_run = 1; e6.clk_start++; nst = 0; last_cnt = 0xFFFFFFFFu; cyc = 0; }
+            nd++;
+        }
+        if (f <= 80u * SD_FS && 80u * SD_FS < f + SD_SUB) {   /* STOP; START again a beat after the next one */
+            e6.seq_run = 0;
+            stopped = 1;
+            for (k = nd; k < np && (k - start_p) % 24u; k++) {}
+            start_p = k + 24u;
+        }
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e6, o, SD_SUB);
+        if (e6.seq_run && e6.t[0].seq_count != last_cnt) {   /* a step began at this sub-block's first frame */
+            last_cnt = e6.t[0].seq_count;
+            if (nst < 4096u) st_f[nst] = f;
+            if (start_p + 6u * nst < np && f < STOP_F) {
+                double late = (double)f - pt[start_p + 6u * nst];
+                if (late < late_lo) late_lo = late;
+                if (late > late_hi) late_hi = late;
+                steps_on++;
+                if (stopped && nst == 0u) restarted = 1;
+            }
+            nst++;
+        }
+        if (e6.seq_run && e6.lfo_ph[0] < ph_last) {   /* the LFO's cycle began */
+            if (start_p + 24u * cyc < np && f < STOP_F) {
+                double late = (double)f - pt[start_p + 24u * cyc];
+                if (late < lfo_lo) lfo_lo = late;
+                if (late > lfo_hi) lfo_hi = late;
+            }
+            if (cyc == 0u && e6.lfo_ph[0] == 0u) lfo0 = 1;
+            cyc++;
+        }
+        ph_last = e6.lfo_ph[0];
+        if (f <= 55u * SD_FS && 55u * SD_FS < f + SD_SUB) b100 = e6.clk_beat;
+        if (f <= 78u * SD_FS && 78u * SD_FS < f + SD_SUB) b140 = e6.clk_beat;
+    }
+    if (nst > 8u && !e6.clk_on) {               /* no pulses: the steps at 120 BPM's 16th (5512.5 frames) again */
+        double sp = (double)(st_f[nst - 1u] - st_f[nst - 5u]) / 4.0;
+        own_ok = fabs(sp - 5512.5) < SD_SUB;
+    }
+    CHECK(steps_on > 700u && late_lo >= 0.0 && late_hi <= LAT + 2.0 * SD_SUB,
+          "MIDI clock: %u steps from %.0f to %.0f frames after their pulse (0 .. %u)", steps_on, late_lo, late_hi,
+          LAT + 2u * SD_SUB);
+    CHECK(lfo0 && cyc > 20u && lfo_lo >= 0.0 && lfo_hi <= LAT + 2.0 * SD_SUB,
+          "MIDI clock: the synced LFO's cycles from %.0f to %.0f frames after every 24th pulse (from 0 at START: %u)",
+          lfo_lo, lfo_hi, lfo0);
+    CHECK(fabs(b100 - 26460.0) < 26460.0 * 0.006 && fabs(b140 - 18900.0) < 18900.0 * 0.006,
+          "MIDI clock: the tempo measured %.0f and %.0f frames a beat (26460, 18900)", b100, b140);
+    CHECK(restarted && own_ok && e6.tempo_q8 == e6.seq_len_q8,
+          "MIDI clock: START again %u, the FM-1's own tempo after the pulses %u", restarted, own_ok);
+    printf("MIDI clock: %u steps %.0f..%.0f frames after their pulse (lateness to 4 ms), the LFO's beat %.0f..%.0f, "
+           "the tempo 100 -> 140 BPM, START again, its own after\n", steps_on, late_lo, late_hi, lfo_lo, lfo_hi);
+}
+
+/* IN KEY (2026-11-10, the user: "if I transpose SEQ B, will it keep to SEQ A's key and root?"): the transposes in
+ * degrees of A's scale from its key, a chord tone by tone; CHROM in semitones, as before */
+static uint32_t xkey_notes(SdEngine *e, const SdPattern *a, const SdPattern *b, int32_t xa, int32_t xb, uint32_t key,
+                           uint32_t steps, uint8_t *na, uint8_t *nb)
+{   /* the notes A and B start on their first steps: A's lowest held, B's */
+    static int32_t out[2u * SD_SUB];
+    uint32_t n = 0, f = 0, last = 0xFFFFFFFFu, v;
+    sd_engine_init(e);
+    sd_engine_patch(e, &T_GLASS);
+    e->mode = SD_MODE_POLY;
+    sd_engine_pattern_to(e, 0, a);
+    sd_engine_pattern_to(e, 1, b);
+    e->seqb = 1;
+    e->xkey = (uint8_t)key;
+    e->t[0].xpose_next = (int8_t)xa;
+    e->t[1].xpose_next = (int8_t)xb;
+    e->bpm = 120;
+    run_ms(e, 10);
+    e->seq_run = 1;
+    while (n < steps && f < 10u * SD_FS) {
+        memset(out, 0, sizeof out);
+        sd_engine_render(e, out, SD_SUB);
+        f += SD_SUB;
+        if (e->t[0].seq_on && e->t[0].seq_count != last) {
+            uint8_t lo = 127, bn = 0;
+            last = e->t[0].seq_count;
+            for (v = 0; v < e->nvoices; v++) {
+                if (!e->voice[v].gate) continue;
+                if (e->voice[v].src == SD_SRC_A && e->voice[v].note < lo) lo = e->voice[v].note;
+                if (e->voice[v].src == SD_SRC_B) bn = e->voice[v].note;
+            }
+            na[n] = lo; nb[n++] = bn;
+        }
+    }
+    return n;
+}
+static void test_xkey(void)
+{
+    static SdEngine e4;
+    static const uint8_t LINE[4] = {60, 63, 67, 62};   /* C minor: C Eb G D */
+    SdPattern a, b;
+    uint8_t na[8], nb[8];
+    uint32_t k, v, chord[3];
+    sd_pattern_default(&a);
+    a.len = 4; a.seg_count = 1; a.scale = SD_SC_MINOR;
+    for (k = 0; k < 4u; k++) { a.step[k].note = LINE[k]; a.step[k].type = SD_ST_NOTE; a.step[k].gate = 90; }
+    sd_pattern_default(&b);                     /* B: C3 held, its own scale MAJOR (IN KEY follows A's) */
+    b.len = 4; b.seg_count = 1; b.scale = SD_SC_MAJOR;
+    for (k = 0; k < 4u; k++) { b.step[k].note = 48; b.step[k].type = SD_ST_NOTE; b.step[k].gate = 90; }
+    xkey_notes(&e4, &a, &b, 2, 4, 1, 4, na, nb);
+    CHECK(na[0] == 62 && na[1] == 65 && na[2] == 68 && na[3] == 63, "IN KEY, A +2: %u %u %u %u (D F Ab Eb)", na[0], na[1], na[2], na[3]);
+    CHECK(nb[0] == 51, "IN KEY, B +4 in A's C minor: %u (Eb3)", nb[0]);
+    xkey_notes(&e4, &a, &b, 2, 4, 0, 4, na, nb);
+    CHECK(na[0] == 62 && na[1] == 65 && na[2] == 69 && na[3] == 64 && nb[0] == 52, "CHROM, A +2: %u %u %u %u, B +4: %u",
+          na[0], na[1], na[2], na[3], nb[0]);
+    a.step[0].chord[0] = 3; a.step[0].chord[1] = 7;   /* C minor on step 1, up to Eb in key: Eb G Bb, major */
+    for (k = 1; k < 4u; k++) a.step[k].type = SD_ST_TIE;
+    xkey_notes(&e4, &a, &b, 3, 0, 1, 1, na, nb);
+    for (k = 0, v = 0; v < e4.nvoices && k < 3u; v++) if (e4.voice[v].gate && e4.voice[v].src == SD_SRC_A) chord[k++] = e4.voice[v].note;
+    CHECK(k == 3u && chord[0] + chord[1] + chord[2] == 63u + 67u + 70u, "IN KEY, the chord: %u %u %u (Eb G Bb)",
+          chord[0], k > 1u ? chord[1] : 0u, k > 2u ? chord[2] : 0u);
+    printf("in key: A +2 in C minor D F Ab Eb (CHROM D F A E), B +4 to Eb in A's key, Cm +3 to Eb major\n");
+}
+
 /* ORBIT (2026-11-09): the steps on SEQ A's ones, XPOSE A moving the line, a lane to XM jumping or gliding, a macro's
  * change, nothing when it is off, the pattern never rewritten */
 static void orbit_run(SdEngine *e, const SdPattern *p, const SdOrbit *o, uint32_t loops, uint8_t *notes, int32_t *xm,
@@ -2470,6 +2656,9 @@ int main(void)
     test_turing();
     test_limiter();
     test_orbit();
+    test_xkey();
+    test_pingpong();
+    test_clock();
     test_gen();
     test_reactor_bypass();
     test_reactor_response();

@@ -75,7 +75,9 @@
  *   MIX         dry <-> wet; 0 is no DISTROY at all
  *
  * S1, SPACE (Sound Plan §5.5, the user's design): a delay into a reverb, last in the chain.
- *   delay       stereo, or ping-pong (the mono sum in on the left, the sides crossing back); TIME free 1..1000 ms or
+ *   delay       stereo, or ping-pong (the mono sum in on the left; the left's echo into the right whole, the right's
+ *               back to the left x FDBK^2: the echoes in pairs, the right as loud as the left, each echo down by FDBK
+ *               on average, as in stereo; 2026-11-10, the user: "I only got it on one side"); TIME free 1..1000 ms or
  *               synced to the note driver's sixteenth (1/32 .. 1/2, triplets, dotted); a new time glides there (a tape,
  *               ~12 ms); in its loop TONE (a one-pole lowpass), FDBK (0 .. 0.95), a soft ceiling at ~1.9 x
  *   reverb      four Schroeder allpasses (diffusion), then a 4-line FDN mixed by a Hadamard matrix; SIZE scales the
@@ -230,6 +232,7 @@ enum { SD_LM_SYNC = 1, SD_LM_KEY = 2, SD_LM_ONE = 4 };   /* lfo_mode's bits: to 
                                                    unipolar (0..1): a SAW is a ramp down to the patch's value inside each
                                                    note (the user: "ramp-down curves that modulate within a note") */
 #define SD_LFO_DIVS 12                          /* SYNC: a cycle of 1 .. 64 sixteenths */
+#define SD_CLK_NB 8u                            /* MIDI clock: its tempo, the mean of this many beats */
 static const uint8_t SD_LFO_DIV[SD_LFO_DIVS] = {1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64};
 enum { SD_M4_BODY, SD_M4_AIR, SD_M4_DROWN, SD_M4S };   /* MACRO 4's kind (the spec's options A, B and DROWN) */
 
@@ -437,6 +440,7 @@ typedef struct {                                /* SPACE's state */
     int32_t lpd[2], flp[4];                     /* the tone lowpasses: the delay's, each line's */
     int32_t flen[4], ftgt[4];                   /* the lines' lengths, moving a sample a sub-block toward their target */
     int32_t fb, dtone, g, rtone, dlvl, rlvl;    /* Q15 */
+    int32_t fb2;                                /* ping-pong's way back: FDBK^2, Q15 */
     uint8_t on, rest, pp, pad;
     int32_t peak;
     uint32_t quiet;
@@ -500,6 +504,8 @@ typedef struct {
     int32_t m_rand;                             /* RAND: drawn at each note, Q15 */
     uint32_t m_seed;
     uint32_t lfo_ph[2];                         /* 2^32 a cycle */
+    uint32_t lfo_ct[2], lfo_cyc[2], lfo_inv[2]; /* SYNC: clock time into the cycle, the cycle (0: not synced last
+                                                   tick), 2^32 / the cycle */
     int32_t lfo_sh[2];                          /* S&H's held value */
     volatile int16_t lfo_out[2];                /* the LFOs now, Q15 (for the screen) */
     int32_t lfo_shg[2];                         /* S&H's output gliding to the held value (~10 ms) */
@@ -543,7 +549,28 @@ typedef struct {
        the same patch, at the same time"). A always; B with seqb. One tempo, one transport (seq_run) */
     volatile uint8_t seq_run;                   /* the main loop sets it; the audio starts and stops on it */
     volatile uint8_t seqb;                      /* track B on (the main loop sets it) */
-    uint32_t seq_len_q8;                        /* a 16th, samples x 256 */
+    volatile uint8_t xkey;                      /* the transposes IN KEY (2026-11-10, the user: "will B keep to A's
+                                                   key and root?"): in degrees of SEQ A's scale from its key, a chord
+                                                   tone by tone; 0: in semitones (CHROM) */
+    uint32_t seq_len_q8;                        /* a 16th, samples x 256: the clock time's unit (below) */
+    /* MIDI clock (2026-11-10, the user: "if I connect it to a device with MIDI sync, will the modulation and the
+       sequencer sync?"). The main loop counts the pulses (24 a quarter) in clk_in and a START in clk_start. Everything
+       on the tempo (the tracks, ARP, TURING, the synced LFOs, MOVE) moves by the clock time, clk_adv a sub-block:
+       SD_SUB << 8 on the FM-1's own tempo; while pulses come, as far as they have gone (a pulse a 6th of a 16th),
+       carried between them at their tempo and never past the next one, so nothing drifts from them. Their tempo is
+       measured (the mean of the last SD_CLK_NB beats), and while the tracks play, seq_len_q8 holds: the pulses carry
+       a new tempo, so a step stays 6 pulses */
+    volatile uint32_t clk_in, clk_start;        /* pulses received; STARTs (and CONTINUEs), at their first pulse */
+    uint32_t clk_seen, clk_start_seen;          /* taken */
+    volatile uint8_t clk_on;                    /* following a clock: a pulse in the last 0.5 s */
+    uint8_t clk_nb, clk_bi, clk_dev, clk_k;     /* beats in the mean, the next place; beats off it; pulses mod 6 */
+    uint32_t clk_bn, clk_bf, clk_since;         /* pulses and frames since the beat's first; frames since the last */
+    uint32_t clk_beats[SD_CLK_NB];              /* the last beats, frames */
+    volatile uint32_t clk_beat;                 /* the clock's beat, frames (0: not measured yet) */
+    uint32_t clk_pos, clk_done;                 /* clock time (samples x 256): at the last pulse; ours */
+    uint32_t clk_adv;                           /* this sub-block's clock time */
+    uint32_t tempo_q8;                          /* a 16th as heard (SPACE's synced time): seq_len_q8, or the clock's */
+    uint8_t seq_started;                        /* A started this sub-block: the synced LFOs and MOVE from the one */
     SdSeqT t[2];
 
     /* the arpeggiator (the user, 2026-11-06: "ARP does not work"): the keys' notes (and MIDI's), played one at a
@@ -582,7 +609,89 @@ typedef struct {
 static void sd_seq_retime(SdEngine *e)          /* the step's length from the tempo, in samples x 256 (32-bit only) */
 {
     uint32_t bpm = e->bpm < 40u ? 40u : e->bpm > 240u ? 240u : e->bpm;
-    e->seq_len_q8 = (SD_FS * 60u * 256u) / (bpm * 4u);          /* 677,376,000 / (bpm*4): fits in 32 bits */
+    uint32_t len = (SD_FS * 60u * 256u) / (bpm * 4u);           /* 677,376,000 / (bpm*4): fits in 32 bits */
+    if (e->clk_on && e->clk_beat) {             /* a MIDI clock leads: its tempo (40..240 BPM: 66150..11025 frames) */
+        uint32_t b = e->clk_beat < 11025u ? 11025u : e->clk_beat > 66150u ? 66150u : e->clk_beat;
+        len = b * 64u;                          /* a beat's frames x 256 / 4 */
+    }
+    e->tempo_q8 = len;
+    if (!e->clk_on || !(e->t[0].seq_on || e->t[1].seq_on)) e->seq_len_q8 = len;   /* (following while the tracks
+                                                   play: the unit holds, the pulses carry the tempo) */
+}
+
+/* The tempo of a MIDI clock: a beat (24 pulses) measured in frames. The mean of the last SD_CLK_NB, taken when it
+ * moves by over 0.4 % (the pulses' jitter, a few ms through USB and the main loop, must not move SPACE's time); two
+ * beats in a row 6 % away are a new tempo, taken at once (one late beat is not). */
+static void sd_clk_beat(SdEngine *e, uint32_t b)
+{
+    uint32_t i, sum = 0, m, c = e->clk_beat;
+    if (b < 5000u || b > 132300u) return;       /* (20..530 BPM: anything else is not a clock) */
+    if (e->clk_nb && c && (b > c + c / 16u || b + c / 16u < c)) {
+        if (++e->clk_dev < 2u) return;
+        e->clk_nb = 0;
+    }
+    e->clk_dev = 0;
+    e->clk_beats[e->clk_bi] = b;
+    e->clk_bi = (uint8_t)((e->clk_bi + 1u) % SD_CLK_NB);
+    if (e->clk_nb < SD_CLK_NB) e->clk_nb++;
+    for (i = 0; i < e->clk_nb; i++) sum += e->clk_beats[(e->clk_bi + SD_CLK_NB - 1u - i) % SD_CLK_NB];
+    m = sum / e->clk_nb;                        /* (8 x 132300: fits) */
+    if (!c || e->clk_nb < SD_CLK_NB || m > c + c / 256u || m + c / 256u < c) e->clk_beat = m;
+}
+
+/* MIDI clock, once a sub-block before anything on the tempo: the pulses taken, then this sub-block's clock time.
+ * The pulses count as come at this sub-block's start (the main loop has just read them); the clock time goes to the
+ * last pulse's place plus the time since it at their tempo, never as far as the next pulse; behind, it catches up a
+ * pulse at once and the rest at twice the tempo (a stall's burst plays no steps at once). 0.5 s without a pulse: the
+ * FM-1's own tempo again. */
+static void sd_clk_tick(SdEngine *e)
+{
+    uint32_t n = e->clk_in - e->clk_seen, L = e->seq_len_q8, pc = L / 6u, iv, s, d, nom;
+    e->clk_seen += n;
+    if (n) {
+        if (!e->clk_on || e->clk_since > SD_FS / 2u) {   /* the first pulse (after a gap): the clock time from here */
+            e->clk_on = 1;
+            e->clk_pos = e->clk_done;
+            e->clk_k = 0;
+            e->clk_bn = e->clk_bf = 0;
+            e->clk_nb = e->clk_dev = 0;
+            n--;
+        } else
+            e->clk_bf += e->clk_since;
+        e->clk_since = 0;
+        if (n > 96u) n = 96u;                   /* (a stall's burst: 4 beats at most) */
+        {                                       /* n pulses on: a 6th of a 16th each, the 6th takes the remainder */
+            uint32_t k = e->clk_k + n;
+            e->clk_pos += n * pc + (k / 6u) * (L - 6u * pc);
+            e->clk_k = (uint8_t)(k % 6u);
+        }
+        e->clk_bn += n;
+        if (e->clk_bn >= 24u) {                 /* a beat: the tempo */
+            sd_clk_beat(e, e->clk_bf * 24u / e->clk_bn);
+            e->clk_bn = e->clk_bf = 0;
+        }
+        if (e->clk_start != e->clk_start_seen) e->clk_done = e->clk_pos;   /* START: from its pulse */
+    }
+    if (e->clk_since < SD_FS) e->clk_since += SD_SUB;   /* (to this sub-block's end) */
+    if (e->clk_bf > 4u * SD_FS) e->clk_bf = 4u * SD_FS;
+    if (e->clk_on && e->clk_since > SD_FS / 2u) e->clk_on = 0;
+    if (!e->clk_on) {
+        e->clk_adv = SD_SUB << 8;
+        e->clk_done += SD_SUB << 8;
+        return;
+    }
+    iv = e->clk_beat ? e->clk_beat / 24u : e->clk_bn >= 3u ? e->clk_bf / e->clk_bn : (L >> 8) / 6u;   /* frames a
+                                                   pulse: the clock's, a first guess, or ours */
+    iv = iv < 400u ? 400u : iv > 3000u ? 3000u : iv;
+    s = e->clk_since < iv ? e->clk_since : iv;
+    d = s * pc / iv;                            /* (3000 x 705600: fits) */
+    if (d >= pc) d = pc - 1u;
+    d = e->clk_pos + d - e->clk_done;
+    if ((int32_t)d < 0) d = 0;                  /* ahead (the clock slowed): wait for it */
+    nom = SD_SUB * pc / iv;
+    if (d > 2u * nom + pc) d = 2u * nom + pc;   /* (a pulse behind, as a faster tempo leaves it: caught at once) */
+    e->clk_adv = d;
+    e->clk_done += d;
 }
 
 /* main loop: a whole patch. The audio takes it at its next control tick; it never sees half of one (it keeps the
@@ -664,6 +773,7 @@ static void sd_engine_init(SdEngine *e)
     e->tur_out = sd_tur_dac(e->tur_reg);
     for (i = 0; i < SD_BANKS; i++) e->bank[i].sh.fg = e->bank[i].sh.fg_next = 4096;
     sd_map_banks(e);
+    e->clk_adv = SD_SUB << 8;                   /* the FM-1's own tempo until a MIDI clock comes */
     sd_seq_retime(e);
 }
 
@@ -1085,7 +1195,8 @@ static void sd_space_params(SdEngine *e)
     uint32_t k, gi = p->s_decay >> 9, gf = p->s_decay & 511u;
     int32_t sz = 8192 + (int32_t)((p->s_size * 24575u) >> 16);   /* 0.25 .. 1, Q15 */
     if (p->s_mode & SD_SP_SYNC)                 /* a division of the note driver's sixteenth (samples x 256) */
-        s->dtgt = (int32_t)(((uint64_t)e->seq_len_q8 * SD_SP_DIV[(p->s_time * 12u) >> 16]) >> 8);
+        s->dtgt = (int32_t)(((uint64_t)e->tempo_q8 * SD_SP_DIV[(p->s_time * 12u) >> 16]) >> 8);   /* (the tempo
+                                                   heard: a MIDI clock's too) */
     else
         s->dtgt = (int32_t)(1u + (p->s_time * 999u) / 65535u) * 11290;   /* ms x 44.1 x 256 */
     if (s->dtgt > (int32_t)(SD_SP_DMAX - 4u) * 256) s->dtgt = (int32_t)(SD_SP_DMAX - 4u) * 256;
@@ -1094,6 +1205,7 @@ static void sd_space_params(SdEngine *e)
     s->dq = s->dnext;
     s->dnext = s->dq + (s->dtgt - s->dq) / 16;  /* a tape: ~12 ms to most of the way */
     s->fb = (int32_t)((p->s_fb * 31130u) >> 16);                 /* 0 .. 0.95 */
+    s->fb2 = (s->fb * s->fb) >> 15;                              /* (31130^2: fits) */
     s->dtone = 2621 + (int32_t)((p->s_dtone * 30146u) >> 16);    /* the lowpass's coefficient, 0.08 .. 1 */
     s->rtone = 2621 + (int32_t)((p->s_rtone * 30146u) >> 16);
     s->rtone = 2 * s->rtone - ((s->rtone * s->rtone) >> 15);   /* 1 - (1 - c)^2: the same corner at half rate */
@@ -1225,14 +1337,25 @@ static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, o
     t->seq_nn = 0;
 }
 
-static uint32_t sd_seq_xn(const SdSeqT *t, uint32_t n)   /* a step's note, TURING's NOTES on it, transposed */
+static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a note of a step, TURING's NOTES
+                                                   on it, transposed */
 {
-    int32_t v;
+    int32_t v, x = t->xpose + t->orb_x;
     if (t->tur_deg) {                           /* NOTES: degrees of the pattern's scale, from its key (step 1) */
         uint32_t key = t->pat.step[0].note, sc = t->pat.scale;
         n = sd_scale_note(key, sc, sd_scale_degree(key, sc, n) + t->tur_deg);
     }
-    v = (int32_t)n + t->xpose + t->orb_x;
+    if (x && e->xkey) {                         /* IN KEY: as many degrees of A's scale as its key is from the key
+                                                   the transpose names; a note off the scale keeps its step off it */
+        const SdPattern *a = &e->t[0].pat;
+        uint32_t key = a->step[0].note, sc = a->scale;
+        int32_t to = (int32_t)key + x, d = sd_scale_degree(key, sc, n);
+        int32_t off = (int32_t)n - (int32_t)sd_scale_note(key, sc, d);
+        to = to < 0 ? 0 : to > 127 ? 127 : to;
+        v = (int32_t)sd_scale_note(key, sc, d + sd_scale_degree(key, sc, (uint32_t)to)) + off;
+    } else {
+        v = (int32_t)n + x;
+    }
     return (uint32_t)(v < 0 ? 0 : v > 127 ? 127 : v);
 }
 
@@ -1289,18 +1412,19 @@ static void sd_tur_tick(SdEngine *e, uint32_t start)
         e->tur_out = sd_tur_dac(e->tur_reg);
         e->tur_count++;
     }
-    e->tur_pos_q8 += SD_SUB << 8;
+    e->tur_pos_q8 += e->clk_adv;
 }
 
 static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* the step's note and its chord */
 {
-    uint32_t i, n = 1, root = sd_seq_xn(t, st->note);
+    uint32_t i, n = 1, root = sd_seq_xn(e, t, st->note);
     if (t->quiet) return;                       /* OFF (or B in MONO): it keeps time, silent */
     t->seq_note[0] = (uint8_t)root;
-    for (i = 0; i < 3u; i++)                    /* the chord: offsets from the step's note (0: none) */
+    for (i = 0; i < 3u; i++)                    /* the chord: offsets from the step's note (0: none), each tone
+                                                   transposed on its own (IN KEY: a minor chord may come out major) */
         if (st->chord[i]) {
-            int32_t c = (int32_t)root + st->chord[i];
-            if (c >= 0 && c <= 127) t->seq_note[n++] = (uint8_t)c;
+            int32_t c = (int32_t)st->note + st->chord[i];
+            if (c >= 0 && c <= 127) t->seq_note[n++] = (uint8_t)sd_seq_xn(e, t, (uint32_t)c);
         }
     if (n > e->quota[t->src]) n = e->quota[t->src];   /* (a chord past the track's voices: its top notes go) */
     for (i = 0; i < n; i++) sd_voice_on(e, t->seq_note[i], vel, t->src);
@@ -1339,6 +1463,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
             t->seq_pos_q8 = t->seq_step_q8;
             if (main) {                         /* ORBIT: its first step, A's loop as its length says (until one) */
                 uint32_t d = t->pat.div < SD_SDIVS ? t->pat.div : 2u;
+                e->seq_started = 1;             /* (the synced LFOs and MOVE: their cycles from this one) */
                 uint32_t step = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];   /* (32-bit: <= 17 M) */
                 e->orb_step = e->orb_loops = 0;
                 e->orb_t = e->orb_loop_t = 0;
@@ -1360,7 +1485,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
         if (!t->sq_n[t->sq_cur]) {              /* every step skipped: silence */
             if (t->seq_note_on) sd_seq_off(e, t);
             t->seq_step_q8 = e->seq_len_q8;
-            t->seq_pos_q8 += SD_SUB << 8;
+            t->seq_pos_q8 += e->clk_adv;
             return;
         }
         if (one) t->xpose = t->xpose_next;      /* SCL + a key: the transpose at the one */
@@ -1377,7 +1502,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
         t->rat_q8 = 0;
         if (st->type <= SD_ST_SLIDE && st->prob < 100u && sd_seq_rand(&t->sq_rng) % 100u >= st->prob) {
             if (t->seq_note_on) sd_seq_off(e, t);   /* PROB said no: a rest this time */
-            t->seq_pos_q8 += SD_SUB << 8;
+            t->seq_pos_q8 += e->clk_adv;
             return;
         }
         if (st->type == SD_ST_NOTE && st->ratchet > 1u) {   /* RATCHET: the step in hits, 50 ms apart at least */
@@ -1394,9 +1519,9 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
         if (st->type == SD_ST_TIE && t->seq_note_on) {
             /* held on: nothing new */
         } else if (st->type == SD_ST_SLIDE && t->seq_note_on && t->seq_nn == 1u && !st->chord[0]) {
-            sd_seq_glide(e, t, sd_seq_xn(t, st->note), st->vel);   /* (a single note glides; a chord plays as
+            sd_seq_glide(e, t, sd_seq_xn(e, t, st->note), st->vel);   /* (a single note glides; a chord plays as
                                                    a NOTE) */
-            t->seq_note[0] = (uint8_t)sd_seq_xn(t, st->note);
+            t->seq_note[0] = (uint8_t)sd_seq_xn(e, t, st->note);
         } else {
             if (t->seq_note_on) sd_seq_off(e, t);
             if (st->type == SD_ST_NOTE || st->type == SD_ST_SLIDE) sd_seq_on(e, t, st, st->vel);
@@ -1419,12 +1544,22 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t main)   
     } else if (t->seq_note_on && t->seq_pos_q8 >= t->seq_gate_q8) {
         sd_seq_off(e, t);
     }
-    t->seq_pos_q8 += SD_SUB << 8;
+    t->seq_pos_q8 += e->clk_adv;
 }
 
 static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks, A first */
 {
-    sd_seq_retime(e);                           /* first: START measures step 1 in this tempo */
+    sd_clk_tick(e);                             /* first: the MIDI clock's pulses, this sub-block's clock time */
+    e->seq_started = 0;                         /* (set by A's START below; sd_mod_tick reads it after) */
+    if (e->clk_start != e->clk_start_seen) {    /* a MIDI START (or CONTINUE) at its first pulse: from step 1 */
+        uint32_t i;
+        e->clk_start_seen = e->clk_start;
+        for (i = 0; i < 2u; i++) {
+            if (e->t[i].seq_note_on) sd_seq_off(e, &e->t[i]);
+            e->t[i].seq_on = 0;
+        }
+    }
+    sd_seq_retime(e);                           /* then: START measures step 1 in this tempo */
     sd_tur_tick(e, e->seq_run && !e->t[0].seq_on);   /* TURING first: a step at the same time sees its new place */
     {                                           /* ORBIT: a new one from the main loop (its step kept), its clocks */
         uint32_t sq = e->orb_seq;
@@ -1618,18 +1753,39 @@ SD_INLINE int32_t sd_lfo_wave(uint32_t shape, uint32_t ph, int32_t sh)   /* Q15,
 
 static int32_t sd_lfo_tick(SdEngine *e, const SdPatch *p, uint32_t k)
 {
-    uint32_t inc, old = e->lfo_ph[k];
-    if (p->lfo_mode[k] & SD_LM_SYNC) {          /* a division of the sixteenth: its period in ticks */
-        uint32_t per = (e->seq_len_q8 * SD_LFO_DIV[(p->lfo_rate[k] * SD_LFO_DIVS) >> 16]) >> 13;
-        inc = 0xFFFFFFFFu / (per ? per : 1u);
+    uint32_t inc, old = e->lfo_ph[k], wrap;
+    if (p->lfo_mode[k] & SD_LM_SYNC) {          /* a division of the sixteenth, on the clock time: exact (it keeps to
+                                                   the steps for good), from the one at START, with a MIDI clock its
+                                                   pulses' */
+        uint32_t cyc = e->seq_len_q8 * SD_LFO_DIV[(p->lfo_rate[k] * SD_LFO_DIVS) >> 16], ct;   /* (<= 4.3 M x 64) */
+        if (cyc != e->lfo_cyc[k]) {             /* a new division or tempo (or SYNC just now): the same place */
+            e->lfo_ct[k] = (uint32_t)(((uint64_t)old * cyc) >> 32);
+            e->lfo_cyc[k] = cyc;
+            e->lfo_inv[k] = 0xFFFFFFFFu / cyc;
+        }
+        ct = e->lfo_ct[k];
+        wrap = e->seq_started || (e->m_trig && (p->lfo_mode[k] & (SD_LM_KEY | SD_LM_ONE)));
+        if (wrap) ct = 0;                       /* restart: this tick on 0 */
+        else if ((ct += e->clk_adv) >= cyc) {
+            if (p->lfo_mode[k] & SD_LM_ONE) ct = cyc - 1u;   /* ONE: held at the end */
+            else {
+                ct -= cyc;
+                if (ct >= cyc) ct = 0;
+                wrap = 1;
+            }
+        }
+        e->lfo_ct[k] = ct;
+        e->lfo_ph[k] = ct * e->lfo_inv[k];      /* (ct < cyc: under 2^32) */
     } else {
         uint32_t i = p->lfo_rate[k] >> 9, f = p->lfo_rate[k] & 511u;
         inc = SD_LFO_INC[i] + (uint32_t)(((uint64_t)(SD_LFO_INC[i + 1u] - SD_LFO_INC[i]) * f) >> 9);
+        e->lfo_cyc[k] = 0;
+        if (e->m_trig && (p->lfo_mode[k] & (SD_LM_KEY | SD_LM_ONE))) old = 0u - inc;   /* restart: this tick lands on 0 */
+        else if ((p->lfo_mode[k] & SD_LM_ONE) && old + inc < old) inc = 0xFFFFFFFFu - old;   /* ONE: held at the end */
+        e->lfo_ph[k] = old + inc;
+        wrap = e->lfo_ph[k] < old || (e->m_trig && (p->lfo_mode[k] & (SD_LM_KEY | SD_LM_ONE)));
     }
-    if (e->m_trig && (p->lfo_mode[k] & (SD_LM_KEY | SD_LM_ONE))) old = 0u - inc;   /* restart: this tick lands on 0 */
-    else if ((p->lfo_mode[k] & SD_LM_ONE) && old + inc < old) inc = 0xFFFFFFFFu - old;   /* ONE: held at the end */
-    e->lfo_ph[k] = old + inc;
-    if (e->lfo_ph[k] < old || (e->m_trig && (p->lfo_mode[k] & (SD_LM_KEY | SD_LM_ONE)))) {   /* a new cycle: S&H draws */
+    if (wrap) {                                 /* a new cycle: S&H draws */
         e->m_seed = e->m_seed * 1103515245u + 12345u;
         e->lfo_sh[k] = (int32_t)(e->m_seed >> 16) - 32768;
     }
@@ -1778,9 +1934,11 @@ static void sd_mod_tick(SdEngine *e)
                                                    must add something rhythmic"; stepped random over smooth sines):
                                                    the nav and the Reactor's POS jump to new places each quarter,
                                                    glided ~10 ms */
-        e->move_t += SD_SUB << 8;
+        if (e->seq_started) e->move_t = 4u * e->seq_len_q8;   /* START: a new place on the one */
+        else e->move_t += e->clk_adv;
         if (e->move_t >= 4u * e->seq_len_q8) {
-            e->move_t = 0;
+            e->move_t -= 4u * e->seq_len_q8;    /* (the remainder kept: on the beat for good) */
+            if (e->move_t >= 4u * e->seq_len_q8) e->move_t = 0;
             for (k = 0; k < 3u; k++) {
                 e->m_seed = e->m_seed * 1103515245u + 12345u;
                 e->move_tgt[k] = (int32_t)(e->m_seed >> 16) - 32768;
@@ -1948,7 +2106,7 @@ static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
             sd_voice_off(e, e->arp_cur, SD_SRC_ARP);        /* the gate */
             e->arp_playing = 0;
         }
-        if (e->arp_pos_q8 != 0xFFFFFFFFu && e->arp_pos_q8 < e->arp_step_q8) { e->arp_pos_q8 += SD_SUB << 8; return; }
+        if (e->arp_pos_q8 != 0xFFFFFFFFu && e->arp_pos_q8 < e->arp_step_q8) { e->arp_pos_q8 += e->clk_adv; return; }
         e->arp_pos_q8 = e->arp_pos_q8 == 0xFFFFFFFFu ? 0u : e->arp_pos_q8 - e->arp_step_q8;
         if (e->arp_pos_q8 >= e->arp_step_q8) e->arp_pos_q8 = 0;   /* (the tempo jumped) */
     }
@@ -1979,7 +2137,7 @@ static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
         sd_voice_on(e, e->arp_cur, v[k % n], SD_SRC_ARP);
         e->arp_playing = 1;
     }
-    e->arp_pos_q8 += SD_SUB << 8;
+    e->arp_pos_q8 += e->clk_adv;
 }
 
 /* The filter: each voice's cutoff (MIDI x 256) from CUTOFF, KEY, VEL and ENV3, then two TPT SVF stages' coefficients
@@ -2614,7 +2772,7 @@ SD_INLINE void sd_space_loop(SdSpace *s, SdSpaceMem *mem, const int32_t *in, int
 {
     uint32_t i, k, dw = s->dw, fw = s->fw, ph = s->ph;
     int32_t dstep = (s->dnext - s->dq) >> SD_SUB_SHIFT, dq = s->dq + dstep * (int32_t)pos;
-    int32_t lpd0 = s->lpd[0], lpd1 = s->lpd[1], fb = s->fb, dtone = s->dtone, dlvl = s->dlvl, rlvl = s->rlvl;
+    int32_t lpd0 = s->lpd[0], lpd1 = s->lpd[1], fb = PP ? s->fb2 : s->fb, dtone = s->dtone, dlvl = s->dlvl, rlvl = s->rlvl;
     int32_t racc = s->racc, a00 = s->a0[0], a01 = s->a0[1], a10 = s->a1[0], a11 = s->a1[1], peak = s->peak;
     int32_t dz0 = s->dcz[0], dz1 = s->dcz[1];
     int16_t *dl0 = mem->dl[0], *dl1 = mem->dl[1];
@@ -2633,9 +2791,9 @@ SD_INLINE void sd_space_loop(SdSpace *s, SdSpaceMem *mem, const int32_t *in, int
         lpd1 += ((er - lpd1) * dtone) >> 15;    /* parks at most at -1, which FDBK's toward-zero drops */
         el = lpd0;
         er = lpd1;
-        if (PP) {
+        if (PP) {                               /* (fb is FDBK^2 here: the whole way round) */
             dl0[dw] = sd_sp_store(((xl + xr) >> 1) + sd_tz(er * fb, 15));
-            dl1[dw] = sd_sp_store(sd_tz(el * fb, 15));
+            dl1[dw] = sd_sp_store(el);          /* the left's echo, whole: the pong as loud as the ping */
         } else {
             dl0[dw] = sd_sp_store(xl + sd_tz(el * fb, 15));
             dl1[dw] = sd_sp_store(xr + sd_tz(er * fb, 15));

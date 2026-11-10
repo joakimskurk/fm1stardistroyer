@@ -12,7 +12,8 @@
  *                  HOME  NAV -> MACROS        FX   REACTOR -> DISTROY -> SPACE      ENV  ENV -> FILTER
  *                  LFO   LFO 1 -> LFO 2 -> TURING -> MOD   ARP  ARP     SEQ  SEQ A -> SEQ B -> ORBIT -> back
  *   K1..K4     the four values in the row under the top line, left to right as the knobs
- *   SCL held   their second layer (the names turn red); on SEQ the keys transpose the track, at its one
+ *   SCL held   their second layer (the names turn red); on SEQ the keys transpose the track, at its one: IN KEY
+ *              (the default: in SEQ A's scale from its key, so B keeps to A's key) or CHROM, SCL + EDIT there
  *   ALGORITHM  the page's choice, said on the hint line (SCL + ALGORITHM: the second)
  *   EDIT       ON / OFF of what the page shows (the top line's right end; EDIT's light: on): COURSE, REACTOR, DISTROY,
  *              SPACE, FILTER (fx_off: the settings kept), ARP, a track (SEQ B: not in MONO), TURING
@@ -21,7 +22,8 @@
  *   SELECT     the tempo, 40..240 BPM      GLO the mode: MONO -> DUO -> POLY      OCT- OCT+ the octave (SEQ: the bank,
  *              SCL + OCT the octave: the transpose keys' own, 2026-11-09, the user: an octave left from REC "stays, but
  *              the buttons don't work on this page")
- *   PLAY       the patterns on / off       REC recording into the track SEQ edits (ENV a TIE, LFO a REST)
+ *   PLAY       the patterns on / off (SCL + PLAY: SYNC AUTO / INT, MIDI in)   REC recording into the track SEQ edits
+ *              (ENV a TIE, LFO a REST)
  *   SAVE       the patch (on SEQ the pattern) to a user place: ALGORITHM picks it, SAVE again writes, HOME: not now
  *   the keys   play; their lights show what they do (keys_lit). On SEQ the white keys are the bank's 16
  *              steps (a step tapped again: RATCHET, PROB), the black keys RND UNDO CLR and, the last one, SEG
@@ -62,7 +64,10 @@
  *              -100..100 %); SCL: the macros' changes (MUTATE MOVE BREAK MACRO 4, -99..99). The last black key: SETUP,
  *              K1 LENGTH K2 RATE (1 2 4 loops) K3 DEST 1 K4 DEST 2; SCL there: GLIDE for lane 1, lane 2, the macros.
  *              EDIT on / off. Every value a change from where the player is (0 none); saved with the pattern
- *   MIDI in    notes from USB or the TRS jack; CC 1 the matrix's WHEEL, channel pressure its AFTER
+ *   MIDI in    notes from USB or the TRS jack; CC 1 the matrix's WHEEL, channel pressure its AFTER. A clock (24 a
+ *              quarter) leads the tempo while it comes (SYNC AUTO; SCL + PLAY: INT, not heard): the tracks, ARP, TURING,
+ *              the synced LFOs and MOVE move by its pulses (sd_clk_tick); START / CONTINUE play from step 1 at the
+ *              next pulse, STOP stops; the status line shows its tempo, CLK
  *   MASTER     the volume (platform.c)
  *
  * CPU on the screen: the worst audio interrupt of the last second, in % of its period (256 frames, 5.8 ms).
@@ -275,8 +280,10 @@ static uint16_t knob_q(uint16_t v, int32_t e)
 }
 
 /* ---- MIDI in: from the main loop, and from app_idle while the screen draws (idle_ok) */
-static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate, ahold, pad[2]; } set =
-    {0, 120, SD_PATCH_WORST, SD_MODE_MONO, 0, SD_AM_UP, 2, 1, 50, 0, {0}};
+static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate, ahold, xchrom, sync_int; } set =
+    {0, 120, SD_PATCH_WORST, SD_MODE_MONO, 0, SD_AM_UP, 2, 1, 50, 0, 0, 0};   /* (xchrom: the transposes in semitones;
+                                                   0, the default, IN KEY: in SEQ A's scale. sync_int: a MIDI clock
+                                                   not heard; 0, the default, AUTO: one leads when it comes) */
                                                 /* kept in flash; DISTROY first: the costliest patch, so fm1-emu
                                                    measures it. patch: the factory's SD_PATCHES, then the user's */
 
@@ -1205,7 +1212,12 @@ static void env_knobs(const uint8_t *ev)        /* an envelope: A D S R (0..127)
     *put_u(t, ev[2] * 100u / 127u) = 0; kx(2, "SUS", t, ev[2] * 99u / 127u);
     *put_ms(t, ev[3]) = 0; kx(3, "RELEASE", t, ev[3] * 99u / 127u);
 }
-static void seq_l2_knobs(void)                  /* SEQ and TURING with SCL held */
+static char *put_xp(char *p, int32_t x)         /* a transpose: +5, and IN KEY "+5 KEY" (up a fourth in A's key) */
+{
+    p = put_sgn(p, x);
+    return x && !set.xchrom ? put(p, " KEY") : p;
+}
+static void seq_l2_knobs(void)                  /* SEQ with SCL held */
 {
     char t[12], *p;
     int32_t x = eng.t[seq_trk].xpose_next;
@@ -1213,7 +1225,7 @@ static void seq_l2_knobs(void)                  /* SEQ and TURING with SCL held 
     *put_u(t, seqp.len) = 0; kx(0, "LENGTH", t, (seqp.len - 1u) * 99u / 63u);
     kt(1, "DIV", SDIV_NAME[seqp.div % SD_SDIVS]);
     p = put_u(t, sw); *p++ = '%'; *p = 0; kx(2, "SWING", t, (sw - 50u) * 99u / 25u);
-    *put_sgn(t, x) = 0; kb(3, "XPOSE", t, x * 99 / 24);
+    *put_xp(t, x) = 0; kb(3, "XPOSE", t, x * 99 / 24);
     kn[3].hot = x != eng.t[seq_trk].xpose;      /* (red: waiting for the one) */
 }
 static uint32_t has_l2(void)                    /* SCL gives this page a second layer */
@@ -1347,8 +1359,8 @@ static void knobs_of(void)
             static const char *const MN[4] = {"MUTATE", "MOVE", "BREAK", "MACRO 4"};
             for (k = 0; k < 4u; k++) { *put_sgn(t, orbp.mac[k][s]) = 0; kb(k, MN[k], t, orbp.mac[k][s]); }
         } else {                                /* the step: XPOSE A, XPOSE B, the lanes */
-            *put_sgn(t, orbp.xa[s]) = 0; kb(0, "XPOSE A", t, orbp.xa[s] * 99 / 24);
-            *put_sgn(t, orbp.xb[s]) = 0; kb(1, "XPOSE B", t, orbp.xb[s] * 99 / 24);
+            *put_xp(t, orbp.xa[s]) = 0; kb(0, "XPOSE A", t, orbp.xa[s] * 99 / 24);
+            *put_xp(t, orbp.xb[s]) = 0; kb(1, "XPOSE B", t, orbp.xb[s] * 99 / 24);
             for (k = 0; k < 2u; k++) {
                 p = put_sgn(t, orbp.lane[k][s]); *p++ = '%'; *p = 0;
                 kb(2u + k, orbp.dst[k] ? DST_NAME[orbp.dst[k] % SD_MDSTS] : k ? "LANE 2" : "LANE 1", t, orbp.lane[k][s] * 99 / 100);
@@ -1576,10 +1588,12 @@ static void pic_space(void)                     /* the echoes falling by FDBK al
         ms = 1u + (pat.s_time * 999u) / 65535u;
     fb = (int32_t)((pat.s_fb * 31130u) >> 16);
     h = (int32_t)(pat.s_dlevel * (uint32_t)(H - 6) >> 16);
-    for (i = 1; ms && i * ms < 2000u && h > 1; i++) {
+    for (i = 1; ms && i * ms < 2000u && h > 1; i++) {   /* (ping-pong: in pairs, left red and right ice, x FDBK^2) */
+        uint32_t pp = (pat.s_mode & SD_SP_PP) != 0u;
         x = X0 + (int32_t)(i * ms * W / 2000u);
-        cv_line(x, Y0 + H, x, Y0 + H - h, (pat.s_mode & SD_SP_PP) && (i & 1u) == 0u ? C_ICE : C_RED);
-        h = (h * fb) >> 15;
+        cv_line(x, Y0 + H, x, Y0 + H - h, pp && (i & 1u) == 0u ? C_ICE : C_RED);
+        if (!pp) h = (h * fb) >> 15;
+        else if (!(i & 1u)) h = (((h * fb) >> 15) * fb) >> 15;
     }
 }
 
@@ -1881,11 +1895,16 @@ static void draw_hint(void)
     case PAGE_ARP: hint("ALGO HOLD", set.ahold ? "ON" : "OFF"); break;
     case PAGE_ORB:
         if (orb_setup) { hint("F#5", "BACK"); hint("SCL", "GLIDE"); break; }
+        if (shift()) { hint("SCL", "MACROS"); hint("EDIT", set.xchrom ? "CHROM" : "IN KEY"); break; }
         p = put(a, "STEP "); *put_u(p, orb_cur % SD_ORB_STEPS + 1u) = 0;
         hint("ALGO", a); hint("SCL", "MACROS");
         break;
     default:
         if (seq_segmode) { p = a; *p++ = (char)('A' + seq_dseg); *p = 0; hint("ALGO SEGMENT", a); break; }
+        if (shift()) {                          /* SCL held: ALGORITHM the scale, EDIT the transposes' kind */
+            hint("ALGO", SCALE_NAME[seqp.scale % SD_SCALES]); hint("EDIT", set.xchrom ? "CHROM" : "IN KEY");
+            break;
+        }
         p = put(a, "STEP "); *put_u(p, seq_cur + 1u) = 0;
         hint("ALGO", a); hint("SCL+ALGO", SCALE_NAME[seqp.scale % SD_SCALES]);
         break;
@@ -1914,8 +1933,14 @@ static void draw_status(void)
     int32_t oct = (int8_t)set.oct;
     uint32_t run = eng.seq_run, pm = cpu_permille;
     cv_begin(240, 18, C_BG);
-    p = put_u(p, set.bpm);
-    p = put(p, " BPM OCT");
+    if (eng.clk_on) {                           /* a MIDI clock leads: its tempo (--- until a beat is measured), CLK */
+        uint32_t b = eng.clk_beat;
+        p = b ? put_u(p, (SD_FS * 60u + b / 2u) / b) : put(p, "---");
+        p = put(p, " CLK OCT");
+    } else {
+        p = put_u(p, set.bpm);
+        p = put(p, " BPM OCT");
+    }
     *p++ = oct < 0 ? '-' : '+';
     *p++ = (char)('0' + (oct < 0 ? -oct : oct));
     *p = 0;
@@ -2058,16 +2083,41 @@ static void keys_lit(uint32_t held, uint32_t base)
     leds_set(full, glow);
 }
 
+/* MIDI clock and transport (2026-11-10; SYNC AUTO, SCL + PLAY: INT): the pulses to the engine (sd_clk_tick), START
+ * and CONTINUE from step 1 at the next pulse (the downbeat; with none in 250 ms, at once), STOP. CONTINUE starts
+ * from the top too: the song position is not passed on. Two clocks (USB and the jack): the first, until it has
+ * been quiet for 500 ms */
+static uint8_t clk_cue, clk_src;
+static uint32_t clk_cue_t, clk_src_t;
+static void clk_rt(uint32_t st, int src)
+{
+    if (set.sync_int || (clk_src && src != clk_src && fm1_ms - clk_src_t < 500u)) return;
+    clk_src = (uint8_t)src;
+    clk_src_t = fm1_ms;
+    if (st == 0xF8u) {
+        eng.clk_in++;
+        if (clk_cue) { clk_cue = 0; eng.seq_run = 1; eng.clk_start++; }
+    } else if (st == 0xFAu || st == 0xFBu) {
+        clk_cue = 1;
+        clk_cue_t = fm1_ms;
+    } else if (st == 0xFCu) {
+        clk_cue = 0;
+        eng.seq_run = 0;
+    }
+}
 static void midi_in(void)
 {
     uint8_t st, d1, d2;
-    while (midi_get(&st, &d1, &d2)) {
+    int src;
+    while ((src = midi_get(&st, &d1, &d2)) != 0) {
         uint32_t ty = st & 0xF0u;
-        if (ty == 0x90u && d2) sd_engine_note(&eng, d1, d2);
+        if (st >= 0xF8u) clk_rt(st, src);
+        else if (ty == 0x90u && d2) sd_engine_note(&eng, d1, d2);
         else if (ty == 0x80u || ty == 0x90u) sd_engine_note(&eng, d1, 0);
         else if (ty == 0xB0u && d1 == 1u) eng.wheel = d2;   /* C1: the matrix's WHEEL */
         else if (ty == 0xD0u) eng.after = d1;   /* and AFTER (channel pressure) */
     }
+    if (clk_cue && fm1_ms - clk_cue_t > 250u) { clk_cue = 0; eng.seq_run = 1; eng.clk_start++; }   /* (no pulse) */
 }
 static void app_idle(void)
 {
@@ -2101,6 +2151,8 @@ static void app_main(void)
     if (set.amode >= SD_AMODES || set.adiv >= SD_SDIVS || set.aoct < 1u || set.aoct > 4u || set.agate < 1u ||
         set.agate > 100u || set.ahold > 1u)
         set.amode = SD_AM_UP, set.adiv = 2, set.aoct = 1, set.agate = 50, set.ahold = 0;
+    if (set.xchrom > 1u) set.xchrom = 0;
+    if (set.sync_int > 1u) set.sync_int = 0;
     if (slot_load(0, &upat, sizeof upat)) { uint8_t *z = (uint8_t *)&upat; for (k = 0; k < sizeof upat; k++) z[k] = 0; }
     if (slot_load(1, &useq, USEQ_HALF) || slot_load(2, (uint8_t *)&useq + USEQ_HALF, sizeof useq - USEQ_HALF)) {
         uint8_t *z = (uint8_t *)&useq;
@@ -2201,7 +2253,16 @@ static void app_main(void)
             b &= ~(1u << BTN_EDIT | 1u << BTN_HOME);
             browse_at = 0;
         }
-        if (b & (1u << BTN_PLAY)) eng.seq_run = (uint8_t)!eng.seq_run;
+        if (b & (1u << BTN_PLAY)) {
+            if (shift()) {                      /* SCL + PLAY: SYNC, AUTO (a MIDI clock leads when it comes) or INT */
+                set.sync_int = (uint8_t)!set.sync_int;
+                clk_cue = 0;
+                msg(set.sync_int ? "SYNC INT: MIDI CLOCK IGNORED" : "SYNC AUTO: A MIDI CLOCK LEADS");
+                dirty = 1;
+                t_change = fm1_ms;
+            } else
+                eng.seq_run = (uint8_t)!eng.seq_run;
+        }
         if (b & (1u << BTN_GLO)) {              /* the mode; MONO holds SEQ B */
             set.mode = (uint8_t)((set.mode + 1u) % SD_MODES);
             eng.mode = set.mode;
@@ -2247,7 +2308,12 @@ static void app_main(void)
             if (page != was) { seq_segmode = 0; seq_more = 0; }
         }
         if (b & (1u << BTN_EDIT)) {             /* EDIT: what this page shows, on / off */
-            if (edit_toggle()) sd_engine_patch(&eng, &pat);
+            if (shift() && (seq_page() || page == PAGE_ORB)) {   /* SCL + EDIT there: the transposes IN KEY or CHROM */
+                set.xchrom = (uint8_t)!set.xchrom;
+                msg(set.xchrom ? "XPOSE: CHROMATIC" : "XPOSE: IN SEQ A'S KEY");
+                dirty = 1;
+                t_change = fm1_ms;
+            } else if (edit_toggle()) sd_engine_patch(&eng, &pat);
         }
         if (sq && !shift()) {                   /* OCT: the step bank there (SCL + OCT: the octave, so the keys that
                                                    transpose reach any octave, and one left from REC comes back) */
@@ -2258,7 +2324,8 @@ static void app_main(void)
         }
         if (b & (1u << BTN_OCT_DOWN) && oct > -2) { set.oct = (uint8_t)(oct - 1); dirty = 1; t_change = fm1_ms; }
         if (b & (1u << BTN_OCT_UP) && oct < 2) { set.oct = (uint8_t)(oct + 1); dirty = 1; t_change = fm1_ms; }
-        if ((e = fm1_enc_take(ENC_SELECT)) != 0) {
+        if ((e = fm1_enc_take(ENC_SELECT)) != 0 && eng.clk_on) msg("TEMPO: THE MIDI CLOCK'S");
+        else if (e) {
             int32_t t = (int32_t)set.bpm + e;
             set.bpm = (uint8_t)(t < 40 ? 40 : t > 240 ? 240 : t);
             eng.bpm = set.bpm;
@@ -2548,6 +2615,7 @@ static void app_main(void)
         voices_guard();
         eng.rec_trk = seq_rec ? (uint8_t)seq_trk : 0xFFu;   /* REC: the keys may take the recorded track's voice */
         midi_in();
+        eng.xkey = (uint8_t)!set.xchrom;        /* the transposes IN KEY (SCL + EDIT on SEQ) */
         eng.arp_mode = set.amode; eng.arp_div = set.adiv; eng.arp_oct = set.aoct;
         eng.arp_gate = set.agate; eng.arp_hold = set.ahold;
 
