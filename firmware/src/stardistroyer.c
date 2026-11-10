@@ -1799,7 +1799,8 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
 }
 
 /* ORBIT: its steps as columns, four lanes as rows of bars from their middle (SCL: the macros'), the step picked
- * framed red, the one playing red, past LENGTH dim; a lane that glides its name red; under it what plays */
+ * framed red, the one playing red and its LED under the stripes lit, past LENGTH dim; a lane that glides its name red;
+ * under it what plays */
 static void pic_orbit(void)
 {
     static const char *const ML[4] = {"MU", "MV", "BR", "M4"};
@@ -1823,6 +1824,10 @@ static void pic_orbit(void)
         }
     }
     cv_frame(36 + (int32_t)(orb_cur % SD_ORB_STEPS) * 25 - 1, 0, 25, 58, C_RED);
+    for (s = 0; s < len && s < SD_ORB_STEPS; s++)   /* the LEDs under the stripes: the one playing lit (the user: "a
+                                                       marker for the step that is active"), the rest dark red; ORBIT
+                                                       off, grey */
+        cv_rect(36 + (int32_t)s * 25 + 8, 61, 7, 3, s == play ? C_RED : orbp.on ? C_FILL : C_GRID);
 }
 
 static void pic(void)

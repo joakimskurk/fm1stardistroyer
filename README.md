@@ -177,7 +177,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top">
 
 **ORBIT**, SEQ's third page: a sequencer over the sequencer, for a change over time.
-- 2–8 steps on the first white keys, each **1, 2 or 4 loops** of SEQ A; a step changes at A's one.
+- 2–8 steps on the first white keys, each **1, 2 or 4 loops** of SEQ A; a step changes at A's one. The LED under
+  each step's stripe lights while it plays.
 - Each step: **XPOSE A** and **XPOSE B** (±24), two free lanes each to its **DEST** (any matrix destination,
   ±100 %), and with SCL the four macros' changes. Every value is a change from where you are: 0 changes nothing.
 - The last black key is SETUP: LENGTH, RATE, DEST 1, DEST 2; with SCL, **GLIDE** for each lane and the macros
