@@ -22,6 +22,7 @@ complete source under the same licence too.
 | --- | --- | --- |
 | Terminus font 8x16 (ter-u16n), rendered into `firmware/gen/felucca_font.h` | SIL OFL 1.1 | `assets/fonts/Terminus-LICENSE.txt` |
 | Orbitron (The Orbitron Project Authors, The League of Moveable Type), unchanged in `assets/fonts/Orbitron-VariableFont_wght.ttf`: the logo's letters, rendered by `tools/gen_logo.py` into `firmware/src/sd_logo.h` and the pictures in `docs/readme/` and `web/`; on the page, the player panel's letters (served with its licence, `app/orbitron-OFL.txt`) | SIL OFL 1.1 | `assets/fonts/Orbitron-OFL.txt` |
+| The second core: `firmware/hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h`, from [felucca-bsp](https://github.com/hugelton/felucca-bsp) (`hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h`, `fm1_flash_access.h`), adapted to Dinghy (each file says how). Copyright (C) 2026 Kerem Kilic (Ellic Studio), from [Melodee](https://github.com/keremimo/melodee) under MPL-2.0 by agreement; Charles Vestal; Leo Kuroshita (@kurogedelic), Hügelton Instruments. The files stay under the MPL; Star Distroyer as a whole is GPL-3.0-only (the MPL allows it as a secondary licence) | MPL-2.0 | <https://mozilla.org/MPL/2.0/> |
 | JieLi AC79 SDK: `uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin` are read from your SDK checkout at build time and placed in the package; no SDK files are in this tree | Apache-2.0 | <https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK> |
 
 ## The logo

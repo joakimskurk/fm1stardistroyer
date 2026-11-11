@@ -15,7 +15,7 @@
  * this tool's:
  *   CELLO    STRINGS, the bowed cello (a saw through the Reactor's body, HARM): the melody, the heart.
  *            At the start it is filtered (TAME and DISTROY's upper bands) and opens over eight bars, in a long
- *            hall with a dotted-quarter delay.
+ *            hall with a 1 s delay.
  *   CELLO 2  the same cello, a harmony under the melody (the nearest chord tone a third or more below)
  *   LOW STR  the same cello on the roots, a long note a chord: the section's floor
  *   PAD      HALO (NEBULA in a big hall), POLY: the chords, far back (DROWN)
@@ -263,6 +263,18 @@ static void setup(const char *cello_params)
     tr[T_PAD].e.mode = SD_MODE_POLY;            /* (the voice mode is the player's, not the patch's) */
     tr[T_CHOIR].e.mode = SD_MODE_POLY;
     tr[T_HORNS].e.mode = SD_MODE_POLY;
+    for (i = 0; i < NT; i++) {                  /* a synced delay longer than the line (1/4D: 1.29 s at 70 BPM) FREE
+                                                   at 1000 ms, PP kept: synced it plays at half since 2026-11-10; the
+                                                   cue keeps the 1 s echoes it was made with (HALO, AURORA, BEACON,
+                                                   PRISM) */
+        uint32_t f;
+        sd_space_sync_q8(SD_FS * 15u * 256u / BPM, sd_sp_div(tr[i].p.s_time), &f, SD_SP_LIM);   /* (as it was
+                                                   made: the 1 s line) */
+        if ((tr[i].p.s_mode & SD_SP_SYNC) && f) {
+            tr[i].p.s_mode = (uint8_t)(tr[i].p.s_mode & ~SD_SP_SYNC);
+            tr[i].p.s_time = 65535u;            /* (TIME's top) */
+        }
+    }
     tr[T_ARP].q.len = 32; tr[T_ARP].q.div = 0; tr[T_ARP].q.seg_count = 1;
     tr[T_DARP].q.len = 16; tr[T_DARP].q.div = 2; tr[T_DARP].q.seg_count = 1;
     tr[T_OST].q.len = 16; tr[T_OST].q.div = 2; tr[T_OST].q.seg_count = 1;
@@ -393,8 +405,8 @@ static void play(Track *t, const Ev *ev, uint32_t n, double b0, double b1)   /* 
 
 /* The cellos' filter and space through the form (the user: "at the start the melody lacks a proper filter, and
    plenty of space"). TAME (1.2 kHz, resonant) and DISTROY's upper bands close the cello to ~700 Hz at the start
-   and open it to its own 22000 over the first eight bars. The space is a long dark hall with a dotted-quarter
-   ping-pong delay in A; it narrows to the patch's own hall through B, stays there for the climaxes, then opens
+   and open it to its own 22000 over the first eight bars. The space is a long dark hall with a 1 s ping-pong
+   delay in A; it narrows to the patch's own hall through B, stays there for the climaxes, then opens
    again for the ending. */
 static void cello_shape(Track *t, double bar)
 {
@@ -408,8 +420,10 @@ static void cello_shape(Track *t, double bar)
     p->s_decay = (uint16_t)lround(44000 + 16000 * wet);
     p->s_rlevel = (uint16_t)lround(16000 + 22000 * wet);
     p->s_rtone = (uint16_t)lround(40000 - 16000 * wet);   /* darker when big */
-    p->s_mode = SD_SP_SYNC | SD_SP_PP;
-    p->s_time = 56000;                          /* a dotted quarter */
+    p->s_mode = SD_SP_PP;
+    p->s_time = 65535u;                         /* 1 s, free (TIME's top): a dotted quarter is 1.29 s at 70 BPM, longer than the
+                                                   line (synced it plays at half since 2026-11-10; the cue keeps the
+                                                   1 s it was made with) */
     p->s_fb = 36000; p->s_dtone = 18000;
     p->s_dlevel = (uint16_t)lround(26000 * wet);
 }

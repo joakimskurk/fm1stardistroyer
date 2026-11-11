@@ -106,6 +106,10 @@ static void setup(void)
         t->e.bpm = BPM;
     }
     tr[T_PAD].e.mode = SD_MODE_POLY;
+    tr[T_PAD].p.s_mode = SD_SP_PP;              /* NEBULA's delay FREE at 1000 ms (PP kept): its 1/4D, 1.07 s at 84
+                                                   BPM, is longer than the line and synced plays at half, 1/8D (since
+                                                   2026-11-10); the cue was made with 1 s echoes, and the user kept them */
+    tr[T_PAD].p.s_time = 65535u;                /* (TIME's top) */
     tr[T_SUB].p.e1_a = 70; tr[T_SUB].p.e1_r = 80; tr[T_SUB].p.e1_s = 120;   /* the sub swells in and out */
     /* the ostinato: 16 steps of 16ths; the bass: 8 eighths; the drums: a taiko 16 of 16ths, low D */
     tr[T_OST].q.len = 16; tr[T_OST].q.div = 2; tr[T_OST].q.seg_count = 1;

@@ -10,17 +10,6 @@
 #define LAYER_MAX 8u
 static int layer_pass;
 
-static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past the stock ones: a place of the player's */
-{
-    char t[48];
-    if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
-    act();
-    pat = *p;
-    gen = 0xFFFFFFFFu;
-    dirty = 1;
-    snprintf(t, sizeof t, "PRESETS: %s", name);
-    say(t);
-}
 
 static int16_t *layer_read(const char *path, uint32_t *frames)   /* a stem as play_run wrote it */
 {

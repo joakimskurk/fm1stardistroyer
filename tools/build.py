@@ -177,6 +177,7 @@ def build_app():
     cmds = [("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
             ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),
             ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
+            ("cc", "-c", FW / "hal" / "fm1_cpu1.S", "-o", OUT / "fm1_cpu1.o"),
             ("cc", *flags, "-c", FW / "src" / "stardistroyer.c", "-o", OUT / "stardistroyer.o")]
     tc_all(*cmds)
     elf = OUT / "stardistroyer.elf"
@@ -188,7 +189,7 @@ def build_app():
         ld = OUT / "app.ld"
         ld.write_text(txt.replace("LENGTH = 0x8DFBC", f"LENGTH = {APP_SLOT:#X}".replace("0X", "0x")))
     tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", ld, OUT / "crt0.o", OUT / "fm1_vec.o",
-       OUT / "fm1_isr.o", OUT / "stardistroyer.o", "-o", elf)
+       OUT / "fm1_isr.o", OUT / "fm1_cpu1.o", OUT / "stardistroyer.o", "-o", elf)
     for sect in ("text.bin", "data.bin", "ramtext.bin"):
         (OUT / sect).unlink(missing_ok=True)
     *_, syms, dis, rt = tc_all(("common/bin/objcopy", "-O", "binary", "-j", ".text", elf, OUT / "text.bin"),
@@ -218,6 +219,11 @@ def build_app():
     return bytes(img), syms, dis, rt
 
 
+def sym_of(syms, name):
+    mm = re.search(r"^([0-9a-f]+) .*\s" + name + r"$", syms, re.M)
+    return int(mm.group(1), 16) if mm else 0
+
+
 def check(img, syms, dis, rt):
     errors, notes = [], []
     m = re.search(r"^([0-9a-f]+) .*\s_start$", syms, re.M)
@@ -225,11 +231,21 @@ def check(img, syms, dis, rt):
         errors.append(f"_start is not at {APP_XIP:#x}")
     if img[:4] != bytes.fromhex("04818000"):
         errors.append(f"image starts with {img[:4].hex()}, not the entry stub")
-    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln)]
+    # the second core's loop (.c1_text, _c1_start.._c1_end) calls its job through a register: that one call is its
+    # purpose (the job runs from the flash; the flash goes off only while that core idles, hal/fm1_cpu1_stop.h)
+    c1 = (sym_of(syms, "_c1_start"), sym_of(syms, "_c1_end"))
+    def in_c1(ln):
+        mm = re.match(r"\s*([0-9a-f]+):", ln)
+        return bool(mm) and c1[0] <= int(mm.group(1), 16) < c1[1]
+    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln) and not in_c1(ln)]
+    c1_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln) and in_c1(ln)]
+    if len(c1_calls) > 1 or any(not re.search(r"\bcall\s+r\d+\b", ln) for ln in c1_calls):
+        errors.append(f".c1_text calls other than its job: {c1_calls[:3]}")
     if rt_calls:                    # RAM code runs with the flash off: no calls into XIP
         errors.append(f".ram_text contains calls: {rt_calls[:3]}")
     else:
-        notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns, no calls")
+        notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns, no calls"
+                     + (f" (the second core's loop: its job, {c1_calls[0].split(chr(9))[-1].strip()})" if c1_calls else ""))
     for ln in dis.splitlines():     # nothing may call or load an address in the chip ROM
         mm = LINE.match(ln)
         if not mm:

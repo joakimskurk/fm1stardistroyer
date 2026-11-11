@@ -13,7 +13,9 @@
  *   web_key(k, down)        note key k (0 = F3 .. 26 = G5) down or up
  *   web_btn(id, down)       a button (BTN_*) down or up (SCL held: the second layer)
  *   web_enc(id, n)          an encoder turned n detents (ENC_*, + = clockwise)
- *   web_midi(st, d1, d2)    a MIDI message in, over "USB"
+ *   web_midi(st, d1, d2, src)  a MIDI message in, from input src (1..255; 0 as 1): each of the page's MIDI inputs
+ *                           is a source of its own, as USB and the jack are on the FM-1, so a clock is taken from
+ *                           one at a time (the same clock on two ports leads once, not at twice its tempo)
  *   web_store(), web_store_size(), web_store_rev()   the flash (settings, blobs, slots: store.h's sizes): the page
  *                           keeps a copy in the browser when the count moves, and puts it back before web_init
  *
@@ -139,14 +141,16 @@ static int blob_save(uint32_t i, const void *p, uint32_t n) { return i < NBLOB ?
 static int slot_load(uint32_t i, void *p, uint32_t n) { return i < NSLOT ? host_load(web_flash.slot[i], SLOT_MAX, p, n) : -1; }
 static int slot_save(uint32_t i, const void *p, uint32_t n) { return i < NSLOT ? host_save(web_flash.slot[i], SLOT_MAX, p, n) : -1; }
 
-static uint8_t mq[256][3];
+static uint8_t mq[256][4];
 static uint32_t mq_w, mq_r;
-static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2)
+static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2)   /* its source, or 0: none */
 {
+    int src;
     if (mq_r == mq_w) return 0;
     *st = mq[mq_r % 256u][0]; *d1 = mq[mq_r % 256u][1]; *d2 = mq[mq_r % 256u][2];
+    src = mq[mq_r % 256u][3];
     mq_r++;
-    return 1;
+    return src;
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { (void)st; (void)d1; (void)d2; }
 
@@ -230,10 +234,11 @@ WEB_EXPORT(web_btn) void web_btn(uint32_t id, uint32_t down)
     else if (fm1_in.buttons & b) { host_rel |= b; fm1_in.buttons &= ~b; }
 }
 WEB_EXPORT(web_enc) void web_enc(uint32_t id, int32_t n) { host_enc[id % HOST_NENC] += n; }
-WEB_EXPORT(web_midi) void web_midi(uint32_t st, uint32_t d1, uint32_t d2)
+WEB_EXPORT(web_midi) void web_midi(uint32_t st, uint32_t d1, uint32_t d2, uint32_t src)
 {
     if (mq_w - mq_r >= 256u) return;            /* (full: dropped, as a full ring on the FM-1 would) */
     mq[mq_w % 256u][0] = (uint8_t)st; mq[mq_w % 256u][1] = (uint8_t)d1; mq[mq_w % 256u][2] = (uint8_t)d2;
+    mq[mq_w % 256u][3] = (uint8_t)(src - 1u < 255u ? src : 1u);
     mq_w++;
 }
 WEB_EXPORT(web_store) uint8_t *web_store(void) { return (uint8_t *)&web_flash; }

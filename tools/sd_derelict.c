@@ -13,7 +13,7 @@
  * and layered at fixed faders: never more than four at once, nothing added to them. C minor, 84 BPM, 32 bars: six
  * sections of four, a chord a bar, then the coda's eight; four themes, the first back over the second:
  *   THE CALL (the opening)       BRAAM's hits on C, Ab, G under AURORA's chords swelling in
- *   THEME I (the derelict)       the cello's melody (U01: STRINGS saved with a big room and dotted-quarter echoes)
+ *   THEME I (the derelict)       the cello's melody (U01: STRINGS saved with a big room and 1 s echoes)
  *   THEME II (the signal)        PULSAR's staccato 16ths (roots, fifths, ninths), its nav jumping across its four
  *                                banks, under the cello's answer
  *   THEME III (the aurora)       BEACON's high line far back (VOYAGE's banks, COURSE round the field), PULSAR's glints
@@ -60,7 +60,8 @@ static const Chord *const HARM[7][4] = {
 
 /* ---- the patterns (saved before: PRESETS on SEQ loads them; each loaded inside its section's last step) */
 static SdPattern CH[7], PU[7], LO[7], LE[7], RESTS;
-static SdPatch U01;                             /* the player's own: STRINGS with SPACE opened, saved in U01 */
+static SdPatch U01, U02, U03;                   /* the player's own: STRINGS with SPACE opened, saved in U01; AURORA
+                                                   and BEACON with their delays at 1 s, U02 and U03 */
 
 static SdStep *st(SdPattern *p, uint32_t k, uint32_t gate)
 {
@@ -182,12 +183,19 @@ static void patterns(void)
     melody(&LE[6], coda, 64);
     begin(&RESTS, 32, 4);
     for (i = 0; i < 32u; i++) st(&RESTS, i, 50)->type = SD_ST_REST;
-    /* U01: STRINGS, its SPACE opened on the SPACE page and saved: SYNC PP, TIME 1/4D, FDBK 52, D-LEVEL 44, TONE 34;
+    /* U01: STRINGS, its SPACE opened on the SPACE page and saved: FREE PP, TIME 1000 ms, FDBK 52, D-LEVEL 44, TONE 34;
        SIZE 90, DECAY 84, R-LEVEL 56, its TONE 36 */
     U01 = SD_PATCH[SD_P_STRINGS];
-    U01.s_mode = SD_SP_SYNC | SD_SP_PP; U01.s_time = SD_SPDIV(10);
+    U01.s_mode = SD_SP_PP; U01.s_time = 65535u;   /* (TIME's top: 1000 ms) */
     U01.s_fb = u99(52); U01.s_dlevel = u99(44); U01.s_dtone = u99(34);
     U01.s_size = u99(90); U01.s_decay = u99(84); U01.s_rlevel = u99(56); U01.s_rtone = u99(36);
+    /* U02, U03: AURORA and BEACON, each with its SPACE MODE turned to FREE (PP kept) and TIME to 1000 ms, saved. Their
+       1/4D is 1.07 s at 84 BPM, longer than the line: synced it plays at half, 1/8D (since 2026-11-10). DERELICT was
+       made with 1 s echoes there, and the user, hearing both, kept them */
+    U02 = SD_PATCH[SD_P_AURORA];
+    U02.s_mode = SD_SP_PP; U02.s_time = 65535u;
+    U03 = SD_PATCH[SD_P_BEACON];
+    U03.s_mode = SD_SP_PP; U03.s_time = 65535u;
 }
 
 /* ---- gestures */
@@ -196,11 +204,11 @@ static void load(int k, const SdPattern *p, const char *name)   /* section k's p
     if (at(SEC(k) - 0.4)) pattern(0, p, name);
 }
 
-/* the chords: AURORA in POLY on SEQ A the whole way; MACRO 4 (DROWN) at the end */
+/* the chords: AURORA (U02) in POLY on SEQ A the whole way; MACRO 4 (DROWN) at the end */
 static void chords_setup(void)
 {
     glo(SD_MODE_POLY);
-    preset(SD_P_AURORA);
+    preset_user(&U02, "U02 AURORA 1 S");
     page = PG_SEQA;
     pattern(0, &CH[0], "THE CALL (Cm Cm Ab G7)");
     master = 0;
@@ -306,7 +314,7 @@ static int low_score(void)
     return q >= BAR(33);
 }
 
-/* the lead: U01 (STRINGS in a big room) in MONO, BEACON for THEME III; far back */
+/* the lead: U01 (STRINGS in a big room) in MONO, BEACON (U03) for THEME III; far back */
 static void lead_setup(void)
 {
     preset_user(&U01, "U01 CELLO HALL");
@@ -319,7 +327,7 @@ static int lead_score(void)
     if (at(SEC(1))) play(1);
     load(2, &LE[2], "THEME I (the answer)");
     if (at(SEC(3) - 4.6)) press("HOME", PG_NAV);   /* BEACON for THEME III, in the answer's last bar */
-    if (at(SEC(3) - 3.6)) preset(SD_P_BEACON);
+    if (at(SEC(3) - 3.6)) preset_user(&U03, "U03 BEACON 1 S");
     if (at(SEC(3) - 2.8)) press("SEQ", PG_SEQA);
     pot(__LINE__, 4092, SEC(3) - 3.4, SEC(3) - 1);   /* MASTER up for BEACON, far back already */
     load(3, &LE[3], "THEME III");
