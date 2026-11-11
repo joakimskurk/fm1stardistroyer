@@ -9,12 +9,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Star Distroyer</title>
-<meta name="description" content="Star Distroyer: a starship FM synth firmware for the M-VAVE FM-1. Four banks of oscillators on an X/Y nav field, a morphing resonator, multiband destruction, delay and room, a two-track sequencer with a Turing machine. Install it from the browser.">
+<meta name="description" content="Star Distroyer: a starship FM synth firmware for the M-VAVE FM-1. Four banks of oscillators on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate, a two-track sequencer with a Turing machine. Install it from the browser.">
 <link rel="canonical" href="https://joakimskurk.github.io/fm1stardistroyer/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Star Distroyer">
 <meta property="og:title" content="Star Distroyer: a starship FM synth for the M-VAVE FM-1">
-<meta property="og:description" content="Sixteen oscillators on an X/Y nav field, a morphing resonator, multiband destruction, delay and room. Free firmware, installed from the browser.">
+<meta property="og:description" content="Sixteen oscillators on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate. Free firmware, installed from the browser.">
 <meta property="og:url" content="https://joakimskurk.github.io/fm1stardistroyer/">
 <meta property="og:image" content="https://joakimskurk.github.io/fm1stardistroyer/screens/og.png">
 <meta property="og:image:type" content="image/png">
@@ -45,6 +45,24 @@
   .tag { margin: 22px 0 0; font: 700 17px/1.4 var(--mono); letter-spacing: .06em; color: var(--ice); }
   .sub { margin: 6px 0 0; color: var(--dim); font-size: 15px; }
   .nw { white-space: nowrap; }
+  /* the tabs: the FM-1's top line, the current one a red tab (its right edge slanted, as on the screen) */
+  .tabs { position: sticky; top: 0; z-index: 5; display: flex; gap: 2px; margin: 30px -16px 0; padding: 10px 16px 0;
+          background: var(--bg); border-bottom: 1px solid var(--line2); }
+  .tabs a { flex: 1 1 0; min-width: 0; padding: 9px 4px 8px; text-align: center; font: 700 13px/1.2 var(--mono);
+            letter-spacing: .12em; color: var(--dim); text-decoration: none; white-space: nowrap; }
+  .tabs a:hover { color: var(--ice); }
+  .tabs a:focus-visible { outline: 2px solid var(--ice); outline-offset: -2px; }
+  .tabs a.on { color: #fff; background: var(--red); clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 100%, 0 100%); }
+  .panel > h2:first-child { margin-top: 30px; }
+  .panel, .panel [id] { scroll-margin-top: 56px; }   /* (a link's jump lands under the tabs, not behind them) */
+  .panel > .notes:first-child { margin-top: 26px; }
+  .chain + .eng { border-top: 0; }
+  @media (max-width: 600px) {
+    .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-bottom: 8px; }
+    .tabs a { font-size: 12px; letter-spacing: .08em; padding: 8px 2px; }
+    .tabs a.on { clip-path: none; }
+    .panel, .panel [id] { scroll-margin-top: 92px; }
+  }
   h2 { display: flex; align-items: center; gap: 10px; margin: 56px 0 14px; font: 700 17px/1.2 var(--mono);
        letter-spacing: .16em; text-transform: uppercase; color: var(--ice); }
   h2 img { height: 14px; width: auto; flex: none; }
@@ -379,24 +397,33 @@
   <header>
     <h1><img src="screens/logo.png" width="1263" height="64" alt="/// STAR DISTROYER"></h1>
     <p class="tag">A starship FM synth for the <span class="nw">M-VAVE FM-1</span></p>
-    <p class="sub">Four banks of oscillators on an X/Y nav field · a morphing resonator · multiband destruction · delay and room</p>
+    <p class="sub">Four banks of oscillators on an X/Y nav field · a morphing resonator · multiband destruction · a delay, a tape looper and a plate</p>
   </header>
 
+  <nav class="tabs" role="tablist" aria-label="The page's sections">
+    <a href="#overview" role="tab" aria-controls="overview">OVERVIEW</a><a href="#hear" role="tab" aria-controls="hear">HEAR</a><a
+       href="#play" role="tab" aria-controls="play">PLAY</a><a href="#sound" role="tab" aria-controls="sound">SOUND</a><a
+       href="#controls" role="tab" aria-controls="controls">CONTROLS</a><a href="#install" role="tab" aria-controls="install">INSTALL</a>
+  </nav>
+
+  <section class="panel" id="overview" role="tabpanel">
   <div class="notes">
-    <p class="warn" role="note"><b>⚠ Not yet tried on a real FM-1.</b> Star Distroyer is built and tested on a computer
-      and in the FM-1 emulator, but no FM-1 has run it yet. Install it at your own risk, and back up your FM-1 first.</p>
+    <p class="warn" role="note"><b>⚠ The first beta, not yet tried on a real FM-1.</b> Star Distroyer is built and tested
+      on a computer and in the FM-1 emulator, but no FM-1 has run it yet. Install it at your own risk, and back up your
+      FM-1 first. What you save may not load in the next beta.</p>
     <p class="testers" role="note"><b>Testers wanted.</b> Have an FM-1, and know how to get it back (below the Install
       button)? Be the first to play Star Distroyer on one, and tell how it went in an
       <a href="https://github.com/joakimskurk/fm1stardistroyer/issues/new?title=Tried+on+an+FM-1">issue on GitHub</a>:
       what worked, what did not, what the screen showed, and how it sounded.</p>
   </div>
 
+
   <div class="hero">
     <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
     <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
     <img src="screens/turing.png" width="240" height="240" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
   </div>
-  <p class="cta"><a href="#try">▶ Play it in the browser</a> · <a href="#start">Getting started</a></p>
+  <p class="cta"><a href="#try">▶ Play it in the browser</a> · <a href="#hear">Hear the demos</a> · <a href="#start">Getting started</a></p>
 
   <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
     sixteen oscillators, morphed across an X/Y field; a <b>Reactor</b> of four resonators that sweep through vowels,
@@ -406,21 +433,25 @@
 
   <div class="facts">
     <div class="fact"><b>16</b><span>oscillators in four banks, morphed on an X/Y field</span></div>
-    <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DISTROY, SPACE</span></div>
+    <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DISTROY, TIME and SPACE</span></div>
     <div class="fact"><b>29</b><span>patches, and 32 places of your own</span></div>
     <div class="fact"><b>2×64</b><span>sequencer steps, with segments and ORBIT over them</span></div>
   </div>
 
-  <h2 id="hear"><img src="screens/slash.png" width="68" height="28" alt="">Hear it</h2>
-  <p>DERELICT and RANGE are played the way one person plays one FM-1: one stock patch at a time, the app's own
-    controls, the voice rules. DERELICT is four such passes, layered at fixed levels, never more than four at once;
-    RANGE is one pass, with nothing mixed in. CINEMATIC layers eight parts as a multitrack, each a stock patch on the
-    engine. All three are rendered on a computer by the firmware's own sound engine, the same C the FM-1 runs. The
-    picture under each is its spectrum, low to high, from start to end: tap it to jump.</p>
+  </section>
+
+  <section class="panel" id="hear" role="tabpanel">
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">Hear it</h2>
+  <p>SINGULARITY, DERELICT and RANGE are played the way one person plays one FM-1: the app's own controls on their
+    pages, the voice rules. SINGULARITY and RANGE are one pass each, nothing mixed in; DERELICT is four passes layered
+    at fixed levels. CINEMATIC layers eight parts as a multitrack, each a stock patch on the engine. All four are
+    rendered on a computer by the firmware's own sound engine, the same C the FM-1 runs. The picture under each is its
+    spectrum, low to high, from start to end: tap it to jump.</p>
   <div id="demos"></div>
 
-  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  </section>
 
+  <section class="panel" id="play" role="tabpanel">
   <h2 id="try"><img src="screens/slash.png" width="68" height="28" alt="">Try it here</h2>
   <p>The firmware itself, compiled for the browser: the same C the FM-1 runs, its sound, its screen and its lights,
     on a panel laid out as the FM-1's. Turn it on and play: the keys with the mouse or a finger, the computer's
@@ -459,30 +490,12 @@
     </ol>
   </div>
 
-  <h2 id="install"><img src="screens/slash.png" width="68" height="28" alt="">Install</h2>
-  <div class="box">
-    <ol>
-      <li><b>Back up your FM-1's flash first</b> (M-Flasher or MvaveFM1Unbricker). Star Distroyer saves where the
-        Felucca family keeps its data, and its first SAVE can overwrite another firmware's projects.</li>
-      <li>Open this page in <b>Chrome or Edge</b> on a computer (they can talk to the FM-1 over USB MIDI).</li>
-      <li>Connect the FM-1 <b>directly</b> to the computer with a USB data cable, and switch it on.</li>
-      <li>Close other apps that use MIDI, tick the box, press <b>Install</b> and allow MIDI when the browser asks.</li>
-    </ol>
-    <label class="ack"><input type="checkbox" id="ack"><span>I understand that Star Distroyer has not been tried on a
-      real FM-1 yet, that I should back up my FM-1 first, and that I install it at my own risk.</span></label>
-    <button id="go" disabled>Install</button>
-    <progress id="bar" max="100" value="0"></progress>
-    <p id="status">Loading the firmware…</p>
-    <p class="pkg" id="pkg"></p>
-    <details><summary>Log</summary><pre id="log"></pre></details>
-  </div>
-  <p class="small">Do not unplug the cable while it writes (about a minute). If an install is cut off, the FM-1 stays
-    in update mode: replug it and press Install again, and it finishes. If the FM-1 does not start at all, hold
-    <b>OCT−</b> while switching it on: it starts in the USB rescue, where an installer always works. To go back, install
-    any firmware from the FM-1 Firmware Hub, or the official one with M-VAVE's own updater M-UPGRADE. Both FM-1 flash
-    chips are supported. Installing firmware is at your own risk.</p>
+  </section>
 
+  <section class="panel" id="sound" role="tabpanel">
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The sound</h2>
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+
   <div class="eng">
     <img class="scr" src="screens/nav.png" width="240" height="240" alt="NAV">
     <div><h3>VOICE <span>·</span> four banks of four oscillators</h3>
@@ -558,7 +571,8 @@
     <img class="scr" src="screens/seq.png" width="240" height="240" alt="SEQ A">
     <div><h3>PLAYING IT <span>·</span> two tracks, ORBIT and an arpeggiator</h3>
       <ul>
-        <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.</li>
+        <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.
+          REC records from the keys or a MIDI keyboard, at its velocity: step by step, or into the step that plays.</li>
         <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
         <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
           two lanes and the macros, jumping or gliding.</li>
@@ -572,6 +586,9 @@
       </ul></div>
   </div>
 
+  </section>
+
+  <section class="panel" id="controls" role="tabpanel">
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
   <table>
     <tr><td>HOME</td><td>NAV → MACROS</td></tr>
@@ -581,7 +598,7 @@
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
     <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B; on TIME, OCT moves the loop an octave and EDIT is the delay's MODE</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
     <tr><td>EDIT</td><td>ON / OFF of what the page shows: an engine, the filter, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one, ON blinking till then)</td></tr>
     <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT loads, HOME not now</td></tr>
@@ -608,18 +625,48 @@
   </ul>
   <p>DISTROY is the one it starts on: everything at once. SAVE keeps 32 patches and 32 patterns of your own.</p>
 
+  </section>
+
+  <section class="panel" id="install" role="tabpanel">
+  <h2><img src="screens/slash.png" width="68" height="28" alt="">Install</h2>
+  <div class="box">
+    <ol>
+      <li><b>Back up your FM-1's flash first</b> (M-Flasher or MvaveFM1Unbricker). Star Distroyer saves where the
+        Felucca family keeps its data, and its first SAVE can overwrite another firmware's projects.</li>
+      <li>Open this page in <b>Chrome or Edge</b> on a computer (they can talk to the FM-1 over USB MIDI).</li>
+      <li>Connect the FM-1 <b>directly</b> to the computer with a USB data cable, and switch it on.</li>
+      <li>Close other apps that use MIDI, tick the box, press <b>Install</b> and allow MIDI when the browser asks.</li>
+    </ol>
+    <label class="ack"><input type="checkbox" id="ack"><span>I understand that Star Distroyer has not been tried on a
+      real FM-1 yet, that I should back up my FM-1 first, and that I install it at my own risk.</span></label>
+    <button id="go" disabled>Install</button>
+    <progress id="bar" max="100" value="0"></progress>
+    <p id="status">Loading the firmware…</p>
+    <p class="pkg" id="pkg"></p>
+    <details><summary>Log</summary><pre id="log"></pre></details>
+  </div>
+  <p class="small">Do not unplug the cable while it writes (about a minute). If an install is cut off, the FM-1 stays
+    in update mode: replug it and press Install again, and it finishes. If the FM-1 does not start at all, hold
+    <b>OCT−</b> while switching it on: it starts in the USB rescue, where an installer always works. To go back, install
+    any firmware from the FM-1 Firmware Hub, or the official one with M-VAVE's own updater M-UPGRADE. Both FM-1 flash
+    chips are supported. Installing firmware is at your own risk.</p>
+
   <h2><img src="screens/slash.png" width="68" height="28" alt="">More</h2>
   <ul class="links">
     <li><a href="https://github.com/joakimskurk/fm1stardistroyer">The source on GitHub</a>, with the README, the
       <a href="https://github.com/joakimskurk/fm1stardistroyer/blob/main/docs/sd/Star_Distroyer_FM1_Sound_Plan_v0.1.md">sound plan</a>
       and the <a href="https://github.com/joakimskurk/fm1stardistroyer/blob/main/docs/sd/Star_Distroyer_FM1_Sequencer_Plan_v0.2.md">sequencer plan</a>,
-      every step with its measurements.</li>
-    <li><a id="dl" href="#">Download the firmware file</a> (<code>.fwsc</code>), to install it another way
-      (<code>tools/fm1_install.py</code>).</li>
+      the design and what each step decided.</li>
+    <li><a href="https://github.com/joakimskurk/fm1stardistroyer/releases">The first beta, 0.1-beta, on GitHub</a>: its <code>.fwsc</code> (identity FM-1_96201), built and
+      attested by GitHub from the source.</li>
+    <li><a id="dl" href="#">Download the firmware file this page installs</a> (<code>.fwsc</code>, the latest build of
+      <code>main</code>), to install it another way (<code>tools/fm1_install.py</code>).</li>
     <li>Try the firmware without an FM-1: open the file in
       <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">fm1-emu</a>, the FM-1 emulator,
       in the browser.</li>
   </ul>
+
+  </section>
 
   <footer>
     <p>Star Distroyer is free software under the GPL-3.0, with no warranty. It runs on
@@ -803,6 +850,33 @@ $("go").addEventListener("click", async () => {
   }
   lock(false);
 });
+{   /* the tabs: one section at a time; a link to a place inside one (#try, #start, #install) opens its tab there */
+  const bar = document.querySelector(".tabs"), panels = [...document.querySelectorAll(".panel")];
+  const tabs = [...bar.querySelectorAll("a")];
+  const find = (id) => { const el = id ? document.getElementById(id) : null; const p = el && el.closest(".panel"); return p ? [p, el] : [null, null]; };
+  const show = (id, jump) => {
+    let [p, el] = find(id);
+    if (!p) { p = panels[0]; el = p; }
+    for (const q of panels) q.hidden = q !== p;
+    for (const t of tabs) { const on = t.hash === "#" + p.id; t.classList.toggle("on", on); t.setAttribute("aria-selected", String(on)); }
+    dispatchEvent(new Event("resize"));   // (what draws itself to its size: the player, the spectra)
+    if (!jump) return;
+    const top = (el === p ? p : el).getBoundingClientRect().top + scrollY - bar.offsetHeight - (el === p ? 0 : 10);
+    if (el !== p || scrollY > top) scrollTo({ top: Math.max(0, top) });
+  };
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || a.getAttribute("href").length < 2 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const id = a.getAttribute("href").slice(1);
+    if (!find(id)[0]) return;
+    e.preventDefault();
+    if (location.hash !== "#" + id) history.pushState(null, "", "#" + id);
+    show(id, true);
+  });
+  addEventListener("popstate", () => show(location.hash.slice(1), true));
+  document.documentElement.classList.add("tabbed");
+  show(location.hash.slice(1), location.hash.length > 1);
+}
 </script>
 <script type="module" src="app/player.js"></script>
 </body>

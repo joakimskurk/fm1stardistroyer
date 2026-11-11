@@ -47,8 +47,14 @@ PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", H
           ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
 SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "turing", "orbit",
            "arp")
-# the demos: each one FM-1 played by one person (tools/sd_play.h's rules); DERELICT four such passes layered
+# the demos: each one FM-1 played by one person (tools/sd_play.h's rules); SINGULARITY a single take, DERELICT four
+# such passes layered
 DEMOS = [
+    {"id": "singularity", "wav": "build/audio/singularity/star_distroyer_singularity.wav", "title": "SINGULARITY",
+     "about": "One take on one FM-1, nothing layered: F minor at 72 BPM, POLY throughout. AURORA's glass looped, "
+              "played backwards and frozen; VOWEL's voices over it, TURING moving their notes; then DISTROY's wall, "
+              "ORBIT stepping the chords and the destroyed band, the loop an octave up; at the end the wall's plate "
+              "frozen and the loop two octaves down."},
     {"id": "derelict", "wav": "build/audio/derelict/star_distroyer_derelict.wav", "title": "DERELICT",
      "about": "An overture, C minor at 84 BPM, four themes in four-bar turns: BRAAM's call; the cello far back in "
               "its own hall; PULSAR's staccato, its nav jumping across all four banks; BEACON's high line; the "
