@@ -2149,6 +2149,89 @@ static void mod_init(SdEngine *e, const SdPatch *p)
     e->sm = &mod_sm;
     sd_engine_patch(e, p);
 }
+/* The crossovers as destinations (2026-11-11): D SPLIT1, D SPLIT2 and D SPLIT (the upper) each move their own; one
+ * moved past another goes through it (sorted each tick). Then the wheel sweeps the lower one up through the middle
+ * one, every band driven: no step at the crossing larger than the sound's own about it (the sweep's largest are
+ * elsewhere: where the lower crossover passes the note itself) */
+static const char *const DST_NAMES_T[3] = {"D SPLIT1", "D SPLIT2", "D SPLIT"};
+static void test_split_through(void)
+{
+    static const struct { uint8_t d; int16_t amt; double hz[3]; } C[] = {
+        {SD_MD_DSPLIT1, 32767, {800, 150.0 * 16, 4000}},    /* +48: the lower one up through the middle one */
+        {SD_MD_DSPLIT2, 16384, {150, 800.0 * 4, 4000}},     /* +24: the middle one, in place */
+        {SD_MD_DSPLIT, -32767, {150, 4000.0 / 16, 800}},    /* -48: the upper one down through the middle one */
+    };
+    SdPatch p = distroy_patch(SD_DS_SOFT, 30000, 16384, 0);
+    uint32_t c, k, t, i;
+    int32_t worst = 0;
+    for (c = 0; c < 3u; c++) {
+        SdPatch q = p;
+        q.mod[0] = q.mod[1] = (SdModSlot){SD_MS_WHEEL, C[c].d, C[c].amt};
+        mod_init(&e1, &q);
+        e1.wheel = 127;
+        mod_run(&e1, &q, 2);
+        for (k = 0; k < 3u; k++) {
+            int32_t want = (int32_t)midi256(C[c].hz[k]), got = e1.patch.d_split[k];
+            if (abs(got - want) > worst) worst = abs(got - want);
+            CHECK(abs(got - want) <= 8, "%s: crossover %u at %.1f Hz, not %.1f", DST_NAMES_T[c], k + 1u,
+                  440.0 * pow(2.0, (got / 256.0 - 69.0) / 12.0), C[c].hz[k]);
+        }
+        CHECK(e1.patch.d_split[0] <= e1.patch.d_split[1] && e1.patch.d_split[1] <= e1.patch.d_split[2], "unsorted");
+    }
+    printf("split: D SPLIT1 +48 through the middle one, D SPLIT2 +24, D SPLIT -48 through it: each where it should be "
+           "(within %d of 256 a semitone)\n", worst);
+    for (c = 0; c < 4u; c++) {                  /* each band's GAIN (D HIGH the top's): its band alone, by 2 x the slot */
+        static const uint8_t G[4] = {SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3, SD_MD_DHIGH};
+        SdPatch q = p;
+        q.mod[0] = (SdModSlot){SD_MS_WHEEL, G[c], 8192};
+        mod_init(&e1, &q);
+        e1.wheel = 127;
+        mod_run(&e1, &q, 2);
+        for (k = 0; k < 4u; k++) {
+            int32_t want = k == c ? 30000 + 2 * ((8192 * 127 * 258) >> 15) : 30000;
+            CHECK(abs((int32_t)e1.patch.d_gain[k] - want) <= 2, "GAIN %u by slot %u: band %u at %u, not %d", c + 1u,
+                  c + 1u, k + 1u, e1.patch.d_gain[k], want);
+        }
+    }
+    printf("gain: D GAIN1..3 and D HIGH (GAIN 4) each move their own band's GAIN, the others' kept\n");
+    {   /* the sweep: the wheel 0 -> 127 over 2 s (SPLIT1 150 Hz -> 2.4 kHz, through 800 Hz), a 300 Hz note */
+        static int32_t o[2u * SD_SUB];
+        double big[2] = {0, 0}, prof[16] = {0};
+        int32_t prev = 0;
+        uint32_t ticks = 2u * SD_FS / SD_SUB;
+        for (k = 0; k < 2u; k++) {
+            SdPatch q = p;
+            q.mod[0] = q.mod[1] = (SdModSlot){SD_MS_WHEEL, SD_MD_DSPLIT1, 32767};
+            mod_init(&e1, &q);
+            e1.wheel = k ? 0 : 77;              /* (still: at the crossing; swept: from 0) */
+            sd_engine_note(&e1, 62, 100);
+            mod_run(&e1, &q, 400);
+            for (t = 0; t < ticks; t++) {
+                if (k) e1.wheel = (uint8_t)(t * 128u / ticks);
+                memset(o, 0, sizeof o);
+                sd_engine_render(&e1, o, SD_SUB);
+                for (i = 0; i < SD_SUB; i++) {
+                    double st = fabs((double)o[2u * i] - prev);
+                    if ((t || i) && st > big[k]) big[k] = st;
+                    if (k && (t || i) && st > prof[e1.wheel / 8u]) prof[e1.wheel / 8u] = st;
+                    prev = o[2u * i];
+                }
+            }
+        }
+        {   /* at the crossing (the wheel 64..95: 800 Hz at 77) against either side of it and held there */
+            double at = prof[8] > prof[9] ? prof[8] : prof[9], at2 = prof[10] > prof[11] ? prof[10] : prof[11];
+            double side = prof[6] > prof[7] ? prof[6] : prof[7], side2 = prof[12] > prof[13] ? prof[12] : prof[13];
+            double ref = side > side2 ? side : side2;
+            at = at > at2 ? at : at2;
+            ref = ref > big[0] ? ref : big[0];
+            printf("split: the lower crossover swept up through the middle one (150 Hz -> 2.4 kHz, every band driven, a "
+                   "D4): the largest step at the crossing %.0f, either side %.0f, held there %.0f\n", at,
+                   side > side2 ? side : side2, big[0]);
+            CHECK(at < 1.25 * ref, "a step as one crossover goes through another: %.0f (%.0f about it)", at, ref);
+        }
+    }
+}
+
 static void test_mod(void)
 {
     SdPatch p = T_GLASS;
@@ -3684,6 +3767,7 @@ int main(void)
     test_space();
     test_looper();
     test_mod();
+    test_split_through();
     test_seq();
     test_filter_seq_arp();
     test_names();

@@ -70,9 +70,11 @@
  *              (a matrix destination, or NOTES: SEQ A's notes moved in its scale, the pattern untouched; to PITCH
  *              quantized to SEQ A's key first, sd_tq_snap), K4 AMOUNT;
  *              EDIT on / off (off by default; on the first time: to XM, 30 %). In MOD it is a SOURCE too
- *   MOD        the slot ALGORITHM picks (1..8): SOURCE DEST AMOUNT. DEST (here, on TURING and ORBIT's lanes): 49 in
- *              the chain's order, the voice, its three envelopes' times, the filter, the Reactor, DISTROY, SPACE, the
- *              looper's SPEED (free; TURING's in semitones, 2026-11-11), the LFOs' rates; while it turns a list in the knobs' place, as PRESETS' (2026-11-10, draw_dlist)
+ *   MOD        the slot ALGORITHM picks (1..8): SOURCE DEST AMOUNT. DEST (here, on TURING and ORBIT's lanes): 54 in
+ *              the chain's order, the voice, its three envelopes' times, the filter, the Reactor, DISTROY (each band's
+ *              GAIN, D GAIN1..4, and each crossover, D SPLIT1..3, one through another, 2026-11-11), SPACE, the
+ *              looper's SPEED (free; TURING's in semitones, 2026-11-11), the LFOs' rates; while it turns a list in the
+ *              knobs' place, as PRESETS' (2026-11-10, draw_dlist)
  *   ARP        MODE (UP DOWN UP-DN RND ORDER) RATE (1/64 .. 1/2, triplets, dotted) OCTAVES GATE; ALGORITHM HOLD. The
  *              player's, not the patch's. REC there: KEEP, what it just played (the last bar at its RATE) as a SEQ
  *              track's pattern, SEQ A's (B's while A plays), UNDO on SEQ (arp_keep). While the patterns play its
@@ -479,15 +481,17 @@ static const char *const SRC_SHORT[SD_MSRCS] = {"--", "E1", "E2", "L1", "L2", "N
 static const char *const DST_NAME[SD_MDSTS] = {"OFF", "PITCH", "XM", "WP", "FD", "DT", "X", "Y", "WIDTH", "R POS",
                                                "R FREQ", "R RES", "R DRIVE", "R MIX", "D GAIN", "D BIAS", "D FDBK",
                                                "D TAME", "D MIX", "S FDBK", "S D-LVL", "S R-LVL", "S DECAY",
-                                               "D HIGH", "D SPLIT", "F CUT", "F RES", "E1 ATK", "E1 DEC", "E1 SUS",
+                                               "D GAIN4", "D SPLIT3", "F CUT", "F RES", "E1 ATK", "E1 DEC", "E1 SUS",
                                                "E1 REL", "E2 ATK", "E2 DEC", "E2 SUS", "E2 REL", "E3 ATK", "E3 DEC",
                                                "E3 SUS", "E3 REL", "F ENV", "R SLEW", "D TIME", "D SPRD", "S TIME",
-                                               "S DTONE", "S SIZE", "S RTONE", "L1 RATE", "L2 RATE", "L SPEED"};
+                                               "S DTONE", "S SIZE", "S RTONE", "L1 RATE", "L2 RATE", "L SPEED",
+                                               "D SPLIT1", "D SPLIT2", "D GAIN1", "D GAIN2", "D GAIN3"};
 static const char *const DST_SHORT[SD_MDSTS] = {"--", "PIT", "XM", "WP", "FD", "DT", "X", "Y", "WID", "POS", "RFQ",
                                                 "RES", "DRV", "RMX", "GAN", "BIA", "DFB", "TAM", "DMX", "SFB", "DLV",
-                                                "RLV", "DCY", "DHI", "DSP", "CUT", "FRS", "A1", "D1", "S1", "R1", "A2",
+                                                "RLV", "DCY", "DG4", "DS3", "CUT", "FRS", "A1", "D1", "S1", "R1", "A2",
                                                 "D2", "S2", "R2", "A3", "D3", "S3", "R3", "FEN", "SLW", "DTM", "SPR",
-                                                "STM", "DTO", "SIZ", "RTO", "L1R", "L2R", "LSP"};
+                                                "STM", "DTO", "SIZ", "RTO", "L1R", "L2R", "LSP", "DS1",
+                                                "DS2", "DG1", "DG2", "DG3"};
 /* the destinations' list (2026-11-10, the user: "as a list, as the patches when I browse, so it is easier to see
    and hit what you look for"): each its engine and its name there, in SD_MD_ORDER (the chain's order) */
 enum { DG_NONE, DG_VOICE, DG_NAV, DG_ENV1, DG_ENV2, DG_FILT, DG_ENV3, DG_REACT, DG_DEST, DG_SPACE, DG_LFO, DG_SEQ,
@@ -498,12 +502,14 @@ static const uint8_t DST_GRP[SD_MDSTS] = {DG_NONE, DG_VOICE, DG_NAV, DG_NAV, DG_
     DG_REACT, DG_REACT, DG_REACT, DG_REACT, DG_REACT, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_SPACE,
     DG_SPACE, DG_SPACE, DG_SPACE, DG_DEST, DG_DEST, DG_FILT, DG_FILT, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV2,
     DG_ENV2, DG_ENV2, DG_ENV2, DG_ENV3, DG_ENV3, DG_ENV3, DG_ENV3, DG_FILT, DG_REACT, DG_DEST, DG_DEST, DG_SPACE,
-    DG_SPACE, DG_SPACE, DG_SPACE, DG_LFO, DG_LFO, DG_LOOP};
+    DG_SPACE, DG_SPACE, DG_SPACE, DG_LFO, DG_LFO, DG_LOOP, DG_DEST, DG_DEST, DG_DEST, DG_DEST,
+    DG_DEST};
 static const char *const DST_PARAM[SD_MDSTS] = {"OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "X", "Y", "WIDTH",
     "POS", "FREQ", "RES", "DRIVE", "MIX", "GAIN", "BIAS", "LOOP FDBK", "TAME", "MIX", "FDBK", "D-LEVEL", "R-LEVEL",
-    "DECAY", "TOP GAIN", "SPLIT", "CUTOFF", "RES", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ATTACK", "DECAY",
+    "DECAY", "TOP GAIN", "SPLIT 3", "CUTOFF", "RES", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ATTACK", "DECAY",
     "SUSTAIN", "RELEASE", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ENV", "SLEW", "LOOP TIME", "SPREAD", "TIME",
-    "D-TONE", "SIZE", "R-TONE", "1 RATE", "2 RATE", "SPEED"};
+    "D-TONE", "SIZE", "R-TONE", "1 RATE", "2 RATE", "SPEED", "SPLIT 1", "SPLIT 2", "LOW GAIN", "LO-MID GAIN",
+    "HI-MID GAIN"};
 static const char *tdest_name(uint32_t d)       /* TURING's DEST: a matrix destination, or NOTES */
 {
     return d == SD_TD_NOTES ? "NOTES" : d < SD_MDSTS ? DST_NAME[d] : "OFF";

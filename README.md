@@ -161,8 +161,10 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
 - **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, TURING, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and
   RAND. The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
-- **Destinations:** 49, in the chain's order: PITCH and the nav, the three envelopes' ATTACK, DECAY, SUSTAIN and
-  RELEASE, the filter (CUTOFF, RES, ENV), the Reactor (POS … SLEW), DISTROY (GAIN … its loop's TIME and SPREAD),
+- **Destinations:** 54, in the chain's order: PITCH and the nav, the three envelopes' ATTACK, DECAY, SUSTAIN and
+  RELEASE, the filter (CUTOFF, RES, ENV), the Reactor (POS … SLEW), DISTROY (GAIN, all four bands' or each band's,
+  BIAS, each of its three crossovers, SPLIT 1–3, and its loop's TIME and SPREAD: a crossover moved past another goes
+  through it, the band between closing and opening again on its other side),
   SPACE (the delay's TIME and TONE, the plate's SIZE, DECAY and TONE), the looper's SPEED (±12 semitones, free: an
   LFO on it a tape's wobble, the loop's grid following it and taking it back after; from TURING in whole semitones,
   through GLIDE) and the LFOs' RATE. Turning DEST brings up a

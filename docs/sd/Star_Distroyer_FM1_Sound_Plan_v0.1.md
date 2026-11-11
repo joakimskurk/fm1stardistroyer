@@ -1618,6 +1618,27 @@ test build `-DSD_RAM2=1` keeps the second bank's looper.
 - *Found on the way:* the emulator scenario of the looper's CPU had lost a press (FX at 100 ms from the last) and never
   reached TIME, so its earlier figures were the gate's; its presses are 200 ms apart now and its screens checked.
 
+**DISTROY band by band in the matrix, 2026-11-11 (the user: "should it be per band?"; then: "what about each having
+its own crossover? But what happens if two crossovers crash, cross each other? We must think of something clever";
+chose: through; then: "gain and crossover").** Five destinations, after the others so a saved slot keeps its meaning:
+- *Each crossover:* D SPLIT1 (LOW | LO-MID) and D SPLIT2 (LO-MID | HI-MID) beside D SPLIT, now SPLIT 3 on the screen
+  (HI-MID | TOP), +-24 semitones each, within DISTROY's range. *Through:* the three are sorted each tick after the
+  matrix, so one moved past another goes through it: the band between them closes to nothing and opens again on its
+  other side, nothing jumps, no wall, and each band keeps its place and its destruction (D SPLIT stopped at its
+  neighbour before). Unmoved they are in order already (the page keeps them a semitone apart), so it changes nothing
+  there. Three compares a tick.
+- *Each band's GAIN:* D GAIN1..3 beside D GAIN (all four) and D HIGH, now GAIN 4 on the screen (the top band's).
+- The list (MOD's DEST, TURING's, ORBIT's lanes): DISTROY's GAIN, LOW GAIN, LO-MID GAIN, HI-MID GAIN, TOP GAIN, BIAS,
+  SPLIT 1..3, then its loop's; 54 destinations.
+- Tests (`test_split_through`): D SPLIT1 at +48 lands above the middle one, D SPLIT at -48 below it, D SPLIT2 +24 in
+  place, each within 2/256 of a semitone, sorted; each GAIN moves its band alone. The wheel sweeping the lower
+  crossover from 150 Hz to 2.4 kHz up through the middle one (800 Hz), every band SOFT-driven, a D4: the largest step
+  at the crossing 1521, either side 1415, held there 1577 (the sweep's largest, 2734, is where the crossover passes
+  the note itself, not the crossing).
+- *Heard:* every render bit for bit as before (81 of 81: no patch or demo moves a crossover past another).
+- *Measured* (fm1-emu): the gate 44.0 % (105.7 M/s, 105.6 before), all at once 51.8 %; RAM as before (96,796 B;
+  the SMK-37's 97,420 of 98,304).
+
 **W1 planned 2026-11-10 (the user: "a subpage on the site that connects to the FM-1 and works as a big screen with an
 overview of everything; think of it as a spaceship console, and play on the design we have and the player on the page
 now").** The next step while HW waits for the user's FM-1.

@@ -269,6 +269,12 @@ enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD
           unless it is the Turing machine; then we can send an LFO so we get a slight wobble"): the looper's SPEED,
           +-12 semitones at 100 %, free (a tape's wobble); TURING's in whole semitones, through GLIDE */
        SD_MD_LSPEED,
+       /* 2026-11-11 (the user, of DISTROY's destinations: "what about each having its own crossover? But what happens
+          if two crossovers crash, cross each other? We must think of something clever"; then chose: through): the
+          lower and the middle crossover beside D SPLIT (now SPLIT 3, the upper), +-24 semitones each; a crossover
+          moved past another goes through it (they are sorted each tick: the band between closes and opens again).
+          Then ("gain and crossover"): each band's GAIN beside D GAIN (all four) and D HIGH (now GAIN 4, the top) */
+       SD_MD_DSPLIT1, SD_MD_DSPLIT2, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3,
        SD_MDSTS };                              /* (D HIGH: the top band's gain; D SPLIT: the upper crossover) */
 /* the destinations in the chain's order, as the lists show them: the voice and its envelopes, the filter, the
    Reactor, DISTROY, SPACE, the LFOs */
@@ -277,7 +283,8 @@ static const uint8_t SD_MD_ORDER[SD_MDSTS] = {
     SD_MD_E1A, SD_MD_E1D, SD_MD_E1S, SD_MD_E1R, SD_MD_E2A, SD_MD_E2D, SD_MD_E2S, SD_MD_E2R,
     SD_MD_FCUT, SD_MD_FRES, SD_MD_FENV, SD_MD_E3A, SD_MD_E3D, SD_MD_E3S, SD_MD_E3R,
     SD_MD_RPOS, SD_MD_RFREQ, SD_MD_RRES, SD_MD_RDRIVE, SD_MD_RMIX, SD_MD_RSLEW,
-    SD_MD_DGAIN, SD_MD_DBIAS, SD_MD_DHIGH, SD_MD_DSPLIT, SD_MD_DFB, SD_MD_DTIME, SD_MD_DSPREAD, SD_MD_DTAME,
+    SD_MD_DGAIN, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3, SD_MD_DHIGH, SD_MD_DBIAS, SD_MD_DSPLIT1, SD_MD_DSPLIT2,
+    SD_MD_DSPLIT, SD_MD_DFB, SD_MD_DTIME, SD_MD_DSPREAD, SD_MD_DTAME,
     SD_MD_DMIX, SD_MD_STIME, SD_MD_SFB, SD_MD_SDTONE, SD_MD_SDLVL, SD_MD_SSIZE, SD_MD_SDECAY, SD_MD_SRTONE,
     SD_MD_SRLVL, SD_MD_LSPEED, SD_MD_L1RATE, SD_MD_L2RATE};
 #define SD_MODS 8                               /* slots a patch */
@@ -2702,10 +2709,13 @@ static void sd_mod_tick(SdEngine *e)
         case SD_MD_SDLVL: sd_add16(&p->s_dlevel, d); break;
         case SD_MD_SRLVL: sd_add16(&p->s_rlevel, d); break;
         case SD_MD_SDECAY: sd_add16(&p->s_decay, d); break;
-        case SD_MD_DHIGH: sd_add16(&p->d_gain[3], d); break;
-        case SD_MD_DSPLIT: {                    /* D SPLIT: the upper crossover, +-24 semitones, between its neighbours */
-            int32_t v = (int32_t)p->d_split[2] + ((a * 24 * 256) >> 15), lo = p->d_split[1] + 256, hi = SD_R_HI * 256 - 256;
-            p->d_split[2] = (uint16_t)(v < lo ? lo : v > hi ? hi : v);
+        case SD_MD_DHIGH: sd_add16(&p->d_gain[3], d); break;   /* (GAIN 4, the top band's) */
+        case SD_MD_DGAIN1: case SD_MD_DGAIN2: case SD_MD_DGAIN3: sd_add16(&p->d_gain[i - SD_MD_DGAIN1], d); break;
+        case SD_MD_DSPLIT1: case SD_MD_DSPLIT2: case SD_MD_DSPLIT: {   /* a crossover, +-24 semitones (D SPLIT the
+                                                   upper), within DISTROY's range; past another, through it (below) */
+            uint32_t s = i == SD_MD_DSPLIT ? 2u : i - SD_MD_DSPLIT1;
+            int32_t v = (int32_t)p->d_split[s] + ((a * 24 * 256) >> 15), lo = SD_R_LO * 256 + 256, hi = SD_R_HI * 256 - 256;
+            p->d_split[s] = (uint16_t)(v < lo ? lo : v > hi ? hi : v);
             break;
         }
         case SD_MD_FCUT: sd_add16(&p->f_cut, (int32_t)(((int64_t)a * 34492) >> 15)); break;   /* +-60 semitones of the 114 at 100 % */
@@ -2734,6 +2744,15 @@ static void sd_mod_tick(SdEngine *e)
         case SD_MD_L2RATE: sd_add16(&p->lfo_rate[1], d); break;
         default: break;                         /* (SD_MD_LSPEED: above) */
         }
+    }
+    {                                           /* the crossovers sorted: one moved past another goes through it, the
+                                                   band between them closing to nothing and opening again on its other
+                                                   side; each band keeps its place and its destruction (unmoved, they
+                                                   are in order already: the patch keeps them so) */
+        uint16_t *s = p->d_split, t;
+        if (s[0] > s[1]) { t = s[0]; s[0] = s[1]; s[1] = t; }
+        if (s[1] > s[2]) { t = s[1]; s[1] = s[2]; s[2] = t; }
+        if (s[0] > s[1]) { t = s[0]; s[0] = s[1]; s[1] = t; }
     }
     e->psemis = semis;
     e->pmul = semis ? sd_semis_mul(semis) : 65536u;   /* 2^(semis / 12): octaves, semitones, cents */
