@@ -38,8 +38,8 @@ static int fails;
 static int32_t a[2u * N], b[2u * N];
 static SdEngine e1, e2;
 
-/* GLASS and BELL as V2 made them, the plain test sounds (stock patches until 2026-11-08, when the user took them out
- * of the bank for sounding like classic FM). GLASS: four carriers on harmonics 1 2 3 4, no FM, AFTER -> XM and WHEEL
+/* GLASS and BELL as V2 made them, the plain test sounds (out of the bank for sounding like classic FM). GLASS: four
+ * carriers on harmonics 1 2 3 4, no FM, AFTER -> XM and WHEEL
  * -> WARP and nothing else; BELL: two FM stacks, 7 on 2 and 5 on 1, its FM falling away, in a room */
 #define C_ SD_ROLE_C
 #define S_ SD_ROLE_S
@@ -513,10 +513,9 @@ static void test_modes(void)                    /* POLY and DUO allocate and ste
     CHECK(e1.mode_on == SD_MODE_DUO && e1.nvoices == 2u && e1.bank[2].voice == 1 && e1.bank[3].src == 1, "DUO map");
 }
 
-/* the stereo (2026-11-11, the user: the dry synth "panned", "switching fully to one side or the other"; "a patch may
- * have some panning, but never HARD left or right"): WIDTH 0 is mono; a corner's bank alone, at WIDTH's most, plays
- * in the middle; and no factory patch's note, MONO or POLY, leans more than 6.5 dB either way (WIDTH's 6 dB at most,
- * the rest the Reactor's own stereo), POLY's at WIDTH's most 2.6 dB at most */
+/* the stereo (a patch may lean, never hard left or right): WIDTH 0 is mono; a corner's bank alone, at WIDTH's most,
+ * plays in the middle; and no factory patch's note, MONO or POLY, leans more than 6.5 dB either way (WIDTH's 6 dB at
+ * most, the rest the Reactor's own stereo), POLY's at WIDTH's most 2.6 dB at most */
 static double st_lr(SdEngine *en, const uint8_t *notes, uint32_t n)   /* L - R, dB, from the note on for 0.25 s */
 {
     double l = 0, r = 0;
@@ -1335,7 +1334,7 @@ static void test_space_mode(uint32_t one)       /* one: the delay and the room o
         printf("space (%s): synced 1/8 at 120 BPM, 1/4D at 100 BPM: frame %u (39690)\n", mode, at);
         CHECK(at >= 39689u && at <= 39692u, "1/4D at 100 BPM: the echo at frame %u, not 39690", at);
     }
-    {   /* on the beat, always (2026-11-10, the user: "not always in sync although it should be"): a triplet exact to
+    {   /* on the beat, always: a triplet exact to
            its fourth echo; a division longer than the line halved (1/2 at 100 BPM plays 1/4, 1/4D at 84 plays 1/8D,
            1/2 at 40 plays 1/8), never held at 1 s; 1/2 at 120 BPM fits as it is */
         static const struct { uint32_t d, bpm, at, fold; } C[5] = {   /* (the delay: its line 1 s, on either) */
@@ -1414,8 +1413,8 @@ static void test_space_mode(uint32_t one)       /* one: the delay and the room o
 }
 static void test_space(void) { test_space_mode(0); test_space_mode(1); }
 
-/* TIME's looper (2026-11-11, the user: "the delay I should be able to put in a loop and pitch it up; it sends into the
- * reverb as the synth does, the fallback too; the delay goes on"; the looper separate): a 440 Hz sine 0 .. 1 s,
+/* TIME's looper (the delay's layer looped and pitched, into the reverb as the synth goes, the delay going on): a
+ * 440 Hz sine 0 .. 1 s,
  * LOOP at 1 s with LENGTH 500 ms (2 s of memory here). It holds (the same level at 2 and at 9 s), at 440 Hz; +12 and
  * -12 at its SPEED play it an octave up and down; where it comes round and where it is let go, no step bigger than
  * the sine's own; the delay goes on while it loops (an impulse at 5 s echoes on TIME); it goes into the reverb as
@@ -1581,8 +1580,7 @@ static void test_looper_mode(uint32_t one)
     }
     space_one = 0;
 }
-/* the looper's grid (2026-11-11, the user: "if the loop is transposed a whole octave, it should find the perfect grid
- * again"; "control over how long it takes, a glide or at once"): an octave down at an odd time and back, gliding
+/* the looper's grid (an octave finds it again, over GLIDE or at once): an octave down at an odd time and back, gliding
  * (300 ms) or at once, and REVERSE there and back: settled at -12 the head is where its grid has it, and back at its
  * pitch the loop plays bit for bit as it would have never moved; no step bigger than the sine's own on the way */
 static void test_looper_grid_mode(uint32_t one)
@@ -1616,7 +1614,7 @@ static void test_looper_grid_mode(uint32_t one)
         tl_rev_at = tl_rev_off = 99;
     }
     tl_nv = 0; tl_glide = 0;
-    {   /* the matrix to SPEED (the user: "an LFO so we get a slight wobble"; TURING in semitones): a 2 Hz wobble of
+    {   /* the matrix to SPEED (an LFO a slight wobble; TURING in semitones): a 2 Hz wobble of
            0.3 semitones from 2.1 to 4.37 s, the grid following it, then taken back; TURING's +7 at once from 2.1 s */
         double lo = 1e9, hi = 0, f7;
         uint32_t j;
@@ -1642,8 +1640,8 @@ static void test_looper_grid_mode(uint32_t one)
     }
     space_one = 0;
 }
-/* the looper's memory, borrowed (2026-11-11, the user: "borrow the delay"; armed while L-LEVEL is above 0, mono mu-law,
- * ~5 s): armed, a free 800 ms echo plays at 400 ms (the delay has its line's first half), let go at 800 again; arming
+/* the looper's memory, borrowed (armed while L-LEVEL is above 0, mono mu-law, ~5 s): armed, a free 800 ms echo plays
+ * at 400 ms (the delay has its line's first half), let go at 800 again; arming
  * while echoes ring fades them out and back, no step bigger than the sine's own; a 440 Hz sine looped through the
  * mu-law bytes keeps its noise 30 dB under it; the memory 5.1 s */
 static int32_t lb_out[2u * (4u * SD_FS + SD_SUB)];
@@ -1716,8 +1714,8 @@ static void test_looper(void)
     test_looper_borrow_mode(0); test_looper_borrow_mode(1);
 }
 
-/* SPACE's plate (2026-11-10, the user: "a really raw, long reverb"; then "lots of stutter and high clicking", which
- * a prototype's LFO had): its T60 at 700 Hz follows DECAY's law, whatever the SIZE; SIZE swept the whole way and back
+/* SPACE's plate (raw and long; a prototype's LFO stuttered and clicked): its T60 at 700 Hz follows DECAY's law,
+ * whatever the SIZE; SIZE swept the whole way and back
  * while a chord rings (a tape) leaves no click in the wet; FREEZE holds the tail's level and keeps new notes out;
  * SHIMMER at its most on the longest DECAY still dies away */
 static int32_t pl_out[2u * 32u * SD_FS], pl_in[2u * 32u * SD_FS];
@@ -1838,8 +1836,8 @@ static void test_plate(void)
            "(%.0f at 5 s)\n", rt[0], rt[1], rt[2], rt[3], clicks, z0, z1, b2 - a, h0, h1, top - sh30, top - sh3);
 }
 
-/* the plate's jobs (2026-11-10, the user: "the plate on the second core, with a fallback to the old one if anything
- * fails"; "never the plate on core 0"): handed over and run later (as on the second core: a block at a time, read a
+/* the plate's jobs (on the second core, the room the fallback, never on core 0): handed over and run later (as on
+ * the second core: a block at a time, read a
  * block on), the sound is the one the engine makes alone, bit for bit; a block not back is dropped, never run here,
  * and the room takes over clean, as it does put in at a run's middle */
 static uint32_t pj_pending, pj_have, pj_drop, pj_mis, pj_mis_n, pj_seed = 11, pj_runs, pj_drop_at = 0xFFFFFFFFu;
@@ -1931,7 +1929,7 @@ static void test_plate_jobs(void)
     pj_drop = 0;
     pj_feed(&ej, o2, n, 1, -1);
     CHECK(!memcmp(o1, o2, sizeof o1), "the plate's jobs run later differ from the engine's own");
-    {   /* the second core gives up at 2.5 s (a block not back): never the plate here (the user's rule), the block's
+    {   /* the second core gives up at 2.5 s (a block not back): never the plate here, the block's
            tail fades out, the room from the next tick; until then the same bit for bit */
         uint32_t f0, f1, j, runs_at = 0;
         int32_t step = 0, pkr = 0;
@@ -2149,7 +2147,7 @@ static void mod_init(SdEngine *e, const SdPatch *p)
     e->sm = &mod_sm;
     sd_engine_patch(e, p);
 }
-/* The crossovers as destinations (2026-11-11): D SPLIT1, D SPLIT2 and D SPLIT (the upper) each move their own; one
+/* The crossovers as destinations: D SPLIT1, D SPLIT2 and D SPLIT (the upper) each move their own; one
  * moved past another goes through it (sorted each tick). Then the wheel sweeps the lower one up through the middle
  * one, every band driven: no step at the crossing larger than the sound's own about it (the sweep's largest are
  * elsewhere: where the lower crossover passes the note itself) */
@@ -2252,7 +2250,7 @@ static void test_mod(void)
     CHECK(lo < 32768u - 15000u && lo > 32768u - 17500u && hi > 32768u + 15000u && hi < 32768u + 17500u,
           "LFO1 -> XM swings %u .. %u", lo, hi);
     CHECK(e1.base.xm == 32768u, "the matrix wrote the base: %u", e1.base.xm);
-    {   /* the looper's SPEED (2026-11-11): LFO1 at +3 % free (+-0.36 semitones: the wobble, a slot sending all the
+    {   /* the looper's SPEED: LFO1 at +3 % free (+-0.36 semitones: the wobble, a slot sending all the
            while); TURING at +50 % in whole semitones (+-6) */
         int32_t mlo = 1 << 30, mhi = -(1 << 30), qn = 0, qbad = 0, qlo = 1 << 30, qhi = -(1 << 30);
         uint32_t mon = 1;
@@ -2589,7 +2587,7 @@ static void test_seq(void)
     printf("seq: segments, orders, skips, DIV, SWING, TIE, SLIDE, RATCHET, PROB, the editing\n");
 }
 
-/* 2026-11-06: the filter, the chords, track B, the arpeggiator */
+/* the filter, the chords, track B, the arpeggiator */
 static uint32_t gates_on(const SdEngine *e, uint8_t *notes)   /* the voices with a gate, their notes (sorted) */
 {
     uint32_t i, n = 0, k;
@@ -2725,7 +2723,7 @@ static void test_filter_seq_arp(void)
     printf("filter, chords, track B, ARP: LP12 -%.0f dB, LP24 -%.0f dB at 2-5 kHz (cut ~400 Hz); ENV3 +%.0f dB\n", hi0 - hi12, hi0 - hi24, he);
 }
 
-/* 2026-11-07: EDIT's OFF (fx_off) is the engine as if its level were 0, bit for bit; a track OFF is silent and keeps
+/* EDIT's OFF (fx_off) is the engine as if its level were 0, bit for bit; a track OFF is silent and keeps
    time; B in MONO is silent; SCL's transpose waits for the track's one */
 static void render_patch(const SdPatch *p, int32_t *o, uint32_t frames)
 {
@@ -2733,8 +2731,8 @@ static void render_patch(const SdPatch *p, int32_t *o, uint32_t frames)
     run_ms(&e1, 2); sd_engine_note(&e1, 45, 110); run_ms(&e1, 200);
     memset(o, 0, frames * 2u * sizeof *o); sd_engine_render(&e1, o, frames);
 }
-/* The hand's held keys (the user, 2026-11-06: "in MONO, hold a key, play a second, let it go: back to the first; now
- * it is cut"): a key let go gives its voice back to the latest key still held without one, legato (no new note-on:
+/* The hand's held keys (in MONO, hold a key, play a second, let it go: back to the first): a key let go gives its
+ * voice back to the latest key still held without one, legato (no new note-on:
  * the voice's age stays). Keys let go out of order, three keys, and DUO's stolen voice too. */
 static void hand_keys(SdEngine *e, uint32_t mode)
 {
@@ -2803,7 +2801,7 @@ static void test_hand(void)
     printf("hand: MONO back to the key still held (legato), out of order, three keys; DUO's taken voice back\n");
 }
 
-/* The edge (the user, 2026-11-08: a plain FM patch sounds as it should, with an edge that makes it Star Distroyer's).
+/* The edge (a plain FM patch sounds as it should, with an edge that makes it Star Distroyer's).
  * GROWL and AURORA, an A3 in MONO and a C major chord in POLY, each with the engine the edge gave it, DISTROY, on and
  * off (fx_off): the body (30 Hz .. 1.2 kHz) within 2 dB, the top (over 5 kHz) up by less than 12 dB, no sample at the
  * ceiling */
@@ -3003,7 +3001,7 @@ static void test_switches(void)
            "the voices' owners and quotas\n");
 }
 
-/* SPACE's ping-pong (2026-11-10, the user: "I only got it on one side"): the first echo on the left, the second on the
+/* SPACE's ping-pong (both sides, never one): the first echo on the left, the second on the
  * right as loud, at FDBK 0 too; the third down by FDBK^2, as the stereo mode's after two */
 static void test_pingpong(void)
 {
@@ -3036,8 +3034,8 @@ static void test_pingpong(void)
     printf("ping-pong: the first echo left, the second right as loud (FDBK 0 and 49 %%)\n");
 }
 
-/* MIDI clock (2026-11-10, the user: "if I connect it to a device with MIDI sync, will the modulation and the sequencer
- * sync?"). Pulses at 100 BPM against the FM-1's own 120, each up to 4 ms late at random (USB, the main loop), START
+/* MIDI clock (the modulation and the sequencer on another device's clock). Pulses at 100 BPM against the FM-1's own
+ * 120, each up to 4 ms late at random (USB, the main loop), START
  * at a pulse; from 60 s 140 BPM; STOP and START again; from 100 s none. Each step starts no sooner than its 6th
  * pulse and within the lateness and two sub-blocks after it, for the whole run and through the change; a synced LFO
  * of a beat starts its cycles with every 24th pulse; the tempo is measured; 0.5 s without pulses: the FM-1's own */
@@ -3125,7 +3123,7 @@ static void test_clock(void)
            "the tempo 100 -> 140 BPM, START again, its own after\n", steps_on, late_lo, late_hi, lfo_lo, lfo_hi);
 }
 
-/* IN KEY (2026-11-10, the user: "if I transpose SEQ B, will it keep to SEQ A's key and root?"): the transposes in
+/* IN KEY (SEQ B transposed keeps to SEQ A's key and root): the transposes in
  * degrees of A's scale from its key, a chord tone by tone; CHROM in semitones, as before */
 static uint32_t xkey_notes(SdEngine *e, const SdPattern *a, const SdPattern *b, int32_t xa, int32_t xb, uint32_t key,
                            uint32_t steps, uint8_t *na, uint8_t *nb)
@@ -3189,7 +3187,7 @@ static void test_xkey(void)
     printf("in key: A +2 in C minor D F Ab Eb (CHROM D F A E), B +4 to Eb in A's key, Cm +3 to Eb major\n");
 }
 
-/* 2026-11-10, playtesting: the destinations in the lists' order (each once); ENV 1's DECAY and S TIME moved by the
+/* the destinations in the lists' order (each once); ENV 1's DECAY and S TIME moved by the
  * matrix; the divisions fastest to slowest; ARP's KEEP: how many steps, what it played in order, a gap as rests,
  * the window ending at the nearest step, the ring from when ARP came on */
 static void test_more(void)
@@ -3278,8 +3276,8 @@ static void test_more(void)
            "%u divisions; KEEP a bar, at the one, a gap as rests\n", SD_MDSTS, d1, d0, SD_SDIVS);
 }
 
-/* what is switched on while the master plays comes in at its one (2026-11-10, the user: "SEQ B and ORBIT switched on
- * in PLAY: wait until A is at 1 again"; "or we can choose the master"): B ON at A's step 2 silent till A's one, then
+/* what is switched on while the master plays comes in at its one (or the master's choice: A or B): B ON at A's
+ * step 2 silent till A's one, then
  * its step 1 on the same sub-block; ORBIT on there plays its step 1 from the one, not before; MASTER B: A ON waits for
  * B's one, ORBIT steps at B's ones */
 static uint32_t cue_note(const SdEngine *e, uint32_t lo, uint32_t hi)   /* a voice with a gate on lo..hi: its note */
@@ -3385,7 +3383,7 @@ static void test_cue(void)
            "one (%u frames on), ORBIT's steps at B's ones\n", one_f);
 }
 
-/* TURING to PITCH, quantized to SEQ A's key first (2026-11-10, the user): a held A3 under TURING (CHANGE 50, its own
+/* TURING to PITCH, quantized to SEQ A's key first: a held A3 under TURING (CHANGE 50, its own
  * DEST PITCH at 60 %, and a MOD slot TURING -> PITCH): every tick the oscillators sit a whole number of semitones from
  * the same engine without it, on a note of A minor (A's default pattern), several of them; an off-scale key (A#3)
  * lands in the scale too; CHROM: whole semitones */
@@ -3436,8 +3434,8 @@ static void test_tq(void)
            "too), %u notes; CHROM whole semitones\n", ticks, worst, notes);
 }
 
-/* ARP on the grid (2026-11-10, the user: "ARP is not quite in sync"; it kept the moment the keys went down, up to
- * half a step off the beat): while SEQ A plays, every ARP note within a sub-block of the grid from START at 1/16,
+/* ARP on the grid (not from the moment the keys went down, up to half a step off the beat): while SEQ A plays,
+ * every ARP note within a sub-block of the grid from START at 1/16,
  * 1/16T, 1/16D and 1/64, after 60 s too and after a new hand (whose first may come late, as played, by under a
  * quarter of a step); a hand just after a point plays at once, a later one waits for the next point; at 1/16 each
  * of SEQ A's steps has ARP's note in the same sub-block */
@@ -3493,7 +3491,7 @@ static void test_arp_grid(void)
            worst, first_now, first_wait, a_hits, a_steps);
 }
 
-/* REC writes what is heard (2026-11-10, the user: a recording came back in another octave): a key under a transpose
+/* REC writes what is heard (never back in another octave): a key under a transpose
  * (SCL's and ORBIT's, -24..+24 in all) goes in so the step plays that key again; CHROM every note, IN KEY every note
  * of A's scale (C minor), on both tracks; no transpose: the key as it is */
 static void test_rec_note(void)
@@ -3527,7 +3525,7 @@ static void test_rec_note(void)
            "key (%u notes)\n", tried);
 }
 
-/* ORBIT (2026-11-09): the steps on SEQ A's ones, XPOSE A moving the line, a lane to XM jumping or gliding, a macro's
+/* ORBIT: the steps on SEQ A's ones, XPOSE A moving the line, a lane to XM jumping or gliding, a macro's
  * change, nothing when it is off, the pattern never rewritten */
 static void orbit_run(SdEngine *e, const SdPattern *p, const SdOrbit *o, uint32_t loops, uint8_t *notes, int32_t *xm,
                       int32_t *xm_mid)
@@ -3598,7 +3596,7 @@ static void test_orbit(void)
            "step's; the pattern untouched\n");
 }
 
-/* The output's limiter (2026-11-09: STRINGS' POLY chord at velocity 127 flattened 9 % of its samples, the macros and
+/* The output's limiter (STRINGS' POLY chord at velocity 127 flattened 9 % of its samples, the macros and
  * slots at full up to a fifth of them on 20 patches): the chord now never past its ceiling, a quiet note untouched (the
  * gain open, the output the input 64 frames later) */
 static void test_limiter(void)
@@ -3635,7 +3633,7 @@ static void test_limiter(void)
            "a quiet note untouched\n", pk / 32768.0, 20.0 * log10(g1 / 32768.0));
 }
 
-/* TURING (2026-11-09): a modulation source in the patch. Off by default; CHANGE 0 a locked loop of LENGTH steps;
+/* TURING: a modulation source in the patch. Off by default; CHANGE 0 a locked loop of LENGTH steps;
  * DEST XM moves the patch's XM in steps; NOTES moves SEQ A's notes in the scale and never rewrites the pattern */
 static void test_turing(void)
 {

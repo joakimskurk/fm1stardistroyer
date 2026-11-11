@@ -207,13 +207,10 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   not built.
 - **Nav mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
   control rate. Gain law tuned in V3 (the spec's "energy hole").
-- **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, spread round the middle of what sounds
-  (2026-11-11, the user, of the dry synth "panned in the stereo image", everything "switching fully to one side or
-  the other": "a patch may have some panning, but never HARD left or right"). The nav mix's own lean (its weights'
-  energy) is the middle: a corner's bank alone plays there, banks mixed spread round it, the far side down to a half
-  at the most (6 dB); in POLY, where each voice is a bank, half that (2.5 dB: each note near the middle, a chord a
-  little wide). WIDTH 0 is mono, as before. (Before: a bank's far side went to nothing at WIDTH's most, so AURORA,
-  SHARDS and PRISM, at corner A, played MONO hard left and POLY a note hard left or right by its voice.)
+- **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, spread round the middle of what sounds: a
+  patch may lean, never hard left or right. The nav mix's own lean (its weights' energy) is the middle: a corner's
+  bank alone plays there, banks mixed spread round it, the far side down to a half at the most (6 dB); in POLY, where
+  each voice is a bank, half that (2.5 dB: each note near the middle, a chord a little wide). WIDTH 0 is mono.
 
 ### 3.7 Harmonic generators and mask
 
@@ -346,7 +343,7 @@ TAME stays inaudible until the system is already unstable (spec §4.7). Memory: 
 Bypass at zero, then a tilt toward a 2-pole lowpass with a little resonance at the top of the range. One SVF per
 channel.
 
-### 5.5 SPACE: a delay into a reverb (decided by the user, 2026-11-04)
+### 5.5 SPACE: a delay into a reverb (decided by the user)
 
 The spec keeps a large-reverb SPACE optional: "if Space compromises any of [the core] … Space is removed". The user's
 decision: a delay inside the reverb, one block, called SPACE, last in the chain.
@@ -361,17 +358,16 @@ DISTROY out (L/R) ──┬─► dry ──────────────
 ```
 
 The echoes go into the reverb, so they reverberate too. The delay's line is up to 1 s stereo; the reverb runs at
-half rate, its four lines up to 2048 half-rate samples (92 ms). ~195 KB, in the pool: the app lends it to the engine.
-CPU 5.6 % (planned ~3 %; see S1's notes). It rests when nothing
-comes in and its tails are under the floor. Both levels at 0: no SPACE.
+half rate, its four lines up to 2048 half-rate samples (92 ms): the room, now the plate's fallback (§5.5.1, §5.5.2).
+The memory is in the pool: the app lends it to the engine. It rests when nothing comes in and its tails are under the
+floor. Both levels at 0: no SPACE.
 
-#### 5.5.1 The plate (decided by the user, 2026-11-10)
+#### 5.5.1 The plate (decided by the user)
 
-The user: "a really raw, long reverb", heard first as a listening test against the room (four renders, the room
-first, then the plate); then "lots of stutter and high clicking in the new one" (the prototype's second LFO jumped
-its phase five times a cycle, and its half rate went in and out by a straight line); then "build it, but keep in mind
-the issues some have had with core 1 and reading from memory". The 4-line room is gone; the plate takes its place and
-its four fields (SIZE, DECAY, TONE, R-LEVEL keep their meaning, so a saved patch loads as it was).
+A raw, long reverb, chosen by ear against the room. It takes the room's place and its four fields (SIZE, DECAY, TONE,
+R-LEVEL keep their meaning, so a saved patch loads as it was); the room plays where the second core cannot (§5.5.2).
+A prototype stuttered and clicked: its second LFO jumped its phase, and its half rate went in and out by a straight
+line.
 
 ```text
 in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 diffusers ─┐
@@ -383,7 +379,7 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
 ```
 
 - *Half rate* (22.05 kHz), a 23-tap half-band in and out: flat to 8 kHz, -57 dB past 15 kHz (a straight line
-  between the outputs let images through: the fizz the user heard). The demos' SPACE alone (no dry): fewer sharp
+  between the outputs let images through, a fizz). The demos' SPACE alone (no dry): fewer sharp
   spikes than the room's (RANGE: 113 against 123), the same top over 12.5 kHz.
 - *SIZE* 0.35 .. 1.75 x of the lines, gliding (a 256th of x 1 a tick at most); read between samples only while it
   moves (a straight line), at whole samples while it is still.
@@ -410,9 +406,8 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
   call stage by stage (bit for bit the sample-at-a-time plate): the gate 48.7 %, everything at once 56.3 % (49.1 with
   the room). Of the plate's 17 M instructions/s, the tank ~10, the diffusers ~4.5, the taps ~3: fewer taps or
   diffusers are what is left to take, and they would change its sound.
-- *The second core* (S3, 2026-11-11, the user: "put the new plate, and a delay too, on the other core, with a fallback
-  to the old one if anything fails"): the plate runs as jobs on the FM-1's second core, the room (S1's, bit for bit)
-  its fallback. See §5.5.2.
+- *The second core* (S3): the plate runs as jobs on the FM-1's second core, the room (S1's, bit for bit) its
+  fallback. See §5.5.2.
 - Tests: `test_plate` (T60 at 700 Hz within 25 % at DECAY 36000 and 48000, SIZE 0 and 65535; SIZE swept the whole
   way and back under a chord: no click; FREEZE held, a tone kept out, then it dies; SHIMMER at its most on the
   longest DECAY: there at 5 s, under its top at 30 s); `tests/scripts/p1.txt` (the hint, FREEZE's tag, SHIMMER).
@@ -424,8 +419,7 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
   interrupt) the block is handed to the second core (`pl_post`), which runs it between interrupts; the next
   interrupt waits for it (`pl_join`) before it reads its outputs, a block late. Run later or at once (a computer: the
   host, the page's player): the same sound bit for bit (`test_plate_jobs`). On the FM-1 the plate never runs on core
-  0 (the user, 2026-11-11: "never the plate on core 0: there we have the original"): a block not handed over or not
-  back is dropped, its tail fading out over the block (`sd_plate_drop`), and the room plays from the next tick.
+  0 (core 0 keeps the original sound): a block not handed over or not back is dropped, its tail fading out over the block (`sd_plate_drop`), and the room plays from the next tick.
 - *The platform:* `firmware/hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h`, taken from felucca-bsp (MPL-2.0) and
   adapted to Dinghy: the second core starts at boot before the audio; its waiting loop runs from RAM; each job carries
   a check word (the function, the argument and the job's number), so a job read wrong is never run; the flash goes
@@ -441,15 +435,12 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
   too big blew the tank up for its whole T60: in `test_plate_jobs`, 86 words read wrong in 0.5 s left the tail
   +22..30 dB over the clean one's, for good; kept in range, -0.1 dB). A line's sample read wrong is off by 32 at most.
 
-#### 5.5.3 TIME: the delay on its own page, and a looper (S4, decided by the user, 2026-11-11)
+#### 5.5.3 TIME: the delay on its own page, and a looper (S4, decided by the user)
 
-The user first had the delay become a tape on the second core with a LOOP of its own (2 s at half rate, TIME to 2 s);
-then, having heard it: "the delay we had sounds so good, so maybe the looper should be separate"; "I should be able
-to put it in a loop and pitch it up; it sends into the reverb as the synth does (the fallback too); the original
-delay goes on, so we don't lose the delay while it loops, and I can build a loop layer in the background"; "the
-delay must keep all the subdivisions it has"; "a page of its own, TIME, so SPACE and TIME are both under FX". So
-the tape went, the delay is §5.5's again (every subdivision, its 1 s, on core 0, bit for bit as before), and the
-looper is new.
+The delay stays §5.5's (every subdivision, its 1 s, on core 0, bit for bit as before), on a page of its own, TIME,
+beside SPACE under FX. The looper is separate: it loops and pitches what SPACE hears, into the reverb as the synth
+goes (the fallback too), while the delay goes on, so a loop layer builds in the background. (A tape in the delay's
+place, with a LOOP of its own, was tried first and dropped: the delay sounded better.)
 
 ```text
 core 0:  dry ─► DC out ─► DELAY ─► echoes ─┬─► x D-LEVEL ─────────────────────────────────────────────┐
@@ -473,13 +464,11 @@ core 0:  dry ──────────────────────�
   pitch and the length together, a tape's, gliding), held; off, it fades out over 46 ms and records again. LENGTH
   as TIME (free 1 ms .. 1 s, or synced, 1/32 .. 1/2 and 1, 2 and 4 bars), halved until it fits its memory (red, and
   the hint says what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono,
-  the same share), so R-LEVEL is its send too. REVERSE (SCL + ALGORITHM on TIME; the user, 2026-11-11: "we
-  implement reverse too") turns its head round: it plays the loop backwards, before it loops or while it does, round
+  the same share), so R-LEVEL is its send too. REVERSE (SCL + ALGORITHM on TIME) turns its head
+  round: it plays the loop backwards, before it loops or while it does, round
   its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
-- *Its grid* (2026-11-11, the user: "if the loop is transposed a whole octave, can we make sure it finds the perfect
-  grid again? I would also like control over how long it takes, either a glide or at once"; then chose SCL + OCT for
-  the octave, GLIDE on SCL + K1 and MODE on SCL + EDIT, and, where a glide cannot get there, a crossfade into its
-  place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
+- *Its grid* (an octave finds it again, over a glide or at once: SCL + OCT the octave, GLIDE on SCL + K1, MODE on
+  SCL + EDIT; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
   and its way: what it reads stays inside the loop). The loop's grid is its own: where it would read had it played
   at x 0.5, 1 or 2 since LOOP, from its start (backwards: from where REVERSE turned it). **GLIDE** is how long a new
   SPEED takes (OFF: at once; synced LENGTH's divisions, 1/32 .. 4 bars; free 0 .. 4 s), a smoothstep in the rate.
@@ -488,23 +477,22 @@ core 0:  dry ──────────────────────�
   the loop); what it misses after, it crossfades over (two heads, both on the beats, GLIDE long and at least a 16th
   of the loop: x(2 - x) in, 1 - x^2 out), or, a few samples, nudges (0.4 % at most). An octave at once waits for the
   grid's next 16th of the loop (both heads on its beats then), REVERSE's turn for its next 64th (on them too).
-  Between the octaves it runs free. The octaves are exact now: the old glide (1/16 of the way a tick) stopped up to
-  15 short of x 1 or x 2 from below and played 1/256 slow, drifting off the beat (and +12 at 878 Hz for 880).
+  Between the octaves it runs free. The octaves are exact (the glide reaches x 1 and x 2: nothing drifts off the
+  beat).
 - *Where:* on the second core in the plate's job (its memory's pointers constants from the caller); on one core
   with the room, here. The delay is always on core 0, so it never needs a fallback.
-- *Its memory* (2026-11-11, the user, of a looper's seconds without a second RAM bank to count on: "borrow the delay";
-  then chose: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay line's second half, lent
-  while the looper is armed, and what the RAM has left, 24 KB: two pieces of one ring of bytes, 5.11 s (MAX in TIME's
-  picture with SCL held; the SMK-37's build, with less RAM left, 23 KB: 5.07 s). A bar at 48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a
-  sign, 3 bits of octave, 4 of step: its noise 31 dB under a sine, a light tape). The delay line is kept its frames
+- *Its memory* (borrowed from the delay: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay
+  line's second half, lent while the looper is armed, and what the RAM has left, 24 KB: two pieces of one ring of
+  bytes, 5.11 s (MAX in TIME's picture with SCL held; the SMK-37's build, with less RAM left, 23 KB: 5.07 s). A bar at
+  48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a sign, 3 bits of octave, 4 of step:
+  its noise 31 dB under a sine, a light tape). The delay line is kept its frames
   left and right in turn (as fast to read; the same sound bit for bit), so its second half is one run of bytes.
   Armed, the delay has the first half: TIME to 0.5 s, a longer division played at half as over 1 s before (TIME red,
   the hint *OVER 0.5 S: PLAYS*), and free ms halved as well (they were held at the line's end; under 1 s no change).
   The change, armed or let go, fades the echoes out over ~23 ms, clears the line and the looper's memory over ~80 ms
   (no old sound in either; 1024 a control tick, the line taking silence meanwhile: at once, the worst interrupt went
-  from 52 % to 79 %), and fades what goes into the line
-  in again (its first echo as smooth: fading the echoes in, the
-  first one came in on a step); letting go waits for the looper to be quiet. L-LEVEL is 0 as the app starts (*LOOPER
+  from 52 % to 79 %), and fades what goes into the line in again (its first echo as smooth: fading the echoes in,
+  the first one came in on a step); letting go waits for the looper to be quiet. L-LEVEL is 0 as the app starts (*LOOPER
   ON: DELAY 0.5 S* when it leaves 0, *LOOPER OFF: DELAY 1 S* back at 0). The test build
   `DINGHY_DEFS=-DSD_RAM2=1` looks for a second bank after the splash (`hal/fm1_ram2.h`: a value at each 4 KiB of 8
   MiB, all written before any is read back, then three patterns; the bus traps masked; a reset in the middle seen at
@@ -538,7 +526,7 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **R1** | Four BPFs, six states, POS, slew | Six states turn a static voice into vowels/chords; POS scans smoothly | |
 | **R2** | COMB/KP, DELAY AP, IIR AP, shared pool | Pinged combs at musical pitches; AP skating kept | |
 | **R3** | Drive, internal saturation, gain compensation, dry-path decision | **Gate D REACTOR:** phoneme / chord / resonator motion from one patch | Reactor ≤ 15–20 % |
-| **R4** | The Reactor fills (the user, 2026-11-05: "too extreme … ring modulator … tin can"): MIX law, low keep, HARM | The Reactor colours the voice instead of replacing it; no inharmonic ringing | Scenes A/B; ~0.2 % |
+| **R4** | The Reactor fills: MIX law, low keep, HARM | The Reactor colours the voice instead of replacing it; no inharmonic ringing | Scenes A/B; ~0.2 % |
 | **D1** | Crossover, four shapers, bias | Bands audibly separate; slope decision (complementary vs LR4) | |
 | **D2** | Dynamics, PHAT/SHARP, BODY | PHAT thickens, SHARP spits transients — not a compressor knob | (measured 1.4 %) |
 | **D3** | Feedback, spread, TAME, safety limiter | **Gate D DISTROY:** bands behave as distinct dynamic/nonlinear systems; feedback sings, never blows up | Distroy ≤ 15–20 % |
@@ -550,1098 +538,152 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **HW** | First install on an FM-1 | Same renders through the real output | CPU nn % on the chip within the emu's estimate |
 | **W1** | CONSOLE: a page of the site that connects to an FM-1 and shows everything at once, a ship's console (below) | Nothing in the sound changes; what it shows follows the FM-1 within ~50 ms | Its stream < 1 % of the chip, in the main loop, never in the audio's way |
 
-**P0 done 2026-11-03.** fm1-emu (instructions, not cycles): the audio interrupt with the loop playing 7.9 M/s =
-3.3 % of the chip, in silence 5.7 M/s (Dinghy's key scan and timers). The engine's own share is
-~2.2 M/s, ~50 instructions a frame for one sine. The CPU readout (the render alone, worst interrupt a second) reads
-0.6 % in the emulator. Not yet measured on an FM-1.
+Every step is done but HW (it needs an FM-1) and W1 (planned, below). What follows is what each left that later work
+needs: what it built and where, what was decided and why, and what bit. The day-by-day log, its measurements and the
+listening rounds are in the git history.
 
-**V1 done 2026-11-03.** One operator in `sd_engine.h`; the laws in `tools/gen_tables.py`.
-- *Hear it:* `build/audio/v1_sweep_warp.wav` goes sine → saw (5 s) → pulse (10 s) with no seam. The warp table is
-  spaced at even steps of timbre: harmonic spectra, each harmonic weighted by its number. Spacing by waveform shape
-  instead left the brightness jumping at the end of the skew. The squash's 1/tanh(G) is computed for each sub-block,
-  not interpolated, so the hand-over at 0.5 is smooth. The test proves it: a 1/256 step at 0.5 moves the wave
-  0.0127 rms, against a median of 0.012. Zero crossings per cycle in the fold sweep, at 0 / .30 / .65 / .85 / 1:
-  2 / 2 / 6 / 10 / 18. That is the spec's four regions.
-- *Fit it:* instructions per frame in the compiled kernel loop (pi32v2):
-  - clean 37
-  - fold 51
-  - squash 62 (78 before the move to 32-bit math)
-  - all on 79
+### 6.1 The voice (P0–V3)
 
-  fm1-emu, GROWL in the loop: 8.7 M/s = 3.6 % of the chip, and the CPU readout shows 1.5 %.
-- *For V3:* 16 operators all on, at ~75 each, is ~1200 a frame. That is about 22 % of the chip, just over the V3
-  gate of 35–40 % of the half-budget. V2 sums each bank before the stereo store, which takes the per-operator output
-  out of the loop. If that is not enough, squash and fold are the places to save.
-- *Aliasing* is not measured yet. Energy above 15 kHz cannot tell a saw's own harmonics from aliases. V3 needs a
-  real measure: render against a band-limited reference.
+- *Where:* `sd_engine.h` (the kernel, the banks, the nav, the voices), the laws in `tools/gen_tables.py`, the
+  generators in `sd_gen.h`. A sub-block is 32 frames, the control tick before it.
+- *Decided:* each oscillator folds before it modulates (§3.0); no self-feedback; the warp table spaced at even steps of
+  timbre (spaced by waveform shape, the brightness jumped at the end of the skew); the squash a cubic soft clip; the
+  nav's bilinear weights normalised by (Σw²)^¼. POLY8 is not built (a candidate, §3.6).
+- *Aliasing* (gentle, §3.0): above C5 XM, FD and the squash fall 6 dB an octave, a saw's edge is never shorter than a
+  sample of the note, an oscillator fades out from 16 to 20 kHz, a modulator loses its index from 4 kHz, gone by
+  12 kHz (its sidebands were the screech of FM up high).
+- *The kernel* (instructions a frame and oscillator, plain / folded): sine 19 / 33, sine → triangle 29 / 44,
+  triangle/saw 26 / 39, squash 46 / 60. Every stage keeps the wave within −32767..32768, so no clamps; the warp's
+  divisions and the nav's roots are cached while their inputs stand still.
 
-**V2 done 2026-11-03, to the design of §3.0.** One bank in `sd_engine.h`; the patches (GLASS, BELL,
-EPIANO, GROWL, ORGAN) in `sd_patches.h`.
+### 6.2 The Reactor (R1–R4)
 
-- *The fold-order A/B* was settled by §3.0: each
-  oscillator folds before it modulates. The A/B before that heard folding in the oscillator as harder and brighter:
-  +6 dB above 6 kHz against folding on the bank's sum.
-- *Hear it:* the Q page swept on a held A2.
-  - `q_sweep_wp.wav`: the test measures the anchors, h3/h1 at each:
-    - sine at 0
-    - triangle at 20: 0.111, the triangle's 1/9
-    - saw at 40: h2 0.500, h3 0.333
-    - pulse at 99: h3 0.302, h2 0.026
+- *Built* (§4): four TPT SVFs in integers (BP6, BP12, VBP), KP combs, AP1 (Schroeder, skating kept), AP2 (IIR), six
+  stages, POS, SLEW, the stage clock, FREQ and its tracking; a soft knee inside each loop (linear to 2 x full scale, a
+  ceiling at 6 x; KP 1.5 / 3 x), the level law SD_RLEVEL (clean to 1 x, then into the soft clip), a make-up per model.
+- *Decided:* linear interpolation in the comb (allpass interpolation would smear the skating); the dry path stereo.
+- *R4, the Reactor fills instead of replacing* (it sounded like a ring modulator): MIX keeps the dry whole to its
+  middle and adds the wet (`SD_RMIX`, the loudness held); the lows under `r_low` skip it; HARM snaps each filter to the
+  nearest harmonic of the note (its level x 0.59). A POLY voice is −6 dB.
+- *Bit:* a shift's floor held a loop at −1 for ever (round toward zero in every loop, CLAUDE.md); MIX's product
+  overflowed 32 bits (now 64; the tests run under the sanitizers since); the Reactor rests when silent.
 
-    No step crosses a hand-over at more than twice its neighbours.
-  - `q_sweep_fd.wav` crosses 2 / 2 / 6 / 10 / 18 zero crossings at 0 / 30 / 65 / 85 / 99.
-  - `q_sweep_xm.wav` is a 1:1 pair from 0 to 4π, and `q_sweep_dt.wav` four unison carriers spreading.
-  - The bell's spectral centroid falls from 1070 to 299 Hz as ENV2 lets go.
-  - PM matches cos(φ + β cos φ) to within 0.5 %.
-- *Fit it:* instructions per frame in the compiled loops (pi32v2), per oscillator:
+### 6.3 DISTROY (D1–D3)
 
-  | Shape | Without fold | With fold |
-  |---|---|---|
-  | sine | 21 | 36 |
-  | sine → triangle | 36 | 51 |
-  | triangle/saw | 33 | 48 |
-  | squash | 59 | 74 |
+- *Built* (§5): per band GAIN (0 .. +36 dB) → BIAS → the shaper (NONE SOFT HARD FOLD CRUSH, each its ALT) → LEVEL and
+  PAN; one DC blocker a channel on the sum; the dynamics per band (PHAT, an upward compressor under BODY, +24 dB at
+  most and none under −72 dB; SHARP, transients up by the fast follower against the slow); the loop (1 .. 20 ms, SPREAD
+  for the right, a one-pole, a soft clip, FB up to 0.9), TAME (a 2-pole lowpass inside the loop) and a safety limiter.
+- *The crossover:* LR4 is the engine's default (neighbours −25 .. −34 dB, CMP's −4 .. −15) and the edge's; CMP is the
+  boot patch DISTROY's, for the CPU (with SPACE, LR4 in a patch that heavy reads ~52 %). XOVER is a knob.
+- *Bit:* the loop's lowpass in Q15 overflowed and latched a DC (Q13 now); at FB ~0.27 a patch's gain in the loop
+  holds a drone after the release; restructured into blocks (the crossover into four band buffers, then each band
+  through its shaper picked once a call) to fit.
 
-  The worst case is down from 82 to 74. Dropping feedback, the shared shape and the closed-form triangle saved that.
-  fm1-emu, with GROWL in the loop and all four oscillators in the worst variant: 15.0 M/s = 6.2 % of the chip
-  (silent 6.0). The CPU readout shows 5.9 %, which is ~320 instructions a frame.
-- *For V3:* every oscillator of four banks in squash with fold comes to ~4 × 4 × 74 + mixing ≈ 1250 a frame, ~23 % of
-  the chip. A bank of plain FM comes to ~4 × 21–36. The gate is 35–40 % of the half-budget, 950–1080, so a patch at
-  the very worst is over it and most patches are well under. Squash is the place to save.
+### 6.4 SPACE and TIME (S1–S4)
 
-**V3 done 2026-11-03.** Four banks in `sd_engine.h`, the generators
-in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN VOYAGE DISTROY) in `sd_patches.h`.
-- *Built:*
-  - Four banks with per-bank Q offsets (§3.0).
-  - Voices with ENV1 and ENV2 each.
-  - The modes: MONO, all banks by X/Y; DUO, two voices, A ↔ B by X; POLY, four voices on bank A. An allocator
-    takes the same note, then the oldest silent, then the oldest released, then the oldest held.
-  - The nav, with bilinear weights normalised by (Σw²)^¼.
-  - COURSE from the gate, playing four cells.
-  - A stereo balance per bank, with A and D left and B and C right, set by WIDTH, round the nav mix's middle and
-    never more than 6 dB to a side (§3.6, 2026-11-11).
-  - Aliasing tracking, described below.
-  - The generators: ALL, ODD, RND, CLUST, CHRD (14 chords in just intonation) and CPY.
-  - The squash is now a cubic soft clip instead of tanh. The warp table was re-spaced for it, and the anchors still
-    measure triangle 0.111, saw 0.500/0.333 and pulse h3 0.325.
-  - POLY8 is not built. It remains a candidate (§3.6).
-- *Gate D VOICE, hear it:* `v3_field_tour.wav`. VOYAGE is held while X/Y walks A → B → C → D → A, then the diagonal.
-  - The spectral centroid goes 156 Hz (A, clean additive) → 690–1120 Hz (B FM bell, C folded growl) → 145–190 Hz
-    (D organ).
-  - The level holds within ±2 dB the whole way, with no energy hole at the centre.
-  - Stereo side/mid is 0.3–0.44, against the target's 0.2–0.4.
-  - Also `v3_poly_*.wav`, chords on four voices with a peak of 27k and no clipping, and `v3_duo_tour.wav`.
-- *Aliasing:* a saw at C7 drops from −14.2 dB of its energy off the harmonic series to −21.7 dB with the tracking on.
-  A2 is unchanged.
-  - Above C6, XM, FD and the squash fall 6 dB an octave.
-  - The saw's edge is never shorter than one sample of the note.
-  - An oscillator fades out between 16 and 20 kHz.
+- *The delay* (§5.5): linear reads, a tape's glide to a new TIME, TONE, FDBK to 0.95 (toward zero), a shoulder in
+  every store. Ping-pong in pairs (the left's echo into the right whole, the right's back x FDBK²: both sides as loud).
+  Synced divisions exact, a division longer than the line halved until it fits, on the beat (`sd_space_sync_q8`). Its
+  input loses its DC (a warp toward pulse built a rumble in the feedback).
+- *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2); the 4-line room its fallback on core 0, and
+  the build `DINGHY_DEFS=-DSD_ONE_CORE`. FREEZE (the player's) and SHIMMER.
+- *TIME* (§5.5.3): the delay on its own page, the looper on the second core (with the room on one core), its memory
+  the delay line's second half and 24 KB (5.11 s; the SMK-37's build 23 KB, 5.07 s) while L-LEVEL is above 0. The
+  change clears 1024 a tick (~80 ms): at once it took the worst interrupt from 52 % to 79 %.
+- *Kept as the user heard them:* the demos made before the divisions were exact (DERELICT, CINEMATIC, the second cue)
+  have SPACE on FREE at 1000 ms, as they were saved.
 
-  This is gentle, as the target asks: off-series partials only 15–33 dB down (§3.0).
-- *Fit it:* instructions per frame and oscillator in the compiled loops:
+### 6.5 The chain and the modulation (C1)
 
-  | Shape | Without fold | With fold |
-  |---|---|---|
-  | sine | 21 | 37 |
-  | sine → triangle | 36 | 51 |
-  | triangle/saw | 33 | 49 |
-  | squash | 57 | 73 |
+- *The matrix:* `e->base` is the patch, `e->patch` the base with the modulation written on each tick (`sd_mod_tick`),
+  `sd_mod_restore` putting back only what it wrote (no slot and the macros at 0: the patch, sample for sample). One
+  copy of the patch only when the main loop hands one over (`-fno-builtin` copies a byte at a time).
+- *Sources:* ENV1..3, LFO1..2, NAV X/Y, VEL, KEY, WHEEL, AFTER, RAND, and the engines as modulators: STEP, SEG, D LOW,
+  D TOP, R STAGE, ECHO, TURING. *Destinations:* 54, in the chain's order (`SD_MD_ORDER`), each new one after the
+  others in the enum so a saved slot keeps its meaning: DISTROY's GAIN band by band and each crossover (sorted each
+  tick: one moved past another goes through it), the looper's SPEED (free; TURING's in semitones).
+- *LFOs:* six shapes, free or synced, KEY, and ONE (one cycle a note, unipolar: a SAW a ramp down inside the note).
+- *The macros:* MUTATE (XM WP FD DT, gentle: past it the saw edges alias), MOVE (the nav and POS stepping on the beat,
+  glided ~10 ms), BREAK (DISTROY weighted toward the top band, never its feedback: on a patch without one it opened a
+  1 ms howl), MACRO 4 (BODY, AIR or DROWN).
+- *The output:* a limiter 64 frames ahead to −1.4 dBFS, then a shoulder (linear to 0.85, a cubic to full scale).
+- *The CPU:* no divide a sample (`sd_tz`); one loop variant per model and per crossover; the user chose a lighter
+  DISTROY (its middle banks under the squash, unfolded) over -O2, to keep room (-O2 also broke USB-MIDI on the device).
 
-  The output stage is 13 a bank. The worst case is DISTROY, every oscillator of four banks in squash with fold at
-  the field's centre: 16 × 73 + 4 × 13 ≈ 1240 a frame, ~23 % of the chip. That is over the V3 gate of 35–40 % of
-  the half-budget (950–1080).
+### 6.6 The sound, as decided by ear after C1
 
-  On the host the other patches cost 15–55 % of DISTROY at the centre or in POLY: GLASS, BELL, EPIANO and ORGAN at
-  25–45 %, VOYAGE 50 % and GROWL 95 %. At a corner it is 13–30 %.
+- *The essence:* an evolving spectrum; modulation stepped and rhythmic (S&H glided ~10 ms, MOVE on the beat), not
+  slow sines; the destruction on the top band (D HIGH, D SPLIT); no HARD or FOLD over 5 kHz in a new patch (without
+  oversampling they fold back inharmonic); no aliasing noise.
+- *The edge* (`SD_EDGE`, `sd_patches.h`): a plain FM patch sounds as it should with an edge: under the top split
+  DISTROY passes it as it was (NONE through LR4: CMP's slopes let the body into the top's shaper), the top band alone
+  destroyed (driven until its shaper's own content is −4 .. −8 dB of it), something stepping on the beat; BODY gives a
+  hot patch its headroom back (LR4 raises peaks). GROWL and AURORA have it; GLASS, BELL, EPIANO and ORGAN went (still
+  classic FM). 29 patches, GROWL first, DISTROY (P03) the boot patch; the code names them by `SD_P_*`.
+- *STRINGS* is the cello found by ear (V4, `tools/cello_v4.txt`; `tests/run_sd.sh` checks the patch renders as the
+  file does).
+- *The stereo* (§3.6): a patch may lean, never hard left or right: the banks round the nav mix's middle, the far side
+  6 dB down at most (POLY 2.5).
+- *A MIDI clock:* each input a source of its own; the first leads until it has been quiet for 500 ms (the same clock
+  on two ports counted twice).
 
-  fm1-emu, DISTROY in the loop: 41.1 M/s = 17.1 % of the chip on average, with the loop's rests (silent 7.4). The
-  CPU readout shows the worst interrupt at 23.8 %, which is ~1290 instructions a frame, as the count predicts. Not
-  yet measured on an FM-1.
-- *Optimised 2026-11-03, fit gate met.*
-  - Every stage keeps the waveform within −32767..32768 and writes each next product for 32768, so no clamps are
-    needed. The kernel walks pointers instead of indexes.
-  - The control tick caches the warp's three divisions and the nav's two square roots while their inputs stand
-    still.
-  - The loops, plain / with fold:
+### 6.7 The demos
 
-    | Shape | V3 | Optimised |
-    |---|---|---|
-    | sine | 21 / 37 | 19 / 33 |
-    | sine → triangle | 36 / 51 | 29 / 44 |
-    | triangle/saw | 33 / 49 | 26 / 39 |
-    | squash | 57 / 73 | 46 / 60 |
+Each is one FM-1 played by one person (`tools/sd_play.h`'s rules: one engine, the app's controls on their pages at a
+hand's speed, the voice rules; a gesture the FM-1 could not make stops the tool). DERELICT and HELIOPAUSE layer four
+such passes at fixed faders (`tools/sd_layer.h`), SINGULARITY is a single one; CINEMATIC is the first cue's
+multitrack, kept as it was (remade as passes it lost what it had). The page plays DERELICT, CINEMATIC and RANGE.
+`sd_play.h`'s transposes are chromatic (as RANGE is written); a player keeping the app's IN KEY sets `e.xkey`. Its
+TURING DEST turns in `SD_MD_ORDER`, as the app does. A render waits for quiet: a loop left ringing (BREAK up) never
+ends, so a performance ends with it off.
 
-  - DISTROY in fm1-emu: 35.4 M/s = 14.7 % of the chip on average, and the CPU readout's worst interrupt at
-    **19.9 %**. That was 23.8 % and is now inside the gate.
-  - The sound is unchanged: the anchors, PM, chunking, aliasing and identity tests pass as before. The triangle is
-    1 LSB higher.
-  - Still left for C1, if Reactor + Distroy need room:
-    - the cubic's ×⅓, which can go into its normalisation
-    - the fold ramp's load
-    - the skew's three loads from memory a sample (register pressure)
+### 6.8 The numbers now (fm1-emu, 2026-11-11)
 
-**R1 done 2026-11-04.** The Reactor in `sd_engine.h`; patches VOWEL and CHORDS, and DISTROY's Reactor.
-- *Built:*
-  - Four TPT state-variable filters in integers: states Q19, coefficients Q30, 64-bit products.
-    1/(1 + g(g+k)) uses a 32-bit division to 15 bits and one Newton step, since 64-bit division is not allowed.
-  - g = tan(πf/fs) comes from a table by semitone, and k (RES) runs exponentially from 2 to 0.01.
-  - BP6 is one SVF's band-pass, which grows louder as it rings. BP12 is a unit-peak SVF into a second one. VBP is
-    unit-peak, so RES sets its width.
-  - The six stages, POS, SLEW, the stage clock and FREQ with key tracking.
-  - The page is on FX: K1 POS, K2 RES, K3 SLEW, K4 DRIVE; with SEL held, FREQ, MODEL, DIV and MIX. The bottom field
-    shows the six stages, the one in play red and the one it glides toward dim red.
-- *Hear it:*
-  - `r1_sweep_pos.wav` runs VOWEL's POS from stage 1 to 6. Each stage's strongest harmonics land on its formants
-    within one harmonic of 110 Hz: A 660/1100 (F1/F2 730/1090), E 440/1760, EE 220/2200, AW 550/880, ER 440/1320.
-  - Also `loop_vowel.wav`, `loop_chords.wav` and `hold_chords.wav`. CHORDS follows the key, and a narrow BP12 on a
-    harmonic rings ~+25 dB, so its levels sit low.
-- *Tests:*
-  - VBP peaks within 0.15 % of its frequency at 0.00 ± 0.02 dB, from 100 Hz to 13 kHz.
-  - At 1 kHz BP6 rings to +15 dB, BP12 is −38 dB two octaves off against BP6's −12, and VBP is at 0 dB.
-  - SLEW 0 jumps, SLEW glides to the log-pitch midpoint.
-  - The clock's modes, every maximum without overflow, and MIX 0 bit-exact.
-- *Fit it:* the loop is 95 instructions a filter (every model's branches) and ~57 around it. BP12, the costliest,
-  comes to ~420 a frame, ~8 % of the chip, under the plan's 15–20 %. fm1-emu, DISTROY with its Reactor in BP12, in the loop: 53.4 M/s = 22.2 % of the chip on average. The CPU readout
-  shows the worst interrupt at **28.3 %**: the voice's 19.9 plus the Reactor's ~8.4. That leaves ~20 % for DISTROY
-  under C1's 50 %.
-  - The Reactor rests when the voice is silent and its integrators have rung out under ⅛ LSB: no work, no output.
-    Without that, silence cost 25.3 M/s; with it, 9.0.
-  - A first measurement was of a stale package: `./build.sh` had failed its ROM-address check on `-(1 << 22)` (now
-    clamped before the shift) and written no new `.fwsc`. CLAUDE.md now says how to see that.
+| Scenario | The first core | The second core |
+|---|---|---|
+| The gate: DISTROY, SEQ A, MONO | 44.0 % | 9.9 % (10.1 at most) |
+| The looper armed, LOOP, GLIDE, SCL + OCT- | 45.3 % | 10.6 % (12.2 at most) |
+| Everything at once | 51.8 % | 9.9 % |
+| One core (a second core that misreads): the room | 44.3 % | – |
+| One core, the room and the looper's glide | 47.4 % | – |
 
-**R2 done 2026-11-04.** The Reactor's other three models in `sd_engine.h`: KP, AP1, AP2. Patches PLUCKS, FLANGE and
-PHASER.
-- *Built, to §4.0:*
-  - **KP:** four combs in parallel. Each is a delay line fs/f long, read linearly between samples, with
-    Karplus-Strong's two-point average in the loop (its half sample taken off). Feedback 1 − k/2 = 0 … 0.995 by RES.
-  - **AP1:** four Schroeder allpasses (g 0.6) in series on delay lines. A filter's delay slides as its pitch moves,
-    so the pitch skates (kept on purpose).
-  - **AP2:** eight first-order IIR allpasses in series, two per filter, c = (g−1)/(g+1).
-  - **The AP modes' outputs**, a subtracted and an added dry: left = wet − RES·dry,
-    right = wet + RES·dry, at the four levels' mean, with no pan. They are very wide (side ≈ mid); in mono the
-    notches cancel.
-  - The lines are int16 (Q13: 4 × full scale), 4 × 2048 samples = 16 KB of RAM in the engine (21.5 Hz the lowest
-    comb). The delays are ramped across each sub-block.
-  - The delay models rest once their output has stayed under 4 LSB for 73 ms with the voice silent.
-- *Decided:* **linear interpolation** in the comb (§9's open question). KP rings within 0.1 cents up to 440 Hz,
-  +0.9 at 880 Hz and +4.1 at 1.76 kHz. In AP1's loops, linear reads cost a few dB of colour above ~4 kHz when all
-  four delays are the same (−4.6 dB at 6 kHz). Allpass interpolation would fix that, but it would smear the skating
-  the Reactor keeps. AP1 is flat within 1.2 dB to 3 kHz.
-- *Found and fixed by the tests:*
-  - Two limit cycles. A shift's rounding toward −∞ held KP's loop at −1 and an AP2 stage at a small DC for ever: no
-    tail ended, and the Reactor never rested. Both loops now round toward zero.
-  - AP2's coefficient had the wrong sign, so its phase turned only near Nyquist.
-- *Hear it:*
-  - `loop_plucks.wav` / `hold_plucks.wav`: a pluck pings four combs on chords.
-  - `loop_flange.wav`: AP1 skating.
-  - `loop_phaser.wav`: AP2 gliding.
+The app's CPU (the worst interrupt of a second) reads 52–54 % in the gate. RAM 96,796 B of 98,304 (the SMK-37's
+97,420), the image 173 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy's.
+- *Open:* the worst interrupt is a little over half in the emulator, and DISTROY in POLY with a held chord read 50.9 %
+  on average (2026-11-08); the emulator counts instructions, not cycles, so HW measures both on the chip.
 
-  AP2 notches to −31 dB left and −32 dB right at RES max, and is flat within 0.14 dB at RES 0.
-- *Fit it:* on the host, with DISTROY's voice in front, the Reactor costs BP6 +24 %, VBP +27 %, AP1 +27 %, AP2 +32 %,
-  BP12 +35 % and KP +35 % of the voice. BP12, DISTROY's, stays the worst. fm1-emu, DISTROY in the loop: 54.5 M/s = 22.7 % of the
-  chip on average (silent 9.1). The CPU readout shows the worst interrupt at **29.0 %** (R1: 28.3; the models'
-  dispatch). RAM: 38 of 96 KB with the delay lines.
-
-**R3 done 2026-11-04: the Reactor is finished (Gate D REACTOR).** Its nonlinear layer, its levels, and patch FUSION.
-- *Saturation in the loops:* each SVF's band-pass passes a knee before it updates its integrator: exactly linear to
-  2 × full scale, then a cubic shoulder to a ceiling at 6×. KP's line works the same way: linear to 1.5×, a ceiling
-  at 3×. High RES and DRIVE ring into saturation and never away. Both shoulders work on the magnitude, with the
-  sign put back.
-  - A first version used the cubic all the way: two downward roundings a sample left a bias. Recirculating in a
-    ringing filter, it took 18 dB off VBP at 100 Hz and held KP at a DC again.
-  - The tests: a quiet sine through BP6 at RES 79 has h3/h1 0.027 %, and driven 4× on a loud one 10.8 %, with every
-    integrator under 16 × full scale.
-- *The level law (SD_RLEVEL):* the first half is clean, 0 … 1×; the second rises 1 … 4× into the output's soft
-  clip. 32768 is 1×, as before; VOWEL's levels were moved to keep their gains.
-- *Make-up per model,* measured against the dry voice (a saw through VOWEL's stage A, RES and level one half):
-
-  | Model | Before | With make-up |
-  |---|---|---|
-  | BP6 | +3.4 dB | +0.2 dB |
-  | BP12 | −0.3 dB | −0.0 dB |
-  | VBP | −13.3 dB | −0.1 dB |
-  | KP | +15.1 dB | +2.0 dB (its own saturation) |
-  | AP1 | +0.8 dB | −0.0 dB |
-  | AP2 | +0.7 dB | +0.1 dB |
-
-  A model change no longer jumps. BP6's and BP12's loudness growing with RES stays,
-  by design. VOWEL's and PLUCKS' levels were converted to keep their gains: their renders are unchanged.
-- *The dry path (§9): stereo.* MIX blends the voice's own stereo (banks panned by WIDTH) with the Reactor's panned
-  wet. Mono would throw that image away. To be heard on the FM-1.
-- *Gate D REACTOR, hear it:* `loop_ride.wav`, `hold_ride.wav`. One patch moves through a phoneme (A), a chord, a
-  phoneme (OO), a single high ring, a phoneme (EE) and a chord. BP12 at RES 70, ping-pong a beat, with a glide. The
-  spectral centroid walks 300 … 1540 Hz beat by beat, without clipping. FUSION needed DRIVE low: narrow BP12 on a
-  held vowel rings ~+25 dB.
-- *Found by the sanitizers:* MIX's (wet − dry) × MIX overflowed 32 bits once wet and dry stood more than 2 × full
-  scale apart (KP at +15 dB): a crackle on the FM-1. It is now 64-bit. `tests/run_sd.sh` now also runs the tests
-  under ASan/UBSan (SD_ASAN=0 skips it).
-- *Fit it:* fm1-emu, DISTROY (BP12) in the loop: 56.8 M/s = 23.6 % of the chip on average (silent
-  9.3). The CPU readout shows the worst interrupt at **30.1 %** (R2: 29.0; the knees' tests). That is the voice's
-  ~19.9 plus the Reactor's ~10.2, inside the plan's 15–20 % for the Reactor. ~20 % is left for DISTROY under C1's 50 %.
-
-**D1 done 2026-11-04.** DISTROY's crossover, bias and shapers in `sd_engine.h`; patch SPLIT, and DISTROY in DISTROY.
-- *Built:* per band, GAIN (0 … +36 dB) → BIAS (±½ full scale) → shaper → DC blocker (~14 Hz, its output × 256: a
-  first version had a dead zone of 511 LSB and left a DC of 37) → LEVEL (the Reactor's law) → PAN. Then MIX dry ↔ wet;
-  0 is no DISTROY, bit for bit. The shapers:
-  - **NONE:** guarded at 4 × full scale.
-  - **SOFT:** asymmetric, a lower ceiling on the negative side; h2 −20 dB. ALT = hardness.
-  - **HARD:** symmetric; h2 −57 dB. ALT = the knee.
-  - **FOLD:** ALT = the spacing.
-  - **CRUSH:** toward zero, 15 … 2 bits by ALT.
-
-  BIAS before HARD makes h2 −11 dB, and no DC comes out.
-- *The slope (§5.1, decided): LR4 by default, CMP kept as a patch's choice.* Measured with each band alone and a sine
-  in each band's middle (splits 150/800/4000 Hz):
-  - The complementary split's neighbours pass −3.9 … −14.6 dB: "crushed mids" would crush the bass too.
-  - LR4's pass −24.8 … −34.3 dB.
-  - Both sum flat, within 0.013 dB.
-
-  LR4 is a tree: split 2 first, then split 1 on the low side and split 3 on the high side. Each split is two
-  Butterworth stages, and each side gets an allpass at the other side's split. That is 11 SVFs a channel against
-  CMP's 3. The A/B is `d1_split_lr4.wav` / `d1_split_cmp.wav`, to be heard.
-- *Hear it:* `loop_split.wav`, `hold_split.wav`: clean lows, crushed mids, biased SOFT upper mids, folded highs, the
-  bands panned apart.
-- *The page:* FX steps NAV → REACTOR → DISTROY. EDIT picks the band and ALGORITHM its shaper. K1–K4 are GAIN, ALT,
-  BIAS and LEVEL; with SEL held, SPLIT, PAN, XOVER and MIX. The bands are drawn as rectangles on a log-frequency
-  axis.
-- *Fit it:* fm1-emu, DISTROY (voice, Reactor BP12, DISTROY LR4) in the loop: the first build's worst
-  interrupt was **52.0 %**, over C1's 50 %, with DISTROY alone ~22 %.
-  - Restructured into blocks: the crossover over a call's frames into four band buffers, then each band through
-    its shaper with the type picked once, not a sample.
-  - Level and pan in one gain a band and channel.
-  - One DC blocker a channel on the sum, not one a band (linear: the same).
-  - The gain in 32 bits.
-
-  After that: **46.5 %** worst, 94.2 M/s = 39.2 % on average. DISTROY ~16 %, LR4's crossover about half of it. On the
-  host DISTROY LR4 costs 43 % of the voice and CMP 26 %.
-  - *For D2/D3:* the dynamics and the feedback must fit in the ~3.5 % left under 50 % for this worst case, or the
-    worst case gives way. CMP saves ~7 %, which makes the A/B by ear a CPU decision too.
-
-**S1 done 2026-11-04.** SPACE in `sd_engine.h` (§5.5); its memory a `.pool` static in the app.
-- *Built:* the delay reads with linear interpolation and glides to a new TIME like a tape (~12 ms). It has a one-pole
-  TONE, and FDBK up to 0.95 rounds toward zero. Every store has a shoulder past 1.5 × full scale, so a long feedback
-  saturates instead of growing.
-  - Ping-pong takes the mono sum into the left and crosses the feedback. (2026-11-10, the user: "I only got it on
-    one side": the right had only the left's echo x FDBK, so at a low FDBK the second echo was quiet or gone. Now the
-    left's echo goes into the right whole and the right's comes back x FDBK^2: the echoes in pairs, the right as loud
-    as the left, each down by FDBK on average, as in stereo; the patches' tails as long. `test_pingpong`.)
-  - Synced, TIME steps through twelve divisions of the note driver's sixteenth.
-  - The reverb takes the dry and the echoes (mono) through four Schroeder allpasses (g 0.625) into four lines with a
-    Hadamard matrix.
-  - SIZE scales the lines (a sample a sub-block, no clicks); DECAY sets their gain from a T60 table (`SD_SP_G`); TONE
-    is a lowpass in each line.
-  - Two decorrelated taps make the stereo.
-  - It rests 2756 ticks (2 s) after its tails fall under 4 LSB with no input.
-- *Tests:* echo timing exact (250 ms at frame 11025; a dotted 1/4 at 100 BPM at 39690), ping-pong L then R, FDBK at
-  max bounded (peak 57795 in the line), DECAY lengthens the tail, it rests 4.3 s after a note, levels 0 bit-exact.
-  The tails' floor is ~−80 dB: the lines are Q14 in 16 bits.
-- *Hear it:* `loop_plucks.wav`, `loop_tour.wav`, `loop_chords.wav`, `loop_distroy.wav` (everything at max, 1/16
-  synced, ping-pong), and the demo. No render clips (PLUCKS peaks at 31469).
-- *The page:* FX steps NAV → REACTOR → DISTROY → SPACE. The panel shows the echoes as lines falling by FDBK (the
-  right channel's ice-white in ping-pong) over the reverb's tail, along 2 s; the bottom shows the delay's time and
-  mode and the room.
-- *Fit it:* fm1-emu, DISTROY in the loop.
-  - Without SPACE (the same build, no memory lent): 39.3 % on average.
-  - The first SPACE: 47.7 %, 8.4 % for SPACE.
-  - The reverb at half rate (two frames averaged in, a straight line between its outputs; the lengths halved, the
-    tone's coefficient squared to keep its corner): 44.9 %, SPACE 5.6 %.
-  - The worst interrupt reads **52.2 %**, over C1's 50 % (46.5 % before SPACE).
-  - *Decided (the user, 2026-11-04):* DISTROY's crossover is CMP. With it: **45.4 %** worst, 92.3 M/s = 38.5 % on
-    average, ~4.6 % left under 50 % for D2/D3. LR4 stays the engine's default and SPLIT's; with SPACE on, LR4 in a
-    patch as heavy as DISTROY would read ~52 % again, so C1 must keep that in mind (XOVER is a knob).
-
-**D2 done 2026-11-04.** DISTROY's dynamics in `sd_engine.h`, per band: SHAPE (PHAT ← off → SHARP) and BODY.
-- *Built:* each band's own follower, not the full-band one §5.2 first planned: the dynamics sit in each band (§5.0).
-  - The band's peak is gathered in the shaper loop (two instructions a sample).
-  - At each tick (0.73 ms) it becomes dB (`SD_DLOG`: five fixed steps for the top bit, a table for the rest).
-  - It feeds two envelopes: fast holds the peak and falls 60 dB in 80 ms; slow is a one-pole, 15 ms up and 150 ms
-    down.
-  - The gain in dB goes back to linear (`SD_DEXP`) and multiplies GAIN's. It ramps through the sub-block, Q12, so
-    it has no steps.
-  - SHAPE 0 is D1's gain, bit for bit.
-  - BODY is the threshold T, −54 … −6 dBFS.
-- *PHAT,* a low-level compressor: under T, up to 4:1 upward; above T, nothing. Quiet parts and tails come
-  up.
-  - A first version also pressed down above T. It made SPLIT's held bass quieter and spikier (RMS −2.6 dB, crest
-    +0.7 dB), the opposite of "thickens".
-  - Its level is the slow envelope or the tick's peak − 3 dB, whichever is higher. The slow one alone let a note's
-    first 15 ms through lifted, up to +24 dB.
-  - Below −72 dB it lifts no more, so noise is not pumped up; +24 dB at most.
-- *SHARP,* an expander that emphasises transients: + 2 × (fast − slow), so the attack goes up and the tail
-  down, plus a gentle expander under T. −30 … +12 dB. At +18, with the first PHAT, DISTROY's onset peaks rose 3.2 dB
-  and clipped.
-- *Tests:*
-  - A 30 dB step from −40 to −10 dBFS with T −25 comes out 19.1 dB (4:1 upward: 18.75). The loud part moves 0.0 dB.
-  - SHARP raises plucks' crest from 12.8 to 15.6 dB.
-  - −90 dBFS with PHAT full and T −6 gets +0.0 dB.
-  - SHAPE 0 leaves every band's gain at GAIN's.
-- *Hear it:* `d2_split_phat.wav` / `d2_split_nodyn.wav` (SPLIT, a held bass, PHAT on the low band at T −12 dBFS:
-  RMS +0.5 dB, crest −0.8 dB), and `d2_distroy_dyn.wav` / `d2_distroy_nodyn.wav` (PHAT low, SHARP on CRUSH and
-  HARD: crest +0.5 dB, the attacks spit). DISTROY's band levels came down ~1.5 dB, and with them the clipping in
-  `hold_distroy` at note 57: a Reactor stage rings there.
-  - That clipping was older than D2. S1's scan of the renders had missed it, because the sanitizer run had stopped
-    `run_sd.sh` before the renders: the files measured were stale. The cause was a buffer in D2's new test.
-- *The page:* DISTROY with SEL held: K3 SHAPE (PH / OFF / SH), K4 BODY (dBFS). MIX moved to ALGORITHM and XOVER to
-  GLO, both with SEL held; the panel's title row shows both. The bottom shows P / S on a band and a meter of the
-  dynamics' gain now, red up, ice down.
-- *Fit it:* fm1-emu, DISTROY in the loop: 95.8 M/s = 39.9 % on average (38.5 % at S1): D2 costs 1.4 %. The worst
-  interrupt reads **47.1 %** (45.4 % at S1): ~2.9 % left under 50 % for D3's feedback, TAME and limiter.
-
-**D3 done 2026-11-05.** DISTROY's feedback (§5.3), TAME (§5.4) and a safety limiter, in `sd_engine.h`.
-- *Built:* the wet out (after the DC blocker, TAME and the limiter) goes into a line of 1024 int16 a channel (4 KB,
-  in the engine).
-  - It is read 1 … 20 ms back (TIME). The right line is up to 30 % shorter (SPREAD).
-  - In the loop: a one-pole (~7 kHz), a soft clip (linear to 0.75 × full scale, a ceiling ~1.05), × FB (0 … 0.9,
-    toward zero), then into the crossover's input.
-  - The shortest delay is 1 ms (44 frames), longer than a call. A call's feedback is read before the call writes any,
-    so the blocks stay blocks.
-  - TIME and SPREAD glide a sample a tick: turning them bends the loop's pitch.
-  - The loop's lowpass first multiplied by 22938 in Q15. That overflowed at full scale and latched the loop on a DC,
-    which the DC blocker then hid: max feedback went silent. It is Q13 now.
-- *TAME:* off at 0, then a 2-pole lowpass from 14.9 kHz to 1.2 kHz, its damping from 1.41 to 0.81 (a little
-  resonance at the top). One SVF a channel. It is inside the loop, so it tames the feedback too.
-- *The limiter:* the peak before it, a tick at a time. Past 1.5 × full scale its gain drops at once and comes back
-  over ~0.75 s. It is a tick late, so a ceiling at 2 × full scale follows it. It stays out of the way until something
-  is already wrong.
-- *Tests:*
-  - At TIME 10 ms the repeat comes at frame 441, −6.1 dB at FB 0.5, with no second repeat above the first.
-  - At FB 0.8 a burst dies to ≤ 2 LSB within 1.5 s: the crossover's last bit through the DC blocker's floor. DISTROY
-    rests there.
-  - Everything at max (+36 dB in every band, FB 0.9, noise in): it screams, bounded at ≤ 2 × full scale, the
-    limiter at 0.09.
-  - +36 dB on a sine of 0.25 holds at 1.51 × full scale.
-  - TAME at max: 100 Hz +0.0 dB, 10 kHz −40.2 dB. At its least, 10 kHz −0.2 dB.
-- *DISTROY:* FB 0.19, 6 ms, SPREAD 34 %, TAME 34 %. From FB ~0.27 this patch's loop holds itself up after the note's
-  release and drones on, at −37 dBFS: the bands' gain (+7 … +10 dB) is in the loop. At 0.19 it rings and dies like
-  the patch without feedback.
-- *Hear it:* `d3_distroy_fb.wav` / `d3_distroy_nofb.wav`, and `d3_distroy_hold_fb.wav`. No render clips.
-- *The page:* EDIT on DISTROY's page steps bands 1–4, then LOOP: K1 FDBK, K2 TIME, K3 SPREAD, K4 TAME.
-- *Fit it:* fm1-emu, DISTROY in the loop: 43.2 % on average (39.9 % at D2). Feedback ~1.4 %, TAME ~0.6 %, and the
-  rest (the limiter, the ceiling, the peak) ~1 %. The worst interrupt reads **50.5 %**, over C1's 50 %.
-  - Tried: the output loop's state in locals (no change). A 32-bit limiter: slower, 44.0 %, because the chip's
-    64-bit multiply is cheap. The feedback read inside the crossover loop: 43.2 % against 42.9 %, kept for being
-    simpler.
-  - *Open:* ~0.5 % has to come back, now or in C1, which adds the mod matrix as well.
-
-**R4 done 2026-11-05.** The user heard the Reactor as "too extreme, ring-modulator-like, a tin can".
-- *Why:*
-  - MIX crossfaded dry to wet, and most patches sat at full wet: the voice's fundamental and body were gone,
-    leaving narrow bandpasses alone.
-  - In DISTROY, VOWEL and FUSION the filters did not follow the note. A resonance between the harmonics rings at a
-    pitch the note does not have, which is what a ring modulator does.
-  - DRIVE and the loops' saturation intermodulated the filters.
-- *MIX fills (`SD_RMIX`):*
-  - Up to the middle the dry stays whole and the wet comes in on top; past it the dry fades.
-  - Both are scaled by 1 / sqrt(dry² + wet²), so the loudness holds across MIX: −3 dB each at the middle.
-  - The ends are the old law's.
-- *The low keep (`r_low`):* the lows under 50 … 400 Hz skip the Reactor. Whatever MIX takes of the dry, a one-pole
-  gives back below the corner. At full MIX, 60 Hz comes through at −0.3 dB with it, −41 dB without.
-- *HARM (`r_track` bit 2; bit 1 is KEY):* each filter goes onto the nearest harmonic of the note (1 … 32, none under
-  the fundamental). The resonances then strengthen what the voice has instead of adding tones.
-  - KEY+H first transposes with the key, then snaps; HARM alone keeps the stages' own colour (a vowel's formants)
-    and snaps it.
-  - On the harmonics a filter passes 1.4 … 7.4 dB more (measured on five patches), so HARM takes the Reactor's level
-    × 0.59.
-- *Patches:* MIX 24 000 … 40 000, RES and DRIVE lower, HARM or KEY+H, LOW 160 … 180 Hz.
-  - DISTROY, VOWEL, CHORDS, PLUCKS and FUSION.
-  - FLANGE and PHASER are unchanged (full wet, r_low 0: the old law exactly).
-- *POLY:* a voice is now −6 dB (was −3). Once the Reactor kept the dry, four voices in a chord clipped CHORDS and FUSION.
-  POLY patches are 3 dB quieter.
-- *Hear it:* `build/audio/r4/before_*.wav` and `after_*.wav` for DISTROY, VOWEL, CHORDS, PLUCKS and FUSION. Each is
-  a scene (`sd_render scene`) at 100 BPM, 29 s: a bass riff low, a slow melody, four POLY chords, a fast arpeggio
-  over two octaves. No render clips; the loudness is within ~1 dB of before, FUSION +4 dB.
-- *The page:* REACTOR, ALGORITHM TRACK (OFF KEY HARM KEY+H), SEL + ALGORITHM LOW; both on the panel's title row.
-- *Fit it:* fm1-emu, DISTROY in the loop: 44.2 % on average (43.2 % at D3). The worst interrupt reads **52.7 %**
-  (50.5 % at D3).
-  - The first R4 read 53.4 / 53.9 %. HARM's scan of all 32 harmonics, four filters a tick, eight ticks an interrupt,
-    cost ~1.2 % at the worst interrupt; a search by halving (five steps) replaced it.
-  - MIX up to the middle takes a 32-bit fast path (the dry whole, no lows to add). It measured no change in DISTROY.
-  - The rest (~1 % on average) is likely the level: DISTROY's DISTROY now gets the dry and the wet. More of the
-    signal goes over the shapers', the feedback's and the limiter's knees, whose slow path is the cubic.
-  - *Open, for C1:* the worst case is 2.7 % over 50 %, with C1's mod matrix still to add.
-
-**C1 (2026-11-05): the CPU first.** fm1-emu, DISTROY in the loop, the worst interrupt (the readout):
-- *Where it goes* (one block off at a time): the voice 20.7 %, DISTROY 14.3 %, the Reactor 10.9 %, SPACE 6.4 %; the
-  four add up to the 52.7 % R4 left.
-- *Done, all bit-exact (the demo renders sample for sample the same):*
-  - The Reactor's loop: one variant per model and MIX side (`sd_reactor_loop`, MODEL and FILL constants), its scalars in
-    locals. DISTROY's crossover: one variant per XOVER and feedback (`sd_dx_loop`), its coefficients in locals.
-    52.7 → 50.7 %, 44.2 → 42.5 % on average.
-  - No divide per sample: the signed `/ 2`, `/ 256`, `/ 512` in the Reactor's KP, the knee, DISTROY's DC blocker and
-    line, SPACE's store and its Hadamard compiled to the chip's divide. They are shifts toward zero (`sd_tz`) now.
-    77 → 50 divides in the image, those left at control rate. Neutral in the emulator, which counts a divide as one
-    instruction; on the chip a divide costs many cycles.
-- *Tried, no gain, reverted or kept for clarity:* SPACE's state in locals (kept: neutral); the oscillator's shape
-  constants in locals (+0.3 %, reverted: the registers spill).
-- *Measured, not taken:* the whole build at -O2 reads 50.3 % (−0.6 %), but -O2 broke USB-MIDI on the device
-  (tools/build.py); the engine alone at -O2 would need its own translation unit.
-- *Left:* ~1 % to 50, plus the mod matrix (the user, 2026-11-05: the matrix first, the last percent settled after).
-
-**C1, the modulation (2026-11-05).** One matrix for all four engines (the spec's §7), two LFOs (§2.9) and the four
-macros (§8), in `sd_engine.h`, all at the control rate:
-- *How it plays:* `e->base` is the patch as programmed (taken once each time the main loop hands one over);
-  `e->patch`, what the engines read, is the base with the modulation written on top each tick (`sd_mod_tick`).
-  `sd_mod_restore` puts back only the fields the modulation wrote. No slot and the macros at 0: the patch exactly,
-  sample for sample (the A/B: loop renders with a full copy a tick and with the restore are identical).
-- *Sources (Q15):* ENV1 and ENV2 of the last note's voice, LFO1, LFO2, NAV X and NAV Y (where the nav is,
-  around the centre), VEL, KEY (around C4), WHEEL (MIDI CC 1), AFTER (channel pressure), RAND (drawn at each note).
-- *Destinations:* PITCH (+-24 semitones at 100 %), XM WP FD DT, X Y (an offset on top of the nav or COURSE), WIDTH;
-  the Reactor's POS FREQ RES DRIVE MIX; DISTROY's GAIN and BIAS (all bands), FDBK TAME MIX; SPACE's FDBK D-LVL
-  R-LVL DECAY. An amount of 100 % moves a destination by its whole range at a full source; slots add up.
-- *LFOs:* SINE TRI SAW RAMP SQUARE S&H; free 0.02 .. 40 Hz (`SD_LFO_INC`, exponential) or 1/16 .. 4 bars of the
-  note driver's tempo; KEY restarts one on each note. Global, not a voice's (POLY's four voices share them).
-- *Macros:* 0 is the patch as programmed; each moves a curated set by its own depth (to be tuned by ear):
-  - MUTATE: XM, WP, FD, DT up.
-  - MOVE: an orbit of the nav (two slow sines, ~0.23 and ~0.17 Hz), a triangle sweep of POS (+-3 stages), the
-    Reactor's slew, WIDTH.
-  - BREAK: the Reactor's DRIVE, DISTROY's GAIN, ALT, the bias's range (up to 2.5 x), FDBK and MIX; the bands' level
-    back by up to 8.5 dB, so BREAK destroys instead of getting louder (without it DISTROY and SPLIT clipped).
-  - MACRO 4, the patch's kind: BODY (the Reactor's RES and LOW, PHAT on every band, TAME), AIR (the Reactor's FREQ
-    up to +12, WIDTH, less TAME, SPACE's tones brighter) or DROWN (SPACE's levels, decay, feedback, size).
-- *Patches:* eight have slots (GLASS AFTER -> XM, WHEEL -> WP; GROWL a synced LFO on FD, VEL -> XM; VOYAGE two slow
-  LFOs on X and Y; DISTROY S&H a sixteenth on POS, a slow LFO on WP, ENV2 -> DISTROY's GAIN, WHEEL -> its FDBK;
-  VOWEL VEL -> RES, AFTER -> DRIVE; PLUCKS VEL -> RES, RAND -> POS; FUSION a two-bar LFO on FREQ; SPLIT ENV1 -> BIAS).
-  DISTROY's LFO on WP keeps the warp's cache from ever holding: the worst case.
-- *The pages:* FX steps on to MOD (EDIT: slots 1..8, LFO 1, LFO 2; a slot's K1 SRC K2 DST K3 AMT; an LFO's K1
-  SHAPE K2 RATE K3 MODE) and HOME (K1..K4 the macros, ALGORITHM MACRO 4's kind). `tests/scripts/c1.txt`.
-- *Hear it:* `build/audio/c1_macros_*.wav` (`sd_render macros`): the loop at 110 BPM, each macro in turn up to 99,
-  held, back, for GLASS GROWL VOYAGE DISTROY VOWEL PLUCKS SPLIT. No clipping but DISTROY's MUTATE at full (16 samples).
-- *The copy:* a whole patch is ~400 bytes, and `-fno-builtin` makes the copy a byte at a time (~1200 instructions).
-  Before C1 the audio took one every tick, ~0.7 % of the chip; the first matrix took two (52.3 % with no slot).
-  Now one only when the main loop hands a patch over.
-- *Fit it:* fm1-emu, DISTROY in the loop with its four slots: the worst interrupt **51.2 %** (53.2 % with the two
-  copies), 42.5 % on average. The matrix with its slots costs ~0.5 % over the same patch without them.
-  - The last 1.2 %: the user chose a lighter DISTROY over -O2 (2026-11-05: "we will add more functionality
-    later", among it a Turing machine / randomizer). Its middle banks, BELL and EPIANO,
-    sit under the squash (WP −17000 a bank: the saw at most with the LFO) and unfolded (FD −15000); the outer two
-    GROWL chains keep both. Its level +0.4 dB, and MUTATE at full no longer clips.
-  - **46.6 %** worst, 39.4 % on average: 3.4 % under 50 % with the whole chain and the matrix.
-- *Hear it (the user, 2026-11-05):* "it sounds very good … a character I do not find in other firmwares, the
-  macros on DISTROY especially".
-
-**C1 done 2026-11-05.**
-
-**After C1: the essence (2026-11-05).** The user on the sequencer demo: "very fast and choppy … can we get
-something that evolves more? I want to hear the sonic spectrum. That should be the essence of this synth."
-- `sd_render evolve OUT PATCH [SECONDS]`: a slow line of tied and slid quarters at 76 BPM in D minor, while the four
-  macros drift on slow curves of their own (37, 23, 29 and 53 s), out of step, MUTATE and BREAK under an arc that
-  rises to two thirds and settles. `build/audio/evolve/evolve_*.wav` (VOYAGE, DISTROY, VOWEL, GROWL, FUSION, 90 s): the
-  spectrum's centroid wanders 350 .. 1400 Hz.
-- What it found:
-  - *DC in SPACE.* A warp toward pulse has a DC; SPACE's feedback and its room's lines multiplied it (up to 20 ..
-    100 x), DROWN on VOYAGE building a rumble. SPACE's input now loses its DC (~7 Hz) before the echoes and the room;
-    the dry keeps it. The mix's DC: −56 dB (VOYAGE).
-  - *The macros together clipped* (FUSION, VOYAGE: long tied notes, MOVE, BODY / DROWN up at once). The output now has
-    a shoulder: linear to 0.85 of full scale, then `sd_knee`'s cubic to it, so an overload saturates instead of
-    clipping; under 0.85 it is the same sample for sample (of the loops only PLUCKS and FUSION reach it). DROWN's
-    feedback +3000 (was +8000), BODY's RES +4000 (8000).
-- *Fit it:* the shoulder and the DC cost 0.8 %: DISTROY in the loop reads 47.9 % worst, 40.6 % on average.
-
-**The essence, round two (2026-11-05).** The user on the evolve pieces: VOYAGE "definitely the best", but it
-"sounds like a random voxel / formant … often with a random sine modulation"; "much better with stepwise modulation
-from the randomizer"; GROWL "so noisy it is nearly unusable"; "I always get the best results with [the distortion] on the top
-frequencies, and/or modulated, but all modulation must add something rhythmic".
-- *Rhythmic, stepped:* MOVE jumps the nav and the Reactor's POS to new random places on each beat (glided ~10 ms)
-  instead of its slow sines; an S&H LFO glides ~10 ms into each step (no click, still a step); `sd_render evolve`
-  steps the macros on bars (each its own count, a random walk, glided ~80 ms). VOYAGE's LFOs are synced S&H on X (a
-  quarter) and Y (a half); DISTROY's warp and POS step on 16ths.
-- *DISTROY on the top:* BREAK weights the bands' gain and ALT toward the top (gain +4000 / 12000 / 20000 / 26000 at
-  full, low to high). On a patch without DISTROY BREAK sets one up (lows clean, SOFT and HARD on the top two, at
-  unity): before, it only faded the voice into an empty DISTROY (−5 dB). Two new destinations, D HIGH (the top band's
-  gain) and D SPLIT (the upper crossover, +−24 semitones), so what is destroyed can move in steps. DISTROY's lows
-  are nearly clean now, its top heavy, D HIGH stepping each quarter; SPLIT steps D HIGH and D SPLIT.
-- *GROWL usable, MUTATE gentler:* measured as the energy off the note's harmonics on a held D2 (aliasing heard as
-  noise): GROWL −13.8 dB, at MUTATE full −4.4 (half of it noise). The chain's saw edges under FM alias; GROWL sits
-  between triangle and saw now (WP 20000, FD 8000, XM 24000): −24.4 dB. MUTATE adds XM 12000, WP 6000, FD 7000,
-  DT 6000 (was 20000, 13000, 16000, 8000): GROWL at MUTATE full −8.2, VOYAGE −12.2 (−8.0). BREAK's Reactor drive +6000
-  (FUSION was +3 dB louder).
-- *Left:* FUSION's evolve piece is hot (−10.5 dB RMS against −17 for the others: low tied notes into its resonances),
-  its peaks on the output's shoulder.
-- *Fit it:* DISTROY in the loop reads **48.5 %** worst, 40.8 % on average (47.9 % before: its top bands driven harder
-  take the knees' cubic more often). 1.5 % under 50: the next feature that costs audio time pays for itself.
-
-**Round three (2026-11-05): movement inside the note, more patches.** The user: "better, but I miss more
-variation … ramp-down curves that modulate within a note … I'd like to hear more patches, it is the same again and
-again … not that exciting".
-- *LFO ONE* (`SD_LM_ONE`, on MOD: FREE ONE, SYNC ONE): one cycle from each note, then held at its end. A SAW in ONE
-  is a ramp down inside each note: the FM dying away, the grit falling, a pitch drop, a split sinking.
-- *Six patches* (P15–P20), each built on that and on stepped S&H, the destruction on top, warps under the saw:
-  COMET (an FM pluck; FM and grit fall each note, the warp steps on eighths), NEBULA (a pad through AP2; its place
-  steps a bar, the fold grows each note), PULSAR (the nav between bell and glass stepping on 16ths; the upper
-  split sinks each note), ION (a round bass under a destroyed, panned top; the split jumps on 16ths, the grit falls
-  each note), ORBITAL (percussive FM: pitch and FM fall in ~150 ms; RAND places each hit in the field), MONOLITH
-  (long notes; the fold steps on quarters, the grit pulses on eighths). Off the harmonics on a held D2: −19 … −32 dB.
-- *`sd_render tour DIR`:* ten patches, a phrase each (tempo 64 … 124 BPM, its own register, rhythm, DIV, ratchets
-  and chances), the macros stepping in each part's own ranges on its own bar counts, 22 s a part:
-  `build/audio/tour/tour.wav` (3.7 min) and `tour_NN_NAME.wav`. Levels −16 … −20 dB RMS (ORBITAL, percussion,
-  −26.5); ION's CRUSH was hash (a 6.5 kHz centroid): HARD and TAME now.
-
-**Round four (2026-11-05).** The user on the tour: COMET "full internal feedback", ION the same; NEBULA "pretty,
-but nothing special beyond an ordinary FM patch", PULSAR and ORBITAL the same; MONOLITH "extreme ring modulator
-sound: no go".
-- *BREAK no longer touches DISTROY's feedback.* On a patch without its own, BREAK's push opened a 1 ms loop: a
-  comb's howl. DISTROY keeps the feedback it has.
-- *ONE is unipolar:* it starts or ends at the patch's own value (a SAW from full to 0, a RAMP from 0). ORBITAL's
-  pitch drop had held a semitone flat.
-- *No HARD or FOLD over 5 kHz in the new patches:* without oversampling their harmonics fold back as inharmonic
-  tones (MONOLITH −26 → −18 dB off the harmonics with its DISTROY, −10 at BREAK 70). MONOLITH: SOFT only, no loop.
-- *A bank's WP offset counts twice* (the Q page's scale): the chain banks' +17000 was +34000, past the saw. Now
-  +8000.
-- *NEBULA, PULSAR and ORBITAL rebuilt on what makes VOYAGE and DISTROY themselves:* NEBULA's character is the Reactor,
-  four KP combs on the chord's tones kept on the harmonics (KEY+H), bowed by a soft stack, the chord stepping a bar;
-  PULSAR is a spectral sequencer, four banks as far apart as they go (glass, the odd cluster 5 7 9 11, a chain, the
-  organ) with X and Y stepping on 16ths and eighths; ORBITAL is a short FM hit landing anywhere in such a field,
-  its pitch falling to the note, four BP6 filters on the harmonics ringing after it.
-
-**Round five (2026-11-05): the engines talking.** The user: "all the new sounded much better, but MONOLITH is
-completely unusable … drowned in reverb / fast delay / ring modulator. Let's get everything talking together even
-better, preferably in unorthodox ways"; and before it: "systems so the outcome is always thought through,
-calculated and musical are important, even if it is to be sonically exciting".
-- *Six new sources*, the engines as modulators, each from the last tick: SEQ STEP (where the pattern is, −1 … +1
-  across it), SEGMENT (which segment), D LOW and D TOP (DISTROY's low and top bands' fast followers, −48 … 0 dBFS
-  as 0 … 1), R STAGE (the Reactor's stage, 1 … 6 as −1 … +1), ECHO (SPACE's wet level, followed ~60 ms). They are
-  rhythmic by nature: steps, segments, stages and the hits' energy.
-- *Cross-wired patches:* DISTROY (the bass pushes the Reactor's stages, the split sweeps the loop), ION (the bass
-  ducks the top's grit), COMET (the grit feeds the echoes), VOYAGE (Y walks the loop, the echoes bend the warp),
-  ORBITAL (the Reactor's stage picks where each hit lands), NEBULA (the echoes fold it), PULSAR (each segment its own
-  fold). The tour's patterns are four segments now, so SEGMENT has something to say.
-- *MONOLITH dry:* no delay, a small room, no gating; its FM grows inside each note, its fold rises across the
-  loop, the warp steps on quarters, BODY for MACRO 4. Off the harmonics on a held G2 at 3 s: −20.8 dB, GLASS's
-  −17.7 there (the measure's floor at that note).
-- *Still to build:* the musical guardrails as a system (pitch, time, spectrum, level, a musicality gate in the
-  tests), proposed to the user.
-
-**The cinematic demo (2026-11-05).** The user asked for "a short demo layering some sounds … a soundtrack …
-big, mighty and alien": `tools/sd_cine.c`, original
-material (D minor, 84 BPM, Dm Bb Gm A), eight engines layered as a multitrack (NEBULA's chords, VOYAGE's alien line,
-PULSAR's 16th ostinato, ION's bass, ORBITAL's taiko, MONOLITH's drone and braams with DISTROY's, a sine sub), the
-macros stepping a bar at a time; −27 dB RMS in the intro to −14 in the climax. The user: "fantastic, but missing a
-little depth, and somewhat fierce, screaming high overtones in the lead and in the FM in general".
-- *FM up high, in the engine:* a modulator past 4 kHz now loses its index, gone by 12 kHz (its sidebands were the
-  screech), and the tracking's knee is C5 (was C6). The energy over 6 kHz on a held note: VOYAGE at D6 −8 → −17 dB,
-  at D5 −24 → −26; EPIANO at D5 −19 → −26, at D6 −21 → −56; under C5 nothing changes.
-- *Depth in the demo:* the pad and the alien far back (MACRO 4 DROWN at 65 … 90 %), the bass and the drums dry and
-  near, a sine sub an octave under the root from the build on, the alien line an octave lower.
-
-**The second cue (2026-11-05).** The user: "use the whole instrument, much more extreme, another sci-fi film
-soundtrack: immensely big, laser sounds hidden in the modulation of the overtones, beautiful and hard and distorted at
-the same time … but keep it melancholy and beautiful". `tools/sd_epic.c`, original material.
-- *First render:* E minor, 70 BPM, ten engines, ~99 s. The cello V4 sang the melody. The lasers were COMET on the
-  sequencer with a SAW once a note on PITCH, XM and RFREQ, falling 3.8 → 1.7 kHz in 120 ms. Two DISTROY braams
-  dropped their destroyed band through the spectrum (a ONE SAW on D SPLIT).
-- *The user, on it:* "at the start the melody lacks a proper filter, and plenty of space", then "drop the pew-pew
-  laser, have more parts and higher intensity instead: we are after goosebumps and a wall of sound".
-- *The intro's filter and space:* the cello starts closed, with TAME at 1.2 kHz (resonant) and DISTROY's upper
-  bands at −14 and −25 dB, then opens on an S-curve over eight bars. Its energy over 2 kHz goes −40 → −16 dB of
-  its whole, and its centroid goes 280 → 720 Hz. In A it sits in a long dark hall with a dotted-quarter ping-pong
-  delay. That narrows through B and opens again for the ending.
-- *More parts:* the laser is gone. There are thirteen engines, ~127 s:
-  - three cellos (the melody; a harmony on the nearest chord tone a third or more below; the roots, a long note a
-    chord);
-  - GLASS's choir an octave over the chord tones, and DISTROY's POLY horns in the low middle;
-  - the rhythm parts, the braams, VOYAGE's lead and the sub as before.
-- *Intensity:* the climax's phrase plays twice. The second time is a tone up, F# minor, reached from D (its VI).
-  Before each climax the rhythm and the drones drop out for a beat. The drums are denser in each climax.
-- *The bus (the tool's mix, not the engine):* the master fader rides the form, then a peak compressor (−6 dBFS,
-  4:1, 8 / 250 ms, at most −4.2 dB) with +3 dB and a tanh. Bars by RMS: −20 dB in A, −17 … −13 in B, −11 in the
-  first climax, −10 in the second, then −14 → −26. The peak is 0.96. Over 6 kHz in the climaxes: −28 / −26 dB of
-  the whole (the first cue's −23).
-- *The user, on that:* "the last ~40 s glitch and are out of tune with the rest, bars jump … much bigger reverb
-  and delay on the elements without much bottom, fast arps high up in the last part, and the modulation should be
-  smoother".
-  - *The glitch:* the disk was 99 % full, and the render's writes failed without a word, so bars dropped out of
-    the file. The tuning measured within 9 cents. `sd_epic` now checks its writes and fails loudly.
-    `tests/run_sd.sh` no longer writes its 13 stems (~290 MB); pass a folder as the second argument for them.
-  - *The key change:* the second climax is reached through a pivot with no break. Bar 23 is C#7, so D slides a
-    semitone down in every voice (D F# A → C# E# G#) into V of F# minor. The melody's F# hangs over the C#7 and
-    resolves to E#. The chord-driven parts (pad, choir, horns, sub, low strings, the patterns) now follow each chord
-    change rather than every two bars.
-  - *Space:* pad, choir, lead, ostinato and the arps sit in a large dark hall with ping-pong delays (dotted
-    quarters; dotted eighths for the ostinato and the arps). The cellos never go dry: half their intro wet through
-    the climaxes.
-  - *The arps:* GLASS on the sequencer in 32nds, up and down the chord tones over two octaves (C5 … B6), short,
-    wide and tamed, from the second climax into the ending.
-- *The user, on that:* "the full, very staccato synth/bass doesn't follow the key, and the key change didn't work.
-  Drop the modulation: go up a third, to a major chord, in a new progression that releases and is at its most
-  intense".
-  - *Off key:* the 16th ostinato. PULSAR's bank B (harmonics 5 7 9 11) adds a G#, a D 31 cents flat and a
-    quarter-tone A/A# over E minor, and MOVE steps X into it. In the cue, B is 2 3 4 6. The share of its energy on
-    the key's notes went 57 % → 73 %; the rest is the patterns' passing tones and the delay. MUTATE is a quarter on
-    the pitched patterns and zero on the arps.
-  - *The release:* no key change. The last climax is G D Em C (G major, a third over E minor), reached from D, its
-    V, as a cadence. It has a melody of its own (G4 … A4), and the lead an octave over. The ending is Am Em, down to
-    the low E. The C#7 pivot is gone, and the parts follow each chord change as before.
-- *The user, on that:* "I miss rising intensity in the last part, where the euphoria should hit hardest. We also
-  lack a clear arp going down, quite high. PULSAR is still a little special next to the rest".
-  - *Rising:*
-    - The bus ride holds the first climax back (−12 dB RMS), so the release has room. It goes −10.5 → −9.1 dB
-      over its eight bars, peaking at 0.98.
-    - Its parts grow +5 dB across it. BREAK climbs past the first climax's.
-    - The drums go to all 16ths with ratchets for the last four bars.
-    - A beat's breath comes before bar 28, where the cello reaches its top B4 (the lead B5).
-  - *The falling arp:* GLASS in 16ths down the chord's tones from two octaves up (B6 … C5 over G). It rings longer
-    than the 32nd arp, in dotted-quarter delays, from bar 26.
-  - *The ostinato:* ION, the bass's patch, at the ostinato's pitch, without its 16th grit split. PULSAR is out of
-    the cue.
-
-**STRINGS (2026-11-05).** The user, with two recordings (a cello's C major C2 .. C4 and back, a violin's A major
-A3 .. A5 and back): "can we get as close as possible to these scales with our instrument? One and the same
-instrument. Analyse the waveforms and match as well as you can."
-- *Analysed:* each note's harmonics against its strongest, gathered by absolute frequency: the bodies. The cello:
-  a weak fundamental low (C2 at −28 dB), its strongest around 160 … 320 Hz, a dip at 400 … 800, a bump at 1 kHz,
-  a shelf near −27 dB to 3.3 kHz, falling past 4 kHz. The violin: the air resonance 250 … 400 Hz, a dip at
-  650, peaks at 1 and 1.6 kHz, then −16 dB an octave past 2.5 kHz. Bowed attacks of 150 … 500 ms, little vibrato.
-- *The model:* a saw through a body. The Reactor's four BP6s on fixed frequencies (no tracking): stages 1-3 the
-  cello's body, 4-6 the violin's, KEY moving POS across them, so one instrument goes from the one to the other with
-  the keys; DISTROY unshaped as a four-band level and TAME, KEY closing TAME with the pitch.
-- *Matched by search* (`tools/sd_strings.c` with a parameter file; a coordinate descent on the levels, splits,
-  TAME, the Reactor's RES and MIX and the two bodies' levels): third-octave RMS 14.6 dB at the first guess, 4.0 at
-  the end (cello 4.4, violin 3.3). What is left: the cello's lowest fundamentals (+8 … +13 dB: the same body
-  cannot cut 65 Hz and keep the violin's 220), the violin's top over 5 kHz (+3 … +7). Its strongest resonances
-  reach the Reactor's soft clip (flat tops in the waveform). No bow noise: the engine has no noise source.
-- *Round two, "with all the tools we have":* the noise between the harmonics joins the match (the recordings':
-  cello −12.7, violin −21.0 dB under the harmonics).
-  - Two sources in the field: bank A a saw whose 2nd and 3rd harmonics' saws carry it (the cello's weak low
-    fundamental), B a plain saw; KEY moves the nav A → B with the pitch.
-  - The bow: each bank's first oscillator an inharmonic modulator (7, +47 cents) under a short ENV2 (XM 20000):
-    a scratch at each note, a hiss under it after. It stands in for the noise source the engine does not have.
-  - Tried and dropped: DISTROY's CRUSH as hiss on the top band (it replaces the band, it does not add to it).
-  - Bodies 3.6 (cello) and 3.5 dB (violin) RMS by third-octave; noise −12.7 and −20.5 dB (theirs −12.7, −21.0).
-- *V4, locked (2026-11-05).* The cello duo's rounds by ear (V1 … V4, `tools/cello_v4.txt`) left the violin and the
-  KEY morph behind: a plain saw (WARP 25544, attack 70, sustain 118), 8 cents of vibrato at 5.5 Hz, the Reactor's
-  BP6s snapped to the note's harmonics (HARM) on stage 2's cello body, DISTROY's four levels (−22 −4.8 −0.1 +6.8 dB
-  at 262 750 2380 Hz), TAME 22000, a small room, mono. The user liked it in the duo and in the second cue, and it
-  is now STRINGS itself; `tests/run_sd.sh` renders the duo from the patch and from the file and compares them bit
-  for bit.
-
-**The second cue's patches (2026-11-05).** The user: "every sound used in the demo is a patch?" Before this, only
-STRINGS, ION (the bass) and ORBITAL (the drums) were, and those last two less their SPACE; the rest were stock
-patches the tool changed. Now each is a stock patch of its own, after STRINGS (P22 … P33), and the cue renders bit
-for bit as before:
-- HALO (NEBULA in a big dark hall, dotted-quarter ping-pong, DROWN), AURORA (GLASS slow and wide), TITAN (DISTROY
-  swelling, its top tamed), DRIVE (ION without the grit split on the step, dotted-eighth delays), UNDERTOW (ION
-  dry), IMPACT (ORBITAL dry);
-- BRAAM and SCREAM (DISTROY whose destroyed band falls through the spectrum in a hit: a once-a-note SAW on D SPLIT,
-  30 % and 45 %, and on XM), BEACON (VOYAGE with a 5 Hz vibrato, its top tamed, far back), DEPTH (a sine, slow);
-- SHARDS (GLASS short and wide, no detune, the 32nd arp) and PRISM (it ringing longer and darker, the falling
-  16ths, dotted-quarter delays).
-The voice mode (POLY for HALO, AURORA and TITAN) stays the player's (GLO), as it is for every patch. The CPU is
-unchanged (the boot patch is still DISTROY: 40.8 % in the emulator).
-
-**The filter, the envelopes on their page, the pages on their buttons (2026-11-06).** The user, on the first package
-in the emulator: "everything is under FX: it must be spread to the right place … I miss a lowpass filter: we must
-nearly manage to bake one in"; on the envelopes: "is it impossible with today's setup without breaking anything?"
-(no: ENV1 and ENV2 were always in every patch, only without a page).
-- *The filter:* a lowpass on each voice (POLY: each note its own), on the banks' carriers before the nav's
-  balance: one TPT SVF stage (LP12) or a Butterworth pair (LP24), as the Reactor's and TAME's, SD_RG's warp, MIDI
-  16–130. RES by SD_FK, even in dB of the peak: k from flat to 0.1 (+23 dB, LP12) and 0.054 (+25 dB, LP24), never
-  self-oscillating; the output held to the render's range. The cutoff: CUTOFF + KEY (0–100 %) + VEL (up to +24
-  semitones) + ENV 3 (its own ADSR, ±60 semitones); the matrix has ENV3 as a source and F CUT, F RES as
-  destinations. All zero is off: every patch before it renders bit for bit as it did (cue 2 and the duo checked).
-  `sd_test`: LP12 −31 dB and LP24 −60 dB at 2–5 kHz with the cutoff near 400 Hz, the lows within 3 dB; ENV 3
-  opens it +68 dB; full RES in range.
-- *The pages, each its button's:* HOME the voice (NAV) and again the macros; FX REACTOR → DISTROY → SPACE; ENV
-  ENV 1 / ENV 2 (SEL) and again FILTER (ENV 3 with SEL); LFO the matrix at LFO 1, LFO 2, then the slots; ARP the
-  arpeggiator; SEQ A, B. Their LEDs light with their pages.
-- *Fit it* (fm1-emu, DISTROY in POLY, four keys held and the loop playing, the audio's average): filter off 36.9 %,
-  LP12 38.1 %, LP24 38.9 % of the chip; DISTROY's loop in MONO as before, 41.1 %. The screen's CPU is the worst
-  interrupt of the last second, higher (47–53 % here); the user saw 64 % on some patch, not yet found.
-  `tools/emu_cpu.sh` takes a scenario now (EMU_KEYS).
-
-**The edge (2026-11-08).** The user wants the plain FM patches to sound as they should, an EPIANO an EPIANO, "but
-the Star Distroyer version": a small edge that makes each its own.
-- *Which:* the six plain FM patches. Five are V2's one-bank patches (GLASS, BELL, EPIANO, GROWL, ORGAN); the sixth is
-  AURORA, which is GLASS as a pad. DEPTH, a sine sub, stays clean, because the lows stay clean.
-- *The rule:* `SD_EDGE` in `sd_patches.h`.
-  - Under the top split, DISTROY passes the sound as it was (NONE through LR4).
-  - The top band alone is destroyed.
-  - Something steps on the beat (a synced S&H).
-  - It works in MONO, DUO and POLY alike; a twist on the nav would not, since POLY plays bank A alone.
-- *Each:*
-
-  | Patch | Its edge |
-  |---|---|
-  | EPIANO | the tine's top (over 5 kHz) folded and SHARP: a note's bark glints and spits, the body untouched; the drive a new step each eighth, more on harder notes; a dark dotted-eighth echo far back |
-  | BELL | four KP combs snapped to its own harmonics (2 3 4 6 and kin), a new set each quarter (RANDOM), wide, the lows past them, a ninth wet; the strike's top folded |
-  | GLASS | a fold that takes a new depth each quarter; its top (over 2.5 kHz) folded to a sheen; a small dark room and echo |
-  | ORGAN | a rotary that steps: AP2 a quarter wet, its notches jumping each eighth, all over 800 Hz; the upper mids driven SOFT, the top folded a little |
-  | GROWL | the top (over 5 kHz) folded, its drive stepping on eighths with the voice's fold |
-  | AURORA | GLASS's sheen, its fold a new depth each bar |
-
-- *Found on the way:*
-  - **CMP let the body in.** Its gentle slopes gave the top band's shaper the 1.2–5 kHz range too, +5 to +7 dB there
-    on EPIANO and GLASS. The edge uses LR4 instead.
-  - **LR4 raises peaks.** Its allpass sums flat in level but 1–3 dB higher in peaks, so the macro's BODY (the level
-    under the top) gives a hot patch its headroom back: BELL 27500, GROWL 31000.
-  - **A shaper needs drive.** At +3 dB, HARD and SOFT on the top added −51 and −36 dB of new content to it, which is
-    nothing. Each top is now driven until the shaper's own content is −4 to −8 dB of the top, with the band's level
-    set so the top lands +3 to +6 dB over the patch before.
-  - **SHARP and the D HIGH slots lift peaks.** VEL → D HIGH alone added 4 dB to EPIANO's top at velocity 100, so both
-    are kept small.
-  - **ORGAN's allpasses took its body.** In FILL the Reactor adds the allpasses' wet on the dry, and below 800 Hz their
-    phase took 2 dB of the organ's body. The stages moved over 800 Hz, and the Reactor went a quarter wet.
-- *Hear it:* `build/audio/twist/ab/StarDistroyer_edge_*.m4a`, each the patch's `sd_render scene` before, a second of
-  silence, then after.
-- *Measured* (the scene, before → after):
-
-  | Patch | RMS (dB) | Peak (dBFS) | 1.2–5 kHz | Over 5 kHz |
-  |---|---|---|---|---|
-  | GLASS | −21.0 → −21.0 | −5.9 → −7.3 | +1.3 dB | −70 → −41 dB of all: a sheen where there was none |
-  | BELL | −18.8 → −18.8 | −3.3 → −2.1 | +0.4 dB | +4.2 dB |
-  | EPIANO | −21.8 → −22.0 | −4.1 → −3.1 | +1.6 dB | +6.0 dB |
-  | GROWL | −19.4 → −20.4 | −4.1 → −1.2 | +1.0 dB | +3.9 dB |
-  | ORGAN | −17.1 → −17.4 | −1.7 → −1.4 | −0.4 dB (L+R) | +11 dB of almost none |
-  | AURORA | −25.7 → −25.6 | −4.8 → −4.4 | +0.8 dB | −69 → −40 dB of all |
-
-  GROWL's RMS includes its DC offset, which DISTROY's DC blockers now take off. No patch has a sample at the ceiling.
-- *Tests:* `test_edge`. Each of the six plays an A3 in MONO and a chord in POLY, with the engines the edge gave it on
-  and off. The body (30 Hz – 1.2 kHz) must stay within 2 dB (the worst is −1.2), the top must rise less than 12 dB
-  (the most is +10.3), and no sample may reach the ceiling. `test_mod` uses GLASS as V2 left it.
-- *Fit it:* fm1-emu, in POLY with SEQ A and a four-note chord held: GROWL 33.8 %, EPIANO 37.0 %, GLASS 38.0 %,
-  AURORA 39.0 %, ORGAN 40.7 %, BELL 44.5 %.
-  - *Open:* DISTROY reads **50.9 %** in the same scenario, over the 50 % rule. Each of its four voices plays bank A,
-    the GROWL chain in the costliest kernel. Nothing here caused it; that scenario was not measured before.
-- *Demos:* the song, RANGE and the demo play GROWL, and cue 2 plays AURORA, so they now play the new patches.
-
-**Four out (2026-11-08, later).** The user listened to the A/Bs: GLASS, BELL, EPIANO and ORGAN still sounded like
-classic FM, edge or not. Given the choice of rebuilding them or taking them out, the user took them out. AURORA ("sounds
-fantastic") and GROWL stay, with their edge.
-- *The bank:* 29 patches, GROWL first. DISTROY, the boot patch, is now P03. The banks live on inside VOYAGE, DISTROY and
-  the cue's patches (`BK_GLASS`, `BK_BELL`, `BK_ORGAN`, `BK_EPIANO_LIGHT`); `BK_EPIANO`, used by EPIANO alone, went.
-- *By name:* the code names a patch by `SD_P_*` (an enum in `sd_patches.h`), never by its number, and `test_names`
-  checks each against its name. `sd_render` takes a patch's name (`sd_render hold out.wav distroy 45`), and
-  `tests/run_sd.sh` uses names.
-- *Tests:* GLASS and BELL as V2 made them are now the tests' plain sounds (`T_GLASS`, `T_BELL` in `tests/sd_test.c`).
-  `test_edge` checks GROWL and AURORA: the body −0.5 dB at worst, the top +10.3 dB at most, no sample at the ceiling.
-- *Renders:* AURORA's loop, hold and macros, and POLY on NEBULA and AURORA, take the four's place.
-- *Demos:* the song, RANGE, the demo and both cues play the patches they played before, now named.
-- *Fit it:* the image is 132184 B (from 134072), and DISTROY in MONO still reads 40.7 %. DISTROY's 50.9 % in POLY with
-  a chord is still open.
-
-**DERELICT and the page (2026-11-08).** With four patches gone, the user asked for a new demo: about two minutes, at
-most three or four tracks at once, "a little noisy, a little cinematic, a little staccato, a little flowing, a little
-beautiful, a little melancholic", all the banks used, the app's own tools and not classic FM, nothing an FM-1 could not
-do. It goes on the page with its own player.
-- *How:* `tools/sd_derelict.c`. There are four passes on one FM-1, each in its own process (a fresh FM-1) under
-  `tools/sd_play.h`'s rules, so the tool stops at any gesture the FM-1 could not make. They are recorded to the same
-  tempo and layered at fixed faders, with one master gain to a −1 dBFS peak and nothing else added.
-- *The music:* C minor, 84 BPM, 40 bars.
-
-  | Part | Bars | What plays |
-  |---|---|---|
-  | DRIFT | 1–8 | AURORA's chords in POLY swell in (MASTER from nothing). DISTROY is held on C2, its four banks at the centre, with BREAK bringing up the noise and MOVE orbiting the nav. It is cut at the bar line. |
-  | SIGNAL | 9–24 | PULSAR's staccato 16ths in MONO, with a ratchet and PROB, its nav jumping across its four banks. SCL + key moves it with the chords, and its figure of roots, fifths and ninths has no third to clash. UNDERTOW plays eighths, and the STRINGS cello comes in at bar 17. |
-  | BREACH | 25–32 | The chords move to Fm, Abmaj7, Cm9 and G7. PULSAR holds a pedal C with TURING rewriting it (CHANGE 35, RANGE 4); its top band goes to CRUSH with the GAIN up, and BREAK and MOVE rise. The bass's WARP turns toward the saw, and the cello climbs with its Reactor on the brighter stages. |
-  | AFTERGLOW | 33–40 | BRAAM hits on the downbeat. PULSAR fades out by MASTER, the cello's last phrase falls to a low C, and the chords drown under MACRO 4, then MASTER lets the hall go. |
-
-- *Levels:* the faders are set from each pass's RMS part by part. In SIGNAL, with all four playing, the cello is
-  −20 dBFS, the chords and the bass −25.5 and the pulse −28.6. The whole piece reads RMS −19.4 dBFS (the song is −18.5
-  and RANGE −20.1). The first faders put BREAK's spikes on the pulse at bar 32, 11 dB over everything else, so BREAK
-  went to 50, CRUSH's GAIN to 50 and the pulse's fader down.
-- *Not heard:* the levels and the noise are set by measurement only. Over 5 kHz, the mix sits about 29 dB under the
-  whole in DRIFT and BREACH, and about 35 dB under in SIGNAL and AFTERGLOW. Whether that is "a little noisy" is the
-  user's call.
-- *Heard, and rebuilt as an overture.* The user said it had "a beautiful sound, but only two parts. More an
-  overture, its themes closer together; the lead with much more reverb and delay, and lower." So there are now ten
-  sections of four bars with a chord a bar, and four themes that follow each other, then come back changed:
-
-  | Bars | Section | What plays |
-  |---|---|---|
-  | 1–4 | THE CALL | BRAAM's hits on C, Ab and G, under AURORA's chords swelling in |
-  | 5–8 | THEME I | the cello's melody over the chords and the bass's long roots |
-  | 9–12 | THEME II | PULSAR's staccato 16ths under the cello's answer; the bass in eighths |
-  | 13–16 | THEME III | BEACON's high line far back (VOYAGE's banks, COURSE), PULSAR's glints |
-  | 17–20 | THEME IV | a pedal C in Phrygian, saved with TURING on (CHANGE 35, RANGE 4), its top band to CRUSH, BREAK and MOVE up; the bass in 16ths, its WARP up |
-  | 21–24 | I over II | |
-  | 25–28 | III on the cello | |
-  | 29–32 | IV again, harder | CHANGE 50, BREAK 66 |
-  | 33–40 | the coda | BRAAM, the cello down to a low C, the chords drowning under MACRO 4 |
-
-  Then the user said: "one place is a little disharmonic, and it can be shorter, so there is less repetition." The
-  breach was the place. Its G7 bar sat under a pedal in C Phrygian that TURING rewrites, and the scale's Db, Ab and
-  Eb clash with G7's B and D. The breach's chords are now Fm, Db, Ab and Fm, all in the pedal's scale, and the repeats
-  (III on the cello, IV again) are gone. That leaves 32 bars, 1:41:
-
-  | Bars | Section |
-  |---|---|
-  | 1–4 | THE CALL |
-  | 5–8 | THEME I |
-  | 9–12 | THEME II |
-  | 13–16 | THEME III (BEACON; its last half bar a rest, so the change back to U01 cuts no note) |
-  | 17–20 | THEME I over II |
-  | 21–24 | THEME IV, the one breach: CHANGE 45, CRUSH's GAIN 58, BREAK 62, MOVE 65 |
-  | 25–32 | the coda |
-
-  The levels, per section: the cello is −27.2 to −28.2 dBFS against the chords' −26.7 to −27.1, and the breach is the
-  loudest part (mix −18.7 dBFS, over 5 kHz −47). The whole reads RMS −21.3 dBFS.
-
-  The lead is U01, the player's own place: STRINGS with its SPACE opened and saved (SYNC PP, TIME 1/4D, FDBK 52,
-  SIZE 90, DECAY 84). Its MASTER sits at 1500, so it is at the chords' level (−28.7 against −28.0 dBFS in THEME I,
-  where before it was 6 dB over). MASTER goes to 4092 for BEACON. The mix reads RMS −21.8 dBFS, with its loudest
-  bars in the second breach (bars 29–32).
-- *A bug it found (fixed 2026-11-08).* The first CI run of the site crashed in DERELICT's third pass on Linux. It
-  ran cleanly on the Mac. Under the sanitizers it was `sd_engine.h`'s `sd_bank_run` writing `bus[254]`.
-  - *Why:* an oscillator that becomes a modulator with nothing to its right gets `SD_NOWHERE` as its target. That
-    happens when a patch, ALGORITHM or a generator changes a bank's roles while it sounds; here it was BRAAM →
-    UNDERTOW. For one sub-block it kept its old level, so it was not skipped and was written past the buses.
-  - *What it means:* on the FM-1 this corrupts memory.
-  - *The fix:* `sd_bank_params` now silences such an oscillator at once.
-  - *The guard:* `test_nowhere` catches it under UBSan. `tests/run_sd.sh` also runs DERELICT under the sanitizers,
-    and a demo that stops now shows the end of its log. Before, the log went to `performance.txt` unseen.
-  - *Fit it:* DISTROY in MONO reads 40.8 %.
-- *CINEMATIC remade, and back (2026-11-08).* The user asked to put the cinematic demo on the page in THE SONG's
-  place, "remade the way we would play it; changing the parameters is allowed". It was remade as four passes on one
-  FM-1 under DERELICT's rules (HALO; BEACON then IMPACT; PULSAR; MONOLITH, UNDERTOW, BRAAM and DEPTH). The user heard
-  that "it has lost what it had": most of the alien's line, the macros stepping each bar, the sub through the build,
-  and its eight layers. So the first one (eight parts layered as a multitrack) is back as it was, and it is the
-  page's CINEMATIC. What stays from the remake is the shared layering in `tools/sd_layer.h` (DERELICT uses it, bit for
-  bit as before).
-- *RANGE fine-tuned (2026-11-08).* The user: "it must be fine-tuned and pull things further to the extreme, still
-  musical; both the first and the fourth patch have internal feedback toward the end." Measured bar by bar (the share
-  over 5 kHz, and the 2–12 kHz band's flatness, 1 = noise):
-  - *Scene 1 (VOYAGE):* at bar 7, over a third of the sound was above 5 kHz (−3.9 dB of the whole). XM sat at 70
-    under the generators RND and CLUST. Now XM rises to 66 and comes back to 38, WARP comes back toward the sine, and
-    the generators are spun past RND and CLUST to MAJ (4 5 6 8), then DOM7 (4 5 6 7). MIN and MIN7 are harmonics 10 to
-    20, 3 to 6 kHz on a D4, which is shrill. Bar 7 now reads −12.3 dB and bar 8 −20.1, both tonal.
-  - *Scene 4 (DISTROY):* BREAK at 85 raised the band gains inside DISTROY's own loop, and it howled (flatness 0.10 at
-    bars 6–9). Now BREAK goes to 62 and MOVE to 78. On DISTROY's LOOP, FDBK comes down to 7 and TAME goes up to 45, and
-    then the top band's GAIN rises to 86. The end reads flatness 0.04, the top −18 dB.
-  - *Further, every scene:*
-    - Scene 2: RES 66, and the filter opened to 54000 with RES 76 over the last bar and a half.
-    - Scene 3: the Reactor's DRIVE 44 and RES 74.
-    - Scene 5: the arp over four octaves at the end.
-    - Scene 6: TURING's CHANGE 60, the tempo to 132.
-    - Scene 7: SPACE's FDBK 76 and DECAY 92.
-  - *Playable:* the harness refused three gestures on the way, and the score was changed for each: the filter opened
-    too fast, a transpose made off its page, and SELECT turned back too fast.
-  - *Levels:* MASTER evens out scenes 2 and 3 (3400 and 2000 in the bars before them). Every scene now reads −18.2 to
-    −20.6 dBFS RMS, and the whole −20.1, as before.
-- *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
-  spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
-
-**SPACE on the beat (2026-11-10).** The user: the delay is "not always in sync although it should be". Measured, an
-impulse through SPACE synced, every division at 60 to 140 BPM, the first and fourth echoes against the beat:
-- *Held at 1 s:* a division longer than the line (1 s) was held at its end, so its echoes came early: 1/2 under 120 BPM
-  (200 ms early at 100), 1/4D under 90 (71 ms at 84) and 1/2T under 80. Six patches sync at 1/4D (CHORDS, NEBULA, HALO,
-  AURORA, BEACON, PRISM), so under 90 BPM their echoes were off the beat, as in DERELICT and CINEMATIC at 84.
-- *The triplets:* their factors were rounded (171, 341, 683 and 1365 of 256), 0.2 % long or short: 0.16 .. 0.32 ms an
-  echo, a millisecond by the fourth.
-- *Now* (`sd_space_sync_q8`): each division is exact (a sixteenth times NUM / DEN), and one longer than the line plays
-  at half (1/2 as 1/4, 1/4D as 1/8D, 1/2T as 1/4T; 1/2 at 40 BPM at a quarter), on the beat still. The line is 60
-  frames longer (44160), so 1/2 at 120 BPM fits as it is. On SPACE, TIME turns red and the hint line says what plays
-  ("OVER 1 S: PLAYS 1/4"), and the picture draws the echoes where they fall, at the tempo heard (a MIDI clock's too).
-  Every division at 60 to 140 BPM: the first and fourth echoes within a frame of the beat.
-- *Tests:* `test_space` checks 1/4T at 120 BPM to its fourth echo (58800), and 1/2 at 100, 1/4D at 84, 1/2 at 40 and
-  1/2 at 120 BPM against where they fall and how many halvings.
-- *The demos keep their sound:* DERELICT (AURORA, BEACON, and the cello's U01) and CINEMATIC (NEBULA) at 84 BPM, and
-  the second cue (HALO, AURORA, BEACON, PRISM and the cello) at 70, were made with those echoes held at 1 s. Synced now
-  they play at 1/8D, on the beat; the user heard both and kept the 1 s. So their patches have SPACE's MODE on FREE (PP
-  kept) and TIME at its top, 1000 ms, as a player saves them (DERELICT's U01, U02 AURORA and U03 BEACON): with the old
-  hold in the engine they render bit for bit as before, and as they are their echoes are 0.13 ms longer (44101.6
-  frames where they were 44096). The patch tour's NEBULA (`tour/`) plays the stock patch, at 1/8D. *Fit it:* the pool
-  +240 B, 41.2 %.
-
-**The clock in the browser (2026-11-10).** The user: a clock sent in at 100 BPM played at 200. The engine follows one
-clock exactly (the page's player, a 100 BPM clock with or without 5 ms of jitter: 16 steps every 2400 ms), but the
-page passed every MIDI input on as one source, so the same clock on two ports (a DAW's sync to both, an interface's
-two ports) came in twice: 48 pulses a beat, "203 CLK", the steps at 200. A second press of the MIDI button did the
-same (a second MIDIAccess, a second handler on every port). Now each input is a source of its own (`web_midi`'s
-fourth argument, `midi_get`'s source), so the firmware's rule for USB and the jack holds there too: the first
-clock leads until it has been quiet for 500 ms; and the page asks for MIDI once. `web_test` plays the same clock on
-two inputs: the status line as one clock's (the build before: 32 pixels off, 203).
-
-**HW, the checklist (prepared 2026-11-05, brought up to the Firmware Hub's author checklist and the unified
-controls; on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
+**HW, the checklist (on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
 `build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is
-FM-1_962XY), installed with `python3 tools/fm1_install.py build/stardistroyer.fwsc` (needs
-`pip3 install mido python-rtmidi`; it asks before it writes). The way back: the FM-1 Firmware Hub, or OCT- held at
-power-on for the USB rescue.
+FM-1_962XY, the first beta 0.1-beta FM-1_96201), installed with `python3 tools/fm1_install.py
+build/stardistroyer.fwsc` (needs `pip3 install mido python-rtmidi`; it asks before it writes). The way back: the FM-1
+Firmware Hub, or OCT- held at power-on for the USB rescue.
 0. *Before anything:* a full flash backup (M-Flasher or MvaveFM1Unbricker, both chips), kept off the unit. Note
    the flash part: 0x856014 (the first units) or 0xB36014 (the UC25HQ80, units sold since autumn 2026); both must
    save and update (`firmware/hal/fm1_flash_map.h`).
-1. *It starts:* the splash, then DISTROY on the NAV page; no crash screen.
-2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's 41.2 % (POLY with SEQ and
-   ARP: 44.0 %; the emulator counts instructions, the chip cycles: the gap is what this step measures). Then the
-   other patches with PRESETS.
+1. *It starts:* the splash, then DISTROY on the NAV page; no crash screen; the second core runs (no *2ND CORE OFF*).
+2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's (the gate's 44.0 % on
+   average, 52–54 % its worst interrupt; the emulator counts instructions, the chip cycles: the gap is what this step
+   measures). Then the other patches with PRESETS, POLY with a chord, and the looper armed.
 3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and VOYAGE through the line out against
-   `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves.
-4. *The pages:* every page button through its pages as `tests/scripts/u1.txt` tours them (HOME NAV MACROS; FX
-   REACTOR DISTROY SPACE; ENV ENV FILTER; LFO LFO1 LFO2 MOD; ARP; SEQ SEQ A, SEQ B, TURING); EDIT switches ON/OFF,
-   SCL held is the second layer; the key LEDs follow the screen; the macros move the sound live.
+   `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves or the looper is armed.
+4. *The pages:* every page button through its pages (HOME NAV MACROS; FX REACTOR DISTROY SPACE TIME; ENV ENV FILTER;
+   LFO LFO 1 LFO 2 TURING MOD; ARP; SEQ SEQ A SEQ B ORBIT); EDIT switches ON/OFF, SCL held is the second layer; the key
+   LEDs follow the screen; the macros move the sound live.
 5. *The voices:* `tests/scripts/v4.txt` by hand: ARP refused while SEQ plays in MONO, B locked in MONO, the
    messages; DUO and POLY share the voices without a note cut.
-6. *MIDI:* notes over USB and the TRS jack; CC 1 (WHEEL) feeds DISTROY's loop; channel pressure (AFTER) on GLASS
-   opens the FM.
+6. *MIDI:* notes over USB and the TRS jack, and REC writing them (`tests/scripts/m1.txt`); CC 1 (WHEEL) feeds
+   DISTROY's loop; channel pressure (AFTER) on VOWEL drives it; a clock leads the tempo.
 7. *Flash:* the octave, tempo, patch and mode kept over a restart (saved when silent); a user patch and a pattern
    SAVEd and back after a power-off.
 8. *The update path (the hub's author checklist):* install from the official V15 and from another firmware of the
    hub, both ending with Star Distroyer running; from Star Distroyer, install another firmware (it must start that
    package's loader); unplug once during Writing, plug in, install again: it must go on. `fm1_install.py --info`
-   (and the hub) must see the FM-1 as MIDI with the identity FM-1_96200 under a port name the hub knows.
+   (and the hub) must see the FM-1 as MIDI with its identity under a port name the hub knows.
 
-**S2 done 2026-11-10.** The plate, as §5.5.1 says.
-
-**S3 done 2026-11-11.** The plate on the second core, the room its fallback, as §5.5.2 says. fm1-emu (a build of
-its checkout that runs both cores, `FM1_EMU_BIN` for `tools/emu_cpu.sh`; 0.3.0 counts the one-core build the same):
-- *The gate* (DISTROY, SEQ A, MONO): the first core 42.7 % (S2's plate there: 48.7 %; the plate as jobs run there, a
-  test build measured once: 50.1 %, the queue's cost; the room, on a second core that misreads: 42.2 %). Since then
-  `DINGHY_DEFS=-DSD_ONE_CORE` builds one core with the room, as a unit that cannot run the second.
-- *Everything at once* (`SD_CPU_WORST=1`): 50.7 % (one core with the plate: 58.2 %; the room: 50.2 %).
-- *The second core:* 930 jobs in 5.6 s, 7.4 % of a period (5.8 ms) on average, 7.6 % at most: room for more there
-  (the delay of stage 2). Its stack ~0.8 KiB of 2.8; the RAM 65.6 KB of 96 (the queue, the rings, the stacks).
-- *A second core that misreads* (`--flaky-core1 1e-5 --seed 7`): its waiting loop read the mailbox wrong before the
-  first job, so it never ran one; the room played from the start, with the message. (fm1-emu does not model the
-  hold, bit 1 of C1_CON: there the loop goes on, harmless, as nothing more is handed to it.)
-- *The screen's CPU* (the worst interrupt of a second) in that scenario, 6.8 s in: 53 % (the room: 51; the plate on
-  the first core: 59). The mean is under half, the worst interrupt not yet: the next thing to trim.
-- *Not on the chip yet:* the start, the hold and the gate are felucca-bsp's as they run on FM-1s; HW tries them.
-
-**S4 done 2026-11-11.** TIME, as §5.5.3 says (the tape of a first S4 is gone: the user kept the delay). fm1-emu as S3's:
-- *The gate* (DISTROY, SEQ A, MONO): the first core 43.0 % (S3: 42.7 %); everything at once 50.8 % (50.7 %). The
-  second core 11.1 % on average, 11.8 % at most (the plate alone: 7.4). One core, the room and the looper there:
-  48.2 % (the room alone: 42.2 %).
-- *Core 0's share kept small:* it queues the frames (16 bits the looper's sides, 32 the plate's), the job brings them
-  down to half rate; the half-bands on core 0 cost 2.8 points (45.5 %). R-LEVEL is put on the plate on core 0 as it
-  is heard (in the job, a block early, it moved a modulated R-LEVEL: 39 dB under the mix); the looper has its own
-  ring, read only while it plays.
-- *As before:* without the looper (no memory: the render tools, the demos) the sound is S3's bit for bit: the loop
-  render on HALO and all five demos (CINEMATIC, RANGE, DERELICT, the song, the second cue), sample for sample.
-- *In fm1-emu:* LOOP on TIME on two cores (1963 jobs), on the RAM2 build (*2ND RAM: 512 KB OK*: the emulator's bank,
-  MAX 5.94 s, a bar fits) and on a second core that misreads (the room and the looper on core 0).
-- *The RAM:* 96.1 KB of 96 (the looper's 24 KB, its ring, the queue); the pool 10 KB from full.
-- Listening: a figure, LOOP its last bar (with seconds of memory, as the RAM2 bank would give) or an eighth (the RAM's
-  0.28 s), another figure over it with the delay, its speed down an octave and back.
-- *TAPESTRY* (`tools/sd_tapestry.c`, the user: "a demo with it in use, a little longer; this time with the reverb on
-  too, so we get the carpet of sound I wanted"): one pass by RANGE's rules, ~88 s at 84 BPM, D minor. PRISM's
-  falling sixteenths (Dm9, Bbmaj7, C) open the plate; LOOP the last two bars, PLAY stops, REVERSE, GLIDE 1 BAR and
-  SCL + OCT- (an octave down over a bar, on its grid: on its beats, then a bar's crossfade to its place); AURORA's slow
-  line over the bed, FREEZE on its A, SHIMMER to 38 %; SCL + OCT+ back (the head where LOOP left it), REVERSE off,
-  FREEZE off, the looper faded out, a last chord. Its looper's memory is the RAM2 build's 5.94 s (sd_play.h's
-  looper_mem; the performances before it have none and sound as they did, bit for bit).
-
-**After TAPESTRY, 2026-11-11 (the user, having heard it: "why are the dry synths panned in the stereo image?"; "it
-does not sound quite organic: everything in this demo switches fully to one side or the other"; "the loop seems to
-sit left"; "a patch may have some panning, but never HARD left or right"; "if the loop is transposed a whole octave,
-can we make sure it finds the perfect grid again? I would also like control over how long it takes, either a glide
-or at once").**
-- *The stereo* (§3.6): WIDTH took a bank's far side to nothing, and the patches at corner A with WIDTH at its most
-  (AURORA, SHARDS, PRISM) played MONO hard left (+115, +48, +79 dB) and POLY a note hard left or right by its voice;
-  the loop, recording PRISM's cascades, sat 4.3 dB left. Now the banks spread round the nav mix's middle, the far side
-  6 dB down at the most (POLY 2.5): every factory note within 5.2 dB (PHASER's Reactor), TAPESTRY's sections within
-  0.7 dB. What was on one side is on both now, so those patches sound up to 3 dB louder (TAPESTRY ~5 dB with the
-  reverb's share; its peak -3.2 dBFS). WIDTH 0 is as it was, bit for bit.
-- *The grid* (§5.5.3): SCL + OCT, GLIDE, the lock. The old glide also stopped short of x 1 and x 2 coming up (1/256
-  slow: off the beat by 0.4 %); the octaves are exact now.
-- *TAPESTRY* uses them: GLIDE 1 BAR, SCL + OCT- at bar 10 (a bar's glide onto the loop's beats, a bar's crossfade
-  into its place), SCL + OCT+ at bar 20; after REVERSE off the head is where LOOP left it.
-- *L SPEED*, the 49th destination (the user: "mod must have a destination on the speed in particular, not quantized to
-  semitones unless it is the Turing machine; then we can send an LFO so we get a slight wobble"): +-12 semitones at
-  100 %, after the others so a saved slot keeps its meaning (LOOPER in the list, before the LFOs). Free (the slots,
-  ORBIT's lanes): on the rate as it plays, after its glide, x 0.25 .. 4 at most (with SPEED's own +-12: a wobble at
-  -12 or +12 still goes both ways); the grid follows the wobble while a
-  slot sends (its offset kept aside) and takes it back when none does (a nudge, or the crossfade). TURING's (a slot,
-  or its own DEST) to the nearest semitone, on the speed set: through GLIDE, and to the grid at an octave. Tests: a
-  slot LFO1 at +3 % moves it +-0.36 semitones free, TURING at +50 % -6 .. +5 whole; a 2 Hz wobble of 0.3 semitones
-  plays 432.3 .. 447.4 Hz (432.4 .. 447.7), and let go the loop plays bit for bit as it would have; TURING's +7
-  659 Hz.
-- *Measured* (fm1-emu): the gate 43.6 % of the first core (43.0 before: most likely DISTROY's knees, which now hear
-  the centred banks on both sides, not the plan, which costs a few instructions a tick; not measured apart), the
-  looper gliding and crossfading 43.7 %; the second core 11.2 % on average, 11.9 % at most; everything at once
-  51.4 % (50.8); one core, the room and the looper 48.6 % (48.2), its glide and crossfade there 48.7 %. RAM 96,764 B
-  of 98,304 (+624: the tick's plan in each chunk). The loader byte for byte Dinghy's.
-
-**HELIOPAUSE, 2026-11-11 (the user, having heard the grid and the stereo: "this is quite fantastic, we are there.
-Write a new 1-2 min cinematic thing that uses everything that is in RANGE, and use the looping tape and so on as
-texture where it fits").** `tools/sd_heliopause.c`, DERELICT's way: four passes on one FM-1 under RANGE's rules,
-layered at fixed faders (bed 1.0, low 1.4, motion 1.0, lead 0.9; the master to -1 dBFS), E minor at 80 BPM, 36 bars,
-nine sections of four, each once, 1:59. I VOID: VOYAGE's figure (COURSE, ALL and ODD on bank A) over GROWL's low E,
-its LP24 opening. II SIGNAL: the bed in (U01, CHORDS saved darker, its lowpass at 3.2 kHz, in a big hall), AURORA's
-swells far back. III ACID: GROWL's line, TURING to the CUTOFF. IV VOICES: VOWEL through the Reactor's vowels, MODEL to
-BP12, DRIVE; the acid transposed under it. V ASCENT: the arp over the bed (HOLD, UP, then UP-DN). VI TAPE: LOOP (the
-bed's last bar), REVERSE, SCL + OCT- over GLIDE 1 BAR (on its beats, then a bar's crossfade to its place), LFO 2 onto L
-SPEED +2 %; DISTROY's riff in four segments, BREAK; ORBITAL's ostinato, TURING's NOTES, MOVE. VII BREACH: MUTATE, CHANGE
-60, DISTROY's LOOP tamed and its top band up; BEACON's line far back. VIII BEACON: SCL + OCT+, REVERSE off; the echoes
-and DECAY up. IX FALL: SHIMMER, FREEZE, the looper faded and let go; BEACON's last E. Measured: the sections -21 -21
--20 -17 -23 -17 -18 -23 -24 dBFS (built to IV, a breath in V, the breach, then down); the share over 5 kHz -21 dB at
-the median (CINEMATIC -21, DERELICT -28, RANGE -17: the first draft was RANGE's, the bed and VOYAGE darker since).
-- *Heard, the user (2026-11-11): "not extreme enough in the sound image at the climax; the acid bass is off key; the
-  part from one minute a little too intense; more of the plate and the delay, and both FREEZE, an octave down and an
-  octave up; it can be shorter, and more ambient before it gets intense".* The second version, 30 bars, 1:47: DRIFT
-  (1-8: GROWL's low E, VOYAGE and AURORA saved wet, the bed and the arp in eighths), TAPE (7-12: LOOP, REVERSE, SCL +
-  OCT- onto its grid, SHIMMER and FREEZE over it, the wobble; the acid dark under it, TURING on its CUTOFF; VOWEL's long
-  notes through the Reactor), RISE (13-16: FREEZE let go, GLIDE 2 BAR, SCL + OCT+ twice: two octaves up, landing on its
-  grid at +12 with no crossfade; ORBITAL, TURING's NOTES, MOVE), WALL (17-24: DISTROY's slow riff, BREAK, MOVE, its top
-  band CRUSHed; the chords loud under the loop at +12; BEACON with DROWN; ORBITAL's glints, MUTATE), FREEZE (25-30: the
-  wall's plate frozen, all else off, DISTROY's EDIT off with it; the loop two octaves down, faded; BEACON's last E). A
-  rhythm at a time. Measured: DRIFT -21, TAPE -20, RISE -23, the wall -14.5, its freeze -16.7 dBFS; side to mid -8 dB
-  ambient, -5 in the wall, -1 in its freeze. The acid was off key in IV of the first: its transposes (A C E D) were
-  chromatic, an E minor line moved to C and D (Eb, F, Bb). sd_play.h's transposes are chromatic (RANGE's are written
-  so); HELIOPAUSE's player keeps the app's default, IN KEY (e.xkey), and its acid has none now, its RES 46..54 (62..66
-  before). BREAK up keeps DISTROY's loop ringing on its own: the render waits for quiet, so the wall's last gesture is
-  DISTROY's EDIT off (a first try, left ringing, never ended).
-- *SINGULARITY, then* (the user: "can the next be what one can get with only one take by maxing the FM-1 itself? No
-  layers, not more than one take, one stem. Just a lot of the firmware, standalone"): `tools/sd_singularity.c`, one
-  pass under RANGE's rules (play_run, no sd_layer.h), F minor at 72 BPM, POLY throughout (no mode to wait for), 33
-  bars, 1:57. GLASS (AURORA saved wet: chords, the arp in eighths; LOOP, REVERSE, SCL + OCT-, SHIMMER and FREEZE),
-  VOICES (VOWEL saved wet on A and B over the frozen glass; TURING's NOTES on A; LFO 2 onto R POS, LFO 1 onto L SPEED;
-  FREEZE let go; the delay up; GLIDE 2 BAR and SCL + OCT+ twice), WALL (DISTROY saved wet: A's riff in octaves, B's
-  bass, the arp at random in 16ths, POLY's four voices all held; ORBIT stepping A and B through F Db Ab Eb IN KEY, its
-  lanes on D SPLIT and X, its BREAK and MOVE rising; BREAK and BODY up, TURING on the FOLD, the top CRUSHed; the loop at
-  +12, then backwards), FREEZE (the wall's plate frozen, DISTROY's EDIT off, the loop down two octaves, BEACON's last C
-  in its echoes). Measured: GLASS -22, VOICES -21.5, the wall -14.9, its freeze -16 then -20 dBFS (MASTER low before
-  the wall, at its top in it; nothing normalised: the FM-1's own output, its peak -1.4 dBFS); side to mid -5 dB, 0 in
-  the freeze. sd_play.h gained ORBIT's page (SEQ's third: orbit_load with A's pattern, orbit_edit) and preset_user
-  (from sd_layer.h: a single pass loads the player's places too).
-- *Found on the way:* sd_play.h's TURING DEST turned in the enum's order, not the list's (the app's dst_step: the
-  chain's order, NOTES after the last). Since the 22 destinations of 2026-11-10 RANGE's TURING went to L1 RATE, not
-  the CUTOFF it was written for. It turns as the app's now, and RANGE's acid has its TURING on the CUTOFF again (17
-  detents: OFF, PITCH, the nav's seven, the envelopes' eight, F CUT).
-
-**The looper's own memory, 2026-11-11 (the user, asked whether the FM-1's second RAM bank is there to count on:
-"borrow the delay"; then chose: armed while L-LEVEL is above 0, ~5 s mono at half rate, a byte a sample).** As §5.5.3
-says now: the delay line's second half, lent while armed, and 24 KB, 5.11 s; the delay 0.5 s while it is lent; the
-test build `-DSD_RAM2=1` keeps the second bank's looper.
-- *Tests:* its memory 5.11 s; a free 800 ms echo at 35281 frames not armed, 17641 armed (TIME halved until it fits);
-  armed over ringing echoes, the largest step 3993 (the sine's own 3262) on two cores, 1972 (1830) on one: the line's
-  first echo came in on a step until what goes in, not what comes out, was faded in; a looped sine's noise 31.3 dB
-  under it (mu-law; measured dry: with its echoes the test heard their beating). The grid, glide, REVERSE and SPEED
-  tests as before, on the lent memory.
-- *Heard:* SINGULARITY, HELIOPAUSE and TAPESTRY arm it (L-LEVEL up before the LOOP; down to 1 at the end, not 0,
-  so the delay's line does not change under its echoes): before (a second bank's looper) and after within 0.3 dB.
-  RANGE, DERELICT and the rest never arm it: bit for bit as before.
-- *Measured* (fm1-emu): the gate 44.0 % of the first core (43.6), the second 9.9 % (11.2: at L-LEVEL 0, as the app
-  starts now, the looper records nothing); armed, LOOP, GLIDE 1 BAR and SCL + OCT- 45.3 % and 10.6 % on average, 12.2
-  % at most; all at once 51.7 % (51.4); one core, the room 44.3 % (48.6), the looper's glide and crossfade there 47.4 %
-  (48.7). The clear at the change, at once, took the worst interrupt (the app's CPU) from 52 % to 79 %; 2048 a tick,
-  58 %; 1024 a tick (~80 ms), 53 %, 55 % on one core. RAM 96,780 B of 98,304 (+16). The loader byte for byte
-  Dinghy's.
-- *Found on the way:* the emulator scenario of the looper's CPU had lost a press (FX at 100 ms from the last) and never
-  reached TIME, so its earlier figures were the gate's; its presses are 200 ms apart now and its screens checked.
-
-**DISTROY band by band in the matrix, 2026-11-11 (the user: "should it be per band?"; then: "what about each having
-its own crossover? But what happens if two crossovers crash, cross each other? We must think of something clever";
-chose: through; then: "gain and crossover").** Five destinations, after the others so a saved slot keeps its meaning:
-- *Each crossover:* D SPLIT1 (LOW | LO-MID) and D SPLIT2 (LO-MID | HI-MID) beside D SPLIT, now SPLIT 3 on the screen
-  (HI-MID | TOP), +-24 semitones each, within DISTROY's range. *Through:* the three are sorted each tick after the
-  matrix, so one moved past another goes through it: the band between them closes to nothing and opens again on its
-  other side, nothing jumps, no wall, and each band keeps its place and its destruction (D SPLIT stopped at its
-  neighbour before). Unmoved they are in order already (the page keeps them a semitone apart), so it changes nothing
-  there. Three compares a tick.
-- *Each band's GAIN:* D GAIN1..3 beside D GAIN (all four) and D HIGH, now GAIN 4 on the screen (the top band's).
-- The list (MOD's DEST, TURING's, ORBIT's lanes): DISTROY's GAIN, LOW GAIN, LO-MID GAIN, HI-MID GAIN, TOP GAIN, BIAS,
-  SPLIT 1..3, then its loop's; 54 destinations.
-- Tests (`test_split_through`): D SPLIT1 at +48 lands above the middle one, D SPLIT at -48 below it, D SPLIT2 +24 in
-  place, each within 2/256 of a semitone, sorted; each GAIN moves its band alone. The wheel sweeping the lower
-  crossover from 150 Hz to 2.4 kHz up through the middle one (800 Hz), every band SOFT-driven, a D4: the largest step
-  at the crossing 1521, either side 1415, held there 1577 (the sweep's largest, 2734, is where the crossover passes
-  the note itself, not the crossing).
-- *Heard:* every render bit for bit as before (81 of 81: no patch or demo moves a crossover past another).
-- *Measured* (fm1-emu): the gate 44.0 % (105.7 M/s, 105.6 before), all at once 51.8 %; RAM as before (96,796 B;
-  the SMK-37's 97,420 of 98,304).
-
-**W1 planned 2026-11-10 (the user: "a subpage on the site that connects to the FM-1 and works as a big screen with an
-overview of everything; think of it as a spaceship console, and play on the design we have and the player on the page
-now").** The next step while HW waits for the user's FM-1.
+**W1, planned: a page of the site that connects to the FM-1 and works as a big screen with an overview of
+everything, a spaceship's console in the page's design and its player's.** The next step while HW waits for the
+user's FM-1.
 - *Where:* a page of its own on the site (`web/`, built by `make_site.py`, published by CI from `main`), e.g.
   `console/`, in the page's look (near black, ice-white lines, red accents, the "///" marks, Orbitron for the titles)
   and its player's console frame, wide: a ship's bridge rather than a phone screen.

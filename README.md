@@ -37,7 +37,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 > may not load in the next beta: the saves can change until 1.0.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
@@ -398,7 +398,8 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   modulation, the macros at full or a loud POLY chord never square off; a soft shoulder after it is the last safety.
 - **Generated:** the oscillator's laws are tables from `tools/gen_tables.py`.
 - **The plans:** [the sound](docs/sd/Star_Distroyer_FM1_Sound_Plan_v0.1.md) and
-  [the sequencer](docs/sd/Star_Distroyer_FM1_Sequencer_Plan_v0.2.md), with every step's measurements.
+  [the sequencer](docs/sd/Star_Distroyer_FM1_Sequencer_Plan_v0.2.md): the design, what each step decided, the numbers
+  now.
 - **The platform's docs:** [API](docs/API.md), [rules](docs/RULES.md), [SMK-37](docs/SMK37.md) and
   [make it yours](docs/MAKE-IT-YOURS.md).
 - **Departures from Dinghy 0.5's own files:**

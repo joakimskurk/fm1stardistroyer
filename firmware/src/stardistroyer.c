@@ -6,8 +6,7 @@
  * (sd_engine.h, 32-frame sub-blocks), the Reactor, DISTROY, SPACE, a lowpass a voice, the matrix, the macros, two
  * sequencer tracks, the arpeggiator.
  *
- * The controls, the same on every page (2026-11-07, the user: "functionality on knobs and buttons must recur across
- * the whole app"; "K1-4 lie in a row: we need an indication"; "EDIT a toggle"; "SCL held: the second function"):
+ * The controls, the same on every page (a knob, a button, EDIT and SCL do the same everywhere):
  *   a page button  its page; again, the next of its pages (the top line shows them, this one a red tab):
  *                  HOME  NAV -> MACROS        FX   REACTOR -> DISTROY -> SPACE      ENV  ENV -> FILTER
  *                  LFO   LFO 1 -> LFO 2 -> TURING -> MOD   ARP  ARP     SEQ  SEQ A -> SEQ B -> ORBIT
@@ -21,11 +20,10 @@
  *              the master plays, the other track and ORBIT switched on come in at its one (ON blinks till then),
  *              from their step 1
  *   PRESETS    the patch (on SEQ the pattern, P01..P32): it turns a list, the sound as it is; EDIT loads, HOME not
- *              now (2026-11-09)
+ *              now
  *   SELECT     the tempo, 40..240 BPM (a MIDI clock's while one leads)      GLO the mode: MONO -> DUO -> POLY
- *   OCT- OCT+  the keys' octave, on every page, REC or not; on SEQ, SCL + OCT the step bank (2026-11-10, the user:
- *              on SEQ the octave took going into REC, and a recording came back in another octave: "make it smoother");
- *              on TIME, SCL + OCT the loop's octave
+ *   OCT- OCT+  the keys' octave, on every page, REC or not; on SEQ, SCL + OCT the step bank; on TIME, SCL + OCT the
+ *              loop's octave
  *   PLAY       the patterns on / off (SCL + PLAY: SYNC AUTO / INT, MIDI in)   REC recording into the track SEQ edits
  *              (ENV a TIE, LFO a REST); what is heard is written: a key under the track's transpose (SCL + a key,
  *              ORBIT's XPOSE) goes in back by it, so the step plays the key's note (sd_seq_rec_note)
@@ -45,36 +43,32 @@
  *   REACTOR      POS RES SLEW DRIVE; SCL: FREQ MODEL DIV MIX; ALGORITHM TRACK (OFF KEY HARM KEY+H), SCL + ALGO LOW
  *   DISTROY    ALGORITHM the band 1..4 (LOW LO-MID HI-MID TOP, on the hint line), then LOOP. A band: TYPE (NONE
  *              SOFT HARD FOLD CRUSH) DRIVE, ALT by what it does for the type (KNEE SPACING DEPTH), LEVEL; SCL: BIAS
- *              PAN DYNAMIC (PHAT .. SHARP) SPLIT, SCL + ALGORITHM its BODY (2026-11-09, the user: the page was "hard to
- *              navigate and understand"). LOOP: FDBK TIME SPREAD TAME; SCL: MIX XOVER. EDIT's first time on a patch
- *              with no bands: four that sound (dest_first)
- *   SPACE      the reverb: SIZE DECAY TONE R-LEVEL; SCL: SHIMMER. On the second core a plate (2026-11-10), on one
+ *              PAN DYNAMIC (PHAT .. SHARP) SPLIT, SCL + ALGORITHM its BODY. LOOP: FDBK TIME SPREAD TAME; SCL: MIX
+ *              XOVER. EDIT's first time on a patch with no bands: four that sound (dest_first)
+ *   SPACE      the reverb: SIZE DECAY TONE R-LEVEL; SCL: SHIMMER. On the second core a plate, on one
  *              core the room. ALGORITHM: FREEZE (the player's, not saved: the plate's input closed, its tail held for
  *              ever); SCL + ALGORITHM: SHIMMER (an octave up of the tail back into it, 0..99, s_mode's top bits)
- *   TIME       the delay (2026-11-11, its own page): TIME FDBK TONE D-LEVEL; SCL: the looper's GLIDE LENGTH SPEED
+ *   TIME       the delay (its own page): TIME FDBK TONE D-LEVEL; SCL: the looper's GLIDE LENGTH SPEED
  *              L-LEVEL, SCL + EDIT the delay's MODE (FREE SYNC FREE PP SYNC PP). ALGORITHM: LOOP (the player's: the
  *              looper, always recording what SPACE hears before the reverb, stops and plays its last LENGTH round, at
  *              its SPEED, +-12 semitones; into the reverb as the synth goes; the delay goes on); SCL + ALGORITHM:
  *              REVERSE (it plays it backwards); SCL + OCT: SPEED to the next octave down or up, over GLIDE (OFF: at
- *              once), the loop landing on its own grid (2026-11-11, the user: "if the loop is transposed a whole
- *              octave, it should find the perfect grid again"; "control over how long it takes"). L-LEVEL above 0
- *              arms the looper (0 at the start): it borrows the delay line's second half (5.1 s with the RAM's last 24 KB,
- *              mono mu-law), the delay then 0.5 s
+ *              once), the loop landing on its own grid. L-LEVEL above 0 arms the looper (0 at the start): it borrows
+ *              the delay line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the delay then 0.5 s
  *   ENV        ENV 1 (the level): ATTACK DECAY SUS RELEASE; SCL: ENV 2 (the FM's amount)
  *   FILTER     a lowpass on each voice: CUTOFF RES ENV (ENV 3's depth) KEY; SCL: ENV 3; ALGORITHM LP12 / LP24,
  *              SCL + ALGORITHM VEL
  *   LFO 1, 2   SHAPE RATE MODE (FREE SYNC FREE+K SYNC+K FREE 1 SYNC 1); the picture: where the matrix sends it
- *   TURING     a Turing machine, a modulation source of the patch (2026-11-09, the user: "more like a modulation
- *              source, to parameters in the synth, the filter"): a loop of bits on the tempo, ALGORITHM its DIV.
+ *   TURING     a Turing machine, a modulation source of the patch: a loop of bits on the tempo, ALGORITHM its DIV.
  *              K1 CHANGE (the chance a bit flips as it comes round: 0 a locked loop), K2 LENGTH (2..16 steps), K3 DEST
  *              (a matrix destination, or NOTES: SEQ A's notes moved in its scale, the pattern untouched; to PITCH
  *              quantized to SEQ A's key first, sd_tq_snap), K4 AMOUNT;
  *              EDIT on / off (off by default; on the first time: to XM, 30 %). In MOD it is a SOURCE too
  *   MOD        the slot ALGORITHM picks (1..8): SOURCE DEST AMOUNT. DEST (here, on TURING and ORBIT's lanes): 54 in
  *              the chain's order, the voice, its three envelopes' times, the filter, the Reactor, DISTROY (each band's
- *              GAIN, D GAIN1..4, and each crossover, D SPLIT1..3, one through another, 2026-11-11), SPACE, the
- *              looper's SPEED (free; TURING's in semitones, 2026-11-11), the LFOs' rates; while it turns a list in the
- *              knobs' place, as PRESETS' (2026-11-10, draw_dlist)
+ *              GAIN, D GAIN1..4, and each crossover, D SPLIT1..3, one through another), SPACE, the looper's SPEED
+ *              (free; TURING's in semitones), the LFOs' rates; while it turns a list in the knobs' place, as PRESETS'
+ *              (draw_dlist)
  *   ARP        MODE (UP DOWN UP-DN RND ORDER) RATE (1/64 .. 1/2, triplets, dotted) OCTAVES GATE; ALGORITHM HOLD. The
  *              player's, not the patch's. REC there: KEEP, what it just played (the last bar at its RATE) as a SEQ
  *              track's pattern, SEQ A's (B's while A plays), UNDO on SEQ (arp_keep). While the patterns play its
@@ -84,7 +78,7 @@
  *              white key picks: NOTE VEL GATE TYPE (NOTE SLIDE TIE REST SKIP); ALGORITHM the next step. SCL: LENGTH
  *              DIV SWING XPOSE; SCL + ALGORITHM the SCALE. SEG: the white keys cut and join, the black A-F and EVEN,
  *              K1 REPEAT K2 ORDER (FWD REV P-P RND) K3 SKIP K4 LENGTH. REC: keys held together, a chord
- *   ORBIT      a sub-sequencer of the master's pattern (2026-11-09): 2..8 steps on the first white keys, each RATE
+ *   ORBIT      a sub-sequencer of the master's pattern: 2..8 steps on the first white keys, each RATE
  *              loops of it; the step the key (or ALGORITHM) picks: K1 XPOSE A, K2 XPOSE B, K3 LANE 1, K4 LANE 2 (each its DEST,
  *              -100..100 %); SCL: the macros' changes (MUTATE MOVE BREAK MACRO 4, -99..99). The last black key: SETUP,
  *              K1 LENGTH K2 RATE (1 2 4 loops) K3 DEST 1 K4 DEST 2; SCL there: GLIDE for lane 1, lane 2, the macros.
@@ -118,7 +112,7 @@ static SdSpaceMem space_mem;
 #else
 static SdSpaceMem space_mem __attribute__((section(".pool")));
 #endif
-/* the looper's memory (TIME's, 2026-11-11, then "borrow the delay"): mono at half rate, a byte a sample (mu-law),
+/* the looper's memory (TIME's, borrowed from the delay): mono at half rate, a byte a sample (mu-law),
    in two pieces of one ring: the delay line's second half while the looper is armed (L-LEVEL above 0: the delay
    then has 0.5 s), and what is left of the RAM, 24 KB: 5.1 s. The test build DINGHY_DEFS=-DSD_RAM2=1 looks for a
    second RAM bank at boot (hal/fm1_ram2.h) and, found, gives the looper the largest of 512 KiB .. 4 MiB it holds
@@ -140,8 +134,7 @@ static uint8_t ram2_kind;                       /* 0: none; else what the looper
 static uint32_t ram2_size;
 #endif
 
-/* SPACE's plate on the second core (2026-11-11, the user: "the plate on the other core, with a fallback to the old one
- * if anything fails"; "never the plate on core 0: there we have the original"): a block a job, handed over at its
+/* SPACE's plate on the second core (never on core 0: the room is the fallback there): a block a job, handed over at its
  * end in the audio interrupt and joined in the next (sd_plate_post, sd_plate_join). Its pointers are constants here,
  * as the core may read RAM wrong. When the core cannot run (barred since a failure, silent at the start) or gives
  * up, the block is dropped (sd_plate_drop: its tail fades out) and the room takes the plate's place (eng.sp_room).
@@ -396,7 +389,7 @@ static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate
 #define UPATTERNS 32u
 typedef struct { uint32_t used; char name[UPATCHES][8]; SdPatch p[UPATCHES]; } UserPatches;
 typedef struct { uint32_t used; SdPattern p[UPATTERNS]; } UserPatterns;
-/* the patterns in two slots (1, 2) since the chords (2026-11-06): 32 of them pass one slot's 16 KB */
+/* the patterns in two slots (1, 2): 32 of them, with their chords, pass one slot's 16 KB */
 #define USEQ_HALF ((uint32_t)(uintptr_t)&((UserPatterns *)0)->p[UPATTERNS / 2u])
 _Static_assert(sizeof(UserPatches) <= SLOT_MAX, "a slot holds them");
 _Static_assert(sizeof(UserPatterns) / 2u + sizeof(SdPattern) <= SLOT_MAX, "two slots hold the patterns");
@@ -440,13 +433,13 @@ static void patch_load(uint32_t i, SdPatch *p) { *p = i < SD_PATCHES ? SD_PATCH[
 static SdPatch pat;                             /* the patch as the knobs left it (not saved: PRESETS reloads it) */
 static uint32_t ebank, gen = 0xFFFFFFFFu, gen_seed = 1;   /* the edited bank; the last generator (K4, SCL) */
 static uint32_t page;                           /* 0 NAV, 1 REACTOR, 2 DISTROY, 3 SPACE, 4 MOD, 5 HOME (the macros),
-                                                   6 SEQ, 7 ENV, 8 FILTER, 9 ARP: each its button's (2026-11-06) */
+                                                   6 SEQ, 7 ENV, 8 FILTER, 9 ARP: each its button's */
 #define PAGE_SEQ 6u
 #define PAGE_ENV 7u
 #define PAGE_FILT 8u
 #define PAGE_ARP 9u
-#define PAGE_ORB 10u                            /* SEQ's third: ORBIT (2026-11-09) */
-#define PAGE_TIME 11u                           /* FX's fourth: TIME, the delay and the looper (2026-11-11) */
+#define PAGE_ORB 10u                            /* SEQ's third: ORBIT */
+#define PAGE_TIME 11u                           /* FX's fourth: TIME, the delay and the looper */
 /* the screen's rows (the frame, below) */
 #define Y_NAV 44u
 #define Y_KNOB 64u
@@ -492,8 +485,8 @@ static const char *const DST_SHORT[SD_MDSTS] = {"--", "PIT", "XM", "WP", "FD", "
                                                 "D2", "S2", "R2", "A3", "D3", "S3", "R3", "FEN", "SLW", "DTM", "SPR",
                                                 "STM", "DTO", "SIZ", "RTO", "L1R", "L2R", "LSP", "DS1",
                                                 "DS2", "DG1", "DG2", "DG3"};
-/* the destinations' list (2026-11-10, the user: "as a list, as the patches when I browse, so it is easier to see
-   and hit what you look for"): each its engine and its name there, in SD_MD_ORDER (the chain's order) */
+/* the destinations' list (as PRESETS' list: easier to see and hit): each its engine and its name there, in
+   SD_MD_ORDER (the chain's order) */
 enum { DG_NONE, DG_VOICE, DG_NAV, DG_ENV1, DG_ENV2, DG_FILT, DG_ENV3, DG_REACT, DG_DEST, DG_SPACE, DG_LFO, DG_SEQ,
        DG_LOOP };
 static const char *const DG_NAME[] = {"", "VOICE", "NAV", "ENV 1", "ENV 2", "FILTER", "ENV 3", "REACTOR", "DISTROY",
@@ -529,8 +522,8 @@ static const char *const DIV_NAME[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T"
 static const char *const SPMODE_NAME[4] = {"FREE", "SYNC", "FREE PP", "SYNC PP"};
 static uint32_t dband;                          /* DISTROY's band ALGORITHM picks: 0..3, then 4 LOOP (D3) */
 static const char *const SHAPE_NAME[SD_DSHAPES] = {"NONE", "SOFT", "HARD", "FOLD", "CRUSH"};
-/* DISTROY's page (2026-11-09, the user: "hard to navigate and understand"): what ALT does for each type, the bands'
-   names (and their short ones, for a narrow band in the picture) */
+/* DISTROY's page: what ALT does for each type, the bands' names (and their short ones, for a narrow band in the
+   picture) */
 static const char *const ALT_NAME[SD_DSHAPES] = {"--", "KNEE", "KNEE", "SPACING", "DEPTH"};
 static const char *const BAND_NAME[4] = {"LOW", "LO-MID", "HI-MID", "TOP"};
 static const char *const BAND_SHORT[4] = {"L", "LM", "HM", "T"};
@@ -606,13 +599,11 @@ static const char *msg_txt;                     /* a message in the hint's place
 static uint32_t msg_at;
 static void msg(const char *t) { msg_txt = t; msg_at = fm1_ms ? fm1_ms : 1u; }
 
-/* ---- the voices (2026-11-07, the user: "notes get cancelled, especially with ARP: rules for what can play and what
- * cannot, and the functions fitted around them"; "no ARP while SEQ is on and playing in MONO, the same for SEQ B: only
- * DUO / POLY can fix it, and there too rules, so we never try to play more than is possible; simple messages in
- * English when you try"). The engine gives each source its quota (sd_plan: a playing track its widest chord, A
- * first, then B, then ARP one, the hand the rest) and no source takes another's voice. Here what is switched on is
- * kept inside the voices: ARP and SEQ B are refused when there is no room (a message says why), and switched off
- * when PLAY, GLO or a new chord takes their room; a chord is recorded only as wide as the room left. */
+/* ---- the voices (rules for what can play together: never more than is possible, a short message when not). The
+ * engine gives each source its quota (sd_plan: a playing track its widest chord, A first, then B, then ARP one, the
+ * hand the rest) and no source takes another's voice. Here what is switched on is kept inside the voices: ARP and SEQ
+ * B are refused when there is no room (a message says why), and switched off when PLAY, GLO or a new chord takes
+ * their room; a chord is recorded only as wide as the room left. */
 static uint32_t voices_n(void) { return set.mode == SD_MODE_POLY ? 4u : set.mode == SD_MODE_DUO ? 2u : 1u; }
 static uint32_t trk_need(uint32_t k)            /* the voices track k takes when it plays */
 {
@@ -678,10 +669,10 @@ static void draw_info(void)                     /* the patch as a red tab, the e
     cv_text(232 - text_w(&FONT_S, s), 2, &FONT_S, s, eng.mode_on == SD_MODE_MONO ? C_ICE_D : C_RED);
 }
 
-/* PRESETS turned: the list over the panel, the sound as it is (2026-11-09, the user: "browse the presets without
- * them changing at once"): the one picked in the middle as a red tab, two either side (patches past the empty user
- * places, as the knob steps; on SEQ and ORBIT the patterns), the one playing marked NOW, the place in the whole list on
- * the right. EDIT loads it (its light blinks meanwhile), HOME or 8 s untouched: not now; another button closes it. */
+/* PRESETS turned: the list over the panel, the sound as it is (browsing changes nothing until EDIT): the one picked
+ * in the middle as a red tab, two either side (patches past the empty user places, as the knob steps; on SEQ and
+ * ORBIT the patterns), the one playing marked NOW, the place in the whole list on the right. EDIT loads it (its light
+ * blinks meanwhile), HOME or 8 s untouched: not now; another button closes it. */
 #define BROWSE_MS 8000u
 static uint32_t browse_at, browse_to, browse_kind;   /* when PRESETS last moved (0: not browsing); the one picked;
                                                    1 a patch, 2 a pattern */
@@ -982,11 +973,10 @@ static void seq_keys_up(void)                   /* REC, step recording: every ke
 
 
 
-/* KEEP (REC on ARP, 2026-11-10, the user: "it is so cool to play over the ARP, and sometimes I wish I could save
- * it"): what ARP just played, the last bars at its RATE (sd_arp_keep_len: 1/16 a bar of 16), as a SEQ track's
- * pattern at that DIV, the bar that ended if REC comes on the one. Into SEQ A, or SEQ B while A plays (DUO, POLY:
- * MONO has no ARP over A); the track on, the steps as heard (sd_seq_rec_note), its gates ARP's GATE. UNDO on SEQ takes
- * it back; SAVE there keeps it */
+/* KEEP (REC on ARP): what ARP just played, the last bars at its RATE (sd_arp_keep_len: 1/16 a bar of 16), as a SEQ
+ * track's pattern at that DIV, the bar that ended if REC comes on the one. Into SEQ A, or SEQ B while A plays (DUO,
+ * POLY: MONO has no ARP over A); the track on, the steps as heard (sd_seq_rec_note), its gates ARP's GATE. UNDO on SEQ
+ * takes it back; SAVE there keeps it */
 static void arp_keep(void)
 {
     static char m[28];
@@ -1298,7 +1288,7 @@ static void draw_lfo_wave(uint32_t k, int32_t x0, int32_t y0, int32_t w, int32_t
 
 
 
-/* ---- ENV, FILTER, ARP (2026-11-06: the user, "everything is under FX: it must go to its place") */
+/* ---- ENV, FILTER, ARP: each on its own button */
 static char *put_ms(char *p, uint32_t i)        /* an envelope time, 0..127: "12ms", "1.2s" */
 {
     uint32_t ms = SD_ENV_MS[i & 127u];
@@ -1314,8 +1304,7 @@ static char *put_ms(char *p, uint32_t i)        /* an envelope time, 0..127: "12
 
 
 
-/* ==== The screen, the same on every page (2026-11-07, the user: "a tidier interface, more intuitive, the same all
- * through"; "K1-4 lie in a row on top, but every setting is drawn in a column: we need an indication"):
+/* ==== The screen, the same on every page (K1-4 a row on top, as the knobs lie):
  *     0  the logo, the patch's number           22  the patch, the edited bank's roles, the mode
  *    44  the button's pages, this one a red tab; right: what EDIT switches here, ON / OFF
  *    64  K1 K2 K3 K4, left to right as the knobs: name, value, bar (the names red: SCL held, the second layer)
@@ -1325,7 +1314,7 @@ static char *put_ms(char *p, uint32_t i)        /* an envelope time, 0..127: "12
  * Each region is drawn into the canvas 25 times a second and sent only when its pixels changed. */
 
 
-/* ---- what EDIT switches: the page's engine, the same everywhere (the user: "EDIT a toggle") */
+/* ---- what EDIT switches: the page's engine, the same everywhere (a toggle) */
 static uint32_t fx_on(uint32_t bit)             /* an engine on: not switched off, and in the patch at all */
 {
     if (pat.fx_off & bit) return 0;
@@ -2184,9 +2173,8 @@ static void pic_orbit(void)
         }
     }
     cv_frame(36 + (int32_t)(orb_cur % SD_ORB_STEPS) * 25 - 1, 0, 25, 58, C_RED);
-    for (s = 0; s < len && s < SD_ORB_STEPS; s++)   /* the LEDs under the stripes: the one playing lit (the user: "a
-                                                       marker for the step that is active"), the rest dark red; ORBIT
-                                                       off, grey */
+    for (s = 0; s < len && s < SD_ORB_STEPS; s++)   /* the LEDs under the stripes: the one playing lit, the rest dark
+                                                       red; ORBIT off, grey */
         cv_rect(36 + (int32_t)s * 25 + 8, 61, 7, 3, s == play ? C_RED : orbp.on ? C_FILL : C_GRID);
 }
 
@@ -2386,7 +2374,7 @@ static void draw_frame(void)
     draw_status(); cv_show(Y_STAT, 7);
 }
 
-/* ---- the key LEDs show what the keys do on this page (the user: "use the keys' lights for what is on the screen"):
+/* ---- the key LEDs show what the keys do on this page, as the screen does:
  * playing, the notes on (full) and ringing out (a glow); ARP, its notes glow. SEQ and TURING: the bank's steps on the
  * white keys (a note full, a rest a glow, past the length dark; the playhead flips its key), the black keys' actions
  * a glow (SEG full while on); SCL held there: the transpose, C4 a glow (0), the track's place full, blinking until the
@@ -2469,11 +2457,11 @@ static void keys_lit(uint32_t held, uint32_t base)
     leds_set(full, glow);
 }
 
-/* MIDI clock and transport (2026-11-10; SYNC AUTO, SCL + PLAY: INT): the pulses to the engine (sd_clk_tick), START
+/* MIDI clock and transport (SYNC AUTO, SCL + PLAY: INT): the pulses to the engine (sd_clk_tick), START
  * and CONTINUE from step 1 at the next pulse (the downbeat; with none in 250 ms, at once), STOP. CONTINUE starts
  * from the top too: the song position is not passed on. Two clocks (USB and the jack; in the browser, two of its
  * MIDI inputs): the first, until it has been quiet for 500 ms (the same clock on both leads once: counted twice it
- * was twice the tempo, the user heard 100 BPM play at 200 in the browser, 2026-11-10) */
+ * was twice the tempo) */
 static uint8_t clk_cue, clk_src;
 static uint32_t clk_cue_t, clk_src_t;
 static void clk_rt(uint32_t st, int src)
@@ -2492,10 +2480,10 @@ static void clk_rt(uint32_t st, int src)
         eng.seq_run = 0;
     }
 }
-/* A note from MIDI (2026-11-11, the user, of a keyboard on the TRS jack: "most interesting is to record into the
- * SEQ, the ARP"): played as the keys' play, on every page (ARP takes it while on, the voices' rules as theirs), and in
- * REC written as theirs, at its velocity: stopped, step by step (held together, a chord; all up, the next step),
- * playing, into the step that plays; what is heard (sd_seq_rec_note). The keys' and MIDI's held notes count together */
+/* A note from MIDI (a keyboard on USB or the TRS jack): played as the keys' play, on every page (ARP takes it while
+ * on, the voices' rules as theirs), and in REC written as theirs, at its velocity: stopped, step by step (held
+ * together, a chord; all up, the next step), playing, into the step that plays; what is heard (sd_seq_rec_note). The
+ * keys' and MIDI's held notes count together */
 static void midi_note(uint32_t n, uint32_t v)
 {
     uint32_t bit = 1u << (n & 31u), *w = &midi_held[n >> 5 & 3u];
@@ -2778,7 +2766,7 @@ static void app_main(void)
                 else if (page == PAGE_SEQ && !seq_trk) seq_track(1);
                 else if (page == PAGE_SEQ) { page = PAGE_ORB; seq_track(0); orb_setup = 0; }
                 else { page = PAGE_SEQ; seq_track(0); }   /* ORBIT -> SEQ A: round its own pages, as every page
-                                                   button (2026-11-10, the user: it went by SPACE, the page before) */
+                                                   button */
             }
             if (b & (1u << BTN_HOME)) page = page == 0u ? 5u : 0u;
             if (b & (1u << BTN_FX)) page = page == 1u ? 2u : page == 2u ? 3u : page == 3u ? PAGE_TIME : 1u;

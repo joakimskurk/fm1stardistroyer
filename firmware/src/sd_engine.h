@@ -74,29 +74,29 @@
  *               CRUSH clipped, then bits taken off toward zero; ALT = the depth (15 bits .. 2)
  *   MIX         dry <-> wet; 0 is no DISTROY at all
  *
- * S1, SPACE (Sound Plan §5.5, the user's design): a delay into a reverb, last in the chain.
+ * S1, SPACE (Sound Plan §5.5): a delay into a reverb, last in the chain.
  *   delay       stereo, or ping-pong (the mono sum in on the left; the left's echo into the right whole, the right's
  *               back to the left x FDBK^2: the echoes in pairs, the right as loud as the left, each echo down by FDBK
- *               on average, as in stereo; 2026-11-10, the user: "I only got it on one side"); TIME free 1..1000 ms or
+ *               on average, as in stereo); TIME free 1..1000 ms or
  *               synced to the note driver's sixteenth (1/32 .. 1/2, triplets, dotted, each exact); a division longer
  *               than the line plays at half, or a quarter, so it stays on the beat (sd_space_sync_q8); a new time
  *               glides there (a tape, ~12 ms); in its loop TONE (a one-pole lowpass), FDBK (0 .. 0.95), a soft ceiling
  *               at ~1.9 x
- *   reverb      a plate (2026-11-10, the user: "a really raw, long reverb"; it replaced a 4-line room): at half rate,
+ *   reverb      a plate, raw and long: at half rate,
  *               a half-band filter in and out (-57 dB past 15 kHz); four diffusers, then a tank of two branches in a
  *               figure of eight (a modulated allpass, a delay, the damping, the decay, an allpass, a delay, the
  *               decay, into the other), out from seven taps across both a side. SIZE stretches every line 0.35 ..
  *               1.75 x (gliding there: a tape); DECAY is its T60 (SD_PL_T60: 0.3 .. 60 s), whatever the SIZE; TONE
  *               the damping; SHIMMER (s_mode's top bits) an octave up of the tank back into it; FREEZE (the
  *               player's, not the patch's) closes the input and holds the tail as it is. Its input the dry and the
- *               echoes: the echoes ring too. It runs on core 0 with everything else: some FM-1s' second core misreads
- *               RAM, and the plate needs no second core
+ *               echoes: the echoes ring too. It runs on the second core (the plate's jobs); on one core (a second
+ *               core that misreads RAM) a 4-line room plays in its place on core 0
  *   out         dry + D-LEVEL x the echoes + R-LEVEL x the reverb; both levels 0: no SPACE. It rests when nothing
  *               comes in and its tails have stayed under the floor for 2 s
  *   memory      ~234 KB (SdSpaceMem: the delay 173 KB, the plate's lines 61 KB), the app's (the pool on the FM-1):
  *               the engine only points at it
  *
- * The output (2026-11-09, the user: "a little internal clipping with extreme modulations"; measured: 20 of the 29
+ * The output (measured: 20 of the 29
  * patches flattened up to a fifth of their samples at the output with the macros and four slots at full, one even
  * as it is, a POLY chord at velocity 127): a limiter, 64 frames (1.45 ms) ahead, to 0.85 of full scale (-1.4 dBFS): a
  * sub-block's gain reaches what the next two need before they come out, so a peak is turned down, never squared off;
@@ -126,7 +126,7 @@
 #define SD_DT_CENTS 7                           /* detune spread at DT max: the oscillators at -21 -7 +7 +21 cents */
 #define SD_G_MIN 13u                            /* the squash's drive where it starts, Q8 (0.05: a no-op) */
 #define SD_INC_4K 389565315u                    /* a modulator above 4 kHz fades, gone at 12 kHz: its sidebands are
-                                                   the FM's screech up high (the user: "screaming high overtones") */
+                                                   the FM's screech up high */
 #define SD_INC_12K 1168695946u
 #define SD_INC_16K 1558261261u                  /* 16 kHz and 20 kHz as phase increments: the fade-out above */
 #define SD_INC_20K 1947826576u
@@ -241,12 +241,12 @@ enum { SD_PL_IN0, SD_PL_A1 = 4, SD_PL_D1 = 6, SD_PL_A2 = 8, SD_PL_D2 = 10, SD_PL
 #define SD_SP_FLEN 2048u                        /* the room's lines (a power of two: masked), at half rate */
 #define SD_SP_APLEN 256u                        /* its diffusers, at half rate */
 enum { SD_FX_REACTOR = 1, SD_FX_DISTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8, SD_FX_TIME = 16 };   /* fx_off's bits
-                                                   (SPACE: the reverb; TIME: the delay, since 2026-11-11) */
+                                                   (SPACE: the reverb; TIME: the delay) */
 
 /* C1: the modulation (Sound Plan §7.x; the spec's "one global matrix"): sources, destinations, a slot */
 enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY,
        SD_MS_WHEEL, SD_MS_AFTER, SD_MS_RAND,
-       /* the engines talking to each other (the user: "everything talking together, in unorthodox ways"): where the
+       /* the engines talking to each other: where the
           sequencer is in its pattern (STEP, -1 .. +1 across it) and which segment (SEG); DISTROY's low and top bands'
           energy (D LOW, D TOP: -48 .. 0 dBFS as 0 .. 1); the Reactor's stage (R STAGE, 1..6 as -1 .. +1); SPACE's
           echoes (ECHO: their level, followed) */
@@ -258,22 +258,19 @@ enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD
        SD_MD_RPOS, SD_MD_RFREQ, SD_MD_RRES, SD_MD_RDRIVE, SD_MD_RMIX, SD_MD_DGAIN, SD_MD_DBIAS, SD_MD_DFB,
        SD_MD_DTAME, SD_MD_DMIX, SD_MD_SFB, SD_MD_SDLVL, SD_MD_SRLVL, SD_MD_SDECAY, SD_MD_DHIGH, SD_MD_DSPLIT,
        SD_MD_FCUT, SD_MD_FRES,                  /* the filter's CUTOFF (+-60 semitones at 100 %) and RES */
-       /* 2026-11-10 (the user: "more destinations, e.g. decay in the envelopes"), after the others so a saved slot
+       /* more destinations, after the others so a saved slot
           keeps its meaning: the three envelopes' times and sustain (a full source at 100 %: the whole 0..127), the
           filter's ENV depth, the Reactor's SLEW, DISTROY's loop TIME and SPREAD, SPACE's delay TIME, its TONE, the
           room's SIZE and TONE, the LFOs' RATE */
        SD_MD_E1A, SD_MD_E1D, SD_MD_E1S, SD_MD_E1R, SD_MD_E2A, SD_MD_E2D, SD_MD_E2S, SD_MD_E2R,
        SD_MD_E3A, SD_MD_E3D, SD_MD_E3S, SD_MD_E3R, SD_MD_FENV, SD_MD_RSLEW, SD_MD_DTIME, SD_MD_DSPREAD,
        SD_MD_STIME, SD_MD_SDTONE, SD_MD_SSIZE, SD_MD_SRTONE, SD_MD_L1RATE, SD_MD_L2RATE,
-       /* 2026-11-11 (the user: "mod must have a destination on the speed in particular, not quantized to semitones
-          unless it is the Turing machine; then we can send an LFO so we get a slight wobble"): the looper's SPEED,
-          +-12 semitones at 100 %, free (a tape's wobble); TURING's in whole semitones, through GLIDE */
+       /* the looper's SPEED, +-12 semitones at 100 %, free (a tape's wobble); TURING's in whole semitones, through
+          GLIDE */
        SD_MD_LSPEED,
-       /* 2026-11-11 (the user, of DISTROY's destinations: "what about each having its own crossover? But what happens
-          if two crossovers crash, cross each other? We must think of something clever"; then chose: through): the
-          lower and the middle crossover beside D SPLIT (now SPLIT 3, the upper), +-24 semitones each; a crossover
+       /* each crossover: the lower and the middle beside D SPLIT (now SPLIT 3, the upper), +-24 semitones each; one
           moved past another goes through it (they are sorted each tick: the band between closes and opens again).
-          Then ("gain and crossover"): each band's GAIN beside D GAIN (all four) and D HIGH (now GAIN 4, the top) */
+          Each band's GAIN beside D GAIN (all four) and D HIGH (now GAIN 4, the top) */
        SD_MD_DSPLIT1, SD_MD_DSPLIT2, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3,
        SD_MDSTS };                              /* (D HIGH: the top band's gain; D SPLIT: the upper crossover) */
 /* the destinations in the chain's order, as the lists show them: the voice and its envelopes, the filter, the
@@ -297,7 +294,7 @@ enum { SD_LS_SIN, SD_LS_TRI, SD_LS_SAW, SD_LS_RAMP, SD_LS_SQR, SD_LS_SH, SD_LSHA
 enum { SD_LM_SYNC = 1, SD_LM_KEY = 2, SD_LM_ONE = 4 };   /* lfo_mode's bits: to the note driver's tempo; restart on
                                                    a note; once a note (with KEY): one cycle, then held at its end, and
                                                    unipolar (0..1): a SAW is a ramp down to the patch's value inside each
-                                                   note (the user: "ramp-down curves that modulate within a note") */
+                                                   note */
 #define SD_LFO_DIVS 12                          /* SYNC: a cycle of 1 .. 64 sixteenths */
 #define SD_CLK_NB 8u                            /* MIDI clock: its tempo, the mean of this many beats */
 static const uint8_t SD_LFO_DIV[SD_LFO_DIVS] = {1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64};
@@ -311,7 +308,7 @@ typedef struct {
     uint8_t e2_a, e2_d, e2_s, e2_r;             /* ENV2, the FM amount */
     uint16_t x, y, width;                       /* the nav (0 = left / bottom), the stereo width; 0..65535 */
     uint8_t course;                                /* COURSE on the gate: 0 off, 1 on */
-    uint8_t fx_off;                             /* SD_FX_*: engines switched off (EDIT, 2026-11-07), their settings
+    uint8_t fx_off;                             /* SD_FX_*: engines switched off (EDIT), their settings
                                                    kept; 0 in every factory patch */
     uint16_t cell_x[4], cell_y[4];              /* COURSE's four cells */
     uint16_t cell_ms[3];                        /* the times between them, 1..65535 ms */
@@ -347,8 +344,8 @@ typedef struct {
     uint16_t lfo_rate[2];                       /* free: 0.02 .. 40 Hz (SD_LFO_INC); SYNC: a division, 0..65535 */
     uint16_t mac[4];                            /* MUTATE MOVE BREAK MACRO 4, 0..65535: 0 = the patch as programmed */
     uint8_t mac4, tur_set;                      /* MACRO 4's kind, SD_M4_*; TURING: bit 7 on, bits 0..6 CHANGE % */
-    /* the filter (the user, 2026-11-06: "I miss a lowpass filter"): a lowpass on each voice, on its banks' carriers
-       before the nav's balance; ENV3 on its cutoff. All zero: off (every patch before it plays as it did) */
+    /* the filter: a lowpass on each voice, on its banks' carriers before the nav's balance; ENV3 on its cutoff.
+       All zero: off (every patch before it plays as it did) */
     uint8_t f_type, f_key;                      /* SD_FT_*; KEY 0..100 % (100: the cutoff follows the note) */
     uint16_t f_cut, f_res;                      /* 0..65535: CUTOFF MIDI 16 .. 130 (21 Hz .. 15 kHz); RES */
     int16_t f_env;                              /* ENV3's depth, -32767..32767 = -/+ 60 semitones */
@@ -357,10 +354,9 @@ typedef struct {
                                                    SD_SDIV index + 1, 0 reads as 1/16) */
     uint8_t e3_a, e3_d, e3_s, e3_r;             /* ENV3, the filter's: as ENV1 */
 } SdPatch;
-/* TURING (the user, 2026-11-09: "it should work more like a modulation source, to parameters in the synth, the
-   filter"): a looping shift register on the tempo, its four fields in the patch's four spare bytes (so a patch saved
-   before reads as TURING off). DEST is a matrix destination (SD_MD_*), or NOTES: SEQ A's notes moved in its scale as
-   they play, the pattern itself never rewritten. 0: none */
+/* TURING, a modulation source: a looping shift register on the tempo, its four fields in the patch's four spare
+   bytes (so a patch saved before reads as TURING off). DEST is a matrix destination (SD_MD_*), or NOTES: SEQ A's
+   notes moved in its scale as they play, the pattern itself never rewritten. 0: none */
 #define SD_TD_NOTES 0x80u
 #define SD_TUR_ON(p) ((p)->tur_set >> 7)
 #define SD_TUR_CHANGE(p) ((uint32_t)((p)->tur_set & 127u) > 100u ? 100u : (uint32_t)((p)->tur_set & 127u))
@@ -420,10 +416,10 @@ typedef struct {                                /* a bank's waveform for this su
 } SdShape;
 enum { SD_SH_SINE, SD_SH_BLEND, SD_SH_TRI };    /* warp 0; sine -> triangle; triangle -> saw (and on, squashed) */
 
-/* Who plays a voice (2026-11-07, the user: "notes get cancelled, especially with ARP: we need rules for what can
- * play together"): the hand (the keys and MIDI), SEQ A, SEQ B, the arpeggiator. Each has a quota of voices held at
- * once (sd_plan: the tracks first, then ARP, the hand the rest); a note off turns off only its own source's notes,
- * and no source takes a held voice from another: past its quota it steals its own oldest, without one it is silent. */
+/* Who plays a voice (rules for what can play together): the hand (the keys and MIDI), SEQ A, SEQ B, the
+ * arpeggiator. Each has a quota of voices held at once (sd_plan: the tracks first, then ARP, the hand the rest); a
+ * note off turns off only its own source's notes, and no source takes a held voice from another: past its quota it
+ * steals its own oldest, without one it is silent. */
 enum { SD_SRC_HAND, SD_SRC_A, SD_SRC_B, SD_SRC_ARP, SD_SRCS };
 
 typedef struct {
@@ -580,12 +576,12 @@ typedef struct {                                /* SPACE's state */
        gain, the tone, the gathered input and the taps before and now */
     uint32_t fw, apw[4];
     int32_t flp[4], flen[4], ftgt[4], rg, rtone, racc, a0[2], a1[2];
-    /* the looper (2026-11-11, TIME's): it records what SPACE plays before the reverb (the dry and the echoes at
-       D-LEVEL), each side at half rate (core 0 queues the frames, the job brings them down; on one core core 0 does,
-       and the queue's count is the looper's ring's). The plate's out goes to zl and zr as before (core 0 puts R-LEVEL
-       on it as it hears it), the looper's to yl and yr, which core 0 reads only while it plays. Its settings now (core 0's: LOOP, the length, the speed gliding, the level); its state
-       (the job's, or core 0's on one core): where it records, LOOP's end, length and place x 256, its level fading
-       in and out */
+    /* the looper (TIME's): it records what SPACE plays before the reverb (the dry and the echoes at D-LEVEL), each
+       side at half rate (core 0 queues the frames, the job brings them down; on one core core 0 does, and the queue's
+       count is the looper's ring's). The plate's out goes to zl and zr as before (core 0 puts R-LEVEL on it as it
+       hears it), the looper's to yl and yr, which core 0 reads only while it plays. Its settings now (core 0's: LOOP,
+       the length, the speed gliding, the level); its state (the job's, or core 0's on one core): where it records,
+       LOOP's end, length and place x 256, its level fading in and out */
     int16_t yl[SD_PL_ZN], yr[SD_PL_ZN];          /* the looper's out (x 1/2, at its level), a block late as the
                                                    plate's in zl and zr (on one core its own ring, a few samples late) */
     uint32_t lhear;                             /* core 0: frames it still reads them (while it loops, and its fade) */
@@ -715,16 +711,15 @@ typedef struct {
     uint8_t w_ok;
     int32_t w[SD_BANKS];
 
-    /* the sequencer (sd_seq.h): two tracks on the one sound (the user, 2026-11-06: "a melody and a bass line with
-       the same patch, at the same time"). A always; B with seqb. One tempo, one transport (seq_run) */
+    /* the sequencer (sd_seq.h): two tracks on the one sound (a melody and a bass line at once). A always; B with
+       seqb. One tempo, one transport (seq_run) */
     volatile uint8_t seq_run;                   /* the main loop sets it; the audio starts and stops on it */
     volatile uint8_t seqb;                      /* track B on (the main loop sets it) */
-    volatile uint8_t xkey;                      /* the transposes IN KEY (2026-11-10, the user: "will B keep to A's
-                                                   key and root?"): in degrees of SEQ A's scale from its key, a chord
-                                                   tone by tone; 0: in semitones (CHROM) */
+    volatile uint8_t xkey;                      /* the transposes IN KEY: in degrees of SEQ A's scale from its key (B
+                                                   keeps to A's key and root), a chord tone by tone; 0: in
+                                                   semitones (CHROM) */
     uint32_t seq_len_q8;                        /* a 16th, samples x 256: the clock time's unit (below) */
-    /* MIDI clock (2026-11-10, the user: "if I connect it to a device with MIDI sync, will the modulation and the
-       sequencer sync?"). The main loop counts the pulses (24 a quarter) in clk_in and a START in clk_start. Everything
+    /* MIDI clock: the main loop counts the pulses (24 a quarter) in clk_in and a START in clk_start. Everything
        on the tempo (the tracks, ARP, TURING, the synced LFOs, MOVE) moves by the clock time, clk_adv a sub-block:
        SD_SUB << 8 on the FM-1's own tempo; while pulses come, as far as they have gone (a pulse a 6th of a 16th),
        carried between them at their tempo and never past the next one, so nothing drifts from them. Their tempo is
@@ -750,28 +745,26 @@ typedef struct {
        -12 .. +12: the pitch and the length together, a tape's), its level (0 .. 65535: above 0 it is armed and
        records); its memory, mono at half rate, a byte (mu-law) a sample, in two pieces of one ring (the app's: lpa
        NULL, none; sd_engine_looper, sd_engine_looper_borrow) */
-    volatile uint8_t lp_on, lp_rev;             /* (lp_rev: REVERSE, 2026-11-11: it plays its loop backwards) */
+    volatile uint8_t lp_on, lp_rev;             /* (lp_rev: REVERSE, its loop backwards) */
     volatile uint16_t lp_len, lp_lvl;
     volatile int16_t lp_speed;
     int32_t lp_mfree, lp_mtq;                   /* the matrix to the looper's SPEED (semitones x 256): free (on the
                                                    rate as it plays, its glide's after), TURING's in whole semitones
                                                    (on the speed set: through GLIDE, and to the grid at an octave) */
     uint8_t lp_mon;                             /* a slot sends to it free (the grid then follows its wobble) */
-    volatile uint16_t lp_glide;                 /* GLIDE (2026-11-11): how long a new speed takes; 0 at once, else a
+    volatile uint16_t lp_glide;                 /* GLIDE: how long a new speed takes; 0 at once, else a
                                                    division synced (sd_lp_glide_div), or free 0 .. 4000 ms */
     uint8_t *lpa, *lpb;                         /* its memory's two pieces (lpb may be NULL) */
     uint32_t lpa_n, lpb_n;
     uint8_t lp_borrow;                          /* lpa is the delay line's second half: armed, the delay has the
                                                    first (0.5 s); the change faded and the line cleared */
-    /* the plate's jobs (2026-11-10, the user: "the plate on the second core, with a fallback to the old one if
-       anything fails"; "never the plate on core 0: there we have the original"): the app's hooks. pl_post hands
-       block b over and returns 1, or 0 when it could not (the block is dropped: sd_plate_drop); pl_join waits for
-       the block handed over: 0 done, -1 dropped. NULL (a computer): the engine runs each block here, at once. The
-       job is sd_plate_job */
+    /* the plate's jobs (on the second core, never on core 0, where the room is the fallback): the app's hooks.
+       pl_post hands block b over and returns 1, or 0 when it could not (the block is dropped: sd_plate_drop); pl_join
+       waits for the block handed over: 0 done, -1 dropped. NULL (a computer): the engine runs each block here, at
+       once. The job is sd_plate_job */
     int (*pl_post)(void *e, uint32_t b);
     int (*pl_join)(void *e);
-    /* the master (2026-11-10, the user: "SEQ B and ORBIT switched on in PLAY: wait until A is at 1 again"; "or we
-       can choose the master"): the track whose one leads, A (0) or B (1). The other track and ORBIT switched on while
+    /* the master: the track whose one leads, A (0) or B (1). The other track and ORBIT switched on while
        it plays come in at its one, from their step 1 (at once while it plays no steps; stopped, START starts them
        all); ORBIT counts its loops and the Reactor its steps. SEQ A's key (IN KEY) and TURING's NOTES stay A's */
     volatile uint8_t master;                    /* the main loop's choice */
@@ -780,26 +773,26 @@ typedef struct {
     uint32_t a_rem;                             /* its time past the one's start (the other's step 1 lines up on it) */
     SdSeqT t[2];
 
-    /* the arpeggiator (the user, 2026-11-06: "ARP does not work"): the keys' notes (and MIDI's), played one at a
+    /* the arpeggiator: the keys' notes (and MIDI's), played one at a
        time on the tempo. The main loop sets these; the audio keeps the held notes and plays them */
     volatile uint8_t arp_on, arp_mode, arp_div, arp_oct, arp_gate, arp_hold;   /* SD_AM_*; SD_SDIV index; 1..4
                                                    octaves; 1..100 %; HOLD: the notes stay after the keys lift */
     uint8_t arp_n, arp_keys, arp_was;           /* notes in the list; keys down now; arp_on last tick */
     uint8_t arp_note[8], arp_vel[8];            /* the notes, in the order played */
-    /* the hand's keys held now, the latest last (the user, 2026-11-06: in MONO, a second key let go must go back to
-       the first, still held, not cut it): sd_hand_key keeps it, sd_hand_off gives a voice back to it */
+    /* the hand's keys held now, the latest last (in MONO, a second key let go goes back to the first, still held):
+       sd_hand_key keeps it, sd_hand_off gives a voice back to it */
     uint8_t hand_note[SD_HELD], hand_vel[SD_HELD], hand_n;
     uint8_t arp_i, arp_dir, arp_playing, arp_cur;   /* the place in the run; UPDN's way; a note sounds; which */
     uint32_t arp_pos_q8, arp_step_q8;           /* samples x 256 into the step; its length */
-    /* the grid (2026-11-10, the user: "ARP is not quite in sync"; measured: it kept the moment the keys went down,
-       up to half a step off SEQ's beat, and a new hand a new offset): clock time since the master's START, within
+    /* the grid (ARP's steps on SEQ's beat, not from the moment the keys went down): clock time since the master's
+       START, within
        48 sixteenths (every division fits it a whole number of times). While the patterns play, ARP's steps fall on
        it; stopped, ARP runs from the key as before */
     uint32_t grid_q8, grid_adv, arp_ph;         /* the grid now (this sub-block's start); the last sub-block's clock
                                                    time, added at the next; ARP's place in its step there */
     uint32_t arp_rng;
-    /* what ARP played, for KEEP (REC on ARP, 2026-11-10, the user: "it is so cool to play over, and sometimes I wish
-       I could save it"): its last SD_PSTEPS steps, a ring (a note, 0 a rest; its velocity), from when it came on; the
+    /* what ARP played, for KEEP (REC on ARP): its last SD_PSTEPS steps, a ring (a note, 0 a rest; its velocity),
+       from when it came on; the
        time since the last step began (clock time: a MIDI clock's too) */
     uint8_t arp_hn[SD_PSTEPS], arp_hv[SD_PSTEPS], arp_hw, arp_hc;
     uint32_t arp_since_q8;
@@ -938,8 +931,8 @@ static void sd_engine_orbit(SdEngine *e, const SdOrbit *o)   /* the main loop ha
     e->orb_seq++;
 }
 
-/* the looper's memory (2026-11-11, the user, of a looper's seconds without a second RAM bank: "borrow the delay"; then
- * chose: armed while L-LEVEL is above 0, mono mu-law at half rate, ~5 s): a and b, two pieces of one ring of bytes
+/* the looper's memory (armed while L-LEVEL is above 0, mono mu-law at half rate, ~5 s): a and b, two pieces of one
+ * ring of bytes
  * (b may be NULL); or, borrowing, the delay line's second half (e->sm's: set e->sm first) and b. Set before SPACE runs */
 SD_INLINE uint32_t sd_lp_total(const SdEngine *e)
 {
@@ -1149,7 +1142,7 @@ static void sd_hand_off(SdEngine *e, uint32_t note)
 
 /* The plan: each source's quota from the mode's voices. A playing track holds its widest step (its chords), A first;
  * ARP one; the hand the rest. Stopped, the tracks hold none. B never in MONO. The main loop keeps what is switched on
- * inside it (the user: "no trying to play more than is possible"), so a quota cut here is only a chord's top notes. */
+ * inside it (nothing tries to play more than is possible), so a quota cut here is only a chord's top notes. */
 static void sd_plan(SdEngine *e)
 {
     uint32_t n = e->nvoices, a, b, r, run = e->seq_run;
@@ -1435,8 +1428,8 @@ static uint32_t sd_sp_half(uint32_t d)          /* the division half as long as 
 }
 /* Division d of the sixteenth t (samples x 256), as the delay plays it: exact (the triplets were 0.2 % long or
  * short, a millisecond off by the fourth echo), and halved until it fits the line, so it stays on the beat
- * (2026-11-10, the user: the delay "not always in sync although it should be": 1/2 below 120 BPM, 1/4D below 90 and
- * 1/2T below 80 were held at 1 s, 1/4D at 84 BPM 71 ms early). A halving is three places down the list (1/2 -> 1/4,
+ * (held at the line's end instead, 1/2 below 120 BPM, 1/4D below 90 and 1/2T below 80 fell off the beat). A halving
+ * is three places down the list (1/2 -> 1/4,
  * 1/4D -> 1/8D, 1/2T -> 1/4T); at 40 BPM 1/2 takes two. *fold: how many (the screen says so) */
 static uint32_t sd_space_sync_q8(uint32_t t, uint32_t d, uint32_t *fold, uint32_t lim)   /* lim: the line's
                                                    (SD_SP_LIM), samples x 256 */
@@ -1474,10 +1467,9 @@ static int32_t sd_pl_sin(uint32_t ph)           /* a sine from a parabola, 4 u (
     return y > 32767 ? 32767 : y < -32767 ? -32767 : y;
 }
 
-/* ---- the looper's head, planned here on core 0 a tick (16 of its samples) at a time (2026-11-11, the user: "if
- * the loop is transposed a whole octave, can we make sure it finds the perfect grid again? I would also like control
- * over how long it takes, either a glide or at once"; chosen: SCL + OCT the octave, GLIDE on SCL + K1, a glide bent a
- * little to land on the beats, then a crossfade into its own place). The loop's grid is its own: where it would read
+/* ---- the looper's head, planned here on core 0 a tick (16 of its samples) at a time: an octave finds the loop's
+ * grid again, over GLIDE or at once (SCL + OCT the octave, GLIDE on SCL + K1: a glide bent a little to land on the
+ * beats, then a crossfade into its own place). The loop's grid
  * had it played at that speed (x 0.5, 1 or 2) since LOOP (pG), from its start (panc[0]; backwards, from where
  * REVERSE turned it: panc[1]). Between the octaves it runs free. A new speed glides there over GLIDE (a smoothstep in
  * the rate; OFF: at once). One at an octave is bent on the way, at most a sixth of the glide's own change (so it
@@ -1929,7 +1921,7 @@ static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a
     return (uint32_t)(v < 0 ? 0 : v > 127 ? 127 : v);
 }
 
-/* REC writes what is heard (2026-11-10, the user: a recording came back in another octave): the note n a key plays,
+/* REC writes what is heard: the note n a key plays,
  * back by the track's transpose (SCL + a key, ORBIT's XPOSE), so sd_seq_xn plays n again. IN KEY: back by as many
  * degrees of A's scale (a note off the scale keeps its step off it, as there); CHROM: by the semitones. TURING's NOTES
  * is a modulation, not taken back */
@@ -2469,8 +2461,8 @@ static void sd_mod_restore(SdEngine *e)         /* every field the matrix and th
     e->m_dirty = 0;
 }
 
-/* TURING to PITCH, quantized first (2026-11-10, the user: "when it is sent to pitch it must be quantized to the key
- * and root first"): note n moved by t (semitones x 256) lands on the nearest note of SEQ A's scale from its key (the
+/* TURING to PITCH, quantized first to the key and root: note n moved by t (semitones x 256) lands on the nearest
+ * note of SEQ A's scale from its key (the
  * lower of two as near; CHROM: the nearest semitone) -> the semitones from n. Each voice from its own note, so all
  * of them stay in the key; the other sources to PITCH (a vibrato) on top, as they are */
 static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
@@ -2598,8 +2590,8 @@ static void sd_mod_tick(SdEngine *e)
                                                    FD 16000: a chain at full went half to aliasing noise) */
         acc[SD_MD_FOLD] += sd_mw(m[0], 7000); acc[SD_MD_DT] += sd_mw(m[0], 6000);
     }
-    if (m[1]) {                                 /* MOVE: animation in steps on the beat (the user: "all modulation
-                                                   must add something rhythmic"; stepped random over smooth sines):
+    if (m[1]) {                                 /* MOVE: animation in steps on the beat (stepped random, something
+                                                   rhythmic, over smooth sines):
                                                    the nav and the Reactor's POS jump to new places each quarter,
                                                    glided ~10 ms */
         if (e->seq_started) e->move_t = 4u * e->seq_len_q8;   /* START: a new place on the one */
@@ -2631,11 +2623,11 @@ static void sd_mod_tick(SdEngine *e)
     }
     if (m[2]) {                                 /* BREAK: destruction */
         static const int16_t BG[4] = {4000, 12000, 20000, 26000}, BA[4] = {4000, 10000, 16000, 20000};   /* the top
-                                                   bands first, the lows nearly clean (the user: "the best
-                                                   results with it on the top frequencies") */
+                                                   bands first, the lows nearly clean (it works best on the
+                                                   top) */
         acc[SD_MD_RDRIVE] += sd_mw(m[2], 6000);   /* (12000: FUSION, its drive low, +3 dB louder) */
         acc[SD_MD_DMIX] += sd_mw(m[2], 15000);   /* (no feedback: on a patch without its own, BREAK's 1 ms loop
-                                                   howled, the user: "full internal feedback" on COMET and ION) */
+                                                   howled on COMET and ION) */
         for (k = 0; k < 4u; k++) {
             sd_add16(&p->d_gain[k], sd_mw(m[2], BG[k]));
             sd_add16(&p->d_alt[k], sd_mw(m[2], BA[k]));
@@ -3108,8 +3100,7 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
     } else {
         e->sp.on = 0;
     }
-    {   /* the balance's middle (2026-11-11, the user: the dry synth "panned in the stereo image", everything "switching
-           fully to one side or the other"; "a patch may have some panning, but never HARD left or right"): the nav
+    {   /* the balance's middle (a patch may lean, never hard left or right): the nav
            mix's own lean, its weights' energy, Q15 (-32768 all left .. 32768 all right; POLY's equal weights: 0) */
         int32_t sw = 0, sc = 0, q;
         for (b = 0; b < SD_BANKS; b++) {
@@ -3586,7 +3577,7 @@ SD_INLINE int16_t sd_sp_store(int32_t v)        /* Q15 -> Q14, past 1.5 x full s
     return (int16_t)(v < 0 ? -(a >> 1) : a >> 1);
 }
 
-/* ---- the plate (SPACE's reverb, 2026-11-10): its lines in pl[] at po[k], pn[k] long, written at pw[k]. Its costs
+/* ---- the plate (SPACE's reverb): its lines in pl[] at po[k], pn[k] long, written at pw[k]. Its costs
  * on the chip (fm1-emu): the first version, a cubic between samples in every line, 64-bit products and a call for
  * each, took 20 % of the chip; still, the lines are read at whole samples and only a moving SIZE reads between them
  * (a straight line: a glide is short), and each branch's modulated allpass (a straight line too: a cubic took 70
@@ -3619,7 +3610,7 @@ SD_INLINE int32_t sd_pl_ap(int16_t *b, uint32_t n, uint32_t *w, int32_t z, int32
     return z - sd_pq(v, g);
 }
 /* the half rate's way in and out: a 23-tap half-band (Q14; every other tap 0, the centre a half): flat to 8 kHz,
-   -25 dB past 13.5 kHz, -57 past 15 (2026-11-10: a straight line between the outputs let images through, a fizz;
+   -25 dB past 13.5 kHz, -57 past 15 (a straight line between the outputs let images through, a fizz;
    31 taps cost more than the top they kept, where the damping has taken most of it) */
 static const int16_t SD_HB[6] = {5087, -1386, 545, -193, 49, -4};
 SD_INLINE int32_t sd_hb_down(const int32_t *x, uint32_t w)   /* the last 23 frames (w: the next place), |x| < 2^16 */
@@ -3645,7 +3636,7 @@ SD_INLINE int32_t sd_hb_mid(const int32_t *z, uint32_t c)    /* half way between
     return sd_tz(a, 13);                        /* (2 x the taps; |z| <= 98304: the sum fits) */
 }
 /* the plate, a chunk of its samples (at most a tick's: 16), stage by stage, each stage's line in locals for the
- * chunk (2026-11-10: a sample at a time through every line it was 13 M instructions/s more on the chip). Every line
+ * chunk (a sample at a time through every line it was 13 M instructions/s more on the chip). Every line
  * is longer than a chunk, so no stage needs a sample another makes later in the same chunk; the branches' ends come
  * from their last delays, 820 samples back at least. Its inputs from the queue (mono, |x| < 2^16), its settings pp
  * (a tick's, as core 0 left them), its outputs to the ring. G: SIZE moving (read between samples), else whole
@@ -3781,10 +3772,8 @@ SD_INLINE void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, const i
     }
 }
 
-/* the looper (2026-11-11, the user: "the delay I should be able to put in a loop and pitch it up; it sends into the
- * reverb as the synth does (the fallback too); the delay goes on, so I can build a loop layer in the background";
- * "maybe the looper should be separate"; then, with no second RAM bank to count on: "borrow the delay", ~5 s mono
- * mu-law): armed (L-LEVEL above 0), it records what SPACE hears before the reverb, the dry and the echoes, mono at half
+/* the looper (it plays the delay's layer back, pitched, into the reverb as the synth does; the delay goes on):
+ * armed (L-LEVEL above 0), it records what SPACE hears before the reverb, the dry and the echoes, mono at half
  * rate, always, a byte a sample (mu-law: 8 bits, a light tape), into a ring of two pieces (half the delay line and a
  * little of the RAM). LOOP: it stops recording and its last LENGTH goes round, crossfaded where it comes round (the
  * 10 ms before its start fade in: they run on into it), faded in over 12 ms, at its speed (the pitch and the length
@@ -3925,8 +3914,8 @@ static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32_t na, 
 }
 static void sd_plate_job(SdEngine *e, uint32_t b) { sd_plate_job_at(e, e->sm->u.pl, e->lpa, e->lpa_n, e->lpb, e->lpb_n, b); }
 
-/* block b not run (the second core gave up, or there is none: on the FM-1 the plate never runs on the first core,
- * the user's rule): its outputs fade from the last one heard to silence over the block, and the room plays from the
+/* block b not run (the second core gave up, or there is none: on the FM-1 the plate never runs on the first core):
+ * its outputs fade from the last one heard to silence over the block, and the room plays from the
  * next tick (the app sets sp_room) */
 static void sd_plate_drop(SdEngine *e, uint32_t b)
 {
@@ -4031,7 +4020,7 @@ SD_INLINE void sd_room(SdSpace *s, SdSpaceMem *mem, int32_t r, int32_t *al, int3
 
 /* SPACE's frames, PP constant: the delay, the looper's and the reverb's way in (pass A), then out (pass C, as the
  * rings stood frame by frame). Its state in locals for the call (C1): out[] could alias it, and the compiler reloaded
- * it every sample. The delay is here on core 0 always (the user, 2026-11-11: "the delay we had sounds so good"); the
+ * it every sample. The delay is here on core 0 always; the
  * plate and the looper on the second core, or (one core) the room and the looper here */
 SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos, const int PP)
 {

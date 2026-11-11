@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* Star Distroyer's sequencer: the pattern and what edits it (Sequencer Plan v0.2, its v0.3 revisions).
+/* Star Distroyer's sequencer: the pattern and what edits it (Sequencer Plan, v0.3).
  *
  * A step sequencer like the stock FM-1's, up to 64 steps, with segments: the pattern is cut into up to
  * six segments A-F, each played REPEAT 1-4 times in its ORDER (FWD REV P-P RND) or SKIPped. A step is a NOTE (with
  * SLIDE: a glide into it, no new attack), a TIE (the note before held on), a REST, or SKIPped (out of the pattern).
- * A NOTE can RATCHET (2 or 3 hits in its time, each softer, never closer than 50 ms: the user asked for ratchets
- * "not as extreme and fast") and has a PROB, the chance it plays at all (else a rest).
- * RANDOMIZE rewrites the steps now. TURING is not the pattern's (since 2026-11-09, the user: it changed the loop
- * "without me understanding why"): it is a modulation source in the patch (sd_engine.h), and its NOTES moves track
- * A's notes in the scale as they play, the pattern as it was written.
+ * A NOTE can RATCHET (2 or 3 hits in its time, each softer, never closer than 50 ms: not too extreme and fast) and
+ * has a PROB, the chance it plays at all (else a rest).
+ * RANDOMIZE rewrites the steps now. TURING is not the pattern's (rewriting the loop, it changed it in ways hard to
+ * follow): it is a modulation source in the patch (sd_engine.h), and its NOTES moves track A's notes in the scale as
+ * they play, the pattern as it was written.
  *
  * Everything here is plain data and functions on it: the main loop edits a pattern with them, the audio plays a copy
  * (sd_engine.h: the hand-over, the traversal, the timing). The segment editing: the bounds, a cut or a
@@ -23,8 +23,7 @@ enum { SD_ST_NOTE, SD_ST_SLIDE, SD_ST_TIE, SD_ST_REST, SD_ST_SKIP, SD_STYPES }; 
 enum { SD_SO_FWD, SD_SO_REV, SD_SO_PP, SD_SO_RND, SD_SORDERS };                  /* a segment's order */
 enum { SD_SC_MINOR, SD_SC_MAJOR, SD_SC_DORIAN, SD_SC_PHRYG, SD_SC_PMIN, SD_SC_PMAJ, SD_SC_CHROM, SD_SCALES };
 #define SD_SDIVS 12u                            /* DIV: 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2
-                                                   (2026-11-10, the user: ARP "faster", the divisions over and under;
-                                                   added after the six, so a pattern's index keeps its meaning) */
+                                                   (added after the six, so a pattern's index keeps its meaning) */
 static const uint8_t SD_SDIV_NUM[SD_SDIVS] = {1, 2, 1, 4, 2, 4, 1, 1, 3, 8, 3, 8},
                      SD_SDIV_DEN[SD_SDIVS] = {2, 3, 1, 3, 1, 1, 4, 3, 2, 3, 1, 1};   /* x a 16th */
 static const uint8_t SD_SDIV_ORDER[SD_SDIVS] = {6, 7, 0, 1, 2, 3, 8, 4, 9, 10, 5, 11};   /* fastest to slowest: the
@@ -38,7 +37,7 @@ typedef struct {
     uint8_t type;                               /* SD_ST_* */
     uint8_t ratchet;                            /* 1..3 hits in the step (0 reads as 1) */
     uint8_t prob;                               /* 0..100 %: the chance it plays (the default: 100) */
-    int8_t chord[3];                            /* a chord (the user, 2026-11-06): up to three more notes, semitones
+    int8_t chord[3];                            /* a chord: up to three more notes, semitones
                                                    from note (0: none); they move with it (TURING's NOTES, RND, transpose) */
 } SdStep;
 #define SD_RATCHET_MAX 3u
@@ -49,8 +48,8 @@ typedef struct {
     uint8_t len;                                /* 1..64 */
     uint8_t div;                                /* SD_SDIV index; 2 = 1/16 */
     uint8_t swing;                              /* 50..75 %: the first of each pair of steps that much of the pair */
-    uint8_t old_change;                         /* (TURING's CHANGE before 2026-11-09: unread, its place kept so the
-                                                   saved patterns still read) */
+    uint8_t old_change;                         /* (TURING's CHANGE once, when it was the pattern's: unread, its
+                                                   place kept so the saved patterns still read) */
     uint8_t seg_count;                          /* 1..6 */
     uint8_t seg_split[SD_SEGS - 1u];            /* where segments 2.. start (steps, rising) */
     uint8_t seg_rep[SD_SEGS];                   /* 1..4 */
@@ -61,8 +60,8 @@ typedef struct {
     uint8_t old_tur, old_range;                 /* (the old TURING's switch, RESTS and RANGE: unread, as above) */
 } SdPattern;
 
-/* ORBIT (2026-11-09, the user: "a sub-sequencer: different parameters in 2-8 steps, so I can make a bigger change,
- * like transposing a sequence over time"): 2..8 steps, each RATE loops of SEQ A long (1, 2, 4: a step changes at A's
+/* ORBIT, a sub-sequencer (a bigger change over time, as a sequence transposed): 2..8 steps, each RATE loops of SEQ A
+ * long (1, 2, 4: a step changes at A's
  * one), each a change from where the player is: SEQ A's and B's transpose, two free lanes (each its matrix DEST), the
  * four macros. 0 changes nothing. The lanes and the macros jump at a step's start or glide through it to the next
  * step's value (GLIDE, a lane each: lane 1, lane 2, the macros). The pattern's, saved with it (SEQ A's). */

@@ -19,7 +19,7 @@ static const uint8_t SD_CHORD[SD_CHORDS][SD_OPS] = {
     {4, 5, 6, 8}, {10, 12, 15, 20}, {8, 9, 12, 16}, {6, 8, 9, 12}, {4, 5, 6, 7}, {8, 10, 12, 15}, {10, 12, 15, 18},
     {12, 15, 18, 20}, {10, 12, 15, 17}, {8, 10, 12, 18}, {2, 3, 4, 6}, {1, 2, 4, 8}, {10, 12, 14, 20}, {16, 20, 25, 32}};
 
-/* the list the user steps through: ALL ODD RND CLUST, the chords, CPY */
+/* the list the player steps through: ALL ODD RND CLUST, the chords, CPY */
 #define SD_GENS (4u + SD_CHORDS + 1u)
 static const char *sd_gen_name(uint32_t g)
 {
