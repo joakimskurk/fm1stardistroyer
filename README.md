@@ -9,7 +9,7 @@
 
 <p align="center">
   <img alt="M-VAVE FM-1 firmware" src="https://img.shields.io/badge/M--VAVE_FM--1-firmware-EB1C1C?style=flat-square&labelColor=06080C">
-  <img alt="Status: a test release, not yet tested on an FM-1" src="https://img.shields.io/badge/status-test_release-CDE6F0?style=flat-square&labelColor=06080C">
+  <img alt="Status: a beta, not yet tested on an FM-1" src="https://img.shields.io/badge/status-beta-CDE6F0?style=flat-square&labelColor=06080C">
   <img alt="Built on Dinghy 0.5" src="https://img.shields.io/badge/built_on-Dinghy_0.5-546874?style=flat-square&labelColor=06080C">
   <img alt="Licence GPL-3.0" src="https://img.shields.io/badge/licence-GPL--3.0-546874?style=flat-square&labelColor=06080C">
 </p>
@@ -31,10 +31,10 @@ feeding a plate. Around them
 are a modulation matrix with a Turing machine, four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
-> **Status:** a test release, [0.1-test](https://github.com/joakimskurk/fm1stardistroyer/releases) (a beta). Everything here runs on the host (the same C, the sound as
-> WAV, the screen as images) and in the FM-1 emulator, but it has **not yet been tested on a real FM-1**: install it
-> only if you are ready to take the way back (Install, below). What you save may not load in the next test or beta
-> release: the saves can change until 1.0.
+> **Status:** the first beta, [0.1-beta](https://github.com/joakimskurk/fm1stardistroyer/releases). Everything here
+> runs on the host (the same C, the sound as WAV, the screen as images) and in the FM-1 emulator, but it has **not yet
+> been tested on a real FM-1**: install it only if you are ready to take the way back (Install, below). What you save
+> may not load in the next beta: the saves can change until 1.0.
 
 <p align="center">
   <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
@@ -310,7 +310,7 @@ The patches live in [`firmware/src/sd_patches.h`](firmware/src/sd_patches.h).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
-The test release is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases): `stardistroyer-0.1-test.fwsc` is the FM-1's (the `-smk37` packages are the
+The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases): `stardistroyer-0.1-beta.fwsc` is the FM-1's (the `-smk37` packages are the
 SMK-37's, untested on one too). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
 of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
 `tools/fm1_install.py`. Either way, installing it is on you: it has not been tried on a real FM-1 yet.
@@ -330,7 +330,7 @@ of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package
    ([FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
 
 The package accepts both FM-1 flash chips: the first units' Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014) in
-units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.1-test: `FM-1_96201`).
+units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.1-beta: `FM-1_96201`).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Build from source
 
@@ -415,7 +415,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `firmware/hal/fm1_ram2.h` is new: the RAM2 test build's look for a second RAM bank (it sets nothing up; no
     firmware for the FM-1 is known to use one).
   - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`) with the
-    player built and tested; a tag with a suffix (`v0.1-test`) is a pre-release.
+    player built and tested; a tag with a suffix (`v0.1-beta`) is a pre-release.
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Credits and licence
 
