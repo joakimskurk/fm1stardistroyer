@@ -161,8 +161,8 @@ static void s2_filter(double s0)
         if (ramp(__LINE__, (pat.f_env * 99 + 16383) / 32767, 60, S(48), S(64), &v)) { pat.f_env = (int16_t)(v * 32767 / 99); dirty = 1; }
     }
     lfo_to_turing(S(65));                       /* TURING, set while off: to the CUTOFF, 40 %, CHANGE 25; then on */
-    TUR_DEST_BY(-3, S(67.5), S(68.5));          /* (OFF, NOTES, F RES, F CUT) */
-    TUR_AMOUNT(40, S(69), S(75));
+    TUR_DEST_BY(17, S(67.2), S(69.6));          /* (OFF, PITCH, the nav's 7, the envelopes' 8, F CUT: 17 detents) */
+    TUR_AMOUNT(40, S(70), S(75));
     TUR_CHANGE(25, S(75), S(79));
     if (at(S(80))) tur_edit();
     if (at(S(86))) press("SEQ", PG_SEQA);

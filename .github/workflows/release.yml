@@ -84,6 +84,7 @@ jobs:
             build/stardistroyer-[0-9]*.fwsc
             build/SHA256SUMS
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   # The page (GitHub Pages, https://joakimskurk.github.io/fm1stardistroyer/): Star Distroyer's page and its installer
   # in the browser (Web MIDI), with the package this run built and tested, the demos as the engine renders them

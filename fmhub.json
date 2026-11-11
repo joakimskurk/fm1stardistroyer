@@ -1,5 +1,5 @@
 {
-  "what": "A starship FM synth: four banks of four oscillators morphed on an X/Y nav field, a morphing resonator, multiband destruction, delay and room. 29 patches, MONO, DUO or POLY, a two-track step sequencer with chords and a Turing machine, and an arpeggiator.",
+  "what": "A starship FM synth: four banks of four oscillators morphed on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate reverb. 29 patches, MONO, DUO or POLY, a two-track step sequencer with chords, ORBIT and a Turing machine, and an arpeggiator.",
   "author": "joakimskurk",
   "kinds": ["synth"],
   "image": "docs/card.png",

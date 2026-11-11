@@ -17,7 +17,7 @@ harder and more concrete limits. These override the spec where they disagree.
 | "floating-point support" | **No `float`, no `double`**: no FPU, no soft-float library; the link fails | All DSP in fixed point: Q15 audio, Q31 phase and coefficients |
 | — | **No 64-bit division** (`__udivdi3` missing); 64-bit *multiply* is one instruction | Divides only at control rate and only 32-bit; per sample: multiply and shift |
 | 64-sample blocks, ~1.45 ms | **256 frames per interrupt, 5.8 ms**, 44.1 kHz | Render in 32-frame sub-blocks (§2.2); budget per interrupt is "under half": **2.9 ms** |
-| Two cores: Core A voice, Core B post | One audio interrupt (`app_audio`); Dinghy exposes no second core to the app | Plan for **one core**. A second core is a bonus to explore in Phase 0, not a dependency |
+| Two cores: Core A voice, Core B post | One audio interrupt (`app_audio`); Dinghy exposes no second core to the app | Plan for **one core**. A second core is a bonus to explore in Phase 0, not a dependency (S3: SPACE's plate runs there, with the room on one core as its fallback) |
 | Audio kernels in RAM | Code runs from XIP flash; `.ram_text` (24 KB) is the flash driver, 8 KB free for RAM-run code | Hot kernels into the 8 KB RAM window if the cache misses show up in measurements |
 | "hundreds of KB SRAM" | **96 KB** `.data/.bss` + **336 KB pool** for big buffers + 24 KB stack | Delay lines and tables in the pool; plenty for Reactor and feedback buffers |
 | Fold: `repeat while outside [-1,+1]` | **No unbounded loops** in the audio callback | Fold in closed form (§3.4) |
@@ -207,8 +207,13 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   not built.
 - **Nav mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
   control rate. Gain law tuned in V3 (the spec's "energy hole").
-- **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, so moving X moves the image as well as the
-  timbre.
+- **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, spread round the middle of what sounds
+  (2026-11-11, the user, of the dry synth "panned in the stereo image", everything "switching fully to one side or
+  the other": "a patch may have some panning, but never HARD left or right"). The nav mix's own lean (its weights'
+  energy) is the middle: a corner's bank alone plays there, banks mixed spread round it, the far side down to a half
+  at the most (6 dB); in POLY, where each voice is a bank, half that (2.5 dB: each note near the middle, a chord a
+  little wide). WIDTH 0 is mono, as before. (Before: a bank's far side went to nothing at WIDTH's most, so AURORA,
+  SHARDS and PRISM, at corner A, played MONO hard left and POLY a note hard left or right by its voice.)
 
 ### 3.7 Harmonic generators and mask
 
@@ -343,7 +348,7 @@ channel.
 
 ### 5.5 SPACE: a delay into a reverb (decided by the user, 2026-11-04)
 
-The spec keeps a BigSky-like SPACE optional: "if Space compromises any of [the core] … Space is removed". The user's
+The spec keeps a large-reverb SPACE optional: "if Space compromises any of [the core] … Space is removed". The user's
 decision: a delay inside the reverb, one block, called SPACE, last in the chain.
 
 ```text
@@ -360,6 +365,163 @@ half rate, its four lines up to 2048 half-rate samples (92 ms). ~195 KB, in the 
 CPU 5.6 % (planned ~3 %; see S1's notes). It rests when nothing
 comes in and its tails are under the floor. Both levels at 0: no SPACE.
 
+#### 5.5.1 The plate (decided by the user, 2026-11-10)
+
+The user: "a really raw, long reverb", heard first as a listening test against the room (four renders, the room
+first, then the plate); then "lots of stutter and high clicking in the new one" (the prototype's second LFO jumped
+its phase five times a cycle, and its half rate went in and out by a straight line); then "build it, but keep in mind
+the issues some have had with core 1 and reading from memory". The 4-line room is gone; the plate takes its place and
+its four fields (SIZE, DECAY, TONE, R-LEVEL keep their meaning, so a saved patch loads as it was).
+
+```text
+in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 diffusers ─┐
+                                                                            ▼
+   ┌─► allpass (its length moved by an LFO) ─► delay ─► damping ─► x decay ─► allpass ─► delay ─► x decay ─┐  left
+   │                                                                                                       │
+   └── the right branch's end ◄─────────── (SHIMMER: a share an octave up) ◄───── the left's end ──────────┘  right
+   out: seven taps a side across both branches ─► half-band ↑2 ─► x R-LEVEL
+```
+
+- *Half rate* (22.05 kHz), a 23-tap half-band in and out: flat to 8 kHz, -57 dB past 15 kHz (a straight line
+  between the outputs let images through: the fizz the user heard). The demos' SPACE alone (no dry): fewer sharp
+  spikes than the room's (RANGE: 113 against 123), the same top over 12.5 kHz.
+- *SIZE* 0.35 .. 1.75 x of the lines, gliding (a 256th of x 1 a tick at most); read between samples only while it
+  moves (a straight line), at whole samples while it is still.
+- *DECAY* is a T60 (`SD_PL_T60`, gen_tables.py: 0.3 .. 20 s as the room's, then up to 60 s at the top), whatever the
+  SIZE: each pass of a branch is down by 10^(-1.5 k span / T60), k 1.07. Measured at 700 Hz: the law within a fifth
+  up to ~9 s; the longest ~27..31 s of the nominal 53..60 (a tail's last LSBs go to the rounding, as to a noise floor).
+- *Modulation*: two LFOs (~0.7 and ~0.87 Hz, each its own phase) move each branch's first allpass up to 12 samples x
+  SIZE. It is what keeps a long tail from ringing (the room's tails peaked 61..65 dB over their neighbours, the
+  plate's 30..40).
+- *FREEZE* (ALGORITHM on SPACE, the player's): the input fades out over ~10 ms, the decay and the damping go to 1
+  exactly, SHIMMER off, the LFOs glide out over ~0.2 s to a whole sample (and back after): the tail holds (-0.6 dB
+  in 7 s) and nothing new gets in.
+- *SHIMMER* (s_mode's bits 2..7, SCL + ALGORITHM): the branches' ends, an octave up (two heads crossfading in a
+  93 ms window), take up to 0.2 of the way round, inside the loop: (1 - s) and s never pass more than the decay, so
+  it cannot run away (an input shimmer, and an equal-power mix, both did at the longest DECAY); the decay is raised
+  by the power the mix loses, to 1 at most.
+- *Level*: x 1.11 at the taps, so R-LEVEL is as loud as the room's was (the factory patches' wets, a chord and its
+  tail: the median 0 dB, -4.8 .. +2.3).
+- *Memory*: the lines 61 KB (room for 1.75 x and the modulation) next to the delay's 173 KB: the pool 10 KB from full.
+- *CPU* (fm1-emu): the first build, a sample at a time with a cubic between samples in every line and 64-bit
+  products, took the gate from 41.2 % to 61.7 %. Now: whole samples while SIZE is still, a straight line only while
+  it moves and in the modulated allpasses (FREEZE glides their LFOs out to a whole sample, so the held tail keeps:
+  -0.6 dB in 7 s), 32-bit products with Q14 coefficients, the LFOs once a tick, a 23-tap half-band, the block of a
+  call stage by stage (bit for bit the sample-at-a-time plate): the gate 48.7 %, everything at once 56.3 % (49.1 with
+  the room). Of the plate's 17 M instructions/s, the tank ~10, the diffusers ~4.5, the taps ~3: fewer taps or
+  diffusers are what is left to take, and they would change its sound.
+- *The second core* (S3, 2026-11-11, the user: "put the new plate, and a delay too, on the other core, with a fallback
+  to the old one if anything fails"): the plate runs as jobs on the FM-1's second core, the room (S1's, bit for bit)
+  its fallback. See §5.5.2.
+- Tests: `test_plate` (T60 at 700 Hz within 25 % at DECAY 36000 and 48000, SIZE 0 and 65535; SIZE swept the whole
+  way and back under a chord: no click; FREEZE held, a tone kept out, then it dies; SHIMMER at its most on the
+  longest DECAY: there at 5 s, under its top at 30 s); `tests/scripts/p1.txt` (the hint, FREEZE's tag, SHIMMER).
+
+#### 5.5.2 The plate on the second core, the room as its fallback (S3)
+
+- *Jobs:* the plate's input is queued at half rate, with each tick's settings in a chunk (`SdPlateP`: its lengths,
+  taps, gains and SIZE's glide as core 0 left them). At the end of each block of 128 samples (256 frames, one audio
+  interrupt) the block is handed to the second core (`pl_post`), which runs it between interrupts; the next
+  interrupt waits for it (`pl_join`) before it reads its outputs, a block late. Run later or at once (a computer: the
+  host, the page's player): the same sound bit for bit (`test_plate_jobs`). On the FM-1 the plate never runs on core
+  0 (the user, 2026-11-11: "never the plate on core 0: there we have the original"): a block not handed over or not
+  back is dropped, its tail fading out over the block (`sd_plate_drop`), and the room plays from the next tick.
+- *The platform:* `firmware/hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h`, taken from felucca-bsp (MPL-2.0) and
+  adapted to Dinghy: the second core starts at boot before the audio; its waiting loop runs from RAM; each job carries
+  a check word (the function, the argument and the job's number), so a job read wrong is never run; the flash goes
+  off (a save) only while it idles (`irq_save` waits).
+- *Units that misread:* on some FM-1s the second core reads RAM wrong now and then (bit 21). Its waiting loop reads
+  the mailbox millions of times a second, so a unit like that shows it there first, and at once. Then, or at a job
+  not back in 8 ms, or a fault: the core is held until the power is off (a bar in `.noinit`; a new build lifts it),
+  the block is dropped, and from the next tick the room plays in the plate's place (`sp_room`): ROOM on SPACE's
+  screen, *2ND CORE OFF: ROOM* once. A crash of core 0 while the second core runs bars it too, so the FM-1 comes back
+  on one core.
+- *A word read wrong in a job:* what the job reads to place a write is kept inside its line, its memory is a
+  constant from the caller (never a pointer from RAM), and its gains and state are kept in range (a gain read 2^21
+  too big blew the tank up for its whole T60: in `test_plate_jobs`, 86 words read wrong in 0.5 s left the tail
+  +22..30 dB over the clean one's, for good; kept in range, -0.1 dB). A line's sample read wrong is off by 32 at most.
+
+#### 5.5.3 TIME: the delay on its own page, and a looper (S4, decided by the user, 2026-11-11)
+
+The user first had the delay become a tape on the second core with a LOOP of its own (2 s at half rate, TIME to 2 s);
+then, having heard it: "the delay we had sounds so good, so maybe the looper should be separate"; "I should be able
+to put it in a loop and pitch it up; it sends into the reverb as the synth does (the fallback too); the original
+delay goes on, so we don't lose the delay while it loops, and I can build a loop layer in the background"; "the
+delay must keep all the subdivisions it has"; "a page of its own, TIME, so SPACE and TIME are both under FX". So
+the tape went, the delay is §5.5's again (every subdivision, its 1 s, on core 0, bit for bit as before), and the
+looper is new.
+
+```text
+core 0:  dry ─► DC out ─► DELAY ─► echoes ─┬─► x D-LEVEL ─────────────────────────────────────────────┐
+                                           ├─► (dry + echoes x D-LEVEL) ─► half-band ↓2, each side ─┐ │
+                                           └─► (dry + echoes) mono ──────► half-band ↓2 ───────────┐│ │
+core 1:  LOOPER (records, or plays its LENGTH at its SPEED) ─► + plate's way in (as the synth's) ◄─┘│ │
+         PLATE ─► x R-LEVEL ─┬─ + LOOPER x L-LEVEL ─► half-band ↑2, each side ─────────────────────┘ ├─► out
+core 0:  dry ───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME. SPACE is the reverb: SIZE DECAY TONE R-LEVEL, SCL: SHIMMER
+  (as SCL + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL; SCL: the looper's GLIDE,
+  LENGTH, SPEED and L-LEVEL, SCL + EDIT the delay's MODE (FREE SYNC, PP: it was SCL + K1 until GLIDE came); ALGORITHM:
+  LOOP. TONE is now two (the delay's, the reverb's: s_dtone and
+  s_rtone, which the one knob kept equal). EDIT: SPACE's is the reverb's, TIME's the delay's and the looper's (a
+  patch saved with SPACE off before plays its delay now).
+- *The looper* records, always, what SPACE plays before the reverb: the dry and the echoes at D-LEVEL, each side at
+  half rate (as the plate, through the same half-band), into its own memory (int16, two channels). LOOP: it stops
+  recording and its last LENGTH goes round from its start, faded in over 12 ms, crossfaded where it comes round (the
+  10 ms before its start fade in: they run on into it), at its SPEED (-12 .. +12 semitones, an eighth a detent: the
+  pitch and the length together, a tape's, gliding), held; off, it fades out over 46 ms and records again. LENGTH
+  as TIME (free 1 ms .. 1 s, or synced, 1/32 .. 1/2 and 1, 2 and 4 bars), halved until it fits its memory (red, and
+  the hint says what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono,
+  the same share), so R-LEVEL is its send too. REVERSE (SCL + ALGORITHM on TIME; the user, 2026-11-11: "we
+  implement reverse too") turns its head round: it plays the loop backwards, before it loops or while it does, round
+  its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
+- *Its grid* (2026-11-11, the user: "if the loop is transposed a whole octave, can we make sure it finds the perfect
+  grid again? I would also like control over how long it takes, either a glide or at once"; then chose SCL + OCT for
+  the octave, GLIDE on SCL + K1 and MODE on SCL + EDIT, and, where a glide cannot get there, a crossfade into its
+  place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
+  and its way: what it reads stays inside the loop). The loop's grid is its own: where it would read had it played
+  at x 0.5, 1 or 2 since LOOP, from its start (backwards: from where REVERSE turned it). **GLIDE** is how long a new
+  SPEED takes (OFF: at once; synced LENGTH's divisions, 1/32 .. 4 bars; free 0 .. 4 s), a smoothstep in the rate.
+  **SCL + OCT- / OCT+** sets SPEED to the next octave (-12, 0, +12). At an octave the glide is bent on the way, at most
+  a sixth of its own change (it stays a glide), to land where the grid has it, else on the grid's beats (a 32nd of
+  the loop); what it misses after, it crossfades over (two heads, both on the beats, GLIDE long and at least a 16th
+  of the loop: x(2 - x) in, 1 - x^2 out), or, a few samples, nudges (0.4 % at most). An octave at once waits for the
+  grid's next 16th of the loop (both heads on its beats then), REVERSE's turn for its next 64th (on them too).
+  Between the octaves it runs free. The octaves are exact now: the old glide (1/16 of the way a tick) stopped up to
+  15 short of x 1 or x 2 from below and played 1/256 slow, drifting off the beat (and +12 at 878 Hz for 880).
+- *Where:* on the second core in the plate's job (its memory's pointers constants from the caller); on one core
+  with the room, here. The delay is always on core 0, so it never needs a fallback.
+- *Its memory* (2026-11-11, the user, of a looper's seconds without a second RAM bank to count on: "borrow the delay";
+  then chose: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay line's second half, lent
+  while the looper is armed, and what the RAM has left, 24 KB: two pieces of one ring of bytes, 5.11 s (MAX in TIME's
+  picture with SCL held). A bar at 48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a
+  sign, 3 bits of octave, 4 of step: its noise 31 dB under a sine, a light tape). The delay line is kept its frames
+  left and right in turn (as fast to read; the same sound bit for bit), so its second half is one run of bytes.
+  Armed, the delay has the first half: TIME to 0.5 s, a longer division played at half as over 1 s before (TIME red,
+  the hint *OVER 0.5 S: PLAYS*), and free ms halved as well (they were held at the line's end; under 1 s no change).
+  The change, armed or let go, fades the echoes out over ~23 ms, clears the line and the looper's memory over ~80 ms
+  (no old sound in either; 1024 a control tick, the line taking silence meanwhile: at once, the worst interrupt went
+  from 52 % to 79 %), and fades what goes into the line
+  in again (its first echo as smooth: fading the echoes in, the
+  first one came in on a step); letting go waits for the looper to be quiet. L-LEVEL is 0 as the app starts (*LOOPER
+  ON: DELAY 0.5 S* when it leaves 0, *LOOPER OFF: DELAY 1 S* back at 0). The test build
+  `DINGHY_DEFS=-DSD_RAM2=1` looks for a second bank after the splash (`hal/fm1_ram2.h`: a value at each 4 KiB of 8
+  MiB, all written before any is read back, then three patterns; the bus traps masked; a reset in the middle seen at
+  the next boot, which does not try again), says *2ND RAM: n KB OK*, *NONE* or *THE TEST HUNG*, and, found, gives the
+  looper the largest of 512 KiB .. 4 MiB there (24 .. 190 s), the delay keeping its line. Whether there is one: the
+  FM-1's AC7911B comes with 2 MB (BA) or 8 MB (BB) inside, but no firmware for it is known to use it, M-VAVE's
+  included (its start-up copies an overlay to 0x04000120 of length 0), and its loader sets the clocks up without it:
+  set up or not, only an FM-1 can tell, and the test sets nothing up.
+- Tests: `test_looper`, on two cores and on one: held to 0.00 dB from 2 to 9 s at 440 Hz; +12 plays 880 Hz, -12 220;
+  no step round or let go bigger than the sine's own; while it loops an impulse echoes on TIME (13230 frames); its
+  wet in the plate and in the room; REVERSE: a sine rising through its 500 ms plays rising forward (184 of 195 10-ms
+  pieces up) and falling backward (188 of 199 down), round its start no step bigger than its own, at the turn 1.27 x
+  (a kink, no click). Its grid: an octave down at an odd time and back (gliding 300 ms; at once; +12 gliding 900 ms)
+  and REVERSE there and back: settled there the head is where the grid has it, and from 6.5 s the loop plays bit for
+  bit as it would have, never moved; no step bigger than the sine's own (x 2 at +12). `test_space`: the delay's
+  echoes as before, on both. `test_stereo`: a corner's bank alone at WIDTH's most in the middle (right / left 1.000);
+  no factory patch's note leans more than 5.2 dB (PHASER: its Reactor's own), POLY's at WIDTH's most 2.5 dB.
 ---
 
 ## 6. Build order with listening gates
@@ -382,7 +544,11 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **D3** | Feedback, spread, TAME, safety limiter | **Gate D DISTROY:** bands behave as distinct dynamic/nonlinear systems; feedback sings, never blows up | Distroy ≤ 15–20 % |
 | **S1** | SPACE: the delay into the reverb (§5.5) | Echoes that sit in the room; synced echoes on the beat; long tails that never blow up | ~3 % (measured 5.6 %); the worst case settled with C1 |
 | **C1** | Whole chain, mod matrix, MUTATE / MOVE / BREAK / BODY | The identity set across all macros; worst-case patch | **Gate A/B:** total < 50 % (2.9 ms) with UI and MIDI (measured 46.6 %) |
+| **S2** | SPACE's plate in place of the room (§5.5.1), FREEZE, SHIMMER | Long, dense tails with no ringing, no click when SIZE moves; FREEZE holds | measured +7.5 points: the gate 48.7 % (41.2 with the room), everything at once 56.3 % (49.1) |
+| **S3** | SPACE's plate on the second core, the room its fallback (§5.5.2) | The plate as in S2, bit for bit; a second core that misreads: the room, with no dropout | measured: the gate 42.7 % of the first core (50.1 with the plate there, 42.2 with the room), everything at once 50.7 % (58.2, 50.2); the plate 7.4 % of the second (7.6 at most) |
+| **S4** | TIME: the delay on its own page, and a looper on the second core (and one, with the room) (§5.5.3) | The delay as before; the looper holds, its speed an octave each way, no click round or let go; the delay goes on while it loops | measured: the gate 43.0 % of the first core (S3: 42.7), everything at once 50.8 % (50.7); the plate and the looper 11.1 % of the second (11.8 at most); one core, the room and the looper: 48.2 % |
 | **HW** | First install on an FM-1 | Same renders through the real output | CPU nn % on the chip within the emu's estimate |
+| **W1** | CONSOLE: a page of the site that connects to an FM-1 and shows everything at once, a ship's console (below) | Nothing in the sound changes; what it shows follows the FM-1 within ~50 ms | Its stream < 1 % of the chip, in the main loop, never in the audio's way |
 
 **P0 done 2026-11-03.** fm1-emu (instructions, not cycles): the audio interrupt with the loop playing 7.9 M/s =
 3.3 % of the chip, in silence 5.7 M/s (Dinghy's key scan and timers). The engine's own share is
@@ -452,7 +618,8 @@ in `sd_gen.h`, the patches (GLASS BELL EPIANO GROWL ORGAN VOYAGE DISTROY) in `sd
     takes the same note, then the oldest silent, then the oldest released, then the oldest held.
   - The nav, with bilinear weights normalised by (Σw²)^¼.
   - COURSE from the gate, playing four cells.
-  - A stereo balance per bank, with A and D left and B and C right, set by WIDTH.
+  - A stereo balance per bank, with A and D left and B and C right, set by WIDTH, round the nav mix's middle and
+    never more than 6 dB to a side (§3.6, 2026-11-11).
   - Aliasing tracking, described below.
   - The generators: ALL, ODD, RND, CLUST, CHRD (14 chords in just intonation) and CPY.
   - The squash is now a cubic soft clip instead of tanh. The warp table was re-spaced for it, and the anchors still
@@ -1252,6 +1419,37 @@ do. It goes on the page with its own player.
 - *The page:* `web/` holds the page, its installer in the browser (SLOOP's, unchanged), and the demos with their
   spectra as seek bars. CI builds it on every push to `main` (the site job in `.github/workflows/release.yml`).
 
+**SPACE on the beat (2026-11-10).** The user: the delay is "not always in sync although it should be". Measured, an
+impulse through SPACE synced, every division at 60 to 140 BPM, the first and fourth echoes against the beat:
+- *Held at 1 s:* a division longer than the line (1 s) was held at its end, so its echoes came early: 1/2 under 120 BPM
+  (200 ms early at 100), 1/4D under 90 (71 ms at 84) and 1/2T under 80. Six patches sync at 1/4D (CHORDS, NEBULA, HALO,
+  AURORA, BEACON, PRISM), so under 90 BPM their echoes were off the beat, as in DERELICT and CINEMATIC at 84.
+- *The triplets:* their factors were rounded (171, 341, 683 and 1365 of 256), 0.2 % long or short: 0.16 .. 0.32 ms an
+  echo, a millisecond by the fourth.
+- *Now* (`sd_space_sync_q8`): each division is exact (a sixteenth times NUM / DEN), and one longer than the line plays
+  at half (1/2 as 1/4, 1/4D as 1/8D, 1/2T as 1/4T; 1/2 at 40 BPM at a quarter), on the beat still. The line is 60
+  frames longer (44160), so 1/2 at 120 BPM fits as it is. On SPACE, TIME turns red and the hint line says what plays
+  ("OVER 1 S: PLAYS 1/4"), and the picture draws the echoes where they fall, at the tempo heard (a MIDI clock's too).
+  Every division at 60 to 140 BPM: the first and fourth echoes within a frame of the beat.
+- *Tests:* `test_space` checks 1/4T at 120 BPM to its fourth echo (58800), and 1/2 at 100, 1/4D at 84, 1/2 at 40 and
+  1/2 at 120 BPM against where they fall and how many halvings.
+- *The demos keep their sound:* DERELICT (AURORA, BEACON, and the cello's U01) and CINEMATIC (NEBULA) at 84 BPM, and
+  the second cue (HALO, AURORA, BEACON, PRISM and the cello) at 70, were made with those echoes held at 1 s. Synced now
+  they play at 1/8D, on the beat; the user heard both and kept the 1 s. So their patches have SPACE's MODE on FREE (PP
+  kept) and TIME at its top, 1000 ms, as a player saves them (DERELICT's U01, U02 AURORA and U03 BEACON): with the old
+  hold in the engine they render bit for bit as before, and as they are their echoes are 0.13 ms longer (44101.6
+  frames where they were 44096). The patch tour's NEBULA (`tour/`) plays the stock patch, at 1/8D. *Fit it:* the pool
+  +240 B, 41.2 %.
+
+**The clock in the browser (2026-11-10).** The user: a clock sent in at 100 BPM played at 200. The engine follows one
+clock exactly (the page's player, a 100 BPM clock with or without 5 ms of jitter: 16 steps every 2400 ms), but the
+page passed every MIDI input on as one source, so the same clock on two ports (a DAW's sync to both, an interface's
+two ports) came in twice: 48 pulses a beat, "203 CLK", the steps at 200. A second press of the MIDI button did the
+same (a second MIDIAccess, a second handler on every port). Now each input is a source of its own (`web_midi`'s
+fourth argument, `midi_get`'s source), so the firmware's rule for USB and the jack holds there too: the first
+clock leads until it has been quiet for 500 ms; and the page asks for MIDI once. `web_test` plays the same clock on
+two inputs: the status line as one clock's (the build before: 32 pixels off, 203).
+
 **HW, the checklist (prepared 2026-11-05, brought up to the Firmware Hub's author checklist and the unified
 controls; on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
 `build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is
@@ -1280,6 +1478,165 @@ power-on for the USB rescue.
    hub, both ending with Star Distroyer running; from Star Distroyer, install another firmware (it must start that
    package's loader); unplug once during Writing, plug in, install again: it must go on. `fm1_install.py --info`
    (and the hub) must see the FM-1 as MIDI with the identity FM-1_96200 under a port name the hub knows.
+
+**S2 done 2026-11-10.** The plate, as §5.5.1 says.
+
+**S3 done 2026-11-11.** The plate on the second core, the room its fallback, as §5.5.2 says. fm1-emu (a build of
+its checkout that runs both cores, `FM1_EMU_BIN` for `tools/emu_cpu.sh`; 0.3.0 counts the one-core build the same):
+- *The gate* (DISTROY, SEQ A, MONO): the first core 42.7 % (S2's plate there: 48.7 %; the plate as jobs run there, a
+  test build measured once: 50.1 %, the queue's cost; the room, on a second core that misreads: 42.2 %). Since then
+  `DINGHY_DEFS=-DSD_ONE_CORE` builds one core with the room, as a unit that cannot run the second.
+- *Everything at once* (`SD_CPU_WORST=1`): 50.7 % (one core with the plate: 58.2 %; the room: 50.2 %).
+- *The second core:* 930 jobs in 5.6 s, 7.4 % of a period (5.8 ms) on average, 7.6 % at most: room for more there
+  (the delay of stage 2). Its stack ~0.8 KiB of 2.8; the RAM 65.6 KB of 96 (the queue, the rings, the stacks).
+- *A second core that misreads* (`--flaky-core1 1e-5 --seed 7`): its waiting loop read the mailbox wrong before the
+  first job, so it never ran one; the room played from the start, with the message. (fm1-emu does not model the
+  hold, bit 1 of C1_CON: there the loop goes on, harmless, as nothing more is handed to it.)
+- *The screen's CPU* (the worst interrupt of a second) in that scenario, 6.8 s in: 53 % (the room: 51; the plate on
+  the first core: 59). The mean is under half, the worst interrupt not yet: the next thing to trim.
+- *Not on the chip yet:* the start, the hold and the gate are felucca-bsp's as they run on FM-1s; HW tries them.
+
+**S4 done 2026-11-11.** TIME, as §5.5.3 says (the tape of a first S4 is gone: the user kept the delay). fm1-emu as S3's:
+- *The gate* (DISTROY, SEQ A, MONO): the first core 43.0 % (S3: 42.7 %); everything at once 50.8 % (50.7 %). The
+  second core 11.1 % on average, 11.8 % at most (the plate alone: 7.4). One core, the room and the looper there:
+  48.2 % (the room alone: 42.2 %).
+- *Core 0's share kept small:* it queues the frames (16 bits the looper's sides, 32 the plate's), the job brings them
+  down to half rate; the half-bands on core 0 cost 2.8 points (45.5 %). R-LEVEL is put on the plate on core 0 as it
+  is heard (in the job, a block early, it moved a modulated R-LEVEL: 39 dB under the mix); the looper has its own
+  ring, read only while it plays.
+- *As before:* without the looper (no memory: the render tools, the demos) the sound is S3's bit for bit: the loop
+  render on HALO and all five demos (CINEMATIC, RANGE, DERELICT, the song, the second cue), sample for sample.
+- *In fm1-emu:* LOOP on TIME on two cores (1963 jobs), on the RAM2 build (*2ND RAM: 512 KB OK*: the emulator's bank,
+  MAX 5.94 s, a bar fits) and on a second core that misreads (the room and the looper on core 0).
+- *The RAM:* 96.1 KB of 96 (the looper's 24 KB, its ring, the queue); the pool 10 KB from full.
+- Listening: a figure, LOOP its last bar (with seconds of memory, as the RAM2 bank would give) or an eighth (the RAM's
+  0.28 s), another figure over it with the delay, its speed down an octave and back.
+- *TAPESTRY* (`tools/sd_tapestry.c`, the user: "a demo with it in use, a little longer; this time with the reverb on
+  too, so we get the carpet of sound I wanted"): one pass by RANGE's rules, ~88 s at 84 BPM, D minor. PRISM's
+  falling sixteenths (Dm9, Bbmaj7, C) open the plate; LOOP the last two bars, PLAY stops, REVERSE, GLIDE 1 BAR and
+  SCL + OCT- (an octave down over a bar, on its grid: on its beats, then a bar's crossfade to its place); AURORA's slow
+  line over the bed, FREEZE on its A, SHIMMER to 38 %; SCL + OCT+ back (the head where LOOP left it), REVERSE off,
+  FREEZE off, the looper faded out, a last chord. Its looper's memory is the RAM2 build's 5.94 s (sd_play.h's
+  looper_mem; the performances before it have none and sound as they did, bit for bit).
+
+**After TAPESTRY, 2026-11-11 (the user, having heard it: "why are the dry synths panned in the stereo image?"; "it
+does not sound quite organic: everything in this demo switches fully to one side or the other"; "the loop seems to
+sit left"; "a patch may have some panning, but never HARD left or right"; "if the loop is transposed a whole octave,
+can we make sure it finds the perfect grid again? I would also like control over how long it takes, either a glide
+or at once").**
+- *The stereo* (§3.6): WIDTH took a bank's far side to nothing, and the patches at corner A with WIDTH at its most
+  (AURORA, SHARDS, PRISM) played MONO hard left (+115, +48, +79 dB) and POLY a note hard left or right by its voice;
+  the loop, recording PRISM's cascades, sat 4.3 dB left. Now the banks spread round the nav mix's middle, the far side
+  6 dB down at the most (POLY 2.5): every factory note within 5.2 dB (PHASER's Reactor), TAPESTRY's sections within
+  0.7 dB. What was on one side is on both now, so those patches sound up to 3 dB louder (TAPESTRY ~5 dB with the
+  reverb's share; its peak -3.2 dBFS). WIDTH 0 is as it was, bit for bit.
+- *The grid* (§5.5.3): SCL + OCT, GLIDE, the lock. The old glide also stopped short of x 1 and x 2 coming up (1/256
+  slow: off the beat by 0.4 %); the octaves are exact now.
+- *TAPESTRY* uses them: GLIDE 1 BAR, SCL + OCT- at bar 10 (a bar's glide onto the loop's beats, a bar's crossfade
+  into its place), SCL + OCT+ at bar 20; after REVERSE off the head is where LOOP left it.
+- *L SPEED*, the 49th destination (the user: "mod must have a destination on the speed in particular, not quantized to
+  semitones unless it is the Turing machine; then we can send an LFO so we get a slight wobble"): +-12 semitones at
+  100 %, after the others so a saved slot keeps its meaning (LOOPER in the list, before the LFOs). Free (the slots,
+  ORBIT's lanes): on the rate as it plays, after its glide, x 0.25 .. 4 at most (with SPEED's own +-12: a wobble at
+  -12 or +12 still goes both ways); the grid follows the wobble while a
+  slot sends (its offset kept aside) and takes it back when none does (a nudge, or the crossfade). TURING's (a slot,
+  or its own DEST) to the nearest semitone, on the speed set: through GLIDE, and to the grid at an octave. Tests: a
+  slot LFO1 at +3 % moves it +-0.36 semitones free, TURING at +50 % -6 .. +5 whole; a 2 Hz wobble of 0.3 semitones
+  plays 432.3 .. 447.4 Hz (432.4 .. 447.7), and let go the loop plays bit for bit as it would have; TURING's +7
+  659 Hz.
+- *Measured* (fm1-emu): the gate 43.6 % of the first core (43.0 before: most likely DISTROY's knees, which now hear
+  the centred banks on both sides, not the plan, which costs a few instructions a tick; not measured apart), the
+  looper gliding and crossfading 43.7 %; the second core 11.2 % on average, 11.9 % at most; everything at once
+  51.4 % (50.8); one core, the room and the looper 48.6 % (48.2), its glide and crossfade there 48.7 %. RAM 96,764 B
+  of 98,304 (+624: the tick's plan in each chunk). The loader byte for byte Dinghy's.
+
+**HELIOPAUSE, 2026-11-11 (the user, having heard the grid and the stereo: "this is quite fantastic, we are there.
+Write a new 1-2 min cinematic thing that uses everything that is in RANGE, and use the looping tape and so on as
+texture where it fits").** `tools/sd_heliopause.c`, DERELICT's way: four passes on one FM-1 under RANGE's rules,
+layered at fixed faders (bed 1.0, low 1.4, motion 1.0, lead 0.9; the master to -1 dBFS), E minor at 80 BPM, 36 bars,
+nine sections of four, each once, 1:59. I VOID: VOYAGE's figure (COURSE, ALL and ODD on bank A) over GROWL's low E,
+its LP24 opening. II SIGNAL: the bed in (U01, CHORDS saved darker, its lowpass at 3.2 kHz, in a big hall), AURORA's
+swells far back. III ACID: GROWL's line, TURING to the CUTOFF. IV VOICES: VOWEL through the Reactor's vowels, MODEL to
+BP12, DRIVE; the acid transposed under it. V ASCENT: the arp over the bed (HOLD, UP, then UP-DN). VI TAPE: LOOP (the
+bed's last bar), REVERSE, SCL + OCT- over GLIDE 1 BAR (on its beats, then a bar's crossfade to its place), LFO 2 onto L
+SPEED +2 %; DISTROY's riff in four segments, BREAK; ORBITAL's ostinato, TURING's NOTES, MOVE. VII BREACH: MUTATE, CHANGE
+60, DISTROY's LOOP tamed and its top band up; BEACON's line far back. VIII BEACON: SCL + OCT+, REVERSE off; the echoes
+and DECAY up. IX FALL: SHIMMER, FREEZE, the looper faded and let go; BEACON's last E. Measured: the sections -21 -21
+-20 -17 -23 -17 -18 -23 -24 dBFS (built to IV, a breath in V, the breach, then down); the share over 5 kHz -21 dB at
+the median (CINEMATIC -21, DERELICT -28, RANGE -17: the first draft was RANGE's, the bed and VOYAGE darker since).
+- *Heard, the user (2026-11-11): "not extreme enough in the sound image at the climax; the acid bass is off key; the
+  part from one minute a little too intense; more of the plate and the delay, and both FREEZE, an octave down and an
+  octave up; it can be shorter, and more ambient before it gets intense".* The second version, 30 bars, 1:47: DRIFT
+  (1-8: GROWL's low E, VOYAGE and AURORA saved wet, the bed and the arp in eighths), TAPE (7-12: LOOP, REVERSE, SCL +
+  OCT- onto its grid, SHIMMER and FREEZE over it, the wobble; the acid dark under it, TURING on its CUTOFF; VOWEL's long
+  notes through the Reactor), RISE (13-16: FREEZE let go, GLIDE 2 BAR, SCL + OCT+ twice: two octaves up, landing on its
+  grid at +12 with no crossfade; ORBITAL, TURING's NOTES, MOVE), WALL (17-24: DISTROY's slow riff, BREAK, MOVE, its top
+  band CRUSHed; the chords loud under the loop at +12; BEACON with DROWN; ORBITAL's glints, MUTATE), FREEZE (25-30: the
+  wall's plate frozen, all else off, DISTROY's EDIT off with it; the loop two octaves down, faded; BEACON's last E). A
+  rhythm at a time. Measured: DRIFT -21, TAPE -20, RISE -23, the wall -14.5, its freeze -16.7 dBFS; side to mid -8 dB
+  ambient, -5 in the wall, -1 in its freeze. The acid was off key in IV of the first: its transposes (A C E D) were
+  chromatic, an E minor line moved to C and D (Eb, F, Bb). sd_play.h's transposes are chromatic (RANGE's are written
+  so); HELIOPAUSE's player keeps the app's default, IN KEY (e.xkey), and its acid has none now, its RES 46..54 (62..66
+  before). BREAK up keeps DISTROY's loop ringing on its own: the render waits for quiet, so the wall's last gesture is
+  DISTROY's EDIT off (a first try, left ringing, never ended).
+- *SINGULARITY, then* (the user: "can the next be what one can get with only one take by maxing the FM-1 itself? No
+  layers, not more than one take, one stem. Just a lot of the firmware, standalone"): `tools/sd_singularity.c`, one
+  pass under RANGE's rules (play_run, no sd_layer.h), F minor at 72 BPM, POLY throughout (no mode to wait for), 33
+  bars, 1:57. GLASS (AURORA saved wet: chords, the arp in eighths; LOOP, REVERSE, SCL + OCT-, SHIMMER and FREEZE),
+  VOICES (VOWEL saved wet on A and B over the frozen glass; TURING's NOTES on A; LFO 2 onto R POS, LFO 1 onto L SPEED;
+  FREEZE let go; the delay up; GLIDE 2 BAR and SCL + OCT+ twice), WALL (DISTROY saved wet: A's riff in octaves, B's
+  bass, the arp at random in 16ths, POLY's four voices all held; ORBIT stepping A and B through F Db Ab Eb IN KEY, its
+  lanes on D SPLIT and X, its BREAK and MOVE rising; BREAK and BODY up, TURING on the FOLD, the top CRUSHed; the loop at
+  +12, then backwards), FREEZE (the wall's plate frozen, DISTROY's EDIT off, the loop down two octaves, BEACON's last C
+  in its echoes). Measured: GLASS -22, VOICES -21.5, the wall -14.9, its freeze -16 then -20 dBFS (MASTER low before
+  the wall, at its top in it; nothing normalised: the FM-1's own output, its peak -1.4 dBFS); side to mid -5 dB, 0 in
+  the freeze. sd_play.h gained ORBIT's page (SEQ's third: orbit_load with A's pattern, orbit_edit) and preset_user
+  (from sd_layer.h: a single pass loads the player's places too).
+- *Found on the way:* sd_play.h's TURING DEST turned in the enum's order, not the list's (the app's dst_step: the
+  chain's order, NOTES after the last). Since the 22 destinations of 2026-11-10 RANGE's TURING went to L1 RATE, not
+  the CUTOFF it was written for. It turns as the app's now, and RANGE's acid has its TURING on the CUTOFF again (17
+  detents: OFF, PITCH, the nav's seven, the envelopes' eight, F CUT).
+
+**The looper's own memory, 2026-11-11 (the user, asked whether the FM-1's second RAM bank is there to count on:
+"borrow the delay"; then chose: armed while L-LEVEL is above 0, ~5 s mono at half rate, a byte a sample).** As §5.5.3
+says now: the delay line's second half, lent while armed, and 24 KB, 5.11 s; the delay 0.5 s while it is lent; the
+test build `-DSD_RAM2=1` keeps the second bank's looper.
+- *Tests:* its memory 5.11 s; a free 800 ms echo at 35281 frames not armed, 17641 armed (TIME halved until it fits);
+  armed over ringing echoes, the largest step 3993 (the sine's own 3262) on two cores, 1972 (1830) on one: the line's
+  first echo came in on a step until what goes in, not what comes out, was faded in; a looped sine's noise 31.3 dB
+  under it (mu-law; measured dry: with its echoes the test heard their beating). The grid, glide, REVERSE and SPEED
+  tests as before, on the lent memory.
+- *Heard:* SINGULARITY, HELIOPAUSE and TAPESTRY arm it (L-LEVEL up before the LOOP; down to 1 at the end, not 0,
+  so the delay's line does not change under its echoes): before (a second bank's looper) and after within 0.3 dB.
+  RANGE, DERELICT and the rest never arm it: bit for bit as before.
+- *Measured* (fm1-emu): the gate 44.0 % of the first core (43.6), the second 9.9 % (11.2: at L-LEVEL 0, as the app
+  starts now, the looper records nothing); armed, LOOP, GLIDE 1 BAR and SCL + OCT- 45.3 % and 10.6 % on average, 12.2
+  % at most; all at once 51.7 % (51.4); one core, the room 44.3 % (48.6), the looper's glide and crossfade there 47.4 %
+  (48.7). The clear at the change, at once, took the worst interrupt (the app's CPU) from 52 % to 79 %; 2048 a tick,
+  58 %; 1024 a tick (~80 ms), 53 %, 55 % on one core. RAM 96,780 B of 98,304 (+16). The loader byte for byte
+  Dinghy's.
+- *Found on the way:* the emulator scenario of the looper's CPU had lost a press (FX at 100 ms from the last) and never
+  reached TIME, so its earlier figures were the gate's; its presses are 200 ms apart now and its screens checked.
+
+**W1 planned 2026-11-10 (the user: "a subpage on the site that connects to the FM-1 and works as a big screen with an
+overview of everything; think of it as a spaceship console, and play on the design we have and the player on the page
+now").** The next step while HW waits for the user's FM-1.
+- *Where:* a page of its own on the site (`web/`, built by `make_site.py`, published by CI from `main`), e.g.
+  `console/`, in the page's look (near black, ice-white lines, red accents, the "///" marks, Orbitron for the titles)
+  and its player's console frame, wide: a ship's bridge rather than a phone screen.
+- *What it shows, all at once:* the patch and its four banks on the nav's X/Y; REACTOR's stage and POS; DISTROY's four
+  bands, their splits and levels; SPACE's echoes and the plate's tail (FREEZE, SHIMMER); the envelopes, the LFOs,
+  TURING's register and where every matrix slot goes, moving as they play; the macros; SEQ A and B with their
+  playheads, the master and its one, ORBIT's step, ARP's run; the tempo and its clock, the voices in use, CPU.
+- *How it knows:* the FM-1 sends its state as SysEx over USB MIDI, the way the installer already talks to it: a
+  compact frame (what moved since the last one) some 20-30 times a second, from the main loop between screen draws,
+  never from the audio interrupt; the page asks for it and can stop it. Without an FM-1 the same console runs on the
+  page's player (the firmware as WebAssembly), which hands over the same frames, so it can be built and tested
+  before HW.
+- *Later, not in W1:* editing from the console (the knobs on the big screen), patches to and from the computer.
+- *Gates:* the sound unchanged (the renders bit for bit with the stream off); the stream's cost measured in fm1-emu
+  (< 1 % of the chip) and on USB (no MIDI note late because of it); the console within ~50 ms of the FM-1's own
+  screen.
 
 The sequencer plan's minimal note driver (a fixed 16-step loop) is built in P0 so every step above is auditioned in
 time as well as on held notes.

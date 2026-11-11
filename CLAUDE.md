@@ -1,8 +1,8 @@
 # Working on Star Distroyer
 
 - Bare-metal FM-1 firmware on Dinghy 0.5. The plans are in docs/sd/; the current step is the first one in the Sound
-  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1 and C1 are done; HW waits for the user's FM-1, so work goes on
-  without it; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan, its v0.3
+  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3 and S4 are done; HW waits for the user's FM-1, so work
+  goes on without it, next W1, the console page; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan, its v0.3
   revisions first; `firmware/src/sd_seq.h`.
 - After every change: `tests/run_sd.sh` (and `tests/run_host.sh tests/scripts/c1.txt`, `q1.txt`, `q2.txt` and `q3.txt` when the app changes). It
   stops at a failure (`set -e`): when it does, the renders in build/audio are the last run's, so check its end

@@ -12,11 +12,11 @@ if (ship) {
                 ['EDIT', 6, 'ON · OFF'], ['GLO', 7, 'VOICES']];
   const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARPEGGIO'], ['SEQ', 11, 'SEQ · ORBIT'],
                 ['PLAY', 12, 'RUN', 'red'], ['REC', 13, 'RECORD', 'red']];
-  const ABOUT = { 0: 'OCT−: an octave down (on SEQ: the step bank; SCL + OCT− the octave)', 1: 'OCT+: an octave up (on SEQ: the step bank; SCL + OCT+ the octave)',
+  const ABOUT = { 0: 'OCT−: an octave down (on SEQ, SCL + OCT−: the step bank)', 1: 'OCT+: an octave up (on SEQ, SCL + OCT+: the step bank)',
     2: 'FX: REACTOR, DISTROY, SPACE', 3: 'SCL held: the second layer. A click locks it, another lets it go (or hold Shift)',
     4: 'ENV: the envelopes, the filter', 5: 'LFO: LFO 1, LFO 2, TURING, the matrix', 6: 'EDIT: what the page shows, on or off',
     7: 'GLO: MONO, DUO, POLY', 8: 'HOME: NAV, the macros', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
-    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, ORBIT', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps' };
+    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, ORBIT (on SEQ, SCL + SEQ: the master, A or B, whose one leads)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
   // the encoders: name, id, note
   const ENCS = { SELECT: [0, 'TEMPO'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
                  'KNOB 1': [2, 'K1'], 'KNOB 2': [3, 'K2'], 'KNOB 3': [4, 'K3'], 'KNOB 4': [5, 'K4'] };
@@ -378,18 +378,25 @@ if (ship) {
     power.hidden = true;
     await boot(null);
   });
+  let midiAccess = null;                         // one: a second MIDIAccess hears every message again (a clock twice:
+                                                 // twice the tempo)
+  const midiSrc = new Map();                     // each input its own source, as USB and the jack are on the FM-1: a
+                                                 // clock from one at a time (the same clock on two ports: once)
   if (midiB) midiB.addEventListener('click', async () => {   // a MIDI keyboard: its notes, its controllers, its clock
     if (!navigator.requestMIDIAccess) { say('This browser has no Web MIDI (Chrome or Edge do).'); return; }
     try {
-      const access = await navigator.requestMIDIAccess();
+      if (!midiAccess) midiAccess = await navigator.requestMIDIAccess();
+      const access = midiAccess;
       const hook = () => {
         let n = 0;
         for (const input of access.inputs.values()) {
           n++;
+          if (!midiSrc.has(input.id)) midiSrc.set(input.id, 1 + (midiSrc.size % 255));
+          const src = midiSrc.get(input.id);
           input.onmidimessage = (e) => {
             const d = e.data, st = d[0];
             if (st < 0x80 || (st >= 0xF0 && ![0xF8, 0xFA, 0xFB, 0xFC].includes(st))) return;
-            send({ type: 'midi', d: [st, d[1] || 0, d[2] || 0] });
+            send({ type: 'midi', d: [st, d[1] || 0, d[2] || 0], src });
             flash('l-midi');
           };
         }

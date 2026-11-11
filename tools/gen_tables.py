@@ -27,8 +27,12 @@
     SD_SEMI      2^(k / 12) for k = 0..11, Q16: the matrix's PITCH (C1), with SD_CENTS for the rest
     SD_LFO_INC   the LFOs' free rate (C1), 128 steps (+1): 0.02 .. 40 Hz, exponential, as a phase step a control tick
                  (2^32 a cycle); SD_LFO_HZ100 the same rates in Hz x 100, for the screen
-    SD_SP_G      SPACE's reverb: a line's gain by DECAY, 128 steps (+1), Q15, for a 3500-sample line: T60 0.3 .. 20 s
-                 (exponential in time); a shorter SIZE rings proportionally shorter
+    SD_SP_G      SPACE's room (the reverb on one core, when the second cannot run the plate): a line's gain by
+                 DECAY, 128 steps (+1), Q15, for a 3500-sample line: T60 0.3 .. 20 s (exponential in time); a shorter
+                 SIZE rings proportionally shorter
+    SD_PL_T60    SPACE's plate: its T60 by DECAY, 128 steps (+1), in ms: 0.3 .. 20 s exponential as the room before it
+                 (a patch's tail as long as it was), x (1 + 2 x^16) on top, so the last steps reach 60 s (2026-11-10,
+                 the user: "a really raw, long reverb"); FREEZE holds it for ever
     SD_RVOWEL    the Reactor's 13 vowel presets (ee i ay e au u a aw oo ar er ir iir): four formant
                  frequencies as MIDI x 256. Textbook adult male formants (Peterson & Barney 1952 and the like for
                  F1..F3, F4 at 3.5 kHz), approximate
@@ -163,6 +167,7 @@ def main():
     lfo_inc = [round(f * SUB / FS * 2 ** 32) for f in lfo_hz]
     lfo_hz100 = [round(100 * f) for f in lfo_hz]
     spg = [round(32767 * 10 ** (-3 * 3500 / (FS * 0.3 * (20 / 0.3) ** (i / 128)))) for i in range(129)]
+    plt60 = [min(65535, round(300 * (20 / 0.3) ** (i / 128) * (1 + 2 * (i / 128) ** 16))) for i in range(129)]
     tick = SUB / FS
     dec = [min(0x7FFFFFFF, round(2 ** 31 * math.exp(-tick * math.log(100) / env_time(i)))) for i in range(128)]
     atk = [min(0x7FFFFFFF, round(2 ** 31 * math.exp(-tick * math.log(5) / env_time(i)))) for i in range(128)]
@@ -194,6 +199,7 @@ def main():
         f.write("static const uint32_t SD_LFO_INC[129] = {\n%s\n};\n\n" % rows(lfo_inc, 8, lambda v: "%du" % v))
         f.write("static const uint16_t SD_LFO_HZ100[129] = {\n%s\n};\n\n" % rows(lfo_hz100, 12, lambda v: "%du" % v))
         f.write("static const uint16_t SD_SP_G[129] = {\n%s\n};\n\n" % rows(spg, 12, lambda v: "%du" % v))
+        f.write("static const uint16_t SD_PL_T60[129] = {\n%s\n};\n\n" % rows(plt60, 12, lambda v: "%du" % v))
         f.write("#define SD_RVOWELS %d\n" % len(VOWELS))
         f.write("static const char *const SD_RVOWEL_NAME[SD_RVOWELS] = {%s};\n" % ", ".join('"%s"' % v[0] for v in VOWELS))
         for v, row in zip(VOWELS, vowel):       # the same as macros: patches' initialisers can use them

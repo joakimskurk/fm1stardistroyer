@@ -22,8 +22,14 @@
 enum { SD_ST_NOTE, SD_ST_SLIDE, SD_ST_TIE, SD_ST_REST, SD_ST_SKIP, SD_STYPES };   /* a step's type */
 enum { SD_SO_FWD, SD_SO_REV, SD_SO_PP, SD_SO_RND, SD_SORDERS };                  /* a segment's order */
 enum { SD_SC_MINOR, SD_SC_MAJOR, SD_SC_DORIAN, SD_SC_PHRYG, SD_SC_PMIN, SD_SC_PMAJ, SD_SC_CHROM, SD_SCALES };
-#define SD_SDIVS 6u                             /* DIV: 1/32 1/16T 1/16 1/8T 1/8 1/4, of the tempo's beat */
-static const uint8_t SD_SDIV_NUM[SD_SDIVS] = {1, 2, 1, 4, 2, 4}, SD_SDIV_DEN[SD_SDIVS] = {2, 3, 1, 3, 1, 1};   /* x a 16th */
+#define SD_SDIVS 12u                            /* DIV: 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2
+                                                   (2026-11-10, the user: ARP "faster", the divisions over and under;
+                                                   added after the six, so a pattern's index keeps its meaning) */
+static const uint8_t SD_SDIV_NUM[SD_SDIVS] = {1, 2, 1, 4, 2, 4, 1, 1, 3, 8, 3, 8},
+                     SD_SDIV_DEN[SD_SDIVS] = {2, 3, 1, 3, 1, 1, 4, 3, 2, 3, 1, 1};   /* x a 16th */
+static const uint8_t SD_SDIV_ORDER[SD_SDIVS] = {6, 7, 0, 1, 2, 3, 8, 4, 9, 10, 5, 11};   /* fastest to slowest: the
+                                                   knobs step them so */
+#define SD_TUR_DIVS 6u                          /* TURING's DIV: the first six (its field holds 3 bits) */
 
 typedef struct {
     uint8_t note;                               /* MIDI */

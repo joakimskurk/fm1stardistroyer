@@ -47,7 +47,8 @@ static const SdPatch SD_PATCH_SINE = {
 
 /* SPACE's TIME as a synced division: SD_SP_DIV's index (1/32 1/16T 1/16 1/8T 1/16D 1/8 1/4T 1/8D 1/4 1/2T 1/4D 1/2) */
 #define SD_SPDIV(i) ((uint16_t)((i) * 65536u / 12u + 100u))
-#define SD_SPMS(ms) ((uint16_t)(((ms) - 1u) * 65535u / 999u + 1u))
+#define SD_SPMS(ms) ((uint16_t)((ms) >= 1000u ? 65535u : ((ms) - 1u) * 65535u / 999u + 1u))   /* (1000 ms: TIME's top,
+                                                   65535, not 65536) */
 
 /* GLASS, BELL, EPIANO and ORGAN are gone (the user, 2026-11-08: they still sounded like classic FM, edge or not);
  * their banks live on inside VOYAGE, DISTROY and the cue's patches. The code names a patch by SD_P_*, never by number:

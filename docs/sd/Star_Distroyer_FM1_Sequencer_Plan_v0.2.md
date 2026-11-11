@@ -175,6 +175,109 @@ the steps for good, with or without a clock), and MOVE draws on the one. SCL + P
 (100 BPM against 120, 4 ms of random lateness, 140 BPM, STOP and START, the pulses gone: every step 0..5.4 ms after
 its 6th pulse, never before; the LFO's beat with every 24th), `tests/scripts/k1.txt`.
 
+**Built 2026-11-10: SEQ, OCT and REC smoothed.** The user, playtesting the firmware in the emulator (the page's
+player): SEQ "goes by SPACE too before it goes back"; "sometimes I record and it is taken in another octave, and it
+is tiresome to have to go into REC to change the octave: make it smoother and more intuitive".
+- *SEQ goes round its own pages:* SEQ A → SEQ B → ORBIT → SEQ A, as every page button does. It used to go back to
+  the page before SEQ (SPACE, if that was it) on the fourth press; another page's button leaves SEQ.
+- *OCT is the keys' octave on every page,* on SEQ too, REC or not: the same button does the same everywhere, and
+  the octave never needs REC. The status line shows it (OCT+n). The step bank moved to *SCL + OCT* on SEQ (SCL is
+  the second layer); the edited step goes along to its place in the new bank, so K1..K4 never edit a step out of
+  sight. The hint line under SCL says so ("KEYS: XPOSE AT 1  OCT: BANK").
+- *REC writes what is heard* (`sd_seq_rec_note`): a key under the track's transpose (SCL + a key, ORBIT's XPOSE)
+  went in as the key, so it came back moved by the transpose (an octave, a fourth). Now it goes in back by it (IN
+  KEY by A's degrees, CHROM by semitones), so the step plays the note the key played; chords too, note by note.
+  TURING's NOTES is a modulation and is not taken back.
+- Tests: `test_rec_note` (every transpose −24..+24, SCL's, ORBIT's or both, IN KEY and CHROM, A and B: 28518 notes
+  play back as played); `web_test` (SEQ from SPACE four times: SEQ A; OCT on SEQ moves the octave; SCL + OCT the
+  bank, the octave kept); `tests/scripts/x1.txt` rewritten. (The line under SCL now reads "KEYS XPOSE  OCT BANK
+  SEQ A/B", below.)
+
+**Built 2026-11-10: more destinations from a list, ARP faster, and KEEP.** The user, playtesting: "more
+destinations, e.g. decay in the envelopes, and I'd like them as a list, as the patches when I browse, so it is
+easier to see and hit what you look for"; "should ARP have its own recording? It is so cool to play over, and
+sometimes I wish I could save it"; "choose the division over and under, mostly so it can go faster".
+- *Destinations:* 22 more (48 in all), after the 26 so a saved slot keeps its meaning: ATTACK, DECAY, SUSTAIN and
+  RELEASE of ENV 1, 2 and 3 (a full source at 100 %: the whole 0..127), the filter's ENV, the Reactor's SLEW,
+  DISTROY's loop TIME and SPREAD, SPACE's delay TIME (free: it glides, a tape) and TONE, the room's SIZE and TONE,
+  LFO 1's and LFO 2's RATE. The envelopes and the LFOs tick before the matrix, so they read what it left the tick
+  before (`sd_mod_snap`, 0.73 ms on); with nothing on them, the patch's own: every patch renders as it did.
+- *The list* (`draw_dlist`): turning DEST (MOD's, TURING's, ORBIT's lanes) puts PRESETS' list in the knobs' place,
+  the destinations in the chain's order (`SD_MD_ORDER`: VOICE, NAV, ENV 1, ENV 2, FILTER, ENV 3, REACTOR, DISTROY,
+  SPACE, LFO; TURING's NOTES last), each with its engine. It plays as it turns; 1.5 s, another knob or a button
+  closes it.
+- *Divisions:* 1/64, 1/32T, 1/16D, 1/4T, 1/8D and 1/2 after the six (a pattern's DIV keeps its meaning; TURING keeps
+  the six, its field holds 3 bits); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
+- *KEEP* (REC on ARP, `arp_keep`): the engine keeps ARP's last 64 steps from when it came on (`arp_hn`, a gap as
+  rests); REC takes the last bar at its RATE (`sd_arp_keep_len`: the fewest bars, 1..4, holding a whole number of
+  steps, 8 at least: 1/16 16, 1/64 64, 1/16T 24, 1/8D 16 in three bars, 1/2 8 in four) as a pattern at that DIV,
+  the window ending at the nearest step boundary (REC on the one keeps the bar that ended). Into SEQ A, or SEQ B
+  while A plays (DUO, POLY); the track on, the steps as heard (`sd_seq_rec_note`), ARP's GATE; UNDO on SEQ.
+- Tests: `test_more` (the order holds each destination once; E1 DECAY by the wheel: the note still sounding at
+  200 ms, silent there without; L1 RATE by the wheel, 19 flips a second for 1; the divisions in order; KEEP's lengths, a bar in order,
+  on the one, across a gap, a new ring when ARP comes on); the matrix's own (every destination written and
+  restored, in range under the sanitizers, on every patch); `web_test` (the list up and gone; REC on ARP into SEQ A).
+
+**Built 2026-11-10: the master's one, and TURING to PITCH in key.** The user, playtesting: "in PLAY, I want SEQ B
+and ORBIT, when switched on, to wait until A is at 1 again. If A and B are alike, I'd also like to swap them"; then
+"or we can choose the master" (a SWAP was built and taken out again for it); "when TURING is sent to pitch, it must
+be quantized to the key and root first".
+- *MASTER* (SCL + SEQ on SEQ A, SEQ B or ORBIT; `set.master`, kept): A (the default) or B, the track whose one
+  leads. Its tab on the top line is underlined; with SCL held the switch's place says MASTER A or B. The engine runs
+  the master first each sub-block (`lead`), so its one is known when the other comes; ORBIT counts its loops and the
+  Reactor its steps. SEQ A's key (IN KEY, REC's note) and TURING's NOTES stay A's: they are the music's key, not
+  its time.
+- *In at the master's one:* while the master plays steps, the other track switched on (EDIT, or MONO left for DUO /
+  POLY for B) stays silent until the master's next one and comes in there from its step 1, lined up on it to the
+  sample (`t[].in`, `sd_seq_restart`, the time past the one in `a_rem`). ORBIT switched on comes in at that one from
+  its step 1 (`orb_live`): its transposes, lanes and macros wait with it. Until then ON blinks on the top line and
+  EDIT's light, and the hint says where it comes in. Off stays at once. Stopped (or the master playing no steps),
+  at once: START starts them together, as before.
+- *TURING to PITCH* (its own DEST, or a MOD slot with TURING as the source): quantized before it reaches the pitch.
+  Its step (unglided) as semitones (±24 at 100 %, as PITCH) moves each voice from its own note to the nearest note of
+  SEQ A's scale from its key (`sd_tq_snap`: 13 places round it, the lower of two as near; CHROM: the nearest
+  semitone), so every voice stays in the key, a key off the scale too. The other sources to PITCH (a vibrato) go on
+  top as they were. Nothing else changed: with no TURING to PITCH a patch renders bit for bit as before (131 renders
+  checked).
+- Tests: `test_cue` (B ON at A's step 2: silent till A's one, its step 1 on the same sub-block; ORBIT on there: A's
+  steps 3 and 4 as they were, +7 from the one, +5 a loop on; ORBIT off at once; MASTER B: A ON at B's step 2 in at
+  B's one, ORBIT's steps at B's ones); `test_tq` (a held note under TURING to PITCH, A minor and CHROM: every tick a
+  whole number of semitones from the same engine without it, on A minor's notes, an off-scale key too); `web_test`
+  (ON blinking till the one, then lit, for B, ORBIT, and A under MASTER B; SCL + SEQ marks the master).
+
+**Built 2026-11-10: ARP on the grid.** The user: "I found in an earlier version that ARP is not quite in sync;
+we check this too before we build". Measured: ARP's steps kept the moment the keys went down, 9 to 55 ms off SEQ's
+beat at 120 BPM (up to half a step), the same offset for good (no drift: under 1 ms in 60 s), a new hand a new one.
+- *The grid* (`grid_q8`): clock time since the master's START (a MIDI clock's too), within 48 sixteenths, the span
+  every division fits a whole number of times (1/2 .. 1/64, triplets, dotted). While the patterns play, ARP's place in
+  its step is the grid's (an exact 32-bit remainder a tick), and a step falls where it comes round: in the same
+  sub-block as SEQ's steps, never drifting, whatever the tempo or the clock.
+- *A new hand*: under a quarter of a step after a grid point it plays at once (as played: a hand a little late
+  still on the beat), the next note on the grid; later, it waits for the next point. START with keys held: ARP from
+  the one, with A.
+- Stopped, ARP runs from the key, as before.
+- Tests: `test_arp_grid` (SEQ A at 1/16, ARP at 1/16, 1/16T, 1/16D, 1/64: every note within a sub-block of the grid
+  over 60 s and after a new hand; a hand 600 frames after a 16th at once, one 3000 after at the next; at 1/16 all of
+  A's steps with ARP's note in the same sub-block).
+
+**Built 2026-11-11: MIDI notes recorded.** The user, of a MIDI keyboard on the TRS jack: "most interesting is to
+record into the SEQ, the ARP, and maybe play freely over what is already happening"; then, offered a way to play
+over ARP: "ARP is to be ARP. We do not play over ARP".
+- *REC* (`midi_note`): a note from MIDI (USB or the jack, any channel) is written as a key's is: stopped, step by step
+  (held together, a chord, with the FM-1's keys too; all up, the next step), playing, into the step that plays;
+  what is heard (`sd_seq_rec_note`). Its velocity goes into the step's VEL (the FM-1's keys write 100, as before).
+  MIDI's held notes count with the keys' (`midi_held`, `midi_hn`): a quick note after another lifted is the next
+  step, never the same one.
+- *Already so, kept:* MIDI's notes play on every page, the step pages too (the FM-1's keys are the steps there);
+  ARP takes them while on, so KEEP keeps what they played; over the tracks they take the voices left (DUO, POLY), and
+  where none is left they say so as the keys do (*MONO: THE SEQ HAS THE VOICE*, *NO FREE VOICE: SEQ PLAYS*).
+- *Not:* pitch bend and the sustain pedal (CC 64) are not heard; OCT moves the FM-1's keys, not MIDI's.
+- Test: `tests/scripts/m1.txt` (DUO, CLR, REC stopped: C4 at 40 from the jack, E4 + G4 one step with G4 as +3, a REST,
+  A4 at 127 from USB on channel 2, C5 with the FM-1's C4 one step (-12), D4 and F4 10 ms apart two steps; playing:
+  G5 into step 4, F5 into step 9; POLY, ARP on C E G from MIDI, KEEP: SEQ B's 16 steps of it; ARP off: a MIDI note on
+  a voice of its own over A and B), checked with a dump of the tracks. RAM 96,796 B of 98,304 (+16: the held
+  notes); the audio's load as before (the gate 44.0 %).
+
 ---
 
 ## 0. Decision in one paragraph

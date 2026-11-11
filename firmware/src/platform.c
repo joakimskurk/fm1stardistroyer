@@ -56,6 +56,9 @@ enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_KNOB2 = 3, ENC_KNOB
 #include "fm1_sys.h"
 #include "fm1_irq.h"
 #include "fm1_guard.h"
+#if FM1_CPU1
+#include "fm1_cpu1.h"                         /* the second core: the app defines FM1_CPU1 1 to use it */
+#endif
 #if BOARD_SMK37
 #include "smk_input.h"                          /* keys with velocity, buttons, 8 encoders, LEDs, pads, faders, wheels */
 static void fm1_led_key_glow(uint32_t id, int on) { (void)id; (void)on; }   /* (no key LEDs: the pads glow) */
@@ -450,6 +453,7 @@ void fm1_cstart(void)
     extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
     extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
     uint32_t *s, *d, p3, boot_mode;
+    fm1_cpu1_stop();                            /* (a reset that left the second core running: registers only) */
     fm1_time_init();
     fm1_reset_reason();
     p3 = fm1_boot.p3_rst;
@@ -483,6 +487,16 @@ void fm1_cstart(void)
 #if BOARD_SMK37
     smk_trim_read();                            /* (after fm1_input_init: it sets the defaults first) */
     smk_owner_check();
+#endif
+#if FM1_CPU1
+    {                                           /* the second core, before the audio and the timers (its start that
+                                                   works); barred (it failed since power-on) it stays held */
+        const char *v = APP_NAME " " APP_VER;
+        uint32_t h = 2166136261u;
+        while (*v) h = (h ^ (uint8_t)*v++) * 16777619u;
+        fm1_cpu1_bar_build(h);                  /* (a new build: two cores again) */
+        fm1_cpu1_start();
+    }
 #endif
     fm1_audio_init(abuf, HALF_WORDS, isr_alnk0, 3);   /* (abuf is zero: .bss) */
     usb_start();

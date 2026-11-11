@@ -28,9 +28,9 @@ static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
 enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DISTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_TURING,
-       PG_MOD, PG_SEQA, PG_SEQB };            /* (SEQ last: page >= PG_SEQA is SEQ) */
+       PG_MOD, PG_TIME, PG_SEQA, PG_SEQB, PG_ORB };   /* (SEQ last: page >= PG_SEQA is SEQ, ORBIT its third) */
 static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DISTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
-                                      "LFO 2", "TURING", "MOD", "SEQ A", "SEQ B"};
+                                      "LFO 2", "TURING", "MOD", "TIME", "SEQ A", "SEQ B", "ORBIT"};
 static int page = PG_NAV;
 
 static void say(const char *what)
@@ -99,6 +99,17 @@ static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned t
     gen = 0xFFFFFFFFu;
     dirty = 1;
     snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_PATCH_NAME[i]);
+    say(t);
+}
+static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past the stock ones: a place of the player's */
+{
+    char t[48];
+    if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
+    act();
+    pat = *p;
+    gen = 0xFFFFFFFFu;
+    dirty = 1;
+    snprintf(t, sizeof t, "PRESETS: %s", name);
     say(t);
 }
 static void push(void) { if (dirty) sd_engine_patch(&e, &pat); dirty = 0; }
@@ -205,7 +216,10 @@ static void rules(void)                         /* the app's voice rules, every 
 }
 
 /* TURING (LFO's third page): its knobs, as the app turns them; EDIT on / off (the first time on: to XM, 30 %,
-   CHANGE 25, unless they are set). DEST turns round its list: n detents from where it is (OFF, then -1: NOTES) */
+   CHANGE 25, unless they are set). DEST turns round its list as the app's does (dst_step): the destinations in the
+   chain's order (SD_MD_ORDER), NOTES after the last; n detents from where it is (OFF, then -1: NOTES). (Until
+   2026-11-11 it turned in the enum's order, which the 22 destinations of 2026-11-10 moved: RANGE's TURING went to
+   L1 RATE, not the CUTOFF it was written for) */
 #define TUR_CHANGE(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TURING, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_TUR_CHANGE(&pat), to, s0, s1, &v_)) { \
         pat.tur_set = (uint8_t)((pat.tur_set & 0x80u) | (uint32_t)v_); dirty = 1; } } while (0)
@@ -224,9 +238,10 @@ static void tur_dest_by(int line, int32_t n, double s0, double s1)
     if (q < s0 || pq > s1) return;
     r = ramp_state(line);
     if (!ramp(line, r->done, n, s0, s1, &v)) return;
-    i = pat.tur_dst == SD_TD_NOTES ? SD_MDSTS : pat.tur_dst < SD_MDSTS ? pat.tur_dst : 0u;
+    if (pat.tur_dst == SD_TD_NOTES) i = SD_MDSTS;
+    else for (i = 0; i < SD_MDSTS - 1u && SD_MD_ORDER[i] != pat.tur_dst; i++) ;   /* (its place in the list) */
     i = (uint32_t)(((int32_t)i + (v - r->done) % (int32_t)(SD_MDSTS + 1u) + (int32_t)(SD_MDSTS + 1u)) % (int32_t)(SD_MDSTS + 1u));
-    pat.tur_dst = (uint8_t)(i == SD_MDSTS ? SD_TD_NOTES : i);
+    pat.tur_dst = (uint8_t)(i == SD_MDSTS ? SD_TD_NOTES : SD_MD_ORDER[i]);
     r->done = v;
     dirty = 1;
 }
@@ -253,6 +268,18 @@ static void lfo_to_turing(double s0)            /* LFO three times: LFO 1, LFO 2
 }
 
 /* the edit switches, as EDIT on their pages */
+/* ORBIT (SEQ's third page, 2026-11-09): saved with SEQ A's pattern (orbit_load, as the pattern loads), EDIT on there:
+   in at the master's one while it plays */
+static SdOrbit orb;
+static void orbit_load(const SdOrbit *o) { orb = *o; orb.on = 0; sd_engine_orbit(&e, &orb); }
+static void orbit_edit(int on)
+{
+    on_page(PG_ORB, "ORBIT's EDIT off its page");
+    act();
+    orb.on = (uint8_t)on;
+    sd_engine_orbit(&e, &orb);
+    say(on ? (e.seq_run ? "EDIT: ORBIT ON (in at A's one)" : "EDIT: ORBIT ON") : "EDIT: ORBIT OFF");
+}
 static void track_on(int trk, int on)
 {
     char t[32];
@@ -261,6 +288,103 @@ static void track_on(int trk, int on)
     e.t[trk].mute = (uint8_t)!on;
     snprintf(t, sizeof t, "EDIT: SEQ %c %s", 'A' + trk, on ? "ON" : "OFF");
     say(t);
+}
+
+/* TIME's looper (2026-11-11), the player's as the app's: LOOP (ALGORITHM on TIME), REVERSE (SCL + ALGORITHM), GLIDE
+   (SCL + K1, OFF or a division a detent), LENGTH (SCL + K2, a division a detent), SPEED (SCL + K3, an eighth of a
+   semitone a detent; SCL + OCT, the next octave), L-LEVEL (SCL + K4: above 0 the looper armed; 0 as the app starts).
+   Its memory only when a performance asks for it (looper_mem: the FM-1's own, as the app has it since 2026-11-11:
+   half the delay line, lent while the looper is armed, and 24 KB, mono mu-law at half rate, 5.1 s); the performances
+   before it have none, and sound as they did */
+#define LP_BYTES 24576u
+static uint8_t lp_mem[LP_BYTES];
+static uint8_t lp_on, lp_rev;
+static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl;
+static int16_t lp_speed;
+static uint16_t lp_glide;
+static void looper_mem(void) { sd_engine_looper_borrow(&e, lp_mem, LP_BYTES); say("(the looper: half the delay line and 24 KB, 5.1 s)"); }
+static void loop_toggle(void)
+{
+    on_page(PG_TIME, "LOOP off TIME");
+    act();
+    lp_on = (uint8_t)!lp_on;
+    say(lp_on ? "ALGORITHM: LOOP ON (the last LENGTH held)" : "ALGORITHM: LOOP OFF");
+}
+static void reverse_toggle(void)
+{
+    on_page(PG_TIME, "REVERSE off TIME");
+    act();
+    lp_rev = (uint8_t)!lp_rev;
+    say(lp_rev ? "SCL + ALGORITHM: REVERSE ON" : "SCL + ALGORITHM: REVERSE OFF");
+}
+static void lp_length(uint32_t d)               /* SCL + K2 turned to division d (a few detents: one gesture) */
+{
+    static const char *const N[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4",
+                                               "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
+    char t[48];
+    on_page(PG_TIME, "LENGTH off TIME");
+    act();
+    lp_len = (uint16_t)(d * 65536u / SD_LP_NDIV + 100u);
+    snprintf(t, sizeof t, "SCL + K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
+    say(t);
+}
+static void lp_glide_to(uint32_t d)             /* SCL + K1 turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
+{
+    static const char *const N[SD_LP_NGLIDE] = {"OFF", "1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
+                                                 "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
+    char t[48];
+    on_page(PG_TIME, "GLIDE off TIME");
+    act();
+    lp_glide = (uint16_t)(d * 65536u / SD_LP_NGLIDE + (d ? 100u : 0u));
+    snprintf(t, sizeof t, "SCL + K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
+    say(t);
+}
+static void loop_octave(int up)                 /* SCL + OCT- / OCT+ on TIME: SPEED to the next octave */
+{
+    int32_t v = lp_speed;
+    on_page(PG_TIME, "SCL + OCT off TIME");
+    act();
+    v = up ? (v < 0 ? 0 : 3072) : (v > 0 ? 0 : -3072);
+    lp_speed = (int16_t)v;
+    say(up ? "SCL + OCT+: SPEED AN OCTAVE UP" : "SCL + OCT-: SPEED AN OCTAVE DOWN");
+}
+#define LP_SPEED(to8, s0, s1) do { int32_t v_; on_ramp_page(PG_TIME, s0, s1); \
+    if (ramp(__LINE__, lp_speed / 32, to8, s0, s1, &v_)) lp_speed = (int16_t)(v_ * 32); } while (0)   /* (eighths) */
+#define LP_LEVEL(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TIME, s0, s1); \
+    if (ramp(__LINE__, (int32_t)d99(lp_lvl), to, s0, s1, &v_)) lp_lvl = u99(v_); } while (0)
+static void time_div(uint32_t d)                /* K1 on TIME, synced, turned to division d */
+{
+    on_page(PG_TIME, "TIME off its page");
+    act();
+    pat.s_time = (uint16_t)(d * 65536u / SD_SP_NDIV + 100u);
+    dirty = 1;
+    say("K1: TIME");
+}
+static void freeze_toggle(void)                 /* ALGORITHM on SPACE */
+{
+    on_page(PG_SPACE, "FREEZE off SPACE");
+    act();
+    e.sp_freeze = (uint8_t)!e.sp_freeze;
+    say(e.sp_freeze ? "ALGORITHM: FREEZE ON" : "ALGORITHM: FREEZE OFF");
+}
+#define SHIMMER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_SPACE, s0, s1); \
+    if (ramp(__LINE__, (int32_t)SD_SP_SHIM(&pat), to, s0, s1, &v_)) { \
+        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (SCL + ALGORITHM, 0..63) */
+static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: ALGORITHM to slot k + 1, K1
+                                                   SOURCE, K2 DEST (its list), K3 AMOUNT (a percent a detent) */
+{
+    char t[64];
+    on_page(PG_MOD, "a slot off MOD");
+    act();
+    pat.mod[k] = (SdModSlot){src, dst, (int16_t)(pct * 32767 / 99)};
+    dirty = 1;
+    snprintf(t, sizeof t, "MOD: SLOT %u, SOURCE, DEST, AMOUNT %+d %%", k + 1u, pct);
+    say(t);
+}
+static void looper_push(void)
+{
+    e.lp_on = lp_on; e.lp_rev = lp_rev; e.lp_len = lp_len; e.lp_speed = lp_speed; e.lp_glide = lp_glide;
+    e.lp_lvl = sd_lp_total(&e) ? lp_lvl : 0u;
 }
 
 /* the performance: setup() before the first block (the player's preparation: not heard), score() each block (1: the
@@ -291,6 +415,7 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     setup();
     last_act = 0;
     push();
+    looper_push();
     for (i = 0; i < 40u; i++) { memset(buf, 0, sizeof buf); sd_engine_render(&e, buf, BLOCK); }   /* (settles) */
     for (;;) {
         double step = BLOCK * bpm * 4.0 / (60.0 * SD_FS);
@@ -300,6 +425,7 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
         q += step;
         end = score();
         push();
+        looper_push();
         memset(buf, 0, sizeof buf);             /* (the engine adds into its buffer) */
         sd_engine_render(&e, buf, BLOCK);
         rules();

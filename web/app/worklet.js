@@ -41,7 +41,7 @@ class StarDistroyer extends AudioWorkletProcessor {
     if (m.type === 'key') x.web_key(m.k, m.down ? 1 : 0);
     else if (m.type === 'btn') x.web_btn(m.id, m.down ? 1 : 0);
     else if (m.type === 'enc') x.web_enc(m.id, m.n);
-    else if (m.type === 'midi') x.web_midi(m.d[0], m.d[1] || 0, m.d[2] || 0);
+    else if (m.type === 'midi') x.web_midi(m.d[0], m.d[1] || 0, m.d[2] || 0, m.src || 1);
   }
 
   process(_inputs, outputs) {

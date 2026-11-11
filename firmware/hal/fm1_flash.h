@@ -12,6 +12,7 @@
 #pragma once
 #include <stdint.h>
 #include "fm1_xip.h"
+#include "fm1_cpu1_stop.h"                  /* the second core: the gate in irq_save */
 
 #define RAMFN  __attribute__((section(".ram_text"), noinline, used))
 #define RAMINL static inline __attribute__((always_inline))
@@ -209,7 +210,8 @@ static void fl_plain_window_init(void)
     __asm__ volatile("csync\n\tsti" ::: "memory");
 }
 
-static inline uint32_t irq_save(void) { __asm__ volatile("cli" ::: "memory"); return 0; }
+/* (the flash goes off after this: a second core's job runs from it, so wait until it is idle, fm1_cpu1_stop.h) */
+static inline uint32_t irq_save(void) { __asm__ volatile("cli" ::: "memory"); fm1_flash_cpu1_gate(); return 0; }
 static inline void irq_restore(uint32_t f) { (void)f; __asm__ volatile("csync\n\tsti" ::: "memory"); }
 
 static int fl_erase4k(uint32_t off, uint32_t *took_us)

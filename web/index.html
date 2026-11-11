@@ -84,7 +84,7 @@
   .spec .hz { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(143, 165, 178, .22); pointer-events: none; }
   .spec .hz span { position: absolute; left: 4px; top: -8px; font: 10px/1 var(--mono); color: var(--dim);
                    background: rgba(6, 8, 12, .7); padding: 1px 3px; }
-  .spec .head { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--red);
+  .spec .play { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; margin-left: -1px; background: var(--red);
                 box-shadow: 0 0 8px var(--red); pointer-events: none; }
   .spec .hover { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(205, 230, 240, .5); display: none;
                  pointer-events: none; }
@@ -370,7 +370,7 @@
     td:first-child { white-space: normal; }
     .spec { height: 104px; }
   }
-  @media (prefers-reduced-motion: reduce) { .spec .head { box-shadow: none; } }
+  @media (prefers-reduced-motion: reduce) { .spec .play { box-shadow: none; } }
 </style>
 </head>
 <body>
@@ -396,19 +396,19 @@
     <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
     <img src="screens/turing.png" width="240" height="240" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
   </div>
-  <p class="cta"><a href="#try">▶ Play it in the browser</a></p>
+  <p class="cta"><a href="#try">▶ Play it in the browser</a> · <a href="#start">Getting started</a></p>
 
   <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
     sixteen oscillators, morphed across an X/Y field; a <b>Reactor</b> of four resonators that sweep through vowels,
     chords and combs; <b>DISTROY</b>, which splits the sound into four bands and wrecks each its own way; and
-    <b>SPACE</b>, a delay feeding a room. Around them: a modulation matrix, four macros, a two-track step sequencer
-    with segments and a Turing machine, and an arpeggiator.</p>
+    <b>TIME</b> and <b>SPACE</b>, a delay and a looper feeding a plate. Around them: a modulation matrix with a Turing machine, four macros, a
+    two-track step sequencer with segments and ORBIT over it, and an arpeggiator.</p>
 
   <div class="facts">
     <div class="fact"><b>16</b><span>oscillators in four banks, morphed on an X/Y field</span></div>
     <div class="fact"><b>4</b><span>engines in a row: VOICE, REACTOR, DISTROY, SPACE</span></div>
     <div class="fact"><b>29</b><span>patches, and 32 places of your own</span></div>
-    <div class="fact"><b>2×64</b><span>sequencer steps, with segments and a Turing machine</span></div>
+    <div class="fact"><b>2×64</b><span>sequencer steps, with segments and ORBIT over them</span></div>
   </div>
 
   <h2 id="hear"><img src="screens/slash.png" width="68" height="28" alt="">Hear it</h2>
@@ -434,6 +434,29 @@
       <button id="p-reset" title="Forget what SAVE kept in this browser, and start as from the factory">Factory reset</button>
     </div>
     <p class="small" id="appstatus">POWER ON starts it: the firmware loads (a quarter of a megabyte) and plays here.</p>
+  </div>
+
+  <h2 id="start"><img src="screens/slash.png" width="68" height="28" alt="">Getting started</h2>
+  <p>The first minutes, on an FM-1 or in the player above. The player's computer keys are in brackets.</p>
+  <div class="box">
+    <ol>
+      <li><b>Play.</b> It starts on DISTROY, on the NAV page. Play the keys (A S D F … the white keys from C4, W E T Y U
+        … the black ones, Z and X the octave), or a MIDI keyboard.</li>
+      <li><b>Press PLAY</b> (Space). SEQ A plays its starting line, a bass line in A minor: play over it. PLAY again
+        stops it.</li>
+      <li><b>Turn the macros.</b> Press HOME until MACROS is the red tab on the top line. K1–K4 turn MUTATE, MOVE,
+        BREAK and a fourth (BODY, AIR or DROWN, as the patch chooses). At 0 the patch is as it was programmed.</li>
+      <li><b>Find a patch.</b> Turn PRESETS: a list opens, and the sound stays as it is. EDIT loads the one picked,
+        HOME keeps yours.</li>
+      <li><b>Find your way.</b> A page button goes to its page, and pressed again to its next one. K1–K4 turn the four
+        values in the row on top. Hold SCL (Shift) for four more: their names turn red. EDIT turns what the page shows
+        on or off, and ALGORITHM is the page's choice, named on the hint line.</li>
+      <li><b>Write a pattern.</b> On SEQ the white keys are the steps: tap one and turn K1 for its note, K4 for its
+        type (a rest, a tie, a slide). Or press REC and play the keys: stopped, step by step; playing, into the step
+        that plays. OCT moves the keys' octave here too; SCL + OCT turns the step bank.</li>
+      <li><b>Keep it.</b> Press SAVE, turn ALGORITHM to a place, and press SAVE again. On SEQ it keeps the pattern. In
+        the player, what SAVE keeps stays in this browser.</li>
+    </ol>
   </div>
 
   <h2 id="install"><img src="screens/slash.png" width="68" height="28" alt="">Install</h2>
@@ -491,11 +514,20 @@
   </div>
   <div class="eng">
     <img class="scr" src="screens/space.png" width="240" height="240" alt="SPACE">
-    <div><h3>SPACE <span>·</span> a delay into a room</h3>
+    <div><h3>TIME <span>·</span> SPACE <span>·</span> a delay and a looper into a plate</h3>
       <ul>
-        <li>Stereo or ping-pong (an echo left, then one as loud right), free (1 ms – 1 s) or on the beat, with feedback
-          and tone.</li>
-        <li>The room: four diffusers into a four-line network, with <b>SIZE</b>, <b>DECAY</b> and <b>TONE</b>.</li>
+        <li><b>TIME</b>, the delay: stereo or ping-pong (an echo left, then one as loud right), free (1 ms – 1 s) or on
+          the beat, with feedback and tone. On the beat it stays there: a division longer than 1 s plays at half (TIME
+          red).</li>
+        <li><b>LOOP</b> (ALGORITHM on TIME): the looper, armed with L-LEVEL (it borrows half the delay line: 5 s, a
+          light 8-bit tape, the delay then 0.5 s), always recording what you hear, plays its last LENGTH round
+          while the delay goes on; SPEED takes it an octave up or down, as a tape's (SCL + OCT the next octave, over
+          GLIDE, landing on the loop's own grid), REVERSE (SCL + ALGORITHM) plays it backwards; it goes into the reverb
+          as the synth does.</li>
+        <li><b>SPACE</b>, the plate: four diffusers into a tank in a figure of eight, its lines gently moving.
+          <b>SIZE</b> 0.35–1.75 x (it glides there like tape), <b>DECAY</b> 0.3 s to about 40 s, <b>TONE</b>.</li>
+        <li><b>FREEZE</b> (ALGORITHM on SPACE): the plate's tail held as it is, the input closed; play over it.
+          <b>SHIMMER</b> (SCL + ALGORITHM): an octave up of the tail back into it.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -506,6 +538,8 @@
           <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
         <li>Eight modulation slots: envelopes, two LFOs, TURING, the nav, velocity, the wheel, aftertouch, random,
           and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
+        <li>49 destinations, from PITCH to the envelopes' times, the filter, every engine, the looper's speed (an LFO
+          on it a tape's wobble; TURING in semitones) and the LFOs' rates, picked from a list as DEST turns.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -515,7 +549,7 @@
         <li>A loop of 2–16 bits steps on the tempo. <b>CHANGE</b> is the chance a bit flips as it comes round: 0 locks
           the loop, a little lets it drift.</li>
         <li>Its newest 8 bits are a stepped value: <b>DEST</b> and <b>AMOUNT</b> send it anywhere the matrix can, XM
-          by default, and in MOD it is a source for more.</li>
+          by default, and in MOD it is a source for more. To PITCH it is quantized to SEQ A's key first.</li>
         <li><b>NOTES</b> moves SEQ A's notes in the scale as they play; the pattern stays as you wrote it.</li>
       </ul></div>
   </div>
@@ -527,6 +561,10 @@
         <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
         <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
           two lanes and the macros, jumping or gliding.</li>
+        <li><b>MASTER</b> (SCL + SEQ): A or B, the track whose one leads. The other track and ORBIT switched on while
+          it plays come in at its next one.</li>
+        <li><b>ARP</b> from 1/64 to 1/2, triplets and dotted, on the patterns' grid while they play. REC on ARP keeps
+          what it just played as a pattern.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
         <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, TURING and the synced LFOs move by its
           pulses and never drift; START plays from step 1, STOP stops. SCL + PLAY: SYNC AUTO or INT.</li>
@@ -536,18 +574,21 @@
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
   <table>
     <tr><td>HOME</td><td>NAV → MACROS</td></tr>
-    <tr><td>FX</td><td>REACTOR → DISTROY → SPACE</td></tr>
+    <tr><td>FX</td><td>REACTOR → DISTROY → SPACE → TIME</td></tr>
     <tr><td>ENV</td><td>ENV → FILTER</td></tr>
     <tr><td>LFO</td><td>LFO 1 → LFO 2 → TURING → MOD</td></tr>
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
     <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), and OCT moves their octave</td></tr>
+    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
-    <tr><td>EDIT</td><td>ON / OFF of what the page shows</td></tr>
+    <tr><td>EDIT</td><td>ON / OFF of what the page shows: an engine, the filter, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one, ON blinking till then)</td></tr>
     <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT loads, HOME not now</td></tr>
     <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM; a MIDI clock's while one leads: CLK) · MONO → DUO → POLY</td></tr>
     <tr><td>PLAY · REC · SAVE</td><td>the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own</td></tr>
+    <tr><td>OCT− · OCT+</td><td>the keys' octave, on every page (on SEQ, SCL + OCT the step bank)</td></tr>
+    <tr><td>The keys</td><td>play; on SEQ the white keys are the steps, the black ones RND, UNDO, CLR and SEG; on ORBIT the last black key is SETUP</td></tr>
+    <tr><td>MIDI in</td><td>USB or the TRS jack: notes (as the keys play them; REC writes them at their velocity), the mod wheel, aftertouch and a clock</td></tr>
   </table>
   <div class="shots">
     <figure><img class="scr" src="screens/env.png" width="240" height="240" alt="ENV"><figcaption>ENV</figcaption></figure>
@@ -655,14 +696,14 @@ for (const d of DEMOS) {
     <div><b>${d.title}</b><span class="len">${mmss(d.secs)}</span><p>${d.about}</p></div></div>
     <div class="spec"><img src="${d.spectrum}" alt="${d.title}'s spectrum from start to end, low to high">
     ${HZ.map((f) => `<div class="hz" style="top:${(100 * Math.log(16000 / f) / Math.log(16000 / 40)).toFixed(1)}%"><span>${f >= 1000 ? f / 1000 + "k" : f}</span></div>`).join("")}
-    <div class="hover"></div><div class="head"></div>
+    <div class="hover"></div><div class="play"></div>
     <input type="range" min="0" max="1000" value="0" step="1" aria-label="Position in ${d.title}"><div class="ring"></div></div>
     <div class="clock"><span>0:00</span><span class="now">0:00</span><span>${mmss(d.secs)}</span></div>`;
   $("demos").append(el);
   const audio = new Audio();
   audio.preload = "none";
   audio.src = d.src;
-  const pp = el.querySelector(".pp"), head = el.querySelector(".head"), range = el.querySelector("input"),
+  const pp = el.querySelector(".pp"), head = el.querySelector(".play"), range = el.querySelector("input"),
         now = el.querySelector(".now"), hover = el.querySelector(".hover"), spec = el.querySelector(".spec");
   const dur = () => (isFinite(audio.duration) && audio.duration > 0 ? audio.duration : d.secs);
   let want = null;                              /* a jump asked for before the file's length is known */

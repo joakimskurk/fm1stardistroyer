@@ -16,7 +16,10 @@ cc $CFLAGS -o build/sd/sd_strings tools/sd_strings.c -lm
 cc $CFLAGS -o build/sd/sd_epic tools/sd_epic.c -lm
 cc $CFLAGS -o build/sd/sd_range tools/sd_range.c -lm
 cc $CFLAGS -o build/sd/sd_song tools/sd_song.c -lm
+cc $CFLAGS -o build/sd/sd_tapestry tools/sd_tapestry.c -lm
 cc $CFLAGS -o build/sd/sd_derelict tools/sd_derelict.c -lm
+cc $CFLAGS -o build/sd/sd_heliopause tools/sd_heliopause.c -lm
+cc $CFLAGS -o build/sd/sd_singularity tools/sd_singularity.c -lm
 build/sd/sd_test
 if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: overflow, a shift of a negative, memory
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
@@ -88,8 +91,20 @@ mkdir -p build/audio/song                                           # the song, 
 build/sd/sd_song build/audio/song/star_distroyer_song.wav > build/audio/song/performance.txt ||   # no layering, ~3:25
     { tail -5 build/audio/song/performance.txt; exit 1; }
 tail -1 build/audio/song/performance.txt
+mkdir -p build/audio/tapestry                                       # TAPESTRY: the same rules, the looper building
+build/sd/sd_tapestry build/audio/tapestry/star_distroyer_tapestry.wav > build/audio/tapestry/performance.txt ||   # the bed
+    { tail -5 build/audio/tapestry/performance.txt; exit 1; }       # (its memory the RAM2 build's), ~88 s
+tail -1 build/audio/tapestry/performance.txt
 mkdir -p build/audio/derelict                                       # DERELICT: four such passes layered, ~2:06,
 build/sd/sd_derelict build/audio/derelict/star_distroyer_derelict.wav > build/audio/derelict/performance.txt ||   # stems too
     { tail -5 build/audio/derelict/performance.txt; exit 1; }
 tail -1 build/audio/derelict/performance.txt
+mkdir -p build/audio/heliopause                                     # HELIOPAUSE: a cue, four passes layered, ~1:47,
+build/sd/sd_heliopause build/audio/heliopause/star_distroyer_heliopause.wav > build/audio/heliopause/performance.txt ||
+    { tail -5 build/audio/heliopause/performance.txt; exit 1; }     # everything RANGE plays, the looper as texture
+tail -1 build/audio/heliopause/performance.txt
+mkdir -p build/audio/singularity                                    # SINGULARITY: one take, one stem, ~1:57: one
+build/sd/sd_singularity build/audio/singularity/star_distroyer_singularity.wav > build/audio/singularity/performance.txt ||
+    { tail -5 build/audio/singularity/performance.txt; exit 1; }    # FM-1 at full (A, B, ARP, ORBIT, the looper)
+tail -1 build/audio/singularity/performance.txt
 build/sd/sd_render bench "${SD_BENCH_S:-60}"
