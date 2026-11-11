@@ -120,8 +120,13 @@ static SdSpaceMem space_mem __attribute__((section(".pool")));
    in two pieces of one ring: the delay line's second half while the looper is armed (L-LEVEL above 0: the delay
    then has 0.5 s), and what is left of the RAM, 24 KB: 5.1 s. The test build DINGHY_DEFS=-DSD_RAM2=1 looks for a
    second RAM bank at boot (hal/fm1_ram2.h) and, found, gives the looper the largest of 512 KiB .. 4 MiB it holds
-   there instead, the delay keeping its whole line */
+   there instead, the delay keeping its whole line. The SMK-37's build has less RAM left (its keys' velocities, pads
+   and wheels): 23 KB there, 5.07 s */
+#if BOARD_SMK37
+#define SD_LP_INTB 23552u
+#else
 #define SD_LP_INTB 24576u
+#endif
 static uint8_t lp_mem[SD_LP_INTB];
 #define LP_LENT ((uint8_t *)&space_mem.dl[2u * SD_SP_DHALF])   /* the delay line's second half */
 #define LP_LENT_N (SD_SP_DHALF * 4u)

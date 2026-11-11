@@ -9,7 +9,8 @@
   before measuring any of them. Every
   step needs both gates: hear it (build/audio/*.wav) and fit it (`./build.sh`, `tools/emu_cpu.sh`).
 - `./build.sh` stops before the package when a check fails (its line says `FAIL`): never read only its `ok`
-  lines, and never measure a `.fwsc` older than the source. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
+  lines, and never measure a `.fwsc` older than the source. CI builds the SMK-37's three models first (`BOARD=smk37 MODEL=pro|elite|mke
+  sh build.sh`), whose RAM is tighter (884 B left on 2026-11-11): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
   fails the ROM check: clamp in another range, or shift after the clamp.
 - `tests/run_sd.sh` runs the tests twice, the second time under ASan/UBSan: a signed overflow there is a bug on
   the FM-1 too (it found MIX's), so keep it clean.

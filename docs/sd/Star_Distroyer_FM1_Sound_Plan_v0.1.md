@@ -495,7 +495,7 @@ core 0:  dry ──────────────────────�
 - *Its memory* (2026-11-11, the user, of a looper's seconds without a second RAM bank to count on: "borrow the delay";
   then chose: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay line's second half, lent
   while the looper is armed, and what the RAM has left, 24 KB: two pieces of one ring of bytes, 5.11 s (MAX in TIME's
-  picture with SCL held). A bar at 48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a
+  picture with SCL held; the SMK-37's build, with less RAM left, 23 KB: 5.07 s). A bar at 48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a
   sign, 3 bits of octave, 4 of step: its noise 31 dB under a sine, a light tape). The delay line is kept its frames
   left and right in turn (as fast to read; the same sound bit for bit), so its second half is one run of bytes.
   Armed, the delay has the first half: TIME to 0.5 s, a longer division played at half as over 1 s before (TIME red,
