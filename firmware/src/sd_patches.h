@@ -38,7 +38,7 @@ static const SdPatch SD_PATCH_SINE = {
 #define BK_BELL SD_BANK(SD_OSC(7, 0, 34000, S_), SD_OSC(2, 0, 30000, C_), SD_OSC(5, 4, 26000, S_), SD_OSC(1, 0, 40000, C_))
 #define BK_GROWL SD_BANK(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_), SD_OSC(1, 0, 60000, C_))
 /* DISTROY's middle banks (C1): BELL and EPIANO under the squash (WP -17000: at most the saw with its LFO) and
- * without fold: two of four banks in the costliest kernel instead of four (the V3 fallback, the user 2026-11-05) */
+ * without fold: two of four banks in the costliest kernel instead of four (the V3 fallback) */
 #define BK_BELL_LIGHT SD_BANK_OFS(SD_OSC(7, 0, 34000, S_), SD_OSC(2, 0, 30000, C_), SD_OSC(5, 4, 26000, S_), \
                                   SD_OSC(1, 0, 40000, C_), 0, -17000, -15000, 0)
 #define BK_EPIANO_LIGHT SD_BANK_OFS(SD_OSC(14, 0, 9000, S_), SD_OSC(1, 0, 30000, C_), SD_OSC(1, 0, 30000, S_), \
@@ -50,7 +50,7 @@ static const SdPatch SD_PATCH_SINE = {
 #define SD_SPMS(ms) ((uint16_t)((ms) >= 1000u ? 65535u : ((ms) - 1u) * 65535u / 999u + 1u))   /* (1000 ms: TIME's top,
                                                    65535, not 65536) */
 
-/* GLASS, BELL, EPIANO and ORGAN are gone (the user, 2026-11-08: they still sounded like classic FM, edge or not);
+/* GLASS, BELL, EPIANO and ORGAN are gone (they still sounded like classic FM, edge or not);
  * their banks live on inside VOYAGE, DISTROY and the cue's patches. The code names a patch by SD_P_*, never by number:
  * tests/sd_test.c checks each against SD_PATCH_NAME */
 enum {
@@ -71,8 +71,8 @@ static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "VOYAGE", "DISTRO
 #define SD_DHZ_1200 22111u                      /* MIDI 86.37 */
 #define SD_DHZ_5000 28436u                      /* MIDI 111.08 */
 #define SD_DHZ_2500 25362u                      /* MIDI 99.07 */
-/* The Star Distroyer edge (the user, 2026-11-08: a plain FM patch must sound as it should, with an edge that makes it
- * Star Distroyer's; GROWL's and AURORA's): under the top split DISTROY passes the sound as it was (NONE
+/* The Star Distroyer edge (a plain FM patch sounds as it should, with an edge that makes it Star Distroyer's:
+ * GROWL's and AURORA's): under the top split DISTROY passes the sound as it was (NONE
  * through LR4, so the top's shaper sees the top alone: CMP's gentler slopes let the body in, +5 .. +7 dB at 1.2 ..
  * 5 kHz); the top band alone is destroyed (its shaper, gain, ALT and level); and something steps on the beat (S&H, in
  * the patch). LR4's bands sum to an allpass, flat in level but a few dB higher in peaks: BODY, the level under the
@@ -84,8 +84,8 @@ static const char *const SD_PATCH_NAME[SD_PATCHES] = {"GROWL", "VOYAGE", "DISTRO
 #define SD_RAP(a, b, c, d) {{a * 256u, b * 256u, c * 256u, d * 256u}, {32768u, 32768u, 32768u, 32768u}}
 static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* GROWL: a chain 1 -> 2 -> 3 -> 4 between triangle and saw, folded a little, low. (Past the saw toward pulse
-         * with more fold and FM it was, the user: "so noisy it is nearly unusable": the chain's aliasing, -14 dB of it
-         * off the harmonics on a held D2; now -24) */
+         * with more fold and FM it was so noisy it was nearly unusable: the chain's aliasing, -14 dB of it off the
+         * harmonics on a held D2; now -24) */
         .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 24000, .warp = 20000, .fold = 8000, .e2_fold = 6000,
         .e1_a = 5, .e1_d = 70, .e1_s = 80, .e1_r = 40, .e2_a = 0, .e2_d = 48, .e2_s = 40, .e2_r = 40,
         /* the edge: the bottom clean, the top destroyed in time: over 5 kHz folded, its drive a new step each eighth
@@ -104,7 +104,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .s_time = SD_SPDIV(8), .s_mode = SD_SP_SYNC, .s_fb = 22000, .s_dtone = 36000, .s_dlevel = 14000,
         .s_size = 65535, .s_decay = 48000, .s_rtone = 40000, .s_rlevel = 18000,
         /* the nav stepping round the field: X a new place each quarter, Y each half (S&H, glided ~10 ms). (Two slow
-         * free LFOs drifted it as a random vowel, the user: stepped random is "much better") */
+         * free LFOs drifted it as a random vowel; stepped random is much better) */
         .mod = {{SD_MS_LFO1, SD_MD_X, 9929}, {SD_MS_LFO2, SD_MD_Y, 9929},
                 /* the engines talking: Y walks the loop, the echoes bend the warp */
                 {SD_MS_STEP, SD_MD_Y, 8274}, {SD_MS_ECHO, SD_MD_WARP, 3310}}, .lfo_shape = {SD_LS_SH, SD_LS_SH},
@@ -121,7 +121,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .r_pan = {-24000, 24000, -8000, 8000}, .r_model = SD_RM_BP12, .r_res = 36000, .r_slew = 24000,
         .r_drive = 9000, .r_mix = 26000, .r_track = SD_RT_HARM, .r_low = 20000, .r_div = 2, .r_cmode = SD_RC_RND,
         .r_max = 5,
-        /* and DISTROY, CMP (the user's choice at S1: LR4 here with SPACE reads 52 %), a shaper in every band */
+        /* and DISTROY, CMP (chosen at S1: LR4 here with SPACE reads 52 %), a shaper in every band */
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
         .d_type = {SD_DS_SOFT, SD_DS_CRUSH, SD_DS_FOLD, SD_DS_HARD}, .d_gain = {5000, 14000, 22000, 24000},
         .d_alt = {20000, 34000, 34000, 24000}, .d_bias = {4000, 0, -6000, 0}, .d_level = {26000, 15500, 15500, 10000},
@@ -230,8 +230,8 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                         .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC},
         .lfo_rate = {5561, 27406}, .mac4 = SD_M4_BODY},   /* D2: PHAT on the low band (§7), T -12 dBFS */
 
-    /* ---- after C1 (the user, 2026-11-05: "more variation … ramp-down curves that modulate within a note … more
-     * patches"): movement inside the note (LFOs in ONE: a SAW once a note is a ramp down), stepped S&H on the
+    /* ---- after C1 (more variation, more patches): movement inside the note (LFOs in ONE: a SAW once a note is a
+     * ramp down), stepped S&H on the
      * tempo, the destruction on the top band; warps under the saw (no aliasing noise) */
     {   /* COMET: an FM pluck, 2:1 and 3:1 into two carriers; inside each note the FM and the top band's grit fall
          * away over a beat, the warp steps on eighths */
@@ -332,8 +332,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mac4 = SD_M4_DROWN},
     {   /* MONOLITH: long notes, dry: a chain toward the triangle whose FM grows inside each note (a RAMP once a
          * note) and whose fold rises across the loop (SEQ STEP); the warp steps on quarters; a little SOFT on the
-         * top, a small room. (Drowned in the room and a fast delay with its top gated on eighths it was, the user:
-         * "completely unusable … drowned in reverb / fast delay / ring modulator") */
+         * top, a small room. (Drowned in the room and a fast delay with its top gated on eighths it was unusable) */
         .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 14000, .warp = 15000, .fold = 4000, .width = 24000,
         .e1_a = 30, .e1_d = 90, .e1_s = 112, .e1_r = 60, .e2_a = 30, .e2_d = 80, .e2_s = 90, .e2_r = 60,
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
@@ -343,7 +342,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_LFO1, SD_MD_XM, 6620}, {SD_MS_STEP, SD_MD_FOLD, 3972}, {SD_MS_LFO2, SD_MD_WARP, 2648}},
         .lfo_shape = {SD_LS_RAMP, SD_LS_SH}, .lfo_mode = {SD_LM_ONE, SD_LM_SYNC}, .lfo_rate = {23349, 16484},
         .mac4 = SD_M4_BODY},
-    {   /* STRINGS (the user, 2026-11-05: a cello, "as close as possible" to the recorded C major, then V4 by ear in
+    {   /* STRINGS (a cello, as close as possible to a recorded C major, then V4 by ear in
          * the duo, tools/cello_v4.txt): a bowed string is a saw through a body.
          * - The source: a plain saw (WARP 25544), slow in (70), a long bow (sustain 118), 8 cents of vibrato at 5.5 Hz.
          * - The body: the Reactor's four BP6s snapped to the note's harmonics (HARM), stages 1-3 a cello's
@@ -430,7 +429,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_shape = {SD_LS_SH, SD_LS_SH}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC}, .lfo_rate = {100, 16484}},
     {   /* DRIVE (cue 2's 16ths): ION without the grit split jumping on the step (the bass has it), in the big
          * hall with a dotted-eighth delay: it answers itself (PULSAR's nav jumping between banks stood out from
-         * the rest, the user said) */
+         * the rest) */
         .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
                 SD_OSC(1, 0, 14000, S_))),
         .xm = 26000, .warp = 14000, .e1_a = 1, .e1_d = 70, .e1_s = 90, .e1_r = 30, .e2_a = 0, .e2_d = 55, .e2_s = 40,
@@ -541,8 +540,8 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_LFO2, SD_MD_DSPLIT, 14745}, {SD_MS_LFO2, SD_MD_XM, 8192}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
         .lfo_rate = {100, 30000}},
-    {   /* BEACON (cue 2's high line): VOYAGE far back: a slow 10-cent vibrato (5 Hz), its top tamed (the user heard
-         * VOYAGE's high partials scream), in the big hall with dotted-quarter delays; DROWN on MACRO 4 */
+    {   /* BEACON (cue 2's high line): VOYAGE far back: a slow 10-cent vibrato (5 Hz), its top tamed (VOYAGE's high
+         * partials screamed), in the big hall with dotted-quarter delays; DROWN on MACRO 4 */
         .bank = {BK_GLASS,
                  BK_BELL,
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
