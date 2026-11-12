@@ -607,6 +607,10 @@ typedef struct {                                /* SPACE's state */
     uint32_t pgN, pgn;
     int16_t psp, px, pxd, plev;
     uint8_t pon, pbl, prst, pdir, ppend;
+    /* the transport (PLAY, a MIDI clock): the half-rate samples since START, and at LOOP; running last tick, the loop
+       parked by STOP (silent, its memory kept), and its place against the master's one known (LOOP while running) */
+    uint32_t pT, pT0;
+    uint8_t prun, ppark, psync;
 } SdSpace;
 
 typedef struct {
@@ -1529,11 +1533,47 @@ static void sd_lp_glide_to(SdSpace *s, int32_t to, uint32_t ticks)   /* a glide 
         }
     }
 }
+/* START with a loop (the user, of the looper and PLAY: "the loop stops when I stop playback, and starts again in
+ * sync"): its head where it stood against the master's one. Looped while the transport ran, T samples after START,
+ * its grid at the new START is where it would be T before LOOP, at x 0.5, 1 and 2 (-T x 128 << k round the loop: in
+ * 32 bits, T taken round the loop first); looped while stopped, from its start on the one. Silent (parked), it is
+ * there at once and fades in; playing, it crossfades there (~12 ms) */
+static void sd_lp_sync(SdSpace *s)
+{
+    uint32_t ln = s->pln, a, r, k, at;
+    int gi = sd_lp_oct(s->pr);
+    if (!s->psync) { s->pT0 = 0; s->psync = 1; }
+    a = s->pT0 % ln;
+    for (k = 0; k < 3u; k++) {
+        r = (a * (8u << k)) % ln * 16u % ln;    /* (a x 32 < 2^30, ln x 16 < 2^29) */
+        s->pG[k] = r ? ln - r : 0u;
+    }
+    s->panc[0] = s->panc[1] = 0;
+    k = gi >= 0 ? (uint32_t)gi : 1u;
+    at = s->pdir ? sd_lp_add(0u, -(int32_t)s->pG[k], ln) : s->pG[k];
+    s->pW = 0; s->pnud = 0;
+    if (s->ppark || s->plev <= 0) { s->pk = at; s->pbl = 0; s->px = 0; }
+    else if (!s->pbl) {                         /* playing: a crossfade there, or, in sync already, a nudge (the
+                                                   same place crossfaded would swell) */
+        int32_t R = sd_lp_near(at, s->pk, ln);
+        if (R > 1024 || R < -1024) { s->pk1 = at; s->pbl = 1; s->px = 0; s->pxd = 2048; }
+        else s->pnud = R;
+    }
+    s->ppark = 0;
+}
 static void sd_lp_plan(SdEngine *e, SdSpace *s)
 {
     int32_t sp = e->lp_speed + e->lp_mtq, to, adv, bend = 0, A, gi;   /* (TURING's semitones on the speed set) */
-    uint32_t ticks = sd_lp_glide_ticks(e), ln, k;
-    int on = s->loop;
+    uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow;
+    int run = e->seq_run != 0, start = (run && !s->prun) || e->seq_started, on;
+    if (start) s->pT = 0;                       /* the transport: STOP parks the loop, START plays it in sync */
+    tnow = s->pT;
+    if (run) s->pT += 16u;
+    if (s->pon && s->prun && !run && s->loop) s->ppark = 1;
+    if (!s->loop) s->ppark = 0;                 /* (LOOP off, or L-LEVEL 0: out, and it records) */
+    s->prun = (uint8_t)run;
+    if (start && s->pon) sd_lp_sync(s);
+    on = s->loop && !s->ppark;
     sp = sp > 3072 ? 3072 : sp < -3072 ? -3072 : sp;
     to = (int32_t)sd_semis_mul(sp);
     if (s->pr < 32768 || s->pr > 131072) { s->pr = to; s->psp = (int16_t)sp; }   /* (the first tick) */
@@ -1543,6 +1583,7 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
         s->pon = 1; s->plev = 0; s->prst = 1; s->pk = s->pk1 = 0; s->pbl = 0; s->px = 0; s->pnud = 0; s->pW = 0;
         s->pG[0] = s->pG[1] = s->pG[2] = 0; s->panc[0] = s->panc[1] = 0;
         s->pdir = s->lrev; s->ppend = 0;
+        s->pT0 = tnow; s->psync = (uint8_t)run;  /* (its place against the master's one, for the next START) */
         if (s->pgn < s->pgN) sd_lp_glide_to(s, s->pgt, s->pgN - s->pgn);   /* (a glide on its way: bent now) */
     }
     if (sp != s->psp) {                         /* a new speed */
@@ -1611,7 +1652,8 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
     {
         int32_t lv = s->plev + 16 * s->lt.levd;
         s->plev = (int16_t)(lv > 16384 ? 16384 : lv < 0 ? 0 : lv);
-        if (!on && s->plev <= 0) {              /* out: it records (an octave waiting: at once now) */
+        if (!on && s->plev <= 0 && !s->ppark) { /* out: it records (an octave waiting: at once now); parked, it
+                                                   waits silent for START */
             if (s->ppend & 1u) s->pr = s->ppr;
             s->pon = 0; s->pbl = 0; s->ppend = 0;
             return;

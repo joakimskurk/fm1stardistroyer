@@ -18,7 +18,7 @@
  *   1-8    DRIFT    GROWL's low E, its lowpass opening; VOYAGE's figure (COURSE, ALL and ODD on bank A) and AURORA's
  *                   glass swells, both saved wet (their plates and echoes up); the bed (CHORDS, saved dark, in a
  *                   big hall) in at 3, the arpeggiator over it in eighths
- *   7-12   TAPE     LOOP: the bed's last bar held, PLAY stops; REVERSE; SCL + OCT-, a bar's glide down onto its own
+ *   7-12   TAPE     LOOP: the bed's last bar held, the bed off; REVERSE; SCL + OCT-, a bar's glide down onto its own
  *                   grid; SHIMMER, then FREEZE on its plate: the loop an octave down under the plate an octave up;
  *                   LFO 2 onto its SPEED (a tape's wobble); under it the acid, dark, TURING on its CUTOFF, and
  *                   VOWEL's long notes through the Reactor's vowels
@@ -215,9 +215,10 @@ static int bed_score(void)
     LP_LEVEL(79, BAR(5) + 9, BAR(6) + 8);      /* SCL + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
     /* the tape: the bed's last bar held, backwards, down an octave */
     if (at(BAR(7))) loop_toggle();
-    if (at(BAR(7) + 1)) play(0);
-    if (at(BAR(7) + 2)) press("ARP", PG_ARP);
-    if (at(BAR(7) + 3)) { act(); e.arp_on = 0; say("EDIT: ARP OFF"); }
+    if (at(BAR(7) + 1)) press("SEQ", PG_SEQA);  /* EDIT: the bed off, PLAY running on (STOP would park the loop) */
+    if (at(BAR(7) + 2)) track_on(0, 0);
+    if (at(BAR(7) + 3)) press("ARP", PG_ARP);
+    if (at(BAR(7) + 4)) { act(); e.arp_on = 0; say("EDIT: ARP OFF"); }
     fx_to(4, BAR(7) + 5);
     if (at(BAR(7) + 10)) reverse_toggle();
     if (at(BAR(8))) loop_octave(0);             /* SCL + OCT-: down over the bar, onto its grid */
@@ -244,17 +245,21 @@ static int bed_score(void)
     if (at(BAR(16) + 4)) press("SEQ", PG_SEQA);
     if (at(BAR(16) + 6)) pattern(0, &BEDB, "WALL (Em C D Em Am C D Em)");
     pot(__LINE__, 4092, BAR(16) + 8, BAR(17));
+    if (at(BAR(16) + 14)) play(0);              /* a breath: STOP parks the loop; the bed on while stopped; START: */
+    if (at(BAR(16) + 15)) track_on(0, 1);       /* the wall from its step 1, the loop back in sync on the one */
     if (at(BAR(17))) play(1);
     /* its freeze: the plate held as the wall stood, the chords off; the loop down two octaves, out */
     fx_to(3, BAR(24) + 10);
     if (at(BAR(25))) freeze_toggle();
-    if (at(BAR(25) + 1)) play(0);
-    fx_to(1, BAR(25) + 3);
-    if (at(BAR(25) + 5)) loop_octave(0);        /* SCL + OCT-: to its pitch ... */
-    if (at(BAR(25) + 9)) loop_octave(0);        /* ... and on to -12 */
+    if (at(BAR(25) + 1)) press("SEQ", PG_SEQA); /* EDIT: the chords off, PLAY running on under the loop */
+    if (at(BAR(25) + 2)) track_on(0, 0);
+    fx_to(4, BAR(25) + 3);
+    if (at(BAR(25) + 7)) loop_octave(0);        /* SCL + OCT-: to its pitch ... */
+    if (at(BAR(25) + 11)) loop_octave(0);       /* ... and on to -12 */
     LP_LEVEL(1, BAR(27) + 10, BAR(30));         /* SCL + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
                                                    would change under its echoes) */
     if (at(BAR(30) + 2)) loop_toggle();
+    if (at(BAR(30) + 3)) play(0);
     fx_to(3, BAR(30) + 4);
     if (at(BAR(31))) freeze_toggle();           /* the frozen wall let go */
     pot(__LINE__, 0, BAR(31), BAR(34));

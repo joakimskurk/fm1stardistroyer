@@ -1462,6 +1462,9 @@ static uint32_t tl_nv;
 static uint16_t tl_glide;
 static double tl_wob, tl_wob_at = 99, tl_wob_off = 99;   /* the matrix's free SPEED: a 2 Hz sine of tl_wob semitones */
 static int32_t tl_tq;                           /* TURING's SPEED (semitones x 256) from tl_wob_at to tl_wob_off */
+static double tl_play[3] = {99, 99, 99};        /* the transport: START, STOP, START again (s) */
+static uint32_t tl_pk_b = 0xFFFFFFFFu, tl_pk, tl_pk1, tl_pk_ln;   /* block tl_pk_b's plan: its head, the
+                                                   crossfade's second (0: none), the loop's length */
 static void tl_feed(int32_t *outbuf, uint32_t frames, uint16_t rlvl, uint16_t dlvl, double loop_at, double loop_off,
                     double up_at, int16_t speed, double imp_at)
 {
@@ -1492,7 +1495,14 @@ static void tl_feed(int32_t *outbuf, uint32_t frames, uint16_t rlvl, uint16_t dl
             e1.lp_mon = (uint8_t)(w && tl_wob != 0);
             e1.lp_mtq = w ? tl_tq : 0;
         }
+        {
+            uint8_t run = (uint8_t)((t >= tl_play[0]) + (t >= tl_play[1]) + (t >= tl_play[2]) == 1 ||
+                                    t >= tl_play[2]);
+            e1.seq_started = (uint8_t)(run && !e1.seq_run);
+            e1.seq_run = run;
+        }
         sd_space_params(&e1);
+        if (b == tl_pk_b) { tl_pk = e1.sp.lt.k0; tl_pk1 = e1.sp.lt.bl ? e1.sp.lt.k1 : 0xFFFFFFFFu; tl_pk_ln = e1.sp.pln; }
         for (i = 0; i < SD_SUB; i++) {
             double tt = (double)(b * SD_SUB + i) / SD_FS, am = !tl_ramp ? 12000 : tt < 0.5 ? 0 : (tt - 0.5) * 24000;
             int32_t x = t < loop_at ? (int32_t)lround(am * sin(ph)) : 0;
@@ -1677,6 +1687,50 @@ static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, 
         sd_space_run(&e1, in, lb_out + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
+/* the looper and the transport (the user: "the loop stops when I stop playback, and starts again in sync"): START
+ * at 0.1 s, LOOP at 1.03 s (off any beat: 0.93 s, 2563 ticks, after START), STOP at 2.0 s: it fades out and waits
+ * (its memory kept), START again at 2.6 s: its head where it stood against the master's one (-T round the loop, to
+ * the sample), it sounds as before, no step bigger than the sine's own; let go of PLAY a second time and LOOP off,
+ * it records again. Then LOOP while stopped: START puts its start on the one, crossfaded */
+static void test_looper_transport_mode(uint32_t one)
+{
+    static int32_t o[2u * (6u * SD_FS + SD_SUB)];
+    uint32_t F = SD_FS, bL, bS, bS2, T, want;
+    double before, parked, back;
+    int32_t s0, st;
+    const char *mode = one ? "one core" : "two cores";
+    space_one = (uint8_t)one;
+    tl_play[0] = 0.1; tl_play[1] = 2.0; tl_play[2] = 2.6;
+    bS = (uint32_t)ceil(0.1 * F / SD_SUB); bL = (uint32_t)ceil(1.03 * F / SD_SUB); bS2 = (uint32_t)ceil(2.6 * F / SD_SUB);
+    tl_pk_b = bS2;
+    tl_feed(o, 6u * F, 0, 0, 1.03, 99, 99, 0, 0);
+    T = (bL - bS) * 16u;                        /* half-rate samples from START to LOOP */
+    want = tl_pk_ln ? (tl_pk_ln - (uint32_t)(((uint64_t)T * 256u) % tl_pk_ln)) % tl_pk_ln : 0u;
+    before = tl_rms(o, (uint32_t)(1.2 * F), (uint32_t)(1.95 * F));
+    parked = tl_rms(o, (uint32_t)(2.06 * F), (uint32_t)(2.59 * F));
+    back = tl_rms(o, (uint32_t)(2.7 * F), (uint32_t)(3.5 * F));
+    s0 = tl_step(o, F / 2u, F);
+    st = tl_step(o, (uint32_t)(2.55 * F), (uint32_t)(2.7 * F));
+    printf("looper (%s), the transport: LOOP 0.93 s after START; STOP: silent after 60 ms (%.0f against %.0f); START: "
+           "the head at %u of %u (-T round the loop: %u), %.2f dB of before, the largest step %d (the sine's own %d)\n",
+           mode, parked, before, tl_pk, tl_pk_ln, want, 20 * log10(back / before), st, s0);
+    CHECK(parked < before * 0.001, "STOP: the loop still sounds (%.0f against %.0f)", parked, before);
+    CHECK(tl_pk == want, "START: the head at %u, not %u", tl_pk, want);
+    CHECK(fabs(20 * log10(back / before)) < 0.5, "START: the loop back at %.2f dB", 20 * log10(back / before));
+    CHECK(st <= s0 + s0 / 8, "START: a step of %d (the sine's own %d)", st, s0);
+    /* LOOP while stopped (at 1.03 s; START at 2.0 s): it plays, then START crossfades it to its start on the one */
+    tl_play[0] = 2.0; tl_play[1] = tl_play[2] = 99;
+    tl_pk_b = (uint32_t)ceil(2.0 * F / SD_SUB);
+    tl_feed(o, 4u * F, 0, 0, 1.03, 99, 99, 0, 0);
+    st = tl_step(o, (uint32_t)(1.9 * F), (uint32_t)(2.2 * F));
+    printf("looper (%s), looped while stopped: START at 2 s crossfades it to its start (the second head at %u), the "
+           "largest step %d (the sine's own %d: two heads at equal power, x 1.5 at most)\n", mode, tl_pk1, st, s0);
+    CHECK(tl_pk1 == 0u, "looped while stopped, START: the second head at %u, not its start", tl_pk1);
+    CHECK(st <= s0 + s0 / 2, "looped while stopped, START: a step of %d (the sine's own %d)", st, s0);
+    tl_play[0] = tl_play[1] = tl_play[2] = 99;
+    tl_pk_b = 0xFFFFFFFFu;
+}
+
 static void test_looper_borrow_mode(uint32_t one)
 {
     uint32_t F = SD_FS, i0 = (uint32_t)(0.5 * F / SD_SUB) * SD_SUB, a_off, a_on, sw, s0, i;
@@ -1712,6 +1766,7 @@ static void test_looper(void)
 {
     test_looper_mode(0); test_looper_mode(1); test_looper_grid_mode(0); test_looper_grid_mode(1);
     test_looper_borrow_mode(0); test_looper_borrow_mode(1);
+    test_looper_transport_mode(0); test_looper_transport_mode(1);
 }
 
 /* SPACE's plate (raw and long; a prototype's LFO stuttered and clicked): its T60 at 700 Hz follows DECAY's law,

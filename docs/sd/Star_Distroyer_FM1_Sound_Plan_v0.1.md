@@ -479,6 +479,13 @@ core 0:  dry ──────────────────────�
   grid's next 16th of the loop (both heads on its beats then), REVERSE's turn for its next 64th (on them too).
   Between the octaves it runs free. The octaves are exact (the glide reaches x 1 and x 2: nothing drifts off the
   beat).
+- *The transport* (the user: "the loop stops when I stop playback, and starts again in sync"): STOP (PLAY, a MIDI
+  clock's) parks a playing loop: it fades out as LOOP off does, but stays held (its memory kept, nothing recorded),
+  silent. START plays it again where it stood against the master's one: looped T after START, its grid at the new
+  START is where it would be T before LOOP (−T round the loop, at x 0.5, 1 and 2; `sd_lp_sync`), so in sync with
+  the sequencer as it was; looped while stopped, from its start on the one. Silent, it is there at once and fades
+  in; playing, it crossfades there (~12 ms), or, in its place already, nudges. A loop carries alone with the tracks
+  OFF (EDIT) or cleared (CLR), PLAY running on. `test_looper_transport`.
 - *Where:* on the second core in the plate's job (its memory's pointers constants from the caller); on one core
   with the room, here. The delay is always on core 0, so it never needs a fallback.
 - *Its memory* (borrowed from the delay: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay
@@ -634,7 +641,9 @@ Each is one FM-1 played by one person (`tools/sd_play.h`'s rules: one engine, th
 hand's speed, the voice rules; a gesture the FM-1 could not make stops the tool). DERELICT and HELIOPAUSE layer four
 such passes at fixed faders (`tools/sd_layer.h`), SINGULARITY is a single one; CINEMATIC is the first cue's
 multitrack, kept as it was (remade as passes it lost what it had). The page plays DERELICT, CINEMATIC and RANGE.
-`sd_play.h`'s transposes are chromatic (as RANGE is written); a player keeping the app's IN KEY sets `e.xkey`. Its
+`sd_play.h`'s transposes are chromatic (as RANGE is written); a player keeping the app's IN KEY sets `e.xkey`. A loop
+carries alone with its tracks off (EDIT), PLAY running on (STOP parks it); HELIOPAUSE's wall comes in after a STOP and
+START, so its chords start from step 1 and the loop is back in sync. Its
 TURING DEST turns in `SD_MD_ORDER`, as the app does. A render waits for quiet: a loop left ringing (BREAK up) never
 ends, so a performance ends with it off.
 

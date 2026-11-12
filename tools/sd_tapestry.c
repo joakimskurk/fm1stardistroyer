@@ -12,7 +12,7 @@
  *
  *   1-8    PRISM, MONO: SEQ A's falling sixteenths (Dm9, Bbmaj7, C) cascading in its dotted-quarter echoes; the plate
  *          opened up (R-LEVEL, DECAY)
- *   9      LOOP: the last two bars (one turn of the pattern) round; PLAY stops: the loop carries it
+ *   9      LOOP: the last bar round; SEQ A off (EDIT): the loop carries it, PLAY running on
  *   10-12  REVERSE: the cascades backwards, swelling into each note; GLIDE 1 BAR, and SCL + OCT- an octave down,
  *          a tape slowing over the bar and landing on the loop's own grid
  *   13-20  AURORA, POLY: a slow line over the bed, in the plate; LFO 2 slow (0.7 Hz) onto the looper's SPEED, +2 %
@@ -67,7 +67,13 @@ static void opening(void)                       /* bars 1-8: the cascades, the p
 static void bed(void)                           /* bars 9-12: the loop, backwards, an octave down */
 {
     if (at(128)) loop_toggle();                 /* the last bar, held */
-    if (at(130)) play(0);
+    if (at(129)) press("SEQ", PG_SEQA);         /* EDIT: SEQ A off: the loop carries it (PLAY runs on: STOP would
+                                                   park the loop) */
+    if (at(130)) track_on(0, 0);
+    if (at(131)) press("FX", PG_REACTOR);       /* back to TIME */
+    if (at(132)) press("FX", PG_DISTROY);
+    if (at(133)) press("FX", PG_SPACE);
+    if (at(134)) press("FX", PG_TIME);
     if (at(144)) reverse_toggle();
     if (at(152)) lp_glide_to(13);               /* SCL + K1: GLIDE 1 BAR */
     if (at(160)) loop_octave(0);                /* SCL + OCT-: an octave down, over the bar */

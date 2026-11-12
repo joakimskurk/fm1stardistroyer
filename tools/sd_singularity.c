@@ -13,7 +13,7 @@
  * the delay then 0.5 s. F minor (the arp, TURING's NOTES and the transposes, IN KEY as the app has them, write from it), 72 BPM,
  * POLY throughout, 33 bars:
  *   1-8    GLASS    AURORA (saved wet) on SEQ A, Fm Db Bbm Fm, the arpeggiator over it in eighths; LOOP its last bar,
- *                   PLAY stops; REVERSE, SCL + OCT- (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
+ *                   SEQ A off; REVERSE, SCL + OCT- (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
  *                   plate: the loop an octave down under the plate an octave up
  *   9-16   VOICES   VOWEL (saved wet) on SEQ A, long notes, and SEQ B under it, the frozen glass behind: TURING's NOTES
  *                   on A; LFO 2 onto the Reactor's POS (its vowels, slowly), LFO 1 onto the loop's SPEED (a tape's
@@ -194,8 +194,9 @@ static int score(void)
     if (at(BAR(3) + 11)) lp_glide_to(13);
     LP_LEVEL(79, BAR(3) + 13, BAR(4) + 12);          /* SCL + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
     if (at(BAR(5))) loop_toggle();              /* its last bar (Fm and the arp), held */
-    if (at(BAR(5) + 1)) play(0);
-    arp_off(BAR(5) + 2);
+    seq_to(1, BAR(5) + 1);                      /* EDIT: SEQ A off, PLAY running on (STOP would park the loop) */
+    if (at(BAR(5) + 2)) track_on(0, 0);
+    arp_off(BAR(5) + 3);
     fx_to(4, BAR(5) + 5);
     if (at(BAR(5) + 10)) reverse_toggle();
     if (at(BAR(6))) loop_octave(0);             /* SCL + OCT-: down over the bar, onto its grid */
@@ -211,7 +212,8 @@ static int score(void)
     if (at(BAR(8) + 10)) pattern(1, &VB, "VOICES B (F Ab Bb F)");
     if (at(BAR(8) + 11)) track_on(1, 1);
     pot(__LINE__, 1900, BAR(8) + 4, BAR(9));
-    if (at(BAR(9))) play(1);
+    seq_to(2, BAR(8) + 12);                     /* SEQ A on at the one (B comes in there by itself) */
+    if (at(BAR(9))) track_on(0, 1);
     if (at(BAR(9) + 2)) press("LFO", PG_LFO1);
     KNOB99(PG_LFO1, pat.lfo_rate[0], 42, BAR(9) + 3, BAR(9) + 9);    /* K2: RATE ~0.5 Hz (the wobble's) */
     if (at(BAR(9) + 10)) press("LFO", PG_LFO2);
@@ -235,22 +237,29 @@ static int score(void)
     if (at(BAR(14) + 4)) loop_octave(1);        /* ... and on to +12 */
     home_to(2, BAR(15));
     KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(17));         /* MOVE */
-    if (at(BAR(17))) play(0);
-    /* the wall: DISTROY, A's riff (its ORBIT with it), B's bass, ORBIT on, the arp */
-    if (at(BAR(17) + 2)) preset_user(&U03, "U03 DISTROY WET");
-    seq_to(1, BAR(17) + 4);
-    if (at(BAR(17) + 5)) { pattern(0, &RIFF, "WALL A (F, octaves) and its ORBIT"); orbit_load(&ORB); }
-    seq_to(1, BAR(17) + 7);
-    if (at(BAR(17) + 8)) pattern(1, &BASS, "WALL B (F, 16ths)");
-    seq_to(1, BAR(17) + 10);
-    if (at(BAR(17) + 11)) orbit_edit(1);
-    if (at(BAR(18) + 2)) press("ARP", PG_ARP);
-    arp_on(BAR(18) + 3, SD_AM_RND, 2, 2, 35);
-    hand(H2, 3, BAR(18) + 14, BAR(19) + 1);
+    /* the wall: A and B off (PLAY running on: the loop carries it), DISTROY, A's riff (its ORBIT with it), B's bass;
+       B and ORBIT on in bar 18 (in at A's one, bar 19), the arp; A on at the one */
+    seq_to(1, BAR(17));
+    if (at(BAR(17) + 1)) track_on(0, 0);
+    seq_to(1, BAR(17) + 2);
+    if (at(BAR(17) + 3)) track_on(1, 0);
+    home_to(1, BAR(17) + 4);
+    if (at(BAR(17) + 5)) preset_user(&U03, "U03 DISTROY WET");
+    seq_to(1, BAR(17) + 6);
+    if (at(BAR(17) + 7)) { pattern(0, &RIFF, "WALL A (F, octaves) and its ORBIT"); orbit_load(&ORB); }
+    seq_to(1, BAR(17) + 8);
+    if (at(BAR(17) + 9)) pattern(1, &BASS, "WALL B (F, 16ths)");
+    if (at(BAR(18) + 1)) track_on(1, 1);
+    seq_to(1, BAR(18) + 2);
+    if (at(BAR(18) + 3)) orbit_edit(1);
+    if (at(BAR(18) + 4)) press("ARP", PG_ARP);
+    arp_on(BAR(18) + 5, SD_AM_RND, 2, 2, 35);
+    seq_to(1, BAR(18) + 12);
     pot(__LINE__, 4092, BAR(18), BAR(19));
-    if (at(BAR(19))) play(1);
-    home_to(2, BAR(19) + 2);
-    KNOB99(PG_MACROS, pat.mac[2], 58, BAR(19) + 4, BAR(21));         /* BREAK */
+    if (at(BAR(19))) track_on(0, 1);
+    home_to(2, BAR(19) + 1);
+    hand(H2, 3, BAR(19) + 3, BAR(19) + 5);
+    KNOB99(PG_MACROS, pat.mac[2], 58, BAR(19) + 6, BAR(21));         /* BREAK */
     KNOB99(PG_MACROS, pat.mac[3], 55, BAR(21) + 1, BAR(22) + 8);     /* MACRO 4: BODY */
     lfo_to_turing(BAR(22) + 10);                /* TURING on the FOLD: 40 %, CHANGE 40 */
     TUR_DEST_BY(4, BAR(22) + 12.5, BAR(22) + 14.5);
@@ -273,18 +282,23 @@ static int score(void)
     /* FREEZE: the wall held, the rest off; the loop down two octaves; BEACON's last C */
     fx_to(3, BAR(26) + 10);
     if (at(BAR(27))) freeze_toggle();
-    if (at(BAR(27) + 1)) play(0);
-    arp_off(BAR(27) + 2);
-    fx_to(2, BAR(27) + 5);
-    if (at(BAR(27) + 7)) {                      /* EDIT: DISTROY off, its loop with it (BREAK up keeps it ringing) */
+    seq_to(1, BAR(27) + 1);                     /* A, B and ORBIT off, PLAY running on under the loop */
+    if (at(BAR(27) + 2)) track_on(0, 0);
+    seq_to(1, BAR(27) + 3);
+    if (at(BAR(27) + 4)) track_on(1, 0);
+    seq_to(1, BAR(27) + 5);
+    if (at(BAR(27) + 6)) orbit_edit(0);
+    arp_off(BAR(27) + 7);
+    fx_to(2, BAR(27) + 9);
+    if (at(BAR(27) + 11)) {                     /* EDIT: DISTROY off, its loop with it (BREAK up keeps it ringing) */
         on_page(PG_DISTROY, "DISTROY's EDIT off its page");
         act();
         pat.fx_off |= SD_FX_DISTROY;
         dirty = 1;
         say("EDIT: DISTROY OFF");
     }
-    fx_to(2, BAR(27) + 9);
-    if (at(BAR(27) + 12)) loop_octave(0);       /* SCL + OCT-: to its pitch ... */
+    fx_to(2, BAR(27) + 12);
+    if (at(BAR(27) + 14)) loop_octave(0);       /* SCL + OCT-: to its pitch ... */
     if (at(BAR(28) + 4)) loop_octave(0);        /* ... and on to -12 */
     if (at(BAR(28) + 8)) preset_user(&U04, "U04 BEACON 1 S");
     pot(__LINE__, 3400, BAR(28) + 8, BAR(29));
@@ -294,6 +308,7 @@ static int score(void)
                                                    would change under BEACON's echoes) */
     if (at(BAR(31))) key(72, 0);
     if (at(BAR(32) + 2)) loop_toggle();
+    if (at(BAR(32) + 3)) play(0);
     fx_to(3, BAR(32) + 4);
     if (at(BAR(33))) freeze_toggle();           /* the frozen wall let go */
     pot(__LINE__, 0, BAR(33), BAR(36));

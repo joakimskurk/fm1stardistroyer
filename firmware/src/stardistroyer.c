@@ -54,7 +54,9 @@
  *              its SPEED, +-12 semitones; into the reverb as the synth goes; the delay goes on); SCL + ALGORITHM:
  *              REVERSE (it plays it backwards); SCL + OCT: SPEED to the next octave down or up, over GLIDE (OFF: at
  *              once), the loop landing on its own grid. L-LEVEL above 0 arms the looper (0 at the start): it borrows
- *              the delay line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the delay then 0.5 s
+ *              the delay line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the delay then 0.5 s.
+ *              The loop follows PLAY: STOP parks it (it fades out and waits, kept: LOOP WAITS FOR PLAY), PLAY plays
+ *              it again in sync, where it stood against the master's one (LOOP BACK ON THE ONE)
  *   ENV        ENV 1 (the level): ATTACK DECAY SUS RELEASE; SCL: ENV 2 (the FM's amount)
  *   FILTER     a lowpass on each voice: CUTOFF RES ENV (ENV 3's depth) KEY; SCL: ENV 3; ALGORITHM LP12 / LP24,
  *              SCL + ALGORITHM VEL
@@ -2725,8 +2727,10 @@ static void app_main(void)
                 msg(set.sync_int ? "SYNC INT: MIDI CLOCK IGNORED" : "SYNC AUTO: A MIDI CLOCK LEADS");
                 dirty = 1;
                 t_change = fm1_ms;
-            } else
+            } else {
                 eng.seq_run = (uint8_t)!eng.seq_run;
+                if (eng.lp_on && eng.lp_lvl) msg(eng.seq_run ? "LOOP BACK ON THE ONE" : "LOOP WAITS FOR PLAY");
+            }
         }
         if (b & (1u << BTN_GLO)) {              /* the mode; MONO holds SEQ B */
             set.mode = (uint8_t)((set.mode + 1u) % SD_MODES);
