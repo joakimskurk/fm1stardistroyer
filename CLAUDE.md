@@ -1,7 +1,7 @@
 # Working on Star Distroyer
 
 - Bare-metal FM-1 firmware on Dinghy 0.5. The plans are in docs/sd/; the current step is the first one in the Sound
-  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3 and S4 are done; HW waits for the user's FM-1, so work
+  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3, S4 and L1, the lab, are done; HW waits for the user's FM-1, so work
   goes on without it, next W1, the console page; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan (the
   reference, v0.3); `firmware/src/sd_seq.h`. The plans hold the design and what each step decided, not a log: the
   history is git's.
@@ -33,7 +33,10 @@
 - The page: `web/` (`web/make_site.py` builds it from the package and `tests/run_sd.sh`'s demos; CI publishes it from
   `main`). A demo is one FM-1 played by one person (`tools/sd_play.h`'s rules); DERELICT layers four such passes.
   Its player (`web/app/`) is the firmware as WebAssembly: when the app changes, also `sh web/app/build.sh` (here in
-  Docker: an image with clang and lld) and `node tests/web_test.mjs build/web/stardistroyer.wasm`. In
+  Docker: an image with clang and lld) and `node tests/web_test.mjs build/web/stardistroyer.wasm`; the lab
+  (`web/lab/`, its fields from `web/app/web_lab.h`'s table of SdPatch) also `tests/run_host.sh tests/scripts/lab.txt`
+  and `node tests/lab_test.mjs build/web/stardistroyer.wasm build/host/stardistroyer.wav` (the same sound, sample for
+  sample; a field added to SdPatch goes in that table, or the test fails). In
   `stardistroyer.c`, `DINGHY_WEB` makes `app_main` one pass a call (`APP_STATE`); keep its loop free of `continue`
   and `return`.
 - Never install on an FM-1, push, or tag a release without asking.

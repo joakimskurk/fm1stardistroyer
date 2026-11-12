@@ -38,7 +38,8 @@
  * The pages' knobs (SCL: the second layer):
  *   NAV     XM WARP FOLD DETUNE (the Q page, 0..99); SCL: X Y WIDTH, K4 a harmonic generator on the
  *              bank (ALL ODD RND CLUST, 14 chords, CPY). ALGORITHM the bank's roles (SSSC PSSC PPPC SCSC PPCC CSSC
- *              SCCC CCCC); SCL + ALGORITHM the bank, A B C D. EDIT: COURSE
+ *              SCCC CCCC); SCL + ALGORITHM the bank, A B C D. EDIT: COURSE OFF, ON (from each note), LOOP (round on
+ *              its own, from START)
  *   MACROS     MUTATE MOVE BREAK MACRO 4; ALGORITHM MACRO 4's kind (BODY AIR DROWN); the picture: the chain, ON / OFF
  *   REACTOR      POS RES SLEW DRIVE; SCL: FREQ MODEL DIV MIX; ALGORITHM TRACK (OFF KEY HARM KEY+H), SCL + ALGO LOW
  *   DISTROY    ALGORITHM the band 1..4 (LOW LO-MID HI-MID TOP, on the hint line), then LOOP. A band: TYPE (NONE
@@ -1356,13 +1357,13 @@ static void filt_first(void)                    /* the filter's first time on: o
     pat.f_cut = 52000;
     pat.e3_a = pat.e1_a; pat.e3_d = pat.e1_d; pat.e3_s = pat.e1_s; pat.e3_r = pat.e1_r;
 }
-enum { SW_NONE, SW_OFF, SW_ON, SW_LOCK, SW_WAIT };   /* (WAIT: on, in at A's one) */
+enum { SW_NONE, SW_OFF, SW_ON, SW_LOCK, SW_WAIT, SW_LOOP };   /* (WAIT: on, in at A's one; LOOP: COURSE's, on) */
 static uint32_t sw_of(const char **what)        /* this page's switch, and its name on the screen */
 {
     uint32_t b = page_fx();
     *what = "EDIT";
     if (b) return fx_on(b) ? SW_ON : SW_OFF;
-    if (page == 0u) { *what = "EDIT COURSE"; return pat.course ? SW_ON : SW_OFF; }
+    if (page == 0u) { *what = "EDIT COURSE"; return pat.course == SD_COURSE_LOOP ? SW_LOOP : pat.course ? SW_ON : SW_OFF; }
     if (page == PAGE_ARP) return eng.arp_on ? SW_ON : SW_OFF;
     if (page == PAGE_ORB) return !orbp.on ? SW_OFF : eng.seq_run && !eng.orb_live ? SW_WAIT : SW_ON;
     if (page == PAGE_SEQ)
@@ -1387,7 +1388,11 @@ static uint32_t edit_toggle(void)               /* EDIT: what this page shows, o
         }
         return 1;
     }
-    if (page == 0u) { pat.course = (uint8_t)!pat.course; return 1; }
+    if (page == 0u) {                           /* COURSE: OFF, ON (from each note), LOOP (round on its own), OFF */
+        pat.course = (uint8_t)((pat.course + 1u) % 3u);
+        msg(pat.course == SD_COURSE_LOOP ? "COURSE: ROUND AND ROUND" : pat.course ? "COURSE: FROM EACH NOTE" : "COURSE OFF");
+        return 1;
+    }
     if (page == 4u && dmod == DMOD_TUR) {       /* TURING: on the first time to XM, 30 %, CHANGE 25 */
         pat.tur_set ^= 0x80u;
         if (SD_TUR_ON(&pat) && !pat.tur_dst) {
@@ -1440,7 +1445,8 @@ static void draw_nav(void)
     uint32_t cur, cnt = nav_of(&n, &cur), k, sw = sw_of(&what);
     const char *t;
     if (n == NAV_SEQ && shift()) { what = "MASTER"; sw = SW_ON; }   /* SCL: what SEQ chooses there, the master */
-    t = n == NAV_SEQ && shift() ? (set.master ? "B" : "A") : sw == SW_ON || sw == SW_WAIT ? "ON" : sw == SW_OFF ? "OFF" : "MONO";
+    t = n == NAV_SEQ && shift() ? (set.master ? "B" : "A") : sw == SW_ON || sw == SW_WAIT ? "ON" : sw == SW_LOOP ? "LOOP" :
+        sw == SW_OFF ? "OFF" : "MONO";
     int32_t x = 6, gap = 10, tw = 0, bw = text_w(&FONT_S, t) + 6, bx = 238 - bw, lx = bx - 5 - text_w(&FONT_S, what);
     for (k = 0; k < cnt; k++) tw += text_w(&FONT_S, n[k]);
     if (sw && x + tw + 10 * (int32_t)cnt - 4 > lx) gap = 7;   /* (REACTOR DISTROY SPACE: closer, so EDIT fits) */
@@ -1458,7 +1464,7 @@ static void draw_nav(void)
     }
     if (sw) {                                   /* the switch: "EDIT" (when it fits) and ON / OFF / MONO */
         uint16_t c = sw == SW_OFF ? C_ICE_D : C_RED;
-        if (sw == SW_ON || (sw == SW_WAIT && (fm1_ms / 200u) & 1u)) {   /* (WAIT: it blinks till A's one) */
+        if (sw == SW_ON || sw == SW_LOOP || (sw == SW_WAIT && (fm1_ms / 200u) & 1u)) {   /* (WAIT: it blinks till A's one) */
             cv_rect(bx, 0, bw, 17, C_RED);
             cv_text(bx + 3, 0, &FONT_S, t, C_BG);
         } else {
@@ -3225,7 +3231,7 @@ static void app_main(void)
             fm1_led_key(BTN_LFO, page == 4u);
             fm1_led_key(BTN_ARP, page == PAGE_ARP);
             fm1_led_key(BTN_SEQ, seq_page() || page == PAGE_ORB);
-            fm1_led_key(BTN_EDIT, browse_at || sw == SW_WAIT ? (fm1_ms / 200u) & 1u : sw == SW_ON);   /* EDIT lit: what this page shows
+            fm1_led_key(BTN_EDIT, browse_at || sw == SW_WAIT ? (fm1_ms / 200u) & 1u : sw == SW_ON || sw == SW_LOOP);   /* EDIT lit: what this page shows
                                                    is on (the list open: it blinks, it loads) */
             fm1_led_key(BTN_REC, seq_rec);
         }
@@ -3262,3 +3268,7 @@ static void app_main(void)
     }
 #endif
 }
+
+#ifdef DINGHY_WEB
+#include "../../web/app/web_lab.h"              /* the lab (web/lab/): the patch opened up to the page */
+#endif

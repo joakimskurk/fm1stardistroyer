@@ -205,6 +205,11 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   A stolen voice restarts its envelopes from where they are, so it does not click. A mode change releases every
   voice and switches once all are quiet. The sequencer's notes go through the same allocator. Built in V3; POLY8 is
   not built.
+- **COURSE** (MONO; EDIT on NAV: OFF, ON, LOOP): the nav travels its four cells, a time between each two. ON: from
+  each note, once round, held on the fourth (VOYAGE's from the gate). LOOP (the user: VOYAGE stepped as if sampled
+  and held, every note taking it back to A): round and round on its own, the fourth back to the first as long as
+  the first leg, never from a note; the master's START takes it to the first cell, in time with the tracks. The
+  byte that held ON holds LOOP (2): the patch's size, and every patch saved, as they were. `test_course`.
 - **Nav mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
   control rate. Gain law tuned in V3 (the spec's "energy hole").
 - **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, spread round the middle of what sounds: a
@@ -486,6 +491,15 @@ core 0:  dry ──────────────────────�
   the sequencer as it was; looped while stopped, from its start on the one. Silent, it is there at once and fades
   in; playing, it crossfades there (~12 ms), or, in its place already, nudges. A loop carries alone with the tracks
   OFF (EDIT) or cleared (CLR), PLAY running on. `test_looper_transport`.
+- *The lock on the grid* (the user: "it can go to the nearest line, with some weighting toward what makes most sense
+  musically"): synced, while the tracks play, LOOP locks on a line (`sd_lp_snap`). The lines are the loop's LENGTH
+  under a bar, else the bars, from the master's one (the grid's clock time); with a shorter LENGTH the half bars and
+  the bars among them too. The press means the nearest, weighted: a line passed counts 2/3 of one ahead (a press
+  comes a little late, and one ahead holds the loop back), a bar line half and a half bar 3/4 of an ordinary one, so
+  the one draws it (a bar long: back up to 60 % into it, on after). A line passed: at once, its end on the line, the
+  head on as far at its speed and its grid with it, so what plays goes on as it would have, and its seam and its
+  grid (an octave, REVERSE, START) are on the line; if its memory holds that much more, else where pressed. A line
+  ahead: it records on and locks there. Free, or stopped: where it is pressed, as before. `test_looper_lock`.
 - *Where:* on the second core in the plate's job (its memory's pointers constants from the caller); on one core
   with the room, here. The delay is always on core 0, so it never needs a fallback.
 - *Its memory* (borrowed from the delay: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay
@@ -542,6 +556,7 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **S2** | SPACE's plate in place of the room (§5.5.1), FREEZE, SHIMMER | Long, dense tails with no ringing, no click when SIZE moves; FREEZE holds | measured +7.5 points: the gate 48.7 % (41.2 with the room), everything at once 56.3 % (49.1) |
 | **S3** | SPACE's plate on the second core, the room its fallback (§5.5.2) | The plate as in S2, bit for bit; a second core that misreads: the room, with no dropout | measured: the gate 42.7 % of the first core (50.1 with the plate there, 42.2 with the room), everything at once 50.7 % (58.2, 50.2); the plate 7.4 % of the second (7.6 at most) |
 | **S4** | TIME: the delay on its own page, and a looper on the second core (and one, with the room) (§5.5.3) | The delay as before; the looper holds, its speed an octave each way, no click round or let go; the delay goes on while it loops | measured: the gate 43.0 % of the first core (S3: 42.7), everything at once 50.8 % (50.7); the plate and the looper 11.1 % of the second (11.8 at most); one core, the room and the looper: 48.2 % |
+| **L1** | THE LAB: the page's player with every field of the patch on one screen, to fine-tune the patches (below) | The sound the firmware's, sample for sample against `tests/host.c`; the C it exports compiles to the same bytes | Nothing on the chip: the field table is in the browser's build only |
 | **HW** | First install on an FM-1 | Same renders through the real output | CPU nn % on the chip within the emu's estimate |
 | **W1** | CONSOLE: a page of the site that connects to an FM-1 and shows everything at once, a ship's console (below) | Nothing in the sound changes; what it shows follows the FM-1 within ~50 ms | Its stream < 1 % of the chip, in the main loop, never in the audio's way |
 
@@ -689,6 +704,29 @@ Firmware Hub, or OCT- held at power-on for the USB rescue.
    hub, both ending with Star Distroyer running; from Star Distroyer, install another firmware (it must start that
    package's loader); unplug once during Writing, plug in, install again: it must go on. `fm1_install.py --info`
    (and the hub) must see the FM-1 as MIDI with its identity under a port name the hub knows.
+
+**L1, the lab** (`web/lab/`, for this computer only, not on the site: `tools/lab.sh` makes it one HTML file,
+`web/make_site.py --lab-html`, everything inlined, to open from the disk): Star Distroyer as one
+window, as a software instrument would be: every section of the patch at once in the order the sound goes (`lab.js`
+lays it out, `ui.js` draws its controls and pictures), the keys along the bottom, the FM-1's panel behind a button.
+- *Its fields:* `web/app/web_lab.h`, in the browser's build only (`DINGHY_WEB`), lists SdPatch's fields by `offsetof`:
+  each one's type, range, how it shows, group and C path. The page reads that table, so a field added to SdPatch goes
+  in it too (the test finds a byte no field holds).
+- *Both ways:* a field set on the page writes the firmware's patch and applies it as a knob does (`sd_engine_patch`);
+  a knob on the panel comes back to the page as the patch, on the next frame that it changed.
+- *Beside the patch:* the sequencer is SEQ's own two patterns (`seqp`, `seq_other`), ORBIT and the settings
+  (`web_seq*`, `web_orb*`, `web_lset*`, `web_lab.h`); LENGTH, a cut, EVEN, a segment's length, RND and CLR run
+  `sd_seq.h`'s functions, so the window edits as SEQ's keys do. The looper's and FREEZE's settings are the player's
+  there too, and the window draws what plays: the transport, TURING's register, the looper's loop and head
+  (`web_play`, `web_tur`, `web_lp`).
+- *Decided:* the window over the FM-1's pages (the user's choice): all of it at once, in the project's own look,
+  the panel behind its button. What moves is the patch's bytes (the library; the JSON, its bytes and its fields by
+  name; the C, the non-zero fields as designated initialisers); A is the patch as loaded; ● REC keeps the firmware's
+  16-bit frames before the browser resamples them. The packed fields (TURING's, s_mode's, lfo_mode's, fx_off's bits)
+  are separate controls on the window, each writing its bits.
+- *Gate:* `tests/lab_test.mjs` (CI runs it): the script `tests/scripts/lab.txt` the same sample for sample on both
+  builds, the table's cover, a field's effect, every factory patch and a random one through the C, the worklet's way
+  back and its recording.
 
 **W1, planned: a page of the site that connects to the FM-1 and works as a big screen with an overview of
 everything, a spaceship's console in the page's design and its player's.** The next step while HW waits for the

@@ -307,7 +307,7 @@ typedef struct {
     uint8_t e1_a, e1_d, e1_s, e1_r;             /* ENV1, the level: times 0..127 = 1 ms .. 10 s, sustain 0..127 */
     uint8_t e2_a, e2_d, e2_s, e2_r;             /* ENV2, the FM amount */
     uint16_t x, y, width;                       /* the nav (0 = left / bottom), the stereo width; 0..65535 */
-    uint8_t course;                                /* COURSE on the gate: 0 off, 1 on */
+    uint8_t course;                                /* COURSE: 0 off, 1 from each note (SD_COURSE_*) */
     uint8_t fx_off;                             /* SD_FX_*: engines switched off (EDIT), their settings
                                                    kept; 0 in every factory patch */
     uint16_t cell_x[4], cell_y[4];              /* COURSE's four cells */
@@ -514,6 +514,7 @@ typedef struct {                                /* the looper's head over a tick
     int8_t levd;                                /* and a sample: +64 in (12 ms), -16 out (46 ms), 0 */
     uint8_t on, bl, rst;                        /* it plays (LOOP, or its fade); the crossfade on; LOOP from here: its
                                                    end where it records now */
+    uint32_t back;                              /* (with rst) its end that many samples before that: a line passed */
 } SdLpTick;
 
 typedef struct {                                /* the plate's settings for a chunk (a tick's, or the part of it in one
@@ -611,6 +612,10 @@ typedef struct {                                /* SPACE's state */
        parked by STOP (silent, its memory kept), and its place against the master's one known (LOOP while running) */
     uint32_t pT, pT0;
     uint8_t prun, ppark, psync;
+    /* LOOP synced while the tracks play: its lock on the grid (sd_lp_snap): waiting for a line ahead, the clock time
+       still to go (samples x 256); the samples back to a line passed, for the job */
+    uint8_t pqw;
+    uint32_t pq, pback;
 } SdSpace;
 
 typedef struct {
@@ -1035,7 +1040,12 @@ static void sd_engine_note(SdEngine *e, uint32_t note, uint32_t vel)
     e->q_w = w + 1u;                            /* published last */
 }
 
-static void sd_course_start(SdEngine *e)           /* COURSE from its first cell (on the gate, MONO only) */
+/* COURSE (MONO only): ON from each note, once round, A -> B -> C -> D held at D; LOOP round and round on its own,
+   A B C D and back to A (that leg as long as A -> B), never from a note: from the master's START (in time with the
+   tracks), else from where it is */
+#define SD_COURSE_ON 1u
+#define SD_COURSE_LOOP 2u
+static void sd_course_start(SdEngine *e)           /* COURSE from its first cell */
 {
     uint32_t ms = e->patch.cell_ms[0] ? e->patch.cell_ms[0] : 1u;
     e->course_seg = 0;
@@ -1081,7 +1091,8 @@ static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t s
     v->env1.stage = SD_ENV_ATTACK;              /* from where the level is: a retrigger never clicks */
     v->env2.stage = SD_ENV_ATTACK;
     v->env3.stage = SD_ENV_ATTACK;
-    if (e->mode_on == SD_MODE_MONO && e->patch.course) sd_course_start(e);
+    if (e->mode_on == SD_MODE_MONO && e->patch.course == SD_COURSE_ON) sd_course_start(e);   /* (LOOP: not from a
+                                                   note) */
     return 1;
 }
 static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's notes only */
@@ -1561,6 +1572,33 @@ static void sd_lp_sync(SdSpace *s)
     }
     s->ppark = 0;
 }
+/* LOOP synced while the tracks play: where it locks, as a player means it. The lines are the loop's LENGTH under a
+ * bar, else the bars, from the master's one (the grid's clock time: a MIDI clock's too); the bars and the half bars
+ * among them too when the LENGTH is shorter. The press means the line nearest it, weighted: a line passed counts 2/3
+ * of one ahead (a press comes a little late, and one ahead holds the loop back while it waits), a bar line half of
+ * an ordinary one and a half bar 3/4, so the one draws it. The looper records all the while, so a line passed is
+ * there to loop from at once: its end on the line, the head on as far as the line is back. Returns the clock time
+ * back to the line (negative), on to it (positive), 0 on it. Free, or stopped: 0 (it locks where it is pressed) */
+static int32_t sd_lp_snap(const SdEngine *e, uint32_t llen)
+{
+    uint32_t u = e->seq_len_q8, bar = 16u * u, g = llen * 2u, t = e->grid_q8, k, best = 0xFFFFFFFFu;
+    int32_t pick = 0;
+    if (!u || g < 256u || !e->seq_run || !(e->patch.s_mode & SD_SP_SYNC)) return 0;
+    if (g > bar) g = bar;
+    for (k = 0; k < 3u; k++) {                  /* the loop's lines, the half bars, the bars */
+        uint32_t st = k == 0u ? g : k == 1u ? bar / 2u : bar, w = k == 0u ? 4u : k == 1u ? 3u : 2u, b, a, sb, sa;
+        if (k && st < g) continue;              /* (a half bar is a line of a loop as long) */
+        b = t % st;                             /* since the line before */
+        a = st - b;                             /* to the line after */
+        if (b == 0u) return 0;
+        sb = (b >> 8) * w * 2u;                 /* (samples: under 2^22 at 40 BPM, x 8 fits) */
+        sa = (a >> 8) * w * 3u;
+        if (sb < best) { best = sb; pick = -(int32_t)b; }
+        if (sa < best) { best = sa; pick = (int32_t)a; }
+    }
+    return pick;
+}
+
 static void sd_lp_plan(SdEngine *e, SdSpace *s)
 {
     int32_t sp = e->lp_speed + e->lp_mtq, to, adv, bend = 0, A, gi;   /* (TURING's semitones on the speed set) */
@@ -1574,6 +1612,18 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
     s->prun = (uint8_t)run;
     if (start && s->pon) sd_lp_sync(s);
     on = s->loop && !s->ppark;
+    if (!on || s->pon || !run) s->pqw = 0;      /* (a lock waiting: LOOP off, or STOP, takes it back) */
+    s->pback = 0;
+    if (on && !s->pon) {                        /* LOOP: on the grid, synced while the tracks play (sd_lp_snap) */
+        if (s->pqw) {                           /* waiting for its line: there in this sub-block, it locks */
+            if (s->pq > e->clk_adv) { s->pq -= e->clk_adv; on = 0; }
+            else s->pqw = 0;
+        } else {
+            int32_t d = sd_lp_snap(e, (uint32_t)s->llen);
+            if (d > (int32_t)e->clk_adv) { s->pq = (uint32_t)d; s->pqw = 1; on = 0; }
+            else if (d < 0) s->pback = (uint32_t)(-d) / 512u;   /* (clock time to half-rate samples) */
+        }
+    }
     sp = sp > 3072 ? 3072 : sp < -3072 ? -3072 : sp;
     to = (int32_t)sd_semis_mul(sp);
     if (s->pr < 32768 || s->pr > 131072) { s->pr = to; s->psp = (int16_t)sp; }   /* (the first tick) */
@@ -1584,6 +1634,18 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
         s->pG[0] = s->pG[1] = s->pG[2] = 0; s->panc[0] = s->panc[1] = 0;
         s->pdir = s->lrev; s->ppend = 0;
         s->pT0 = tnow; s->psync = (uint8_t)run;  /* (its place against the master's one, for the next START) */
+        if (s->pback) {                         /* its end on a line passed: the head on as far, at its speed, as if
+                                                   LOOP had come there (its grid with it); if its memory holds that */
+            uint32_t bk = s->pback, k3;
+            if (bk * 256u + s->pln > lm) bk = 0;
+            s->pback = bk;
+            if (bk) {
+                s->pk = (bk * (uint32_t)(s->pr >> 4) >> 4) % s->pln;   /* (samples x the rate's way a sample x 256) */
+                if (s->pdir) s->pk = (s->pln - s->pk) % s->pln;   /* (REVERSE set before: as far back from its end) */
+                for (k3 = 0; k3 < 3u; k3++) s->pG[k3] = (bk * (128u << k3)) % s->pln;
+                s->pT0 = tnow > bk ? tnow - bk : 0u;
+            }
+        }
         if (s->pgn < s->pgN) sd_lp_glide_to(s, s->pgt, s->pgN - s->pgn);   /* (a glide on its way: bent now) */
     }
     if (sp != s->psp) {                         /* a new speed */
@@ -1642,7 +1704,7 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
     s->lt.x0 = s->px; s->lt.xd = s->pbl ? s->pxd : 0;
     s->lt.levd = (int8_t)(on ? (s->plev < 16384 ? 64 : 0) : s->pon ? -16 : 0);
     s->lt.lev0 = s->plev;
-    s->lt.on = s->pon; s->lt.bl = s->pbl; s->lt.rst = s->prst;
+    s->lt.on = s->pon; s->lt.bl = s->pbl; s->lt.rst = s->prst; s->lt.back = s->prst ? s->pback : 0u;
     s->lti = 0;
     if (!s->pon) return;
     /* on to the next tick */
@@ -2340,18 +2402,29 @@ static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q1
         for (b = 0; b < SD_BANKS; b++) w[b] = SD_POLY_GAIN;
         return;
     }
+    if (e->mode_on == SD_MODE_MONO && e->patch.course == SD_COURSE_LOOP && (e->seq_started || !e->course_run))
+        sd_course_start(e);                     /* LOOP: from the master's START, or the first time it runs */
     if (e->course_run && e->patch.course && e->mode_on == SD_MODE_MONO) {   /* COURSE: between two cells */
         const SdPatch *p = &e->patch;
-        uint32_t a = e->course_seg, f = e->course_ph >> 5;             /* Q15 */
-        x = (uint32_t)((int32_t)p->cell_x[a] + (((int32_t)p->cell_x[a + 1u] - (int32_t)p->cell_x[a]) * (int32_t)f >> 15));
-        y = (uint32_t)((int32_t)p->cell_y[a] + (((int32_t)p->cell_y[a + 1u] - (int32_t)p->cell_y[a]) * (int32_t)f >> 15));
+        uint32_t a = e->course_seg & 3u, nx = (a + 1u) & 3u, f = e->course_ph >> 5;   /* Q15 */
+        int loop = p->course == SD_COURSE_LOOP;
+        if (loop && !e->course_step) {          /* (ON held at D, now LOOP: on round from there) */
+            e->course_seg = 2; e->course_ph = (1u << 20) - 1u; e->course_step = 1;
+        }
+        x = (uint32_t)((int32_t)p->cell_x[a] + (((int32_t)p->cell_x[nx] - (int32_t)p->cell_x[a]) * (int32_t)f >> 15));
+        y = (uint32_t)((int32_t)p->cell_y[a] + (((int32_t)p->cell_y[nx] - (int32_t)p->cell_y[a]) * (int32_t)f >> 15));
         e->course_ph += e->course_step;
-        if (e->course_ph >= 1u << 20) {            /* the next cell: hold the last one */
-            if (e->course_seg < 2u) {
+        if (e->course_ph >= 1u << 20) {            /* the next cell: ON holds the last one, LOOP goes on round */
+            if (e->course_seg < 2u || (loop && e->course_seg == 2u)) {
                 uint32_t ms;
                 e->course_seg++;
                 e->course_ph = 0;
-                ms = p->cell_ms[e->course_seg] ? p->cell_ms[e->course_seg] : 1u;
+                ms = p->cell_ms[e->course_seg < 3u ? e->course_seg : 0u];
+                e->course_step = 335544320u / ((ms ? ms : 1u) * 441u);
+            } else if (loop) {                  /* D -> A done: round again */
+                uint32_t ms = p->cell_ms[0] ? p->cell_ms[0] : 1u;
+                e->course_seg = 0;
+                e->course_ph = 0;
                 e->course_step = 335544320u / (ms * 441u);
             } else {
                 e->course_ph = (1u << 20) - 1u;
@@ -3882,7 +3955,8 @@ SD_INLINE void sd_lp_step(SdSpace *s, const SdLpMem *L, int32_t xm, const SdLpTi
 {
     uint32_t nb = L->n, w = s->lw < nb ? s->lw : 0u, lm = (nb - SD_LP_XF - 32u) * 256u;
     *yl = *yr = 0;
-    if (rst) s->lbase = w;                      /* LOOP: its last LENGTH, ending here */
+    if (rst) s->lbase = t->back ? (w + nb - t->back % nb) % nb : w;   /* LOOP: its last LENGTH, ending here (or on
+                                                   the line it passed: sd_lp_snap) */
     if (t->on) {
         uint32_t ln = t->ln < 512u ? 512u : t->ln > lm ? lm : t->ln, base = s->lbase < nb ? s->lbase : 0u;
         uint32_t k = sd_lp_at(t->k0, t->adv, i, ln);

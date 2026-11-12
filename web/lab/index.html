@@ -1,0 +1,373 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only
+     Star Distroyer's lab: the instrument as one window, every section of the patch on it at once, to fine-tune the
+     patches. Its sound is the firmware's, bit for bit: the page's player (web/app/) runs it, its FM-1 panel behind the
+     FM-1 button (tests/lab_test.mjs). For this computer only: web/make_site.py --lab-html makes it one file
+     (tools/lab.sh). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Distroyer Lab</title>
+<meta name="description" content="Star Distroyer's lab: the instrument as one window, every parameter of a patch at once, to fine-tune the patches. The sound is the FM-1 firmware's, bit for bit.">
+<meta name="theme-color" content="#06080c">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../screens/icon.png">
+<link rel="stylesheet" href="../app/player.css">
+<style>
+  :root { --bg: #06080c; --panel: #0b1017; --panel2: #0f1620; --line: #18212a; --line2: #2a3642; --fg: #d3e6ef;
+          --ice: #cde6f0; --dim: #8fa5b2; --mute: #546874; --red: #eb1c1c; --red2: #ff4a3d; --good: #6ee7a0;
+          --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+          --title: "Orbitron", var(--mono); }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; color: var(--fg); background: var(--bg); font: 12px/1.35 var(--mono); }
+  button, select, input { font: inherit; color: var(--ice); }
+  [hidden] { display: none !important; }
+
+  /* the bar: the patch, A/B, undo, the library, the files, the recording, MIDI, the FM-1's panel, POWER */
+  .top { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+         padding: 8px 16px; background: rgba(6, 8, 12, .97); border-bottom: 1px solid var(--line2); }
+  .top .logo { height: 14px; width: auto; }
+  .top .t { font: 800 12px/1 var(--title); letter-spacing: .22em; color: var(--red); margin: 0 6px 0 2px; }
+  .top .sep { width: 1px; height: 22px; background: var(--line2); margin: 0 2px; }
+  .top button, .top select, .top input { height: 28px; padding: 0 7px; border: 1px solid var(--line2); background: var(--panel);
+         cursor: pointer; font: 700 9.5px/1 var(--title); letter-spacing: .06em; }
+  .top select { font: 12px/1 var(--mono); letter-spacing: 0; max-width: 150px; }
+  .top input[type=text] { cursor: text; width: 110px; font: 12px/1 var(--mono); letter-spacing: 0; text-transform: uppercase; }
+  .top button:hover:not(:disabled), .top select:hover:not(:disabled) { border-color: var(--ice); }
+  .top button.on { background: var(--red); border-color: var(--red); color: #fff; }
+  .top button:disabled, .top select:disabled { opacity: .35; cursor: default; }
+  .top #pw::before { content: "● "; color: var(--mute); }
+  body.live .top #pw::before { color: var(--red); text-shadow: 0 0 6px var(--red); }
+  .top #pw { margin-left: auto; }
+
+  /* the window: sections in the order the sound goes, on a grid of twelve */
+  .rack { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; padding: 12px 16px 16px;
+          grid-auto-flow: row dense; align-items: stretch; }
+  .mod { grid-column: span 12; position: relative; min-width: 0; border: 1px solid #1d2731;
+         background: linear-gradient(180deg, #0d131a 0%, #0a0e13 100%);
+         box-shadow: inset 0 1px 0 rgba(205, 230, 240, .04);
+         clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)); }
+  .mod > header { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-bottom: 1px solid var(--line);
+                  background: linear-gradient(90deg, rgba(235, 28, 28, .07), transparent 40%); }
+  .mod > header .sl { font: italic 900 11px/1 var(--title); color: var(--red); letter-spacing: -.05em; }
+  .mod > header h2 { margin: 0; font: 700 10.5px/1 var(--title); letter-spacing: .2em; color: var(--ice); white-space: nowrap; }
+  .mod > header .n { margin-left: auto; color: var(--red2); font-size: 10px; }
+  .mod .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; }
+  .row.big { justify-content: space-around; }
+  .row.gr { align-items: stretch; flex-wrap: nowrap; }
+  .row.gr > svg { flex: 1; min-width: 0; }
+  .row.gr > .col { display: flex; flex-direction: column; gap: 10px; justify-content: space-between; flex: 0 0 auto; }
+  .lbl { align-self: center; font: 700 9px/1 var(--title); letter-spacing: .16em; color: var(--mute); }
+  .oid { font: 700 9px/1 var(--title); letter-spacing: .14em; color: var(--red); font-style: normal; }
+  body.ab-a .rack { opacity: .55; pointer-events: none; filter: saturate(.5); }
+
+  /* a knob: its arc, its cap, its name and its value */
+  .kn { display: inline-grid; justify-items: center; gap: 2px; width: var(--kw); cursor: ns-resize; touch-action: none;
+          outline: none; --kd: 38px; --kw: 58px; }
+  .kn.l { --kd: 50px; --kw: 70px; } .kn.s { --kd: 30px; --kw: 52px; } .kn.xs { --kd: 24px; --kw: 44px; }
+  .kn svg { width: var(--kd); height: var(--kd); overflow: visible; }
+  .kn .tr { fill: none; stroke: #1c2731; stroke-width: 3.4; stroke-linecap: round; }
+  .kn .va { fill: none; stroke: var(--ice); stroke-width: 3.4; stroke-linecap: round; }
+  .kn .cap { fill: #111922; stroke: #2a3642; stroke-width: 1; }
+  .kn .kp { stroke: var(--ice); stroke-width: 2.2; stroke-linecap: round; }
+  .kn b { font: 600 8.5px/1.1 var(--title); letter-spacing: .1em; color: var(--dim); white-space: nowrap; text-align: center; }
+  .kn output { font: 10.5px/1.1 var(--mono); color: var(--ice); white-space: nowrap; min-height: 1.1em; }
+  .kn:hover .cap, .kn:focus-visible .cap { stroke: var(--ice); }
+  .kn.drag .va { stroke: #fff; } .kn.drag .pt { stroke: var(--red2); }
+  .kn.ch b { color: #fff; } .kn.ch b::after { content: ""; display: inline-block; width: 4px; height: 4px; margin: 0 0 1px 3px;
+                                                   background: var(--red); border-radius: 50%; vertical-align: middle; }
+  .kn.ch .va { stroke: #ffe1dc; }
+
+  /* switches, toggles, lists, steppers */
+  .seg { display: inline-flex; flex-direction: column; gap: 4px; }
+  .seg > b, .pick > b, .stp > b { font: 600 8.5px/1 var(--title); letter-spacing: .1em; color: var(--dim); }
+  .seg .opts { display: inline-flex; flex-wrap: nowrap; }
+  .seg.wrap .opts { flex-wrap: wrap; }
+  .seg button, .tog { height: 22px; padding: 0 7px; border: 1px solid var(--line2); margin: 0 -1px 0 0; background: var(--panel2);
+                      color: var(--dim); font: 700 9px/1 var(--title); letter-spacing: .08em; cursor: pointer; }
+  .seg button:hover, .tog:hover { color: var(--ice); }
+  .seg button.on { background: rgba(235, 28, 28, .2); border-color: var(--red); color: #fff; position: relative; z-index: 1; }
+  .seg.ch > b::after, .pick.ch > b::after, .stp.ch > b::after { content: " ●"; color: var(--red); }
+  .tog { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  .tog i { width: 7px; height: 7px; border-radius: 50%; background: #1c2731; box-shadow: inset 0 0 0 1px #33414e; }
+  .tog.on { color: var(--ice); border-color: #3a4a58; }
+  .tog.on i { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .tog.ch { border-color: rgba(235, 28, 28, .6); }
+  .tog.pwr { height: 18px; padding: 0 6px; font-size: 8.5px; }
+  .pick { display: inline-flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .pick select { height: 22px; max-width: 100%; padding: 0 4px; border: 1px solid var(--line2); background: var(--panel2); font: 11px/1 var(--mono); }
+  .pick.ch select { border-color: rgba(235, 28, 28, .6); }
+  .stp { display: inline-flex; flex-direction: column; gap: 4px; }
+  .stp .box { display: inline-flex; align-items: stretch; height: 24px; border: 1px solid var(--line2); background: var(--bg); }
+  .stp button { width: 18px; padding: 0; border: 0; background: var(--panel2); color: var(--dim); cursor: pointer; font-size: 10px; }
+  .stp button:hover { color: var(--ice); }
+  .stp output { min-width: 40px; padding: 0 4px; display: grid; place-items: center; font: 13px/1 var(--mono); color: var(--ice);
+                cursor: ns-resize; touch-action: none; user-select: none; }
+  .stp.ch .box { border-color: rgba(235, 28, 28, .6); }
+
+  /* tabs: the banks, the Reactor's stages */
+  .tabbar { display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--line2); }
+  .tabbar button { position: relative; height: 24px; padding: 0 12px; border: 1px solid transparent; border-bottom: 0;
+                   background: transparent; color: var(--dim); font: 700 9.5px/1 var(--title); letter-spacing: .14em; cursor: pointer; }
+  .tabbar button.on { color: var(--ice); background: var(--panel2); border-color: var(--line2); margin-bottom: -1px; }
+  .tabbar button.ch::after { content: ""; position: absolute; top: 4px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--red); }
+  .tabbar button i.w { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--red); opacity: .8; }
+  .tabbar .lbl { margin-right: 8px; }
+  .panes { padding-top: 10px; }
+
+  /* the oscillators: four strips a bank */
+  .oscs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .osc { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 4px 6px; background: rgba(6, 9, 13, .5);
+         border: 1px solid var(--line); }
+  .osc .role .opts button { padding: 0 6px; }
+  .osc .row { flex-wrap: nowrap; gap: 4px; justify-content: center; } .osc .row.oh { align-items: center; gap: 8px; }
+  .m-env1 .row, .m-env2 .row, .m-env3 .row, .m-space .row { gap: 6px 4px; justify-content: space-between; flex-wrap: nowrap; }
+  .m-env1 .kn.s, .m-env2 .kn.s, .m-env3 .kn.s { --kw: 46px; }
+  .m-nav .row { justify-content: space-between; } .m-nav .row.cells { flex-wrap: nowrap; gap: 2px; }
+  .bank .row.ofs { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+
+  /* the pictures */
+  .navpad { width: 100%; max-width: 170px; align-self: center; touch-action: none; cursor: crosshair; }
+  .navpad .grid { stroke: #16202a; stroke-width: 1; fill: none; }
+  .navpad .edge { fill: #070a0e; stroke: #3a4a58; stroke-width: 1.2; }
+  .navpad .mix { fill: rgba(235, 28, 28, .16); stroke: var(--red); stroke-width: 1.4; stroke-linejoin: round; }
+  .navpad .corner { fill: var(--ice); font: 700 11px var(--title); }
+  .navpad .dot rect { fill: var(--ice); } .navpad .dot .halo { fill: rgba(205, 230, 240, .14); }
+  .navpad .route { fill: none; stroke: rgba(205, 230, 240, .35); stroke-dasharray: 3 3; }
+  .navpad .cell circle { fill: #0b1017; stroke: var(--ice); stroke-width: 1; cursor: grab; }
+  .navpad .cell text { fill: var(--ice); font: 700 8px var(--mono); pointer-events: none; }
+  .graph { width: 100%; height: 64px; background: #070a0e; border: 1px solid var(--line); display: block; }
+  .graph.env { height: 56px; } .graph.dist { height: 96px; } .graph.react { height: auto; aspect-ratio: 420 / 116; } .graph.lfo { height: 40px; }
+  .graph text { font-size: 8px; }
+  .graph .grid { stroke: #131b23; fill: none; } .graph .base { stroke: #1c2731; fill: none; }
+  .graph .line { fill: none; stroke: var(--ice); stroke-width: 1.5; stroke-linejoin: round; }
+  .graph .fill { fill: rgba(205, 230, 240, .07); stroke: none; }
+  .graph.off .line { stroke: var(--mute); stroke-dasharray: 4 3; }
+  .graph .ax { fill: var(--mute); font: 8px var(--mono); }
+  .dist .band { stroke-width: 1; } .dist .b0 { fill: rgba(235, 28, 28, .42); stroke: var(--red); } .dist .b1 { fill: rgba(235, 28, 28, .3); stroke: var(--red); }
+  .dist .b2 { fill: rgba(235, 28, 28, .2); stroke: var(--red); } .dist .b3 { fill: rgba(205, 230, 240, .16); stroke: var(--ice); }
+  .dist .band.none { fill: rgba(84, 104, 116, .12); stroke: var(--mute); stroke-dasharray: 3 2; }
+  .dist .bt { fill: var(--ice); font: 700 8px var(--title); letter-spacing: .1em; }
+  .dist .split line { stroke: var(--ice); stroke-width: 1.2; stroke-dasharray: 2 2; }
+  .dist .split .hit { fill: transparent; cursor: ew-resize; } .dist .split text { fill: var(--ice); font: 700 8px var(--mono); }
+  .dist { touch-action: none; }
+  .react .fr { fill: #080c11; stroke: #1c2731; stroke-width: 1; } .react .cells { fill: #0f171f; }
+  .react .blk { fill: #8fa5b2; } .react .blk.zero { fill: #22303c; }
+  .react .dom .fr { stroke: var(--red); stroke-width: 1.6; } .react .dom .blk:not(.zero) { fill: var(--ice); }
+  .react .sec .fr { stroke: #7a1515; stroke-width: 1.4; }
+  .react text { fill: var(--mute); font: 700 9px var(--mono); } .react .sel text { fill: var(--ice); }
+  .react .stage { cursor: pointer; } .react .pos { fill: var(--red); }
+  .row.gr > svg.react { align-self: flex-start; }
+  
+
+  /* DISTROY's bands, the Reactor's stages, the LFOs, the matrix */
+  .bands { display: flex; flex-direction: column; gap: 6px; }
+  .bandc { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border: 1px solid var(--line); background: rgba(6, 9, 13, .5);
+           border-left: 2px solid var(--red); }
+  .bandc.b3 { border-left-color: var(--ice); }
+  .bandc .oid { width: 52px; flex: 0 0 auto; } .bandc .pick { width: 74px; flex: 0 0 auto; margin-right: 6px; }
+  .bandc .kn { flex: 1 1 0; }
+  .stg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .fpair .kn { --kw: 64px; } .fpair .kn output { font-size: 9.5px; }
+  .fpair { display: flex; justify-content: center; gap: 2px; padding: 6px 2px; border: 1px solid var(--line); background: rgba(6, 9, 13, .5); }
+  .m-lfo .body { flex-direction: row; gap: 12px; }
+  .lfoc { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .lfoc .graph.lfo { max-width: none; }
+  .lfoc .row { flex-wrap: nowrap; align-items: center; gap: 6px; }
+  .lfoc .tg { display: flex; flex-direction: column; gap: 3px; }
+  .lfoc + .lfoc { padding-left: 12px; border-left: 1px dashed var(--line); }
+  .lfoc .seg button { padding: 0 5px; margin-bottom: -1px; }
+  .mtx { display: flex; flex-direction: column; gap: 6px; }
+  .mtx .slot { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  .mtx .slot .pick { flex: 1; } .mtx .slot .pick select { width: 100%; }
+  .mtx .slot .to { color: var(--red); font: 700 12px var(--title); }
+  .mtx .kn { grid-template-columns: auto auto; align-items: center; width: auto; gap: 0 6px; }
+  .mtx .kn b { display: none; } .mtx { gap: 4px; }
+  .mtx .kn output { min-width: 4.5em; }
+
+  /* the sequencer: the transport and ARP, SEQ A and B (their steps, their segments), the step picked; ORBIT's lanes */
+  .m-seq, .m-orb { grid-column: 1 / -1 !important; }
+  .vsep { width: 1px; align-self: stretch; background: var(--line2); margin: 0 4px; }
+  .tog.play { height: 30px; padding: 0 12px; font-size: 10px; align-self: center; }
+  .row.tw { flex-wrap: nowrap; align-items: flex-start; gap: 14px; }
+  .tracks { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  .trk { display: flex; flex-direction: column; gap: 8px; }
+  .trk + .trk { padding-top: 12px; border-top: 1px dashed var(--line); }
+  .row.th { align-items: flex-end; gap: 8px 12px; } .row.th > .oid { align-self: center; font-size: 11px; min-width: 44px; }
+  .sgrid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; }
+  .scell { position: relative; height: 48px; padding: 13px 2px 3px; border: 1px solid var(--line); background: #0a0f15;
+           color: var(--ice); cursor: pointer; text-align: center; overflow: hidden; touch-action: none; }
+  .scell.odd { background: #0d141c; }
+  .scell .sn { position: absolute; left: 3px; top: 2px; font: 8px/1 var(--mono); color: var(--mute); font-style: normal; }
+  .scell .sg { position: absolute; right: 3px; top: 2px; font: 700 9px/1 var(--title); color: var(--red); font-style: normal; }
+  .scell b { display: block; font: 600 11.5px/1.2 var(--mono); white-space: nowrap; }
+  .scell .sv { display: block; height: 3px; margin: 4px 3px 0; background: #16202a; }
+  .scell .sv u { display: block; height: 100%; background: var(--ice); text-decoration: none; opacity: .8; }
+  .scell small { display: block; height: 10px; font: 8.5px/1.2 var(--mono); color: var(--dim); white-space: nowrap; }
+  .scell.rest b, .scell.tie b { color: var(--mute); }
+  .scell.skip { background: repeating-linear-gradient(45deg, #0a0f15 0 4px, #131b24 4px 8px); } .scell.skip b { color: var(--mute); }
+  .scell.slide b::before { content: "/"; color: var(--red); margin-right: 2px; }
+  .scell.start { border-left: 2px solid var(--red); }
+  .scell.segskip { opacity: .45; }
+  .scell:hover:not(.out) { border-color: #3a4a58; }
+  .scell.sel { border-color: var(--ice); box-shadow: inset 0 0 0 1px var(--ice); }
+  .scell.now { background: rgba(235, 28, 28, .32); }
+  .scell.out { opacity: .2; cursor: default; }
+  .trk.cutting .scell:not(.out) { cursor: col-resize; } .trk.cutting .sgrid { outline: 1px dashed var(--red); outline-offset: 2px; }
+  .trk.muted .sgrid { opacity: .4; }
+  .segs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: flex; align-items: flex-end; gap: 8px; padding: 5px 8px; border: 1px solid var(--line); background: rgba(6, 9, 13, .5); }
+  .chip > .oid { align-self: center; font-size: 11px; } .chip .rg { align-self: center; color: var(--dim); font-size: 10px; min-width: 34px; }
+  .chip .seg button { padding: 0 5px; } .chip.skipped { opacity: .55; }
+  .insp { flex: 0 0 290px; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--line);
+          background: rgba(6, 9, 13, .5); }
+  .insp .ititle { font: 700 10px/1 var(--title); letter-spacing: .14em; color: var(--ice); }
+  .insp .ititle span { color: var(--mute); }
+  .insp .row.chord { align-items: center; gap: 6px; } .insp .row.chord .stp output { min-width: 34px; }
+  .lanes { display: flex; flex-direction: column; gap: 3px; }
+  .lane { display: grid; grid-template-columns: 76px repeat(8, minmax(0, 1fr)); gap: 3px; align-items: stretch; }
+  .lane .lbl { align-self: center; }
+  .bar { position: relative; height: 30px; background: #0a0f15; border: 1px solid var(--line); cursor: ns-resize; touch-action: none; }
+  .bar::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #1c2731; }
+  .bar i { position: absolute; left: 18%; right: 18%; background: var(--ice); }
+  .bar i.neg { background: var(--red); }
+  .bar output { position: absolute; right: 3px; bottom: 1px; font: 9px/1 var(--mono); color: var(--dim); }
+  .bar.out { opacity: .28; }
+  /* what moves as it plays: TURING's register, the echoes, the looper's loop */
+  .graph.tur { height: auto; aspect-ratio: 256 / 76; max-width: 420px; }
+  .tur .steps { stroke: var(--ice); stroke-width: 2.5; fill: none; } .tur .joins { stroke: #6f8794; stroke-width: 1; fill: none; }
+  .tur .last { fill: var(--red); } .tur .bit { fill: #16202a; } .tur .bit.one { fill: var(--ice); } .tur .bit.one.far { fill: #6f8794; }
+  .tur.off .steps, .tur.off .bit.one { fill: none; stroke: #2a3642; } .tur.off .bit.one { fill: #2a3642; } .tur.off .last { fill: #2a3642; }
+  .graph.echo { height: 44px; } .echo .ered { stroke: var(--red); stroke-width: 2; } .echo .eice { stroke: var(--ice); stroke-width: 2; }
+  .graph.loop { height: 84px; } .loop .wave { stroke: #6f8794; stroke-width: 1.4; } .loop.looping .wave { stroke: var(--ice); }
+  .loop.idle .wave { stroke: #22303c; } .loop .head { stroke: var(--red); stroke-width: 2; }
+  .loop .tag { fill: var(--dim); font: 700 9px var(--title); letter-spacing: .12em; } .loop.looping .tag, .loop.waiting .tag { fill: var(--red2); }
+  .loop .sub { fill: var(--mute); font: 9px var(--mono); }
+  .m-time .row { flex-wrap: wrap; }
+
+  /* where each section goes: twelve columns wide, six in the middle, one on a phone */
+  @media (min-width: 1360px) {
+    .m-nav { grid-column: span 2; } .m-osc { grid-column: span 5; } .m-q { grid-column: span 2; } .m-mac { grid-column: span 3; }
+    .m-env1, .m-env2, .m-env3 { grid-column: span 2; } .m-filt, .m-lfo { grid-column: span 3; }
+    .m-react, .m-dist { grid-column: span 6; }
+    .m-time { grid-column: span 5; } .m-space { grid-column: span 2; } .m-tur { grid-column: span 5; } .m-mtx { grid-column: span 12; }
+    .m-mtx .mtx { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px; }
+  }
+  @media (min-width: 900px) and (max-width: 1359px) {
+    .rack { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .m-nav { grid-column: span 2; } .m-osc { grid-column: span 4; } .m-q { grid-column: span 2; } .m-mac { grid-column: span 4; }
+    .m-env1, .m-env2, .m-env3 { grid-column: span 2; } .m-filt, .m-lfo { grid-column: span 3; } .m-react, .m-dist { grid-column: span 6; }
+    .m-time { grid-column: span 4; } .m-space { grid-column: span 2; } .m-tur, .m-mtx { grid-column: span 6; }
+  }
+  @media (max-width: 899px) {
+    .rack { grid-template-columns: 1fr; padding: 10px; } .mod { grid-column: 1 / -1; }
+    .oscs, .bands, .stg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row.tw { flex-wrap: wrap; } .insp { flex-basis: 100%; } .sgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .row.gr { flex-wrap: wrap; } .top { position: static; } .top #pw { margin-left: 0; }
+  }
+
+  /* the keys: the FM-1's 27, OCT and PLAY */
+  .kbd { position: sticky; bottom: 0; z-index: 15; display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+         background: rgba(6, 8, 12, .97); border-top: 1px solid var(--line2); }
+  .kbd .bt { height: 40px; padding: 0 10px; border: 1px solid var(--line2); background: var(--panel); cursor: pointer;
+             font: 700 9.5px/1 var(--title); letter-spacing: .12em; }
+  .kbd .bt:hover { border-color: var(--ice); }
+  .keys { position: relative; flex: 1; height: 54px; min-width: 0; }
+  .keys button { position: absolute; top: 0; padding: 0; cursor: pointer; touch-action: none; }
+  .keys .w { height: 100%; background: linear-gradient(#cfdde4, #9fb0ba); border: 1px solid #06080c; border-radius: 0 0 3px 3px; }
+  .keys .b { height: 58%; background: linear-gradient(#18222c, #0b1017); border: 1px solid #2a3642; border-radius: 0 0 2px 2px; z-index: 2; }
+  .keys .down.w { background: linear-gradient(#ff8a80, var(--red)); } .keys .down.b { background: var(--red); border-color: var(--red); }
+  .keys em { position: absolute; left: 0; right: 0; bottom: 3px; font: 700 8px/1 var(--mono); font-style: normal; color: #2a3642; }
+  .kbd .info { flex: 0 1 280px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .kbd .st { color: var(--dim); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kbd .st b { color: var(--ice); }
+  .kbd #appstatus { margin: 0; color: var(--mute); font-size: 10.5px; min-height: 0; max-height: 2.7em; overflow: hidden; }
+  @media (max-width: 899px) { .kbd { flex-wrap: wrap; } .keys { flex-basis: 100%; order: -1; } .kbd .info { flex-basis: 100%; } }
+
+  /* before POWER ON */
+  .cover { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(6, 8, 12, .86); }
+  body.live .cover { display: none; }
+  .cover .card { width: min(520px, calc(100vw - 32px)); padding: 28px; text-align: center; border: 1px solid var(--line2);
+                 background: linear-gradient(180deg, #0d131a, #080b10); }
+  .cover img { width: 80%; height: auto; }
+  .cover p { color: var(--dim); margin: 14px 0 18px; } .cover p b { color: var(--ice); }
+  .cover #go { padding: 14px 26px; border: 1px solid var(--red); background: rgba(235, 28, 28, .12); color: #fff; cursor: pointer;
+               font: 800 13px/1 var(--title); letter-spacing: .2em; }
+  .cover #go:hover { background: var(--red); }
+
+  /* the FM-1's panel, behind its button */
+  .hw { position: fixed; right: 16px; top: calc(var(--barh, 46px) + 10px); z-index: 30; width: min(580px, calc(100vw - 32px));
+        max-height: calc(100vh - var(--barh, 46px) - 90px); overflow: auto; padding: 10px; border: 1px solid var(--ice);
+        background: var(--bg); box-shadow: 0 10px 40px rgba(0, 0, 0, .7); }
+  .hw header { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+  .hw header b { font: 700 10px/1 var(--title); letter-spacing: .2em; color: var(--ice); }
+  .hw header button, .hw .pctl button { padding: 5px 10px; border: 1px solid var(--line2); background: var(--panel); cursor: pointer;
+                                         font: 700 9.5px/1 var(--title); letter-spacing: .1em; }
+  .hw header button:last-child { margin-left: auto; }
+  .hw .player { width: 100%; margin: 0; }
+  .hw .pctl { display: flex; gap: 8px; margin: 8px 0 0; }
+  dialog { max-width: min(900px, 92vw); width: 900px; background: var(--panel); color: var(--fg); border: 1px solid var(--ice); }
+  dialog textarea { width: 100%; height: 50vh; background: var(--bg); color: var(--ice); border: 1px solid var(--line2); font: 12px/1.4 var(--mono); }
+  dialog .act { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  dialog button { padding: 6px 12px; border: 1px solid var(--line2); background: var(--panel2); cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="top">
+  <img class="logo" src="../screens/logo.png" alt="/// STAR DISTROYER"><span class="t">LAB</span>
+  <button id="prev" title="The patch before" disabled>◀</button>
+  <select id="patch" title="A patch of the bank: loads it as PRESETS + EDIT does" disabled></select>
+  <button id="next" title="The next patch" disabled>▶</button>
+  <input type="text" id="name" placeholder="NAME" title="The name the library, the export and the C give it" spellcheck="false">
+  <span class="sep"></span>
+  <button id="ab" title="A: the patch as loaded; B: as you have it now. Click to switch (the panel waits while A plays)" disabled>A / B</button>
+  <button id="undo" title="Undo (Ctrl/Cmd+Z)" disabled>UNDO</button>
+  <button id="redo" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>REDO</button>
+  <button id="reset" title="Back to the patch as loaded" disabled>RESET</button>
+  <span class="sep"></span>
+  <button id="keep" title="Keep it in this browser's library" disabled>KEEP</button>
+  <select id="lib" title="Your library in this browser" disabled><option value="">LIBRARY</option></select>
+  <button id="imp" title="Load a patch from a .json file" disabled>IMPORT</button>
+  <button id="exp" title="Save the patch as a .json file" disabled>EXPORT</button>
+  <button id="cc" title="The patch as C, for firmware/src/sd_patches.h" disabled>C</button>
+  <span class="sep"></span>
+  <button id="rec" title="Record the firmware's own frames (44.1 kHz, 16 bits) to a .wav" disabled>● REC</button>
+  <button id="p-midi" title="Play it from a MIDI keyboard (Chrome or Edge)">MIDI</button>
+  <button id="hwb" title="The FM-1's own panel: its screen, its knobs and buttons (they set the same patch)">FM-1</button>
+  <button id="pw" title="POWER: on, then off and on again">POWER</button>
+  <input type="file" id="file" accept=".json,application/json" hidden>
+</div>
+<main class="rack" id="rack"></main>
+<div class="kbd">
+  <button class="bt" id="octd" title="OCT−: the keys an octave down (Z)">OCT−</button>
+  <button class="bt" id="octu" title="OCT+: the keys an octave up (X)">OCT+</button>
+  <div class="keys" id="keys" aria-label="The FM-1's keys: the mouse, A S D F … on the computer, or a MIDI keyboard"></div>
+  <button class="bt" id="play" title="PLAY: the sequencer (Space)">▶ PLAY</button>
+  <div class="info"><span class="st" id="st">POWER ON starts it.</span><p id="appstatus">POWER ON starts it.</p></div>
+</div>
+<aside class="hw" id="hw" hidden>
+  <header><b>/// THE FM-1'S PANEL</b><span class="lbl">its screen and controls, the same patch</span><button id="hwx" title="Close">✕</button></header>
+  <div class="player"><div class="ship" id="ship" data-keys="page"></div></div>
+  <div class="pctl">
+    <button id="p-off">Power off · on</button>
+    <button id="p-reset" title="Forget what SAVE kept in this browser, and start as from the factory">Factory reset</button>
+  </div>
+</aside>
+<div class="cover" id="cover">
+  <div class="card">
+    <img src="../screens/logo.png" alt="/// STAR DISTROYER">
+    <p>The lab: the instrument as one window, every section of the patch at once. Its sound is <b>the FM-1
+      firmware's own</b>, bit for bit, running here. Play the keys below, the computer's keyboard (A S D F …, Z X the
+      octave, Space PLAY) or a MIDI keyboard.</p>
+    <button id="go">▶ POWER ON</button>
+  </div>
+</div>
+<dialog id="dlg"><b id="dlgt">C</b><textarea id="dlgx" spellcheck="false"></textarea>
+  <div class="act"><button id="dlgcopy">COPY</button><button id="dlgclose">CLOSE</button></div></dialog>
+<script type="module" src="../app/player.js"></script>
+<script type="module" src="lab.js"></script>
+</body>
+</html>

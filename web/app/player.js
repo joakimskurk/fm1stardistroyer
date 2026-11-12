@@ -5,6 +5,7 @@
 // Nothing is loaded before POWER ON (a browser plays sound only after a click). What SAVE writes stays in this browser.
 const $ = (id) => document.getElementById(id);
 const ship = $('ship');
+const BASE = new URL('./', import.meta.url).href;   // (its files beside it: the page's app/, the lab's ../app/)
 if (ship) {
   const BTN = { OCT_DOWN: 0, OCT_UP: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13 };
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
@@ -39,7 +40,7 @@ if (ship) {
       title="${ABOUT[id]}"><i></i><span>${name}</span></button><small>${note}</small></div>`;
   ship.innerHTML = `
     <div class="head">
-      <img class="logo" src="screens/logo.png" width="1263" height="64" alt="">
+      <img class="logo" src="${BASE}../screens/logo.png" width="1263" height="64" alt="">
       <span class="unit">FM-1 · UNIT 962</span>
       <span class="lights">
         <span class="lamp red" id="l-pwr"><i></i>PWR</span>
@@ -224,9 +225,10 @@ if (ship) {
     });
   }
 
-  // ---- the computer's keyboard, while the panel is on screen and the player runs
-  let inView = false;
-  new IntersectionObserver((es) => { inView = es[0].isIntersecting; }, { threshold: 0.25 }).observe(ship);
+  // ---- the computer's keyboard, while the panel is on screen and the player runs (or always, when the page plays
+  // it with its own keys: data-keys="page", as the lab does)
+  let inView = ship.dataset.keys === 'page';
+  if (!inView) new IntersectionObserver((es) => { inView = es[0].isIntersecting; }, { threshold: 0.25 }).observe(ship);
   const heldCodes = new Set();
   const typing = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
   document.addEventListener('keydown', (e) => {
@@ -315,12 +317,17 @@ if (ship) {
         if (m.lcd) draw(m.lcd);
         show(m);
         if (m.store) { keep(m.store); flash('l-mem'); }
+        if (m.pat) window.dispatchEvent(new CustomEvent('sd-lab', { detail: { type: 'lab-pat', bytes: m.pat, now: m.patNow } }));
+        if (m.seq || m.play) window.dispatchEvent(new CustomEvent('sd-lab', { detail: { type: 'lab-seq', seq: m.seq, play: m.play, tur: m.tur, lp: m.lp } }));
+      } else if (m.type.startsWith('lab')) {
+        window.dispatchEvent(new CustomEvent('sd-lab', { detail: m }));   // (the lab's page: web/lab/lab.js)
       } else if (m.type === 'ready') {
         storeSize = m.storeSize;
         running = true;
         ship.classList.add('on');
         lamp('l-pwr', 1);
         say('Running. Play the keys (or A–\' on the computer\'s keyboard, W E T Y U O P the black ones; Z X the octave, Space PLAY, Shift SCL).');
+        window.dispatchEvent(new CustomEvent('sd-ready', { detail: { post: (msg, tr) => node.port.postMessage(msg, tr || []) } }));
       } else if (m.type === 'error') say(`It did not start: ${m.message}`);
     };
     const wasm = wasmBytes.slice(0);
@@ -339,8 +346,8 @@ if (ship) {
     try {
       ac = new AudioContext({ sampleRate: 44100, latencyHint: 'interactive' });
       const [bytes] = await Promise.all([
-        fetch('app/stardistroyer.wasm').then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); }),
-        ac.audioWorklet.addModule('app/worklet.js'),
+        fetch(BASE + 'stardistroyer.wasm').then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); }),
+        ac.audioWorklet.addModule(BASE + 'worklet.js'),
       ]);
       wasmBytes = bytes;
       gain = ac.createGain();

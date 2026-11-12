@@ -476,6 +476,47 @@ static void test_course(void)                     /* VOYAGE's COURSE: from the g
         CHECK(abs((int)e1.nav_x - AT[i].x) < 1200 && abs((int)e1.nav_y - AT[i].y) < 1200, "COURSE at %.2f s: %u %u, not %u %u",
               AT[i].s, e1.nav_x, e1.nav_y, AT[i].x, AT[i].y);
     }
+    /* ON: a note starts it again from A; LOOP: notes do not, it goes on round (D -> A as long as A -> B, then A -> B
+       again), and the master's START takes it back to A */
+    {
+        static const struct { double s; uint16_t x, y; int note, start; } LP[] = {
+            {0.75, 32768, 65535, 0, 0}, {1.5, 65535, 65535, 1, 0},   /* (a note at 0.8 s: not again from A) */
+            {4.5, 0, 0, 1, 0}, {5.25, 0, 32768, 0, 0}, {6.0, 0, 65535, 0, 0}, {6.75, 32768, 65535, 0, 0},
+            {7.01, 0, 65535, 0, 1}};              /* (PLAY at 7.0 s: from A on the master's START) */
+        uint32_t onx;
+        int32_t o[2u * SD_SUB];
+        done = 0;
+        sd_engine_init(&e1);
+        sd_engine_patch(&e1, &p);
+        sd_engine_note(&e1, 45, 100);
+        while (done < (uint32_t)(0.8 * SD_FS)) { run(&e1, o, SD_SUB, SD_SUB); done += SD_SUB; }
+        sd_engine_note(&e1, 45, 0); sd_engine_note(&e1, 48, 100);   /* ON: again from A */
+        run(&e1, o, SD_SUB, SD_SUB); done += SD_SUB;
+        onx = e1.nav_x;
+        p.course = SD_COURSE_LOOP;
+        sd_engine_init(&e1);
+        sd_engine_patch(&e1, &p);
+        {
+            SdPattern sq;
+            sd_pattern_default(&sq);
+            sd_engine_pattern_to(&e1, 0, &sq);
+        }
+        done = 0;
+        for (i = 0; i < sizeof LP / sizeof LP[0]; i++) {
+            uint32_t to = (uint32_t)(LP[i].s * SD_FS);
+            while (done < to) {
+                if (LP[i].note && done + SD_SUB >= (uint32_t)(0.8 * SD_FS) && done < (uint32_t)(0.8 * SD_FS)) sd_engine_note(&e1, 48, 100);
+                if (LP[i].start && done >= (uint32_t)(7.0 * SD_FS)) e1.seq_run = 1;
+                run(&e1, o, SD_SUB, SD_SUB);
+                done += SD_SUB;
+            }
+            CHECK(abs((int)e1.nav_x - LP[i].x) < 1200 && abs((int)e1.nav_y - LP[i].y) < 1200, "COURSE LOOP at %.2f s: %u %u, not %u %u",
+                  LP[i].s, e1.nav_x, e1.nav_y, LP[i].x, LP[i].y);
+        }
+        printf("course: ON from each note (a note at 0.8 s: X %u, back at A); LOOP round on its own: a note at 0.8 s "
+               "goes on, D -> A from 4.5 s, A again at 6.0 s, START at 7.0 s from A (X %u)\n", onx, e1.nav_x);
+        CHECK(onx < 1200, "COURSE ON: a note did not start it again from A (X %u)", onx);
+    }
 }
 
 static void test_modes(void)                    /* POLY and DUO allocate and steal; a mode waits for quiet */
@@ -1762,11 +1803,108 @@ static void test_looper_borrow_mode(uint32_t one)
     CHECK(sd_lp_total(&e1) > 5u * 22050u, "the looper's memory %u samples", sd_lp_total(&e1));
     space_one = 0;
 }
+/* LOOP synced while the tracks play: it locks on the grid (sd_lp_snap). START at 0, 120 BPM (a bar 2 s): the lock's
+   block, its end before where it recorded (the samples back to a line passed), the head there; a sine in, rising */
+static uint32_t lq_b, lq_back, lq_k0, lq_g1, lq_ln, lq_gap;
+static void lq_feed(int32_t *outbuf, uint32_t frames, double loop_at, uint32_t div, int sync, int run)
+{
+    static int32_t in[2u * SD_SUB];
+    SdPatch p = space_patch(SD_SPMS(300u), sync ? SD_SP_SYNC : 0, 0, 0, 0, 30000);
+    uint32_t i, b;
+    double ph = 0;
+    memset(&tsm, 0, sizeof tsm);
+    memset(tl_mem, 0, sizeof tl_mem);
+    sd_engine_init(&e1);
+    e1.sm = &tsm;
+    e1.sp_room = space_one;
+    sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
+    e1.lp_len = (uint16_t)(div * 65536u / SD_LP_NDIV + 100u); e1.lp_lvl = 65535;
+    e1.bpm = 120;
+    sd_seq_retime(&e1);
+    e1.patch = p;
+    lq_b = 0xFFFFFFFFu;
+    for (b = 0; b * SD_SUB < frames; b++) {
+        double t = (double)b * SD_SUB / SD_FS;
+        uint8_t was = e1.sp.pon;
+        e1.lp_on = t >= loop_at;
+        e1.seq_started = (uint8_t)(run && b == 0u);
+        e1.seq_run = (uint8_t)run;
+        sd_arp_tick(&e1);                       /* (the grid's clock) */
+        sd_space_params(&e1);
+        if (!was && e1.sp.pon && lq_b == 0xFFFFFFFFu) {
+            lq_b = b; lq_back = e1.sp.lt.back; lq_k0 = e1.sp.lt.k0; lq_g1 = e1.sp.pG[1]; lq_ln = e1.sp.pln;
+        }
+        for (i = 0; i < SD_SUB; i++) {
+            double tt = (double)(b * SD_SUB + i) / SD_FS;
+            int32_t x = t < loop_at ? (int32_t)lround((2000 + 2000 * tt) * sin(ph)) : 0;
+            ph += 2 * M_PI * 440 / SD_FS;
+            in[2u * i] = in[2u * i + 1u] = x;
+            outbuf[2u * (b * SD_SUB + i)] = outbuf[2u * (b * SD_SUB + i) + 1u] = 0;
+        }
+        sd_space_run(&e1, in, outbuf + 2u * b * SD_SUB, SD_SUB, 0);
+        if (b == lq_b + 2u) lq_gap = (e1.sp.lw + sd_lp_total(&e1) - e1.sp.lbase) % sd_lp_total(&e1);   /* (the job a
+                                                   block on, on two cores: two blocks after it, it holds still) */
+    }
+}
+static void test_looper_lock_mode(uint32_t one)
+{
+    static int32_t o[2u * (8u * SD_FS + SD_SUB)];
+    const uint32_t BAR = 12u, QUARTER = 8u;     /* (LENGTH's divisions: 1 BAR, 1/4) */
+    uint32_t F = SD_FS, line = (uint32_t)ceil(4.0 * F / SD_SUB), press, s0, st;
+    const char *mode = one ? "one core" : "two cores";
+    double ms;
+    space_one = (uint8_t)one;
+    /* 90 ms late: the loop's end on the line passed, at once; the head on 90 ms, its grid with it */
+    lq_feed(o, 8u * F, 4.09, BAR, 1, 1);
+    press = (uint32_t)ceil(4.09 * F / SD_SUB);
+    ms = lq_back / 22.05;
+    s0 = (uint32_t)tl_step(o, (uint32_t)(3.0 * F), (uint32_t)(4.0 * F));   /* (the sine, rising) */
+    st = (uint32_t)tl_step(o, (uint32_t)(4.15 * F), (uint32_t)(7.0 * F));  /* the loop: faded in, round its seam at 6 s
+                                                   (the line), on (the sine itself stops at the press) */
+    printf("looper (%s), LOOP synced 90 ms after a bar line: locked at once (block %u, pressed %u), its end %.1f ms "
+           "back on the line (its memory %u before where it stopped recording), the head %u, its grid %u; the loop's largest step %u "
+           "(the sine's %u)\n",
+           mode, lq_b, press, ms, lq_gap, lq_k0, lq_g1, st, s0);
+    CHECK(lq_b == press, "late: locked at block %u, pressed at %u", lq_b, press);
+    CHECK(fabs(ms - 90.0) < 1.0, "late: its end %.1f ms back, not 90", ms);
+    CHECK(lq_gap == lq_back, "late: the loop ends %u samples before where it recorded, not %u", lq_gap, lq_back);
+    CHECK(lq_k0 == lq_back * 256u && lq_g1 == lq_back * 256u + 4096u, "late: the head %u and its grid %u (a tick on), not %u",
+          lq_k0, lq_g1, lq_back * 256u);
+    CHECK(st <= s0 + s0 / 8u, "late: a step of %u (the sine's own %u)", st, s0);
+    /* 70 ms early: it waits for the line, and locks there */
+    lq_feed(o, 6u * F, 3.93, BAR, 1, 1);
+    printf("looper (%s), LOOP synced 70 ms before a bar line: locked at block %u (the line %u), its end %u back\n",
+           mode, lq_b, line, lq_back);
+    CHECK(lq_b + 1u >= line && lq_b <= line + 1u && lq_back == 0u, "early: locked at block %u (back %u), the line at %u", lq_b, lq_back, line);
+    /* the weighting, a bar long: 57 % into the bar back to its line, 63 % on to the next */
+    lq_feed(o, 8u * F, 4.0 + 1.14, BAR, 1, 1);
+    ms = lq_back / 22.05;
+    lq_feed(o, 8u * F, 4.0 + 1.26, BAR, 1, 1);
+    printf("looper (%s), a bar long: pressed 1.14 s into the bar, back %.0f ms; 1.26 s in, locked at block %u (the next "
+           "line %u)\n", mode, ms, lq_b, (uint32_t)ceil(6.0 * F / SD_SUB));
+    CHECK(fabs(ms - 1140.0) < 2.0, "57 %%: back %.0f ms, not 1140", ms);
+    CHECK(lq_b + 1u >= (uint32_t)ceil(6.0 * F / SD_SUB) && lq_b <= (uint32_t)ceil(6.0 * F / SD_SUB) + 1u, "63 %%: locked at block %u", lq_b);
+    /* a quarter long: 380 ms after beat 2, the half bar 120 ms on draws it (the next beat as near, weaker) */
+    lq_feed(o, 8u * F, 4.88, QUARTER, 1, 1);
+    printf("looper (%s), a quarter long: pressed 120 ms before the half bar, locked at block %u (the half bar %u)\n",
+           mode, lq_b, (uint32_t)ceil(5.0 * F / SD_SUB));
+    CHECK(lq_b + 1u >= (uint32_t)ceil(5.0 * F / SD_SUB) && lq_b <= (uint32_t)ceil(5.0 * F / SD_SUB) + 1u && lq_back == 0u,
+          "a quarter: locked at block %u (back %u)", lq_b, lq_back);
+    /* free, and stopped: where it is pressed, as before */
+    lq_feed(o, 6u * F, 4.09, BAR, 0, 1);
+    st = lq_back; s0 = lq_b;
+    lq_feed(o, 6u * F, 4.09, BAR, 1, 0);
+    printf("looper (%s), free: locked at block %u, back %u; stopped: block %u, back %u (pressed %u)\n", mode, s0, st,
+           lq_b, lq_back, press);
+    CHECK(s0 == press && st == 0u && lq_b == press && lq_back == 0u, "free or stopped: not where it was pressed");
+    space_one = 0;
+}
 static void test_looper(void)
 {
     test_looper_mode(0); test_looper_mode(1); test_looper_grid_mode(0); test_looper_grid_mode(1);
     test_looper_borrow_mode(0); test_looper_borrow_mode(1);
     test_looper_transport_mode(0); test_looper_transport_mode(1);
+    test_looper_lock_mode(0); test_looper_lock_mode(1);
 }
 
 /* SPACE's plate (raw and long; a prototype's LFO stuttered and clicked): its T60 at 700 Hz follows DECAY's law,

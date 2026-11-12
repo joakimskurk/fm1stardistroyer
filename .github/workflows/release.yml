@@ -116,6 +116,10 @@ jobs:
         with:
           python-version: '3.x'
 
+      - uses: actions/setup-node@v4                  # 22: the lab's test imports web/lab/patch.js, an ES module
+        with:
+          node-version: '22'
+
       - name: Python packages, ffmpeg (the spectra, the audio), clang and lld (the player)
         run: |
           python3 -m pip install Pillow numpy
@@ -129,6 +133,11 @@ jobs:
         run: |
           APP_VER="dev-${GITHUB_SHA::7}" sh web/app/build.sh build/web/stardistroyer.wasm
           node tests/web_test.mjs build/web/stardistroyer.wasm
+
+      - name: The lab (web/lab/) against the host's firmware, sample for sample, and its C export compiled
+        run: |
+          sh tests/run_host.sh tests/scripts/lab.txt
+          node tests/lab_test.mjs build/web/stardistroyer.wasm build/host/stardistroyer.wav
 
       - name: The site
         run: python3 web/make_site.py build/stardistroyer.fwsc "dev-${GITHUB_SHA::7}" _site

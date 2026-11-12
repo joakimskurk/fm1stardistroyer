@@ -15,9 +15,12 @@ in the browser, the firmware, the demos.
                                    and web/icon.png from web/make_og.py)
   .nojekyll                        (served as it is)
 
+
   tests/run_sd.sh                  (first: the renders)
   sh web/app/build.sh              (and the player)
   python3 web/make_site.py build/stardistroyer.fwsc VERSION OUT_DIR
+  python3 web/make_site.py --lab-html OUT.html   (the lab, web/lab/: one file to open from the disk, not on the site;
+                                                   tools/lab.sh)
 
 The package must be an FM-1 one of Star Distroyer's (its identity FM-1_962XY) with its update loader in it (which the
 installer talks to). The audio is encoded by ffmpeg, or afconvert on a Mac. After SLOOP's web/make_site.py (Copyright
@@ -42,7 +45,7 @@ ART = ROOT / "docs" / "readme"
 PICTURES = {ART / "logo_line.png": "logo.png", ART / "slash.png": "slash.png", ART / "chain.svg": "chain.svg",
             HERE / "og.png": "og.png", HERE / "icon.png": "icon.png"}
 PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", HERE / "app" / "worklet.js": "worklet.js",
-          HERE / "app" / "player.js": "player.js",
+          HERE / "app" / "player.js": "player.js", HERE / "app" / "player.css": "player.css",
           ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf": "orbitron.ttf",
           ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
 SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "turing", "orbit",
@@ -127,6 +130,71 @@ def encode(wav, m4a):
     subprocess.run(cmd, check=True)
 
 
+def lab_html(out):
+    """The lab as one file to open from the disk: its page with the player's style, the font and the two pictures
+    inlined, and one script holding the lab's modules, the player, the worklet (a data: URL) and the firmware
+    (base64). Nothing in it is fetched."""
+    import base64
+    out = Path(out)
+    for src in PLAYER:
+        if not src.exists():
+            raise SystemExit(f"{src.relative_to(ROOT)}: missing (sh web/app/build.sh makes the player)")
+    b64 = lambda p: base64.b64encode(Path(p).read_bytes()).decode("ascii")
+    logo = "data:image/png;base64," + b64(ART / "logo_line.png")
+    icon = "data:image/png;base64," + b64(HERE / "icon.png")
+    font = "data:font/ttf;base64," + b64(ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf")
+
+    def swap(text, old, new, what, n=1):          # one replacement, exactly where it is expected (or the build stops)
+        if text.count(old) != n:
+            raise SystemExit(f"lab: {what}: {old[:60]!r} found {text.count(old)} times, not {n}")
+        return text.replace(old, new)
+
+    def module(name, src, imports):               # an ES module as a function's scope: its exports returned
+        exports = re.findall(r"^export (?:const|let|function) (\w+)", src, re.M)
+        src = re.sub(r"^export (const|let|function) ", r"\1 ", src, flags=re.M)
+        for line, names in imports:
+            src = swap(src, line, f"const {{ {names} }} = {name_of(line)};", f"{name}'s import")
+        return f"const __{name} = (() => {{\n{src}\nreturn {{ {', '.join(exports)} }};\n}})();\n"
+
+    def name_of(line):
+        return "__" + re.search(r"'\./(\w+)\.js'", line).group(1)
+
+    def imports_of(src):                          # import { a, b } from './x.js'; (over one line or more)
+        return [(m.group(0), " ".join(m.group(1).split())) for m in re.finditer(r"import \{([^}]*)\} from '\./\w+\.js';", src)]
+
+    patch = (HERE / "lab" / "patch.js").read_text(encoding="utf-8")
+    ui = (HERE / "lab" / "ui.js").read_text(encoding="utf-8")
+    seq = (HERE / "lab" / "seq.js").read_text(encoding="utf-8")
+    lab = (HERE / "lab" / "lab.js").read_text(encoding="utf-8")
+    player = (HERE / "app" / "player.js").read_text(encoding="utf-8")
+    worklet = (HERE / "app" / "worklet.js").read_text(encoding="utf-8")
+    player = swap(player, "const BASE = new URL('./', import.meta.url).href;", "const BASE = '';", "the player's BASE")
+    player = swap(player, "${BASE}../screens/logo.png", logo, "the panel's logo")
+    player = swap(player, "fetch(BASE + 'stardistroyer.wasm').then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); })",
+                  "Promise.resolve(Uint8Array.from(atob(SD_WASM), (c) => c.charCodeAt(0)).buffer)", "the firmware's fetch")
+    player = swap(player, "ac.audioWorklet.addModule(BASE + 'worklet.js')",
+                  "ac.audioWorklet.addModule(SD_WORKLET)", "the worklet's module")   # (a data: URL: a blob from a
+                                                   # file:// page has no origin, and a worklet will not load it)
+    script = (f"const SD_WASM = \"{b64(ROOT / 'build' / 'web' / 'stardistroyer.wasm')}\";\n"
+              f"const SD_WORKLET = 'data:text/javascript;base64,{base64.b64encode(worklet.encode('utf-8')).decode('ascii')}';\n"
+              + module("patch", patch, [])
+              + module("ui", ui, imports_of(ui))
+              + module("seq", seq, imports_of(seq))
+              + "{\n" + player + "\n}\n"
+              + "{\n" + module("lab", lab, imports_of(lab)) + "}\n")
+    css = (HERE / "app" / "player.css").read_text(encoding="utf-8")
+    css = swap(css, 'url("orbitron.ttf")', f'url("{font}")', "the font")
+    html = (HERE / "lab" / "index.html").read_text(encoding="utf-8")
+    html = swap(html, '<link rel="stylesheet" href="../app/player.css">', "<style>\n" + css + "</style>", "the player's style")
+    html = swap(html, 'href="../screens/icon.png"', f'href="{icon}"', "the icon")
+    html = swap(html, 'src="../screens/logo.png"', f'src="{logo}"', "the logo", n=2)
+    html = swap(html, '<script type="module" src="../app/player.js"></script>\n<script type="module" src="lab.js"></script>',
+                '<script type="module">\n' + script.replace("</script", "<\\/script") + "</script>", "the scripts")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html, encoding="utf-8")
+    print(f"lab: {out} ({len(html.encode('utf-8')) // 1024} KB, one file: open it in Chrome, Edge or Brave)")
+
+
 def main(pkg, version, out):
     pkg, out = Path(pkg), Path(out)
     raw = pkg.read_bytes()
@@ -178,6 +246,9 @@ def main(pkg, version, out):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) == 3 and sys.argv[1] == "--lab-html":
+        lab_html(sys.argv[2])
+    elif len(sys.argv) == 4:
+        main(*sys.argv[1:])
+    else:
         sys.exit(__doc__)
-    main(*sys.argv[1:])

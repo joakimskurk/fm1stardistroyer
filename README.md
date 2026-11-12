@@ -51,7 +51,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - Each oscillator is a harmonic 1–32 of the note with a fine tune, and a carrier or a modulator (series or
   parallel), read left to right.
 - **XM** sets the FM, **WARP** turns sine → triangle → saw → pulse, **FOLD** folds, **DETUNE** spreads.
-- The **NAV** X/Y blends the four banks. **COURSE** plays four stored X/Y cells from each note.
+- The **NAV** X/Y blends the four banks. **COURSE** travels four stored X/Y cells (MONO): EDIT on NAV turns it
+  **ON** (from each note, once round, held on the last), **LOOP** (round and round on its own, back to the first;
+  a note does not start it again, PLAY does, in time with the sequencer) or OFF.
 - Harmonic generators re-roll a bank: ALL, ODD, RND, CLUST, CHRD (14 chords), CPY.
 - **MONO**, **DUO** or **POLY**, the banks spread by WIDTH round the middle of what sounds (never more than 6 dB to a
   side; a corner's bank alone in the middle), and gentle aliasing tracking up high.
@@ -99,7 +101,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays.
 - The **looper** (TIME's SCL layer: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**) records what you hear before the reverb,
   always. **LOOP** (ALGORITHM on TIME) plays its last LENGTH round and round, while the delay goes on with what you
-  play over it: a loop layer in the background. It follows PLAY: **STOP** stops the loop too (it fades out and
+  play over it: a loop layer in the background. Synced, while the sequencer plays, LOOP locks on the beat: pressed a
+  little late, the loop ends on the line you just passed and goes on at once; a little early, it waits for the line.
+  The bar lines draw it most (a bar long: up to 60 % into the bar it takes the one just passed). It follows PLAY: **STOP** stops the loop too (it fades out and
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
   too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
   the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down (the pitch and the
@@ -283,7 +287,7 @@ leads), the octave, who holds the voices (**A** and **B** the tracks, **R** the 
 | **K1–K4** | the four values in the row on top |
 | **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track (IN KEY or CHROM: SCL + EDIT), OCT turns the step bank and SEQ chooses the MASTER, A or B; on TIME, OCT the loop's octave and EDIT the delay's MODE |
 | **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); SCL + ALGORITHM the second |
-| **EDIT** | ON / OFF of what the page shows: COURSE, REACTOR, DISTROY, SPACE, TIME, FILTER, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one) |
+| **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, FILTER, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one) |
 | **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** loads, HOME not now |
 | **SELECT** · **GLO** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own (32 patches, 32 patterns) |
@@ -310,6 +314,29 @@ band is destroyed, and something steps on the beat.
 - **AURORA:** a glass pad, its top folded to a sheen that takes a new depth each bar.
 
 The patches live in [`firmware/src/sd_patches.h`](firmware/src/sd_patches.h).
+
+### The lab
+
+The lab is Star Distroyer as one window on this computer, the way a software instrument has it: every section of the patch at once, in the order the sound goes, with no pages to turn. NAV's
+field to drag between the four banks, the oscillators, VOICE and MACROS; the three envelopes drawn, the filter's curve,
+the LFOs; the Reactor's six stages on the pitch; DISTROY's four bands on the spectrum, their splits to drag; TIME with
+its echoes and the looper (its loop drawn, the head going round), SPACE, TURING (its register stepping) and the mod
+matrix; then the SEQUENCER (the tempo, the voices, ARP; SEQ A and B, their steps, their segments, the step picked) and
+ORBIT's lanes, the firmware's own patterns. The keys are along the bottom (the mouse, the computer's keyboard or a MIDI
+keyboard), and the FM-1's own panel opens behind its button: its knobs and the window set the same patch, so each
+follows the other.
+- **A / B** against the patch as loaded, **UNDO** and **REDO**, **RESET**; a double click puts a control back as
+  loaded, and a red dot marks what has changed.
+- **KEEP** puts it in a library in this browser; **EXPORT** and **IMPORT** move it as JSON.
+- **C** gives it as an entry of `SD_PATCH[]` in `sd_patches.h` (its name goes in `SD_PATCH_NAME[]`).
+- **● REC** records the firmware's own frames, as they leave it, to a WAV.
+
+Its sound is the firmware's: the same C, built as WebAssembly. `tests/lab_test.mjs` plays a script through it a
+millisecond at a time and through `tests/host.c`, and the two are the same sample for sample; the C it exports
+compiles back to the same bytes, for every factory patch and for one with every field at random. It is not on the
+site: `tools/lab.sh` builds it from the source as it is into one file, `build/star_distroyer_lab.html` (the firmware,
+its worklet, the font and the pictures inside it; nothing fetched), and opens it. The file runs from the disk in
+Chrome, Edge or Brave and can be copied anywhere; EXPORT moves a patch between browsers.
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
@@ -348,6 +375,9 @@ tools/emu_cpu.sh build/stardistroyer.fwsc    # the chip's load in fm1-emu
 sh tests/run_tests.sh                        # the update path, the loader, the installer, the flash maps
 sh web/app/build.sh                          # the player: the firmware as WebAssembly (clang + lld, wasm32)
 node tests/web_test.mjs build/web/stardistroyer.wasm   # ... boots, plays, turns pages, saves
+tests/run_host.sh tests/scripts/lab.txt && \
+  node tests/lab_test.mjs build/web/stardistroyer.wasm build/host/stardistroyer.wav   # the lab: the host's sound
+tools/lab.sh                                 # the lab on this computer: one HTML file, built and opened
 ```
 
 The page's player (`web/app/`) is the same `firmware/src/stardistroyer.c`, built on `web/app/web_host.c` (an FM-1 for
@@ -419,7 +449,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `firmware/hal/fm1_ram2.h` is new: the RAM2 test build's look for a second RAM bank (it sets nothing up; no
     firmware for the FM-1 is known to use one).
   - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`) with the
-    player built and tested; a tag with a suffix (`v0.1-beta`) is a pre-release.
+    player built and tested, and the lab's test; a tag with a suffix (`v0.1-beta`) is a pre-release.
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Credits and licence
 
