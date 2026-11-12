@@ -1,0 +1,16 @@
+# LAB: the browser's firmware against the host's, bit for bit (tests/lab_test.mjs plays the same events on the
+# WebAssembly, a millisecond at a time). DISTROY (the boot patch): C4, then C4 + E4 + G4 held; PLAY (12) and the
+# pattern over the keys; PRESETS (6) +1 and EDIT: VOWEL; a knob (K1, enc 2) turned; PLAY off; the tails.
+1800 keys 0x80
+2400 keys 0x4880
+3600 keys 0
+3800 btn 12
+5200 keys 0x200
+5600 keys 0
+6000 enc 6 1
+6050 btn 6
+6200 keys 0x80
+6400 enc 2 9
+7200 keys 0
+7400 btn 12
+9000 end

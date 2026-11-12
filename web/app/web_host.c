@@ -16,6 +16,8 @@
  *   web_midi(st, d1, d2, src)  a MIDI message in, from input src (1..255; 0 as 1): each of the page's MIDI inputs
  *                           is a source of its own, as USB and the jack are on the FM-1, so a clock is taken from
  *                           one at a time (the same clock on two ports leads once, not at twice its tempo)
+ *   web_pass(), web_avail()  one pass of the main loop (a millisecond), and the frames it left to take: a test runs
+ *                           the firmware event for event on the host's time (tests/lab_test.mjs)
  *   web_store(), web_store_size(), web_store_rev()   the flash (settings, blobs, slots: store.h's sizes): the page
  *                           keeps a copy in the browser when the count moves, and puts it back before web_init
  *
@@ -210,6 +212,9 @@ WEB_EXPORT(web_run) uint32_t web_run(uint32_t n)
     return n;
 }
 WEB_EXPORT(web_out_ptr) int32_t *web_out_ptr(void) { return web_out; }
+WEB_EXPORT(web_pass) void web_pass(void) { app_main(); }   /* one pass, one millisecond (tests/lab_test.mjs: the
+                                                   host's time, event for event) */
+WEB_EXPORT(web_avail) uint32_t web_avail(void) { return ring_w - ring_r; }   /* the frames rendered, not taken */
 WEB_EXPORT(web_lcd) uint16_t *web_lcd(void) { return fb; }
 WEB_EXPORT(web_lcd_rev) uint32_t web_lcd_rev(void) { return fb_rev; }
 WEB_EXPORT(web_ms) uint32_t web_ms(void) { return fm1_ms; }
