@@ -99,7 +99,10 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays.
 - The **looper** (TIME's SCL layer: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**) records what you hear before the reverb,
   always. **LOOP** (ALGORITHM on TIME) plays its last LENGTH round and round, while the delay goes on with what you
-  play over it: a loop layer in the background. **SPEED** takes it up to an octave up or down (the pitch and the
+  play over it: a loop layer in the background. It follows PLAY: **STOP** stops the loop too (it fades out and
+  waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
+  too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
+  the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down (the pitch and the
   length together, as a tape's), and **REVERSE** (SCL + ALGORITHM on TIME) plays it backwards, its attacks turned
   into swells, before it loops or while it does. **SCL + OCT- / OCT+** takes it to the next octave, and **GLIDE**
   is how long a new speed takes (OFF: at once, or 1/32 … 4 bars): an octave lands on the loop's own grid, gliding
