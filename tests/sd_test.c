@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The sound engine's contract (firmware/src/sd_engine.h), on this computer. tests/run_sd.sh runs it.
  *   - silence costs nothing and is silence
  *   - the render does not depend on how the frames are cut into calls (sub-blocks continue across calls)

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The FM-1's panel as a ship's console (web/app/player.js draws it): the page's player and the lab's (web/lab/) share
    it. The page defines the colours it uses (--ice --red --line2 --panel --good --mono). */
 /* the player: the FM-1's panel as the console of a ship (web/app/player.js draws it). Its sizes are shares of its

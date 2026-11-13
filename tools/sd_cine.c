@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* CINEMATIC, a cue: the user asked for a soundtrack, "big, mighty and alien". Original material: D minor, 84 BPM,
  * Dm Bb Gm A, ~69 s. (Remade on 2026-11-08 as four passes on one FM-1, it lost what it had, the user heard: this one,
  * the first, stays.)

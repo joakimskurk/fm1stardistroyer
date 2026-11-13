@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The lab (web/lab/): the browser's firmware opened up for the patch, so a page can show and set every one of its
  * fields while the firmware plays it. stardistroyer.c includes this at its end, in the browser build only
  * (DINGHY_WEB): it reads and writes the app's own patch (pat), the one the knobs edit, and hands it to the engine as

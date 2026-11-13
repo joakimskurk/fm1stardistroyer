@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // Star Distroyer's lab: the instrument as one window, every section of the patch on it at once, in the order the
 // sound goes through them. The firmware runs in the page's player (../app/player.js, worklet.js, stardistroyer.wasm;
 // its FM-1 panel behind the FM-1 button); this page reads its field table and its patch through the worklet

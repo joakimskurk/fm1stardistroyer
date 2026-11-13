@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* RANGE: a demo of what one FM-1 running Star Distroyer can do, played as one person would play it (2026-11-07, the
  * user: "a new demo, much more versatile, showing the instrument's span; not a long cinematic piece but something
  * that evolves through everything this machine can do; nothing that the synth on the FM-1 cannot do itself").

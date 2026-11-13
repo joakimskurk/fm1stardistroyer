@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // Star Distroyer in a browser: the firmware (stardistroyer.wasm, web/app/build.sh) in the audio thread. Its sound is
 // its time base, as the audio interrupt is on the FM-1: each quantum asks it for its frames, and it runs its main
 // loop for the milliseconds they are worth. The screen, the lights and the output's level go to the page about 30

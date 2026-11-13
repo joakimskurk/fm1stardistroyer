@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* HELIOPAUSE, a cue (2026-11-11, the user: "write a new 1-2 min cinematic thing that uses everything that is in RANGE,
  * and use the looping tape and so on as texture where it fits"; TURING "at least one place"; then, having heard the
  * first: "not extreme enough in the sound image at the climax; the acid bass is off key; the part from one minute a

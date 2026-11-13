@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 # The README's pictures in docs/readme/: the banner and the headings' "///" (tools/gen_logo.py, the logo's only
 # source), and the screens, the host build's own (tests/scripts/readme.txt), 480 x 480 (2x the FM-1's 240 x 240, for
 # sharp screens). docs/readme/chain.svg, the signal chain, is drawn by hand.

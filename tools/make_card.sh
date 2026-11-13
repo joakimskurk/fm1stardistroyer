@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 # The Firmware Hub's card: the host build's screen (tests/scripts/card.txt) as docs/card.png, 240x240 as the FM-1
 # shows it, then fmhub.json and the card checked against the hub's rules (thefirmwarehub.com/fmhub.md).
 set -e

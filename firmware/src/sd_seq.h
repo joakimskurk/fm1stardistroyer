@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* Star Distroyer's sequencer: the pattern and what edits it (Sequencer Plan, v0.3).
  *
  * A step sequencer like the stock FM-1's, up to 64 steps, with segments: the pattern is cut into up to

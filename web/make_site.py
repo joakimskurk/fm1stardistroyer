@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
+# its shape after SLOOP's web/make_site.py: Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments, with the changes of SLOOP (isod89)
 """Star Distroyer's site (GitHub Pages, https://joakimskurk.github.io/fm1stardistroyer/): its page, its installer
 in the browser, the firmware, the demos.
 

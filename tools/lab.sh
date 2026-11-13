@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 # The lab (web/lab/) on this computer, from the source as it is: the player built (web/app/build.sh), the lab made
 # one file (web/make_site.py --lab-html: everything inlined, nothing fetched), and opened in the browser. The file
 # runs from the disk (Chrome, Edge or Brave); copy it anywhere. It is not on the site.

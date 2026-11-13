@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // The page's player (web/app/): the firmware as WebAssembly, run here as the page's audio thread runs it. It boots
 // (the splash), a key plays, a press and release in one quantum still count, SCL held is held, a button turns a
 // page, an encoder changes the tempo, SAVE writes the store, a stored store comes back after a restart, a MIDI clock

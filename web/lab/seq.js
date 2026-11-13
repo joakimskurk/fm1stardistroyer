@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // The lab's SEQUENCER and ORBIT: the firmware's own two patterns (SEQ A and B), ORBIT and the settings the tracks and
 // the arpeggiator play by, on the window beside the patch. The bytes are SdPattern's and SdOrbit's, read at the
 // offsets the firmware gives (web/app/web_lab.h: web_seq_layout); LENGTH, a segment's cut, EVEN, a segment's length,

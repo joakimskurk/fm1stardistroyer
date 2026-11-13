@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* DERELICT, an overture (2026-11-08, the user, once four patches had gone: a new demo, "2 minutes with the patches,
  * at most 3-4 overlapping tracks; a little noisy, a little cinematic, a little staccato, a little flowing, a little
  * beautiful, a little melancholic; use all the banks; the app's tools, not the typical classic FM things; nothing the

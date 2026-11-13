@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* A demo of the sound engine (firmware/src/sd_engine.h) as music: ~105 s, 100 BPM, D minor.
  *
  *   sd_demo OUT.wav

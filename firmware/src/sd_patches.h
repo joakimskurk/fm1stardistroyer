@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The patches (Sound Plan §7, V3): four banks of four oscillators, each a harmonic 1..32 of
  * the note with a fine tune, a level and a role, left to right; each bank's offsets on the Q page; the Q page's XM WP
  * FD DT for all banks; ENV1 on the level, ENV2 on the FM amount; the nav X/Y, COURSE's cells, the stereo width.

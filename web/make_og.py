@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 """The page's pictures that are not screens, from the README's (tools/make_readme_art.sh, the logo from
 tools/gen_logo.py only):
 

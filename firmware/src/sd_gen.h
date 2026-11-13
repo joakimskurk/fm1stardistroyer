@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The harmonic generators (Sound Plan §3.7), run by the main loop on a patch it then
  * hands to the engine (sd_engine_patch). They set the harmonics (and clear the fine tune) of a bank's four
  * oscillators; levels and roles stay as they were.

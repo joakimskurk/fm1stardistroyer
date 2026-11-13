@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* Passes on one FM-1, layered (tools/sd_derelict.c, tools/sd_cine.c): each pass is one person playing one FM-1 under
  * tools/sd_play.h's rules, rendered in its own process (a fresh FM-1: sd_play.h's state is the file's), recorded to the
  * same tempo; then the stems at fixed faders, summed, one master gain to a -1 dBFS peak, nothing else added. The

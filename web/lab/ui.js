@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // The lab's controls and pictures, each bound to a field of the patch by its C path (web/app/web_lab.h's table):
 // a knob, a switch of a few, a toggle, a list, a stepper; the nav's field, an envelope, the filter, the Reactor's
 // stages, DISTROY's bands, an LFO's shape. A control reads the patch when the page refreshes (update) and writes it

@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* One FM-1 played by one person: the engine, the app's pages and controls, and the rules a performance must keep
  * (shared by tools/sd_range.c and tools/sd_song.c). A score calls these each block; whatever it does goes through
  * what the app does with a button, a knob, PRESETS or a key, and the tool stops (fail) at anything the FM-1 could

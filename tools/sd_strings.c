@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The bowed-string match (the user, 2026-11-05: "can we get as close as possible to these scales with our
  * instrument? One and the same instrument"): the two scales of the user's recordings played with one patch.
  *
