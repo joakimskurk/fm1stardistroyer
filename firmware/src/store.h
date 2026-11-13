@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Changed for Star Distroyer by Joakim (joakimskurk), 2026-11; README.md lists the changes. */
 /* Where Dinghy keeps your data in flash, per board (platform.c: settings_*, blob_*, slot_*). Macros and compile-time
  * checks only, so the host tests include it (tests/smk_flash_test.c).
  *

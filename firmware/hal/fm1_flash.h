@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
+/* Changed for Star Distroyer by Joakim (joakimskurk), 2026-11; README.md lists the changes. */
 /* FM-1 SPI NOR at runtime: erase / program / read. Used only when
  * FELUCCA_FLASH is 1.
  *

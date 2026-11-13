@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Changed for Star Distroyer by Joakim (joakimskurk), 2026-11; README.md lists the changes.
 # Run firmware/src/stardistroyer.c on this computer (tests/host.c): build/host/dinghy.wav and the screens as PNG.
 #   tests/run_host.sh [script]               your own script (tests/host.c says what a line can do)
 #   BOARD=smk37 tests/run_host.sh [script]   the SMK-37 build (velocity, pads, faders, wheels, outer keys)
