@@ -441,6 +441,10 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `tools/build.py`: the identity FM-1_962XY; it assembles `hal/fm1_cpu1.S`, and its check of the RAM code lets
     the second core's loop make its one call, the job.
+  - `firmware/src/store.h`: the default `STORE_MAGIC` "SDST".
+  - `tests/run_host.sh`, `tests/run_tests.sh`: `stardistroyer.*` names and the SMK-37 packages' identities `_962XY`;
+    `run_tests.sh` also plays the MIDI recording script `tests/scripts/m1.txt`.
+  - Each of these files says at its top that it was changed for Star Distroyer.
   - The second core, from felucca-bsp (MPL-2.0, [LICENSING.md](LICENSING.md)): `firmware/hal/fm1_cpu1.h`,
     `fm1_cpu1.S` and `fm1_cpu1_stop.h` are new. `firmware/app.ld` links its loop (`.c1_text`) into the RAM code;
     `firmware/hal/fm1_flash.h`'s `irq_save` waits for it to be idle before the flash goes off; `fm1_irq.h`'s

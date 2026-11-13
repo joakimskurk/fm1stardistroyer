@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Changed for Star Distroyer by Joakim (joakimskurk), 2026-11; README.md lists the changes. */
 /* Dinghy's platform: everything an FM-1 (or SMK-37) firmware needs before it can be fun, taken unchanged from
  * SLOOP / Felucca / sloopDX / OberVave and wired up here. You should not need to touch this file.
  *

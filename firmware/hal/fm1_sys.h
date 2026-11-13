@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
+/* Changed for Star Distroyer by Joakim (joakimskurk), 2026-11; README.md lists the changes. */
 /* FM-1 system HAL: P33 access, watchdog, reset reason, reboot / UBOOT entry.
  * Call with interrupts off so nothing else touches P33.
  *
