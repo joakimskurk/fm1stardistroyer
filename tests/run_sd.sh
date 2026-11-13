@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 # Star Distroyer's sound on this computer: the engine's tests, the renders to listen to, the bench.
 #   tests/run_sd.sh          -> build/sd/sd_test (run), build/audio/*.wav, the bench's line
 #   SD_BENCH_S=10            a shorter bench

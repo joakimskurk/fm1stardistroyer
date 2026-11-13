@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // The lab's patch, as the firmware has it: its bytes (SdPatch), read and written through the field table the
 // WebAssembly builds from the struct itself (web/app/web_lab.h: web_fields). Shared by the lab's page (lab.js) and
 // its test (tests/lab_test.mjs), so what the page exports is what the test compiles.

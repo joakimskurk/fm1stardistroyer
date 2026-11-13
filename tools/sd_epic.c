@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The second film cue. The user, 2026-11-05, asked for the whole instrument, much more extreme: a sci-fi
  * soundtrack that is immensely big, beautiful and hard and distorted at the same time, but melancholy and
  * beautiful.

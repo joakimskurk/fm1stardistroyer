@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* SINGULARITY: one take (2026-11-11, the user: "can the next be what one can get with only one take by maxing the
  * FM-1 itself? No layers, not more than one take, one stem. Just a lot of the firmware, standalone").
  *

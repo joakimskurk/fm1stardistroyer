@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* TAPESTRY: one FM-1 played by one person, the looper building the bed (2026-11-11, the user: "we implement reverse
  * too, and you make a demo with it in use, a little longer; this time with the reverb on too, so we get the carpet
  * of sound I wanted").

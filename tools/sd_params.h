@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* A patch from "key value ..." lines (the bowed-string tuning's format, tools/sd_strings.c): shared by the host
  * tools that play a tuned patch (sd_strings, sd_epic). Include after sd_engine.h, <math.h>, <stdio.h>, <string.h>. */
 #ifndef SD_PARAMS_H

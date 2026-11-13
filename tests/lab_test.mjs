@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // The lab's promise (web/lab/): its sound is the firmware's, bit for bit, and what it exports is the patch it played.
 //  1. The browser's firmware (build/web/stardistroyer.wasm) plays tests/scripts/lab.txt a millisecond at a time,
 //     event for event as tests/host.c plays it on this computer (tests/run_host.sh tests/scripts/lab.txt ->

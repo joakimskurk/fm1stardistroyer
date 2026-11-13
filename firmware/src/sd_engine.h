@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* Star Distroyer's sound engine (Sound Plan v0.1). No platform calls: the firmware (stardistroyer.c) and the host
  * tools (tools/sd_render.c, tests/sd_test.c) include the same file.
  *

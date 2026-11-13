@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* The sound engine (firmware/src/sd_engine.h) on this computer, without the platform (Sound Plan v0.1 §1).
  *
  *   sd_render render OUT.wav [SECONDS] [BPM] [PATCH]   the 16-step loop -> a stereo 16-bit WAV, as the FM-1 renders

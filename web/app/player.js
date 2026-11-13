@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Joakim (joakimskurk)
 // Star Distroyer on its own page: the firmware runs in the audio thread (worklet.js, stardistroyer.wasm); here its
 // screen, its lights and the FM-1's controls, laid out as the FM-1 has them (the knobs and OCT on the left, the screen
 // in the middle, K1-K4 and the twelve buttons on the right, the 27 keys across the bottom), drawn as a ship's console.

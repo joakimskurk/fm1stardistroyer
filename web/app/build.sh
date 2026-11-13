@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Joakim (joakimskurk)
 # Star Distroyer for the browser: firmware/src/stardistroyer.c compiled to WebAssembly on web/app/web_host.c (the
 # page's FM-1) instead of the chip: build/web/stardistroyer.wasm, no imports, no C library. clang with the wasm32
 # target and wasm-ld (lld): apt install clang lld. (No such clang here? Any Docker image with both will do:

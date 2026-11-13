@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* Star Distroyer: a starship FM synth with a morphing resonator and multiband destruction, for the M-VAVE FM-1.
  * Built on Dinghy 0.5 (platform.c: updates, the USB rescue, MIDI, keys, knobs, LEDs, the screen, flash).
  *

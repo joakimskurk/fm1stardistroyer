@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* Star Distroyer in a browser: an FM-1 for the page (web/app/), as tests/host.c is one for a computer. platform.c
  * includes this file instead of tests/host.c when DINGHY_WEB is set (with DINGHY_HOST: the app's host branches). The
  * firmware's own code runs on it, compiled to WebAssembly (web/app/build.sh), no imports, no C library:

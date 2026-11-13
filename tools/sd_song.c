@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
+/* Copyright (C) 2026 Joakim (joakimskurk) */
 /* A song, played on one FM-1 by one person (2026-11-07, the user, after RANGE: "can we make it into a song; never
  * more than one patch at a time; no layering").
  *
