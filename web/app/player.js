@@ -6,6 +6,8 @@
 const $ = (id) => document.getElementById(id);
 const ship = $('ship');
 const BASE = new URL('./', import.meta.url).href;   // (its files beside it: the page's app/, the lab's ../app/)
+const VER = new URL(import.meta.url).search;    // (the page's stamp on this file, ?v=..., on the files it fetches too:
+                                                // a new build is never one a browser kept)
 if (ship) {
   const BTN = { OCT_DOWN: 0, OCT_UP: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13 };
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
@@ -40,7 +42,7 @@ if (ship) {
       title="${ABOUT[id]}"><i></i><span>${name}</span></button><small>${note}</small></div>`;
   ship.innerHTML = `
     <div class="head">
-      <img class="logo" src="${BASE}../screens/logo.png" width="1263" height="64" alt="">
+      <img class="logo" src="${BASE}../screens/logo.png${VER}" width="1263" height="64" alt="">
       <span class="unit">FM-1 · UNIT 962</span>
       <span class="lights">
         <span class="lamp red" id="l-pwr"><i></i>PWR</span>
@@ -346,8 +348,8 @@ if (ship) {
     try {
       ac = new AudioContext({ sampleRate: 44100, latencyHint: 'interactive' });
       const [bytes] = await Promise.all([
-        fetch(BASE + 'stardistroyer.wasm').then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); }),
-        ac.audioWorklet.addModule(BASE + 'worklet.js'),
+        fetch(BASE + 'stardistroyer.wasm' + VER).then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); }),
+        ac.audioWorklet.addModule(BASE + 'worklet.js' + VER),
       ]);
       wasmBytes = bytes;
       gain = ac.createGain();

@@ -14,6 +14,7 @@ in the browser, the firmware, the demos.
   screens/                         the pictures (docs/readme: the logo's line, the screens, the signal flow; web/og.png
                                    and web/icon.png from web/make_og.py)
   .nojekyll                        (served as it is)
+  (each file the page loads is referenced with ?v= and a hash of them all: a new build is fetched, not a kept one)
 
 
   tests/run_sd.sh                  (first: the renders)
@@ -169,10 +170,11 @@ def lab_html(out):
     player = (HERE / "app" / "player.js").read_text(encoding="utf-8")
     worklet = (HERE / "app" / "worklet.js").read_text(encoding="utf-8")
     player = swap(player, "const BASE = new URL('./', import.meta.url).href;", "const BASE = '';", "the player's BASE")
-    player = swap(player, "${BASE}../screens/logo.png", logo, "the panel's logo")
-    player = swap(player, "fetch(BASE + 'stardistroyer.wasm').then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); })",
+    player = swap(player, "const VER = new URL(import.meta.url).search;", "const VER = '';", "the player's stamp")
+    player = swap(player, "${BASE}../screens/logo.png${VER}", logo, "the panel's logo")
+    player = swap(player, "fetch(BASE + 'stardistroyer.wasm' + VER).then((r) => { if (!r.ok) throw new Error(`stardistroyer.wasm: ${r.status}`); return r.arrayBuffer(); })",
                   "Promise.resolve(Uint8Array.from(atob(SD_WASM), (c) => c.charCodeAt(0)).buffer)", "the firmware's fetch")
-    player = swap(player, "ac.audioWorklet.addModule(BASE + 'worklet.js')",
+    player = swap(player, "ac.audioWorklet.addModule(BASE + 'worklet.js' + VER)",
                   "ac.audioWorklet.addModule(SD_WORKLET)", "the worklet's module")   # (a data: URL: a blob from a
                                                    # file:// page has no origin, and a worklet will not load it)
     script = (f"const SD_WASM = \"{b64(ROOT / 'build' / 'web' / 'stardistroyer.wasm')}\";\n"
@@ -228,6 +230,14 @@ def main(pkg, version, out):
         encode(ROOT / d["wav"], out / "audio" / f"{d['id']}.m4a")
         demos.append({"id": d["id"], "title": d["title"], "about": d["about"], "src": f"audio/{d['id']}.m4a",
                       "spectrum": f"audio/{d['id']}.webp", "secs": round(len(x) / fs, 1)})
+    # the stamp: every file the page loads, hashed; on each reference to them (?v=...), and the player passes its own
+    # on to what it fetches (player.js: VER), so a browser that kept an older build fetches this one
+    h = hashlib.sha256()
+    for f in sorted(p for p in out.rglob("*") if p.is_file()):
+        h.update(f.relative_to(out).as_posix().encode()); h.update(f.read_bytes())
+    stamp = "?v=" + h.hexdigest()[:10]
+    for d in demos:
+        d["src"] += stamp; d["spectrum"] += stamp
     meta = json.dumps({"version": version, "product": product, "pkg": "firmware/" + name,
                        "sha256": hashlib.sha256(raw).hexdigest(), "size": len(raw)})
     lib = strip_module((HERE / "fm1pkg.js").read_text(encoding="utf-8")) + "\n" + \
@@ -237,10 +247,13 @@ def main(pkg, version, out):
         if html.count(mark) != 1:
             raise SystemExit(f"web/index.html must hold {mark} once")
     html = html.replace("/*LIB*/", lib).replace("/*META*/", meta).replace("/*DEMOS*/", json.dumps(demos))
+    html, n = re.subn(r'((?:src|href)="(?:screens|app)/[^"?]+)"', lambda m: m.group(1) + stamp + '"', html)
+    if not re.search(r'src="app/player\.js\?v=', html):
+        raise SystemExit("web/index.html: the player's script not stamped")
     (out / "index.html").write_text(html, encoding="utf-8")
     (out / ".nojekyll").write_text("")
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
-    print(f"site: {out}: index.html ({len(html)} B), firmware/{name} ({len(raw)} B, {product}), "
+    print(f"site: {out}: index.html ({len(html)} B, {n} references stamped {stamp}), firmware/{name} ({len(raw)} B, {product}), "
           f"{len(demos)} demos, {len(PICTURES) + len(SCREENS)} pictures, the player "
           f"({(out / 'app' / 'stardistroyer.wasm').stat().st_size} B), {size // 1024} KB in all")
 
