@@ -18,11 +18,11 @@
  *   1-8    DRIFT    GROWL's low E, its lowpass opening; VOYAGE's figure (COURSE, ALL and ODD on bank A) and AURORA's
  *                   glass swells, both saved wet (their plates and echoes up); the bed (CHORDS, saved dark, in a
  *                   big hall) in at 3, the arpeggiator over it in eighths
- *   7-12   TAPE     LOOP: the bed's last bar held, the bed off; REVERSE; SCL + OCT-, a bar's glide down onto its own
+ *   7-12   TAPE     LOOP: the bed's last bar held, the bed off; REVERSE; GLO + OCT-, a bar's glide down onto its own
  *                   grid; SHIMMER, then FREEZE on its plate: the loop an octave down under the plate an octave up;
  *                   LFO 2 onto its SPEED (a tape's wobble); under it the acid, dark, TURING on its CUTOFF, and
  *                   VOWEL's long notes through the Reactor's vowels
- *   13-16  RISE     FREEZE let go, REVERSE off, GLIDE 2 BAR, SCL + OCT+ twice: the loop rising two octaves over two
+ *   13-16  RISE     FREEZE let go, REVERSE off, GLIDE 2 BAR, GLO + OCT+ twice: the loop rising two octaves over two
  *                   bars, onto its grid at +12; ORBITAL's ostinato, TURING's NOTES, MOVE
  *   17-24  WALL     DISTROY's slow riff, BREAK, MOVE, its top band CRUSHed and up; the bed's chords back, loud, the
  *                   loop over them at +12; BEACON's line far back, DROWN up; ORBITAL's glints, MUTATE, CHANGE 55
@@ -164,7 +164,7 @@ static void home_to(int n, double s0)           /* HOME n times: NAV, MACROS */
     int i;
     for (i = 0; i < n; i++) if (at(s0 + i)) press("HOME", page == PG_NAV ? PG_MACROS : PG_NAV);
 }
-static void gen_at(double s, uint32_t detents)  /* SCL + K4 on NAV: the harmonic generator on bank A */
+static void gen_at(double s, uint32_t detents)  /* GLO + K4 on NAV: the harmonic generator on bank A */
 {
     char t[64];
     uint32_t d;
@@ -175,17 +175,17 @@ static void gen_at(double s, uint32_t detents)  /* SCL + K4 on NAV: the harmonic
     gen_seed += frame;
     sd_gen(&pat, 0, gen, &gen_seed);
     dirty = 1;
-    snprintf(t, sizeof t, "SCL + K4: GEN %s on bank A", sd_gen_name(gen));
+    snprintf(t, sizeof t, "GLO + K4: GEN %s on bank A", sd_gen_name(gen));
     say(t);
 }
-static void in_key(void) { e.xkey = 1; }       /* the transposes IN KEY: the app's default (SCL + EDIT on SEQ) */
+static void in_key(void) { e.xkey = 1; }       /* the transposes IN KEY: the app's default (GLO + EDIT on SEQ) */
 
 /* the bed: CHORDS (U01) in POLY with the arp; then the looper (down, FREEZE and SHIMMER over it, the wobble; up two
    octaves); the wall's chords; its plate frozen, the loop down two octaves, out */
 static void bed_setup(void)
 {
     in_key();
-    glo(SD_MODE_POLY);
+    scl(SD_MODE_POLY);
     preset_user(&U01, "U01 CHORDS DARK HALL");
     page = PG_SEQA;
     pattern(0, &BEDA, "DRIFT (Em C D Em)");
@@ -212,7 +212,7 @@ static int bed_score(void)
     fx_to(4, BAR(5));                           /* TIME: LENGTH 1 BAR, GLIDE 1 BAR */
     if (at(BAR(5) + 5)) lp_length(12);
     if (at(BAR(5) + 7)) lp_glide_to(13);
-    LP_LEVEL(79, BAR(5) + 9, BAR(6) + 8);      /* SCL + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
+    LP_LEVEL(79, BAR(5) + 9, BAR(6) + 8);      /* GLO + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
     /* the tape: the bed's last bar held, backwards, down an octave */
     if (at(BAR(7))) loop_toggle();
     if (at(BAR(7) + 1)) press("SEQ", PG_SEQA);  /* EDIT: the bed off, PLAY running on (STOP would park the loop) */
@@ -221,10 +221,10 @@ static int bed_score(void)
     if (at(BAR(7) + 4)) { act(); e.arp_on = 0; say("EDIT: ARP OFF"); }
     fx_to(4, BAR(7) + 5);
     if (at(BAR(7) + 10)) reverse_toggle();
-    if (at(BAR(8))) loop_octave(0);             /* SCL + OCT-: down over the bar, onto its grid */
+    if (at(BAR(8))) loop_octave(0);             /* GLO + OCT-: down over the bar, onto its grid */
     /* SHIMMER and FREEZE on its plate: an octave up over the loop an octave down; the plate up */
     fx_to(3, BAR(9));
-    SHIMMER(26, BAR(9) + 3, BAR(10));           /* SCL + ALGORITHM: SHIMMER 0 -> 41 % */
+    SHIMMER(26, BAR(9) + 3, BAR(10));           /* GLO + ALGORITHM: SHIMMER 0 -> 41 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 62, BAR(9) + 3, BAR(10));   /* K4: R-LEVEL */
     if (at(BAR(10))) freeze_toggle();
     if (at(BAR(11))) press("LFO", PG_LFO1);     /* LFO 2 onto its SPEED: the wobble */
@@ -237,9 +237,9 @@ static int bed_score(void)
     fx_to(3, BAR(11) + 13);
     if (at(BAR(12) + 2)) freeze_toggle();
     fx_to(1, BAR(12) + 4);
-    if (at(BAR(12) + 6)) lp_glide_to(14);       /* SCL + K1: GLIDE 2 BAR */
+    if (at(BAR(12) + 6)) lp_glide_to(14);       /* GLO + K1: GLIDE 2 BAR */
     if (at(BAR(12) + 8)) reverse_toggle();
-    if (at(BAR(13))) loop_octave(1);            /* SCL + OCT+: to its pitch ... */
+    if (at(BAR(13))) loop_octave(1);            /* GLO + OCT+: to its pitch ... */
     if (at(BAR(13) + 4)) loop_octave(1);        /* ... and on to +12 */
     /* the wall: the chords back, loud, the loop at +12 over them */
     if (at(BAR(16) + 4)) press("SEQ", PG_SEQA);
@@ -254,9 +254,9 @@ static int bed_score(void)
     if (at(BAR(25) + 1)) press("SEQ", PG_SEQA); /* EDIT: the chords off, PLAY running on under the loop */
     if (at(BAR(25) + 2)) track_on(0, 0);
     fx_to(4, BAR(25) + 3);
-    if (at(BAR(25) + 7)) loop_octave(0);        /* SCL + OCT-: to its pitch ... */
+    if (at(BAR(25) + 7)) loop_octave(0);        /* GLO + OCT-: to its pitch ... */
     if (at(BAR(25) + 11)) loop_octave(0);       /* ... and on to -12 */
-    LP_LEVEL(1, BAR(27) + 10, BAR(30));         /* SCL + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
+    LP_LEVEL(1, BAR(27) + 10, BAR(30));         /* GLO + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
                                                    would change under its echoes) */
     if (at(BAR(30) + 2)) loop_toggle();
     if (at(BAR(30) + 3)) play(0);
@@ -327,12 +327,12 @@ static int low_score(void)
     KNOB99(PG_MACROS, pat.mac[1], 60, BAR(18), BAR(20));   /* MOVE */
     fx_to(2, BAR(20) + 4);
     if (at(BAR(20) + 7)) { act(); say("ALGORITHM: band 4 (the top)"); }
-    if (at(BAR(20) + 9)) {                      /* SCL + ALGORITHM: the top band's shaper to CRUSH */
+    if (at(BAR(20) + 9)) {                      /* GLO + ALGORITHM: the top band's shaper to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
-        say("SCL + ALGORITHM: SHAPE CRUSH (band 4)");
+        say("GLO + ALGORITHM: SHAPE CRUSH (band 4)");
     }
     on_ramp_page(PG_DISTROY, BAR(20) + 10, BAR(23));
     if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 84, BAR(20) + 10, BAR(23), &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
@@ -379,12 +379,12 @@ static int motion_score(void)
     on_ramp_page(PG_REACTOR, BAR(9) + 2, BAR(11));
     if (ramp(__LINE__, pat.r_pos / 26, 700 / 26, BAR(9) + 2, BAR(11), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
     KNOB99(PG_REACTOR, pat.r_res, 56, BAR(9) + 4, BAR(11));
-    if (at(BAR(11) + 1)) {                      /* SCL + K2: MODEL to BP12 */
+    if (at(BAR(11) + 1)) {                      /* GLO + K2: MODEL to BP12 */
         on_page(PG_REACTOR, "MODEL off REACTOR");
         act();
         pat.r_model = SD_RM_BP12;
         dirty = 1;
-        say("SCL + K2: MODEL BP12");
+        say("GLO + K2: MODEL BP12");
     }
     on_ramp_page(PG_REACTOR, BAR(11) + 2, BAR(12) + 14);
     if (ramp(__LINE__, pat.r_pos / 26, 1400 / 26, BAR(11) + 2, BAR(12) + 14, &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
@@ -416,7 +416,7 @@ static int motion_score(void)
 static void lead_setup(void)
 {
     in_key();
-    glo(SD_MODE_POLY);
+    scl(SD_MODE_POLY);
     preset_user(&U03, "U03 AURORA WET");
     page = PG_SEQA;
     pattern(0, &LEAD, "LEAD (over the wall)");
@@ -435,7 +435,7 @@ static int lead_score(void)
     if (at(BAR(8) + 8)) key(71, 0);
     /* BEACON for the wall */
     if (at(BAR(14))) preset_user(&U04, "U04 BEACON 1 S");
-    if (at(BAR(14) + 2)) glo(SD_MODE_MONO);
+    if (at(BAR(14) + 2)) scl(SD_MODE_MONO);
     home_to(1, BAR(14) + 4);                    /* (MACROS: DROWN) */
     pot(__LINE__, 2600, BAR(14) + 4, BAR(16));
     if (at(BAR(17))) play(1);

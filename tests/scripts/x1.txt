@@ -1,15 +1,15 @@
-# X1 (2026-11-09; 2026-11-10: OCT is the octave on SEQ too, SCL + OCT the bank, and SEQ goes round its own pages).
-# OCT+ on NAV (1): the octave +1; SEQ (11): OCT+1 stays; OCT- (0): back to 0; SCL held (3): the transpose keys, C4
-# among them; SCL let go; SEQ three more times: SEQ B, ORBIT, SEQ A again (not NAV, the page before).
-# Shots: 2000 (SEQ A, OCT+1), 2200 (OCT+0), 2400 (SCL held: C4 lit), 2900 (SEQ A again).
+# X1 (2026-11-09; 2026-11-10: OCT is the octave on SEQ too, GLO + OCT the bank, and SEQ goes round its own pages).
+# OCT+ on NAV (1): the octave +1; SEQ (11): OCT+1 stays; OCT- (0): back to 0; GLO tapped (7): latched: the transpose keys, C4
+# among them; GLO tapped again: let go; SEQ three more times: SEQ B, ORBIT, SEQ A again (not NAV, the page before).
+# Shots: 2000 (SEQ A, OCT+1), 2200 (OCT+0), 2400 (GLO latched: C4 lit), 2900 (SEQ A again).
 1700 btn 1
 1800 btn 11
 2000 shot
 2100 btn 0
 2200 shot
-2300 btndown 3
+2300 btn 7
 2400 shot
-2500 btnup 3
+2500 btn 7
 2600 btn 11
 2700 btn 11
 2800 btn 11

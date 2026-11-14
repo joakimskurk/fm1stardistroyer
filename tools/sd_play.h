@@ -23,7 +23,7 @@ static uint32_t bpm = 112;
 static uint32_t gen = 0xFFFFFFFFu, gen_seed = 1;
 static uint8_t held[27];                        /* keys down: their notes */
 static int oct;                                 /* OCT- / OCT+ */
-static uint32_t mode = SD_MODE_MONO;            /* GLO's */
+static uint32_t mode = SD_MODE_MONO;            /* SCL's */
 static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform.c: (k10 x k10) >> 8, ~1 full) */
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
@@ -147,7 +147,7 @@ static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS 
     snprintf(t, sizeof t, "PRESETS: pattern %s", name);
     say(t);
 }
-static void xpose(int trk, int semis)           /* SCL held + a key on SEQ: the transpose, at the one */
+static void xpose(int trk, int semis)           /* GLO held + a key on SEQ: the transpose, at the one */
 {
     char t[48];
     uint32_t key = (uint32_t)(60 + semis), base = (uint32_t)(53 + 12 * oct);
@@ -155,7 +155,7 @@ static void xpose(int trk, int semis)           /* SCL held + a key on SEQ: the 
     if (key < base || key > base + 26u) fail("the transpose's key is not on the keyboard");
     act();
     e.t[trk].xpose_next = (int8_t)semis;
-    snprintf(t, sizeof t, "SCL + key: SEQ %c transposed %+d at its one", 'A' + trk, semis);
+    snprintf(t, sizeof t, "GLO + key: SEQ %c transposed %+d at its one", 'A' + trk, semis);
     say(t);
 }
 
@@ -195,14 +195,14 @@ static void pot(int line, int32_t to, double s0, double s1)   /* MASTER, turned 
     master = v;
 }
 static void play(int on) { act(); e.seq_run = (uint8_t)on; say(on ? "PLAY" : "PLAY: stop"); }
-static void glo(uint32_t to)
+static void scl(uint32_t to)
 {
     static const char *const M[3] = {"MONO", "DUO", "POLY"};
     char t[32];
     act();
-    while (mode != to) mode = (mode + 1u) % SD_MODES;   /* (GLO steps MONO DUO POLY: the presses it takes) */
+    while (mode != to) mode = (mode + 1u) % SD_MODES;   /* (SCL steps MONO DUO POLY: the presses it takes) */
     e.mode = (uint8_t)mode;
-    snprintf(t, sizeof t, "GLO: %s", M[mode]);
+    snprintf(t, sizeof t, "SCL: %s", M[mode]);
     say(t);
 }
 static void rules(void)                         /* the app's voice rules, every block */
@@ -290,9 +290,9 @@ static void track_on(int trk, int on)
     say(t);
 }
 
-/* TIME's looper (2026-11-11), the player's as the app's: LOOP (ALGORITHM on TIME), REVERSE (SCL + ALGORITHM), GLIDE
-   (SCL + K1, OFF or a division a detent), LENGTH (SCL + K2, a division a detent), SPEED (SCL + K3, an eighth of a
-   semitone a detent; SCL + OCT, the next octave), L-LEVEL (SCL + K4: above 0 the looper armed; 0 as the app starts).
+/* TIME's looper (2026-11-11), the player's as the app's: LOOP (ALGORITHM on TIME), REVERSE (GLO + ALGORITHM), GLIDE
+   (GLO + K1, OFF or a division a detent), LENGTH (GLO + K2, a division a detent), SPEED (GLO + K3, an eighth of a
+   semitone a detent; GLO + OCT, the next octave), L-LEVEL (GLO + K4: above 0 the looper armed; 0 as the app starts).
    Its memory only when a performance asks for it (looper_mem: the FM-1's own, as the app has it since 2026-11-11:
    half the delay line, lent while the looper is armed, and 24 KB, mono mu-law at half rate, 5.1 s); the performances
    before it have none, and sound as they did */
@@ -315,9 +315,9 @@ static void reverse_toggle(void)
     on_page(PG_TIME, "REVERSE off TIME");
     act();
     lp_rev = (uint8_t)!lp_rev;
-    say(lp_rev ? "SCL + ALGORITHM: REVERSE ON" : "SCL + ALGORITHM: REVERSE OFF");
+    say(lp_rev ? "GLO + ALGORITHM: REVERSE ON" : "GLO + ALGORITHM: REVERSE OFF");
 }
-static void lp_length(uint32_t d)               /* SCL + K2 turned to division d (a few detents: one gesture) */
+static void lp_length(uint32_t d)               /* GLO + K2 turned to division d (a few detents: one gesture) */
 {
     static const char *const N[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4",
                                                "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
@@ -325,10 +325,10 @@ static void lp_length(uint32_t d)               /* SCL + K2 turned to division d
     on_page(PG_TIME, "LENGTH off TIME");
     act();
     lp_len = (uint16_t)(d * 65536u / SD_LP_NDIV + 100u);
-    snprintf(t, sizeof t, "SCL + K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
+    snprintf(t, sizeof t, "GLO + K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
     say(t);
 }
-static void lp_glide_to(uint32_t d)             /* SCL + K1 turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
+static void lp_glide_to(uint32_t d)             /* GLO + K1 turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
 {
     static const char *const N[SD_LP_NGLIDE] = {"OFF", "1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
                                                  "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
@@ -336,17 +336,17 @@ static void lp_glide_to(uint32_t d)             /* SCL + K1 turned to GLIDE's pl
     on_page(PG_TIME, "GLIDE off TIME");
     act();
     lp_glide = (uint16_t)(d * 65536u / SD_LP_NGLIDE + (d ? 100u : 0u));
-    snprintf(t, sizeof t, "SCL + K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
+    snprintf(t, sizeof t, "GLO + K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
     say(t);
 }
-static void loop_octave(int up)                 /* SCL + OCT- / OCT+ on TIME: SPEED to the next octave */
+static void loop_octave(int up)                 /* GLO + OCT- / OCT+ on TIME: SPEED to the next octave */
 {
     int32_t v = lp_speed;
-    on_page(PG_TIME, "SCL + OCT off TIME");
+    on_page(PG_TIME, "GLO + OCT off TIME");
     act();
     v = up ? (v < 0 ? 0 : 3072) : (v > 0 ? 0 : -3072);
     lp_speed = (int16_t)v;
-    say(up ? "SCL + OCT+: SPEED AN OCTAVE UP" : "SCL + OCT-: SPEED AN OCTAVE DOWN");
+    say(up ? "GLO + OCT+: SPEED AN OCTAVE UP" : "GLO + OCT-: SPEED AN OCTAVE DOWN");
 }
 #define LP_SPEED(to8, s0, s1) do { int32_t v_; on_ramp_page(PG_TIME, s0, s1); \
     if (ramp(__LINE__, lp_speed / 32, to8, s0, s1, &v_)) lp_speed = (int16_t)(v_ * 32); } while (0)   /* (eighths) */
@@ -369,7 +369,7 @@ static void freeze_toggle(void)                 /* ALGORITHM on SPACE */
 }
 #define SHIMMER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_SPACE, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_SP_SHIM(&pat), to, s0, s1, &v_)) { \
-        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (SCL + ALGORITHM, 0..63) */
+        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (GLO + ALGORITHM, 0..63) */
 static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: ALGORITHM to slot k + 1, K1
                                                    SOURCE, K2 DEST (its list), K3 AMOUNT (a percent a detent) */
 {
@@ -408,7 +408,7 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     memset(&sm, 0, sizeof sm);
     e.sm = &sm;
     e.seqb = 1;                                 /* the app: B there, silent until it has notes */
-    e.xkey = 0;                                 /* the transposes CHROM (SCL + EDIT, set before): these were played
+    e.xkey = 0;                                 /* the transposes CHROM (GLO + EDIT, set before): these were played
                                                    so, before IN KEY (the app's default since 2026-11-10) */
     e.bpm = (uint8_t)bpm;
     e.mode = SD_MODE_MONO;

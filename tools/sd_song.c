@@ -15,12 +15,12 @@
  *   INTRO    8   VOWEL, DUO: the bass alone (D D Bb C), the Reactor opening; the hook enters on A at bar 5
  *   VERSE    16  the verse melody on A, the bass on B; the Reactor's MODEL to BP12 halfway
  *   PRE      8   Bb Bb C C, a rising line; BREAK and MOVE up
- *   (break)      GLO to POLY, CHORDS
+ *   (break)      SCL to POLY, CHORDS
  *   CHORUS   16  CHORDS, POLY: Dm Bb F C on A (three voices), the hook on B (the fourth); MOVE in the second half
- *   (break)      GLO to MONO, ORBITAL
+ *   (break)      SCL to MONO, ORBITAL
  *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, TURING's NOTES moving it, MOVE stepping the nav, MUTATE
  *   BUILD    8   GROWL (the same line, still evolving): the lowpass on, closed, then opened all the way, RES up
- *   (break)      GLO to POLY, CHORDS, the last chorus's pattern
+ *   (break)      SCL to POLY, CHORDS, the last chorus's pattern
  *   CHORUS   16  again, BREAK's grit, MOVE; at bar 9 both tracks up a tone (E minor)
  *   OUTRO    8   SEQ B off, the arpeggiator on (HOLD, E G B E) over the chords, the echoes up, MASTER down; PLAY
  *                stops, the arp alone, then off */
@@ -116,7 +116,7 @@ static void verse(double s0)                    /* the verse melody on A, the ba
     if (at(S(2))) press("FX", PG_REACTOR);
     on_ramp_page(PG_REACTOR, S(4), S(120));
     if (ramp(__LINE__, pat.r_pos / 26, 900 / 26, S(4), S(120), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    if (at(S(126))) { on_page(PG_REACTOR, "MODEL off REACTOR"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("SCL + K2: MODEL BP12"); }
+    if (at(S(126))) { on_page(PG_REACTOR, "MODEL off REACTOR"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("GLO + K2: MODEL BP12"); }
     on_ramp_page(PG_REACTOR, S(132), S(232));
     if (ramp(__LINE__, pat.r_pos / 26, 520 / 26, S(132), S(232), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
     KNOB99(PG_REACTOR, pat.r_res, 66, S(140), S(220));
@@ -135,7 +135,7 @@ static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MO
     KNOB99(PG_MACROS, pat.mac[1], 30, S(64), S(120));   /* MOVE */
     if (at(S(128))) play(0);
     /* the break: POLY, the chords on A, the hook on B, CHORDS last (its SPACE takes VOWEL's tail) */
-    if (at(S(129.5))) glo(SD_MODE_POLY);
+    if (at(S(129.5))) scl(SD_MODE_POLY);
     if (at(S(131))) press("SEQ", PG_SEQA);
     if (at(S(132.5))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
     if (at(S(134))) press("SEQ", PG_SEQB);
@@ -153,7 +153,7 @@ static void chorus1(double s0)
     KNOB99(PG_MACROS, pat.mac[1], 35, S(128), S(240));  /* MOVE: the second half wider, moving */
     if (at(S(256))) play(0);
     /* the break: MONO, the ostinato, ORBITAL */
-    if (at(S(257.5))) glo(SD_MODE_MONO);
+    if (at(S(257.5))) scl(SD_MODE_MONO);
     if (at(S(259))) press("SEQ", PG_SEQA);
     if (at(S(260.5))) pattern(0, &OST, "OSTINATO (16)");
     if (at(S(262))) press("HOME", PG_NAV);
@@ -205,8 +205,8 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
     KNOB99(PG_FILTER, pat.f_res, 72, S(80), S(124));
     if (at(S(128))) play(0);
     /* the break (silent: GROWL has no SPACE): POLY, the chords, CHORDS (B still has the hook) */
-    if (at(S(129.5))) glo(SD_MODE_DUO);
-    if (at(S(131))) glo(SD_MODE_POLY);
+    if (at(S(129.5))) scl(SD_MODE_DUO);
+    if (at(S(131))) scl(SD_MODE_POLY);
     if (at(S(132.5))) press("SEQ", PG_SEQA);
     if (at(S(134))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
     if (at(S(135.5))) press("HOME", PG_NAV);
@@ -254,7 +254,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     if (at(S(34))) press("FX", PG_DISTROY);
     if (at(S(36))) press("FX", PG_SPACE);
     KNOB99(PG_SPACE, pat.s_fb, 62, S(38), S(80));
-    KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* SCL + K1: D-LEVEL */
+    KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* GLO + K1: D-LEVEL */
     pot(__LINE__, 1500, S(64), S(150));
     KNOB99(PG_SPACE, pat.s_fb, 22, S(156), S(172));    /* the echoes let go */
     if (at(S(128))) play(0);                    /* the chords stop; the arp plays on, alone */
@@ -267,7 +267,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
 static void setup(void)                         /* before the first note: DUO, VOWEL, the patterns; A off */
 {
     patterns();
-    glo(SD_MODE_DUO);                           /* (quiet: the engine switches while it settles) */
+    scl(SD_MODE_DUO);                           /* (quiet: the engine switches while it settles) */
     preset(P_VOWEL);
     page = PG_SEQA;
     pattern(0, &HOOK, "HOOK");

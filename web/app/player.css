@@ -113,7 +113,6 @@
 .btn.glow i { background: rgba(205, 230, 240, .32); box-shadow: 0 0 .4cqw rgba(205, 230, 240, .25); }
 .btn.lit i { background: var(--ice); box-shadow: 0 0 .5cqw var(--ice), 0 0 1.4cqw rgba(205, 230, 240, .55); }
 .btn.red.lit i { background: var(--red); box-shadow: 0 0 .5cqw var(--red), 0 0 1.4cqw rgba(235, 28, 28, .6); }
-.btn.locked span { color: var(--red2); }
 .btn:focus-visible { outline: 2px solid var(--ice); outline-offset: -4px; }
 /* the screen, in a heavy bezel under glass */
 .zs { position: relative; }

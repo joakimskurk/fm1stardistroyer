@@ -1,11 +1,11 @@
 # P1 (2026-11-10): SPACE's plate. FX three times (2): SPACE (SIZE DECAY TONE R-LEVEL), its hint ALGO FREEZE OFF; ALGORITHM (1) a detent:
-# FREEZE on, the tail flat and tagged; SCL held (3): the hint SCL+ALGO SHIMMER, ALGORITHM +32 there: 50 %; SCL let
+# FREEZE on, the tail flat and tagged; GLO held (7): the hint GLO+ALGO SHIMMER, ALGORITHM +32 there: 50 %; GLO let
 # go, ALGORITHM: FREEZE off.
-# Shots: 2100 (SPACE), 2600 (FREEZE: the message), 4700 (FREEZE: the tag, the hint ON), 5100 (SCL: SHIMMER 50 %),
-# 5700 (FREEZE off). Then FX: TIME (2026-11-11): the delay (6000); SCL held: GLIDE and the looper, the hint ALGO REV
-# and EDIT the MODE, MAX in the picture (6200), SCL + ALGORITHM: REVERSE on, KNOB 4 +24: SPEED +3.0, KNOB 1 +13: GLIDE
-# 1 BAR, SCL + OCT-: SPEED 0, its message (6550); SCL + EDIT: the MODE's next, its message (6650); SCL + K4: L-LEVEL
-# up, the looper armed: LOOPER ON: DELAY 0.5 S (6690); SCL let go: the REV tag (6800); ALGORITHM: LOOP on,
+# Shots: 2100 (SPACE), 2600 (FREEZE: the message), 4700 (FREEZE: the tag, the hint ON), 5100 (GLO: SHIMMER 50 %),
+# 5700 (FREEZE off). Then FX: TIME (2026-11-11): the delay (6000); GLO held: GLIDE and the looper, the hint ALGO REV
+# and EDIT the MODE, MAX in the picture (6200), GLO + ALGORITHM: REVERSE on, KNOB 4 +24: SPEED +3.0, KNOB 1 +13: GLIDE
+# 1 BAR, GLO + OCT-: SPEED 0, its message (6550); GLO + EDIT: the MODE's next, its message (6650); GLO + K4: L-LEVEL
+# up, the looper armed: LOOPER ON: DELAY 0.5 S (6690); GLO let go: the REV tag (6800); ALGORITHM: LOOP on,
 # both tags (7100).
 1700 btn 2
 1800 btn 2
@@ -14,15 +14,15 @@
 2300 enc 1 1
 2600 shot
 4700 shot
-4800 btndown 3
+4800 btndown 7
 4900 enc 1 32
 5100 shot
-5200 btnup 3
+5200 btnup 7
 5300 enc 1 1
 5700 shot
 5800 btn 2
 6000 shot
-6100 btndown 3
+6100 btndown 7
 6200 shot
 6300 enc 1 1
 6400 enc 4 24
@@ -33,7 +33,7 @@
 6650 shot
 6660 enc 5 79
 6690 shot
-6700 btnup 3
+6700 btnup 7
 6800 shot
 6900 enc 1 1
 7100 shot

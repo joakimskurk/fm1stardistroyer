@@ -1,14 +1,14 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
-# R2: PLUCKS (PRESETS +3 from DISTROY) in the loop on the REACTOR page (FX); SEL held shows MODEL KP; then PHASER (+2)
-# Buttons: SEL 3, FX 2, PLAY 12. Encoders: PRESETS 6.
+# R2: PLUCKS (PRESETS +3 from DISTROY) in the loop on the REACTOR page (FX); GLO held shows MODEL KP; then PHASER (+2)
+# Buttons: GLO 7, FX 2, PLAY 12. Encoders: PRESETS 6.
 1700 enc 6 3
 1750 btn 6
 1800 btn 12
 2000 btn 2
 2900 shot
-3000 btndown 3
+3000 btndown 7
 3300 shot
-3400 btnup 3
+3400 btnup 7
 3600 enc 6 2
 3650 btn 6
 4600 shot

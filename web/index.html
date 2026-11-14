@@ -243,7 +243,7 @@
   <h2 id="try"><img src="screens/slash.png" width="68" height="28" alt="">Try it here</h2>
   <p>The firmware itself, compiled for the browser: the same C the FM-1 runs, its sound, its screen and its lights,
     on a panel laid out as the FM-1's. Turn it on and play: the keys with the mouse or a finger, the computer's
-    keyboard or a MIDI keyboard; drag or scroll a knob to turn it. A click on SCL holds it until the next. What SAVE
+    keyboard or a MIDI keyboard; drag or scroll a knob to turn it. A click on GLO keeps the second layer until the next (GLO lit). What SAVE
     keeps stays in this browser.</p>
   <div class="player">
     <div class="ship" id="ship"></div>
@@ -265,15 +265,15 @@
         stops it.</li>
       <li><b>Turn the macros.</b> Press HOME until MACROS is the red tab on the top line. K1–K4 turn MUTATE, MOVE,
         BREAK and a fourth (BODY, AIR or DROWN, as the patch chooses). At 0 the patch is as it was programmed.</li>
-      <li><b>Find a patch.</b> Turn PRESETS: a list opens, and the sound stays as it is. EDIT loads the one picked,
-        HOME keeps yours.</li>
+      <li><b>Find a patch.</b> Turn PRESETS: a list opens, and the sound stays as it is. EDIT or OCT+ loads the one picked,
+        OCT− or HOME keeps yours.</li>
       <li><b>Find your way.</b> A page button goes to its page, and pressed again to its next one. K1–K4 turn the four
-        values in the row on top. Hold SCL (Shift) for four more: their names turn red. EDIT turns what the page shows
+        values in the row on top. Hold GLO (Shift) for four more, or tap it to keep them: their names turn red. EDIT turns what the page shows
         on or off, and ALGORITHM is the page's choice, named on the hint line.</li>
       <li><b>Write a pattern.</b> On SEQ the white keys are the steps: tap one and turn K1 for its note, K4 for its
-        type (a rest, a tie, a slide). Or press REC and play the keys: stopped, step by step; playing, into the step
-        that plays. OCT moves the keys' octave here too; SCL + OCT turns the step bank.</li>
-      <li><b>Keep it.</b> Press SAVE, turn ALGORITHM to a place, and press SAVE again. On SEQ it keeps the pattern. In
+        type (a rest, a tie, a slide). Or press REC (or the last black key) and play the keys: stopped, step by step; playing, into the step
+        that plays. OCT moves the keys' octave here too; GLO + OCT turns the step bank.</li>
+      <li><b>Keep it.</b> Press SAVE, turn ALGORITHM to a place, and press SAVE again (or OCT+; OCT− lets it be). On SEQ it keeps the pattern. In
         the player, what SAVE keeps stays in this browser.</li>
     </ol>
   </div>
@@ -291,7 +291,7 @@
         <li>Each oscillator is a harmonic 1–32 of the note with a fine tune, a carrier or a modulator.</li>
         <li><b>XM</b> sets the FM, <b>WARP</b> turns sine → triangle → saw → pulse, <b>FOLD</b> folds, <b>DETUNE</b> spreads.</li>
         <li>The <b>NAV</b> X/Y blends the four banks; <b>COURSE</b> plays four stored X/Y cells from each note.</li>
-        <li>Harmonic generators re-roll a bank. <b>MONO</b>, <b>DUO</b> or <b>POLY</b>.</li>
+        <li>Harmonic generators re-roll a bank, from a list as the knob turns. <b>MONO</b>, <b>DUO</b> or <b>POLY</b>.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -308,7 +308,7 @@
     <div><h3>DISTROY <span>·</span> multiband destruction</h3>
       <ul>
         <li>Four bands, LOW to TOP, each its <b>TYPE</b> (SOFT HARD FOLD CRUSH), <b>DRIVE</b>, what the type does
-          (KNEE, SPACING, DEPTH), <b>LEVEL</b>, and <b>BIAS</b>, <b>PAN</b> and <b>SPLIT</b> on SCL.</li>
+          (KNEE, SPACING, DEPTH), <b>LEVEL</b>, and <b>BIAS</b>, <b>PAN</b> and <b>SPLIT</b> on GLO.</li>
         <li><b>PHAT</b> lifts quiet parts and tails, <b>SHARP</b> spits transients.</li>
         <li>A feedback loop with <b>TAME</b> to darken it, and a limiter so it never blows up.</li>
       </ul></div>
@@ -322,14 +322,14 @@
           red).</li>
         <li><b>LOOP</b> (ALGORITHM on TIME): the looper, armed with L-LEVEL (it borrows half the delay line: 5 s, a
           light 8-bit tape, the delay then 0.5 s), always recording what you hear, plays its last LENGTH round
-          while the delay goes on; SPEED takes it an octave up or down, as a tape's (SCL + OCT the next octave, over
-          GLIDE, landing on the loop's own grid), REVERSE (SCL + ALGORITHM) plays it backwards; it goes into the reverb
+          while the delay goes on; SPEED takes it an octave up or down, as a tape's (GLO + OCT the next octave, over
+          GLIDE, landing on the loop's own grid), REVERSE (GLO + ALGORITHM) plays it backwards; it goes into the reverb
           as the synth does. It follows PLAY: STOP stops the loop too, and PLAY starts it again in sync with the
           sequencer.</li>
         <li><b>SPACE</b>, the plate: four diffusers into a tank in a figure of eight, its lines gently moving.
           <b>SIZE</b> 0.35–1.75 x (it glides there like tape), <b>DECAY</b> 0.3 s to about 40 s, <b>TONE</b>.</li>
         <li><b>FREEZE</b> (ALGORITHM on SPACE): the plate's tail held as it is, the input closed; play over it.
-          <b>SHIMMER</b> (SCL + ALGORITHM): an octave up of the tail back into it.</li>
+          <b>SHIMMER</b> (GLO + ALGORITHM): an octave up of the tail back into it.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -340,9 +340,10 @@
           <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
         <li>Eight modulation slots: envelopes, two LFOs, TURING, the nav, velocity, the wheel, aftertouch, random,
           and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
-        <li>54 destinations, from PITCH to the envelopes' times, the filter, every engine (DISTROY's GAIN band by band
-          and each of its three crossovers too, one going through another), the looper's speed (an LFO
-          on it a tape's wobble; TURING in semitones) and the LFOs' rates, picked from a list as DEST turns.</li>
+        <li>54 destinations, from PITCH to the envelopes' times, the filter, every engine (DISTROY's DRIVE band by band
+          and each band's SPLIT too, one going through another), the looper's speed (an LFO on it a tape's wobble;
+          TURING in semitones) and the LFOs' rates, picked from a list as DEST turns: each named by the page its knob is
+          on and the knob's name there, in the pages' order.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -365,13 +366,13 @@
         <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
         <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
           two lanes and the macros, jumping or gliding.</li>
-        <li><b>MASTER</b> (SCL + SEQ): A or B, the track whose one leads. The other track and ORBIT switched on while
+        <li><b>MASTER</b> (GLO + SEQ): A or B, the track whose one leads. The other track and ORBIT switched on while
           it plays come in at its next one.</li>
         <li><b>ARP</b> from 1/64 to 1/2, triplets and dotted, on the patterns' grid while they play. REC on ARP keeps
           what it just played as a pattern.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
         <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, TURING and the synced LFOs move by its
-          pulses and never drift; START plays from step 1, STOP stops. SCL + PLAY: SYNC AUTO or INT.</li>
+          pulses and never drift; START plays from step 1, STOP stops. GLO + PLAY: SYNC AUTO or INT.</li>
       </ul></div>
   </div>
 
@@ -387,14 +388,14 @@
     <tr><td>ARP</td><td>the arpeggiator</td></tr>
     <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>SCL held</td><td>the second layer (the names turn red); on SEQ, the keys transpose the track, in SEQ A's key (SCL + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B; on TIME, OCT moves the loop an octave and EDIT is the delay's MODE</td></tr>
-    <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; SCL + ALGORITHM the second</td></tr>
+    <tr><td>GLO</td><td>held, the second layer (the names turn red); a tap keeps it (GLO lit), a tap again lets it go; on SEQ, the keys transpose the track, in SEQ A's key (GLO + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B; on TIME, OCT moves the loop an octave and EDIT is the delay's MODE</td></tr>
+    <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; GLO + ALGORITHM the second</td></tr>
     <tr><td>EDIT</td><td>ON / OFF of what the page shows: an engine, the filter, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one, ON blinking till then)</td></tr>
-    <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT loads, HOME not now</td></tr>
-    <tr><td>SELECT · GLO</td><td>the tempo (40–240 BPM; a MIDI clock's while one leads: CLK) · MONO → DUO → POLY</td></tr>
-    <tr><td>PLAY · REC · SAVE</td><td>the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own</td></tr>
-    <tr><td>OCT− · OCT+</td><td>the keys' octave, on every page (on SEQ, SCL + OCT the step bank)</td></tr>
-    <tr><td>The keys</td><td>play; on SEQ the white keys are the steps, the black ones RND, UNDO, CLR and SEG; on ORBIT the last black key is SETUP</td></tr>
+    <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT or OCT+ loads, OCT− or HOME not now</td></tr>
+    <tr><td>SELECT · SCL</td><td>the tempo (40–240 BPM; a MIDI clock's while one leads: CLK) · MONO → DUO → POLY</td></tr>
+    <tr><td>PLAY · REC · SAVE</td><td>the sequencer (GLO + PLAY: SYNC AUTO or INT) · recording · a place of your own</td></tr>
+    <tr><td>OCT− · OCT+</td><td>the keys' octave, on every page (on SEQ, GLO + OCT the step bank); to a question (the list, SAVE, CLR) OCT+ is yes and OCT− no</td></tr>
+    <tr><td>The keys</td><td>play; on SEQ the white keys are the steps, the black ones, lit where they do something, B1 RND, B2 UNDO, B3 CLR, B10 SEG and B11 the keys into the steps (REC); on ORBIT B10 is SETUP</td></tr>
     <tr><td>MIDI in</td><td>USB or the TRS jack: notes (as the keys play them; REC writes them at their velocity), the mod wheel, aftertouch and a clock</td></tr>
   </table>
   <div class="shots">

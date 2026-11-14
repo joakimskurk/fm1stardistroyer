@@ -17,8 +17,9 @@ how it behaves; how it got there is in the git history.
 3. **Storage:** 32 user patches in slot 0, 32 patterns in slots 1–2 (ORBIT with them in slot 3), saved on SAVE only,
    written when the sound is quiet (an erase stalls the audio for tens of ms).
 4. **One grammar for the controls** (as every page): the button's pages on the top line, K1–K4 a row as the knobs
-   lie, EDIT ON / OFF, SCL held the second layer, the hint line saying what ALGORITHM and the keys do, the key LEDs
-   showing what the keys do.
+   lie, EDIT ON / OFF, GLO held the second layer (a tap latches it, GLO lit, so one hand holds the FM-1 and the other
+   turns), SCL the voices, OCT+ yes and OCT- no to a question (the list, SAVE, CLR), the hint line saying what
+   ALGORITHM and the keys do, the key LEDs showing what the keys do (a black key with a job lit).
 
 ## 2. The pattern and the steps
 
@@ -31,7 +32,7 @@ how it behaves; how it got there is in the git history.
   up to three more notes as semitones from its note, moving with it (RND, the transposes, TURING's NOTES).
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
   index keeps its meaning); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
-- *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (SCL + OCT the bank; the edited step goes along),
+- *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (GLO + OCT the bank; the edited step goes along),
   a step tapped again shows RATCHET and PROB; the black keys RND UNDO CLR (twice) and, the last, SEG.
 
 ## 3. Segments
@@ -43,7 +44,7 @@ how it behaves; how it got there is in the git history.
   n times before the next; SKIP plays nothing; the segments go A → F and round.
 - *TIE, SLIDE and PROB follow the playing order:* they connect to the next step played (in another segment, or the
   same step again under REPEAT); PROB is drawn each time a step plays.
-- *Editing (SEG, the last black key):* a white key cuts (a segment starts there, the new half copies the old one's
+- *Editing (SEG, B10, D#5):* a white key cuts (a segment starts there, the new half copies the old one's
   settings and is picked); where one already starts, it joins it to the one before; step 1 never cuts; no seventh.
   The black keys pick A–F and EVEN (spread evenly: 64 in 3 is 21 21 22). K1 REPEAT, K2 ORDER (FWD REV P-P RND), K3 SKIP,
   K4 LENGTH (the segment's end moves, the ones after keep their lengths, the last gives way). A new pattern LENGTH
@@ -56,27 +57,27 @@ how it behaves; how it got there is in the git history.
 
 - *Tracks:* SEQ A and SEQ B (`SdSeqT`) on the one sound, one tempo and one PLAY, each its own pattern, LENGTH, DIV and
   segments. EDIT switches a track ON / OFF (silent, in time). B is silent in MONO (its switch shows MONO).
-- *The master* (SCL + SEQ on SEQ A, SEQ B or ORBIT; `set.master`, kept): the track whose one leads, A by default. The
+- *The master* (GLO + SEQ on SEQ A, SEQ B or ORBIT; `set.master`, kept): the track whose one leads, A by default. The
   other track and ORBIT switched on while it plays come in at its next one, from their step 1 (ON blinks till then);
   off is at once; stopped, START starts them together. SEQ A's key (IN KEY, REC's note) and TURING's NOTES stay A's.
 - *The voices:* each voice knows its source (the hand, A, B, ARP) and only that source turns it off; `sd_plan` gives
   each a quota each tick (a playing track its widest chord, A first, then B, ARP one, the hand the rest); no source
   takes another's held voice. The app keeps what is on inside it: ARP and B refused with a message where they do not
-  fit (MONO with A playing: no ARP), switched off when PLAY, GLO or a chord takes their room; a chord recorded only as
+  fit (MONO with A playing: no ARP), switched off when PLAY, SCL or a chord takes their room; a chord recorded only as
   wide as the room left; REC lets the keys take the recorded track's voice.
 
 ## 5. Recording and transposing
 
-- *REC* (the track SEQ edits, on any page): stopped, step by step (keys held together a chord; every key up, the next
-  step; ENV a TIE, LFO a REST); playing, into the step that plays. It writes what is heard (`sd_seq_rec_note`): a key
+- *REC* (the track SEQ edits, on any page; on SEQ B11, F#5, too, lit while it records): stopped, step by step (keys
+  held together a chord; every key up, the next step; ENV a TIE, LFO a REST); playing, into the step that plays. It writes what is heard (`sd_seq_rec_note`): a key
   under the track's transpose goes in back by it, so the step plays the key's note.
 - *MIDI's notes* (USB or the TRS jack, any channel; `midi_note`) are written as the keys' are, at their velocity (the
   FM-1's keys write 100); MIDI's held notes count with the keys'. They play on every page, the step pages too.
-- *The transpose:* SCL held on SEQ, a key sets the track's transpose from C4 (or K4 XPOSE, ±24), taken at its next
+- *The transpose:* GLO held on SEQ, a key sets the track's transpose from C4 (or K4 XPOSE, ±24), taken at its next
   one; the keys show it (C4 a glow, its place full, blinking while it waits). OCT is the keys' octave on every page.
-- *IN KEY* (the default; `SdEngine.xkey`): a transpose (SCL's, K4's, ORBIT's XPOSE) moves each note as many degrees of
+- *IN KEY* (the default; `SdEngine.xkey`): a transpose (GLO's, K4's, ORBIT's XPOSE) moves each note as many degrees of
   SEQ A's scale as A's key is from the key it names (+5 up a fourth in the key), a note off the scale keeping its step
-  off it, a chord tone by tone (`sd_seq_xn`). SCL + EDIT on SEQ or ORBIT switches to CHROM (semitones; `set.xchrom`).
+  off it, a chord tone by tone (`sd_seq_xn`). GLO + EDIT on SEQ or ORBIT switches to CHROM (semitones; `set.xchrom`).
 
 ## 6. ARP and KEEP
 
@@ -109,12 +110,12 @@ how it behaves; how it got there is in the git history.
   the four macros' changes (±99). Every value a change from where the player is: 0 changes nothing.
 - *Playing:* its step moves at the master's one after RATE loops (`sd_orb_one`), START from step 1; the lanes and the
   macros jump at a step or glide through it to the next (GLIDE, a lane each).
-- *The page:* the first white keys (or ALGORITHM) pick a step: K1 XPOSE A, K2 XPOSE B, K3 lane 1, K4 lane 2; SCL: the
-  macros. The last black key: SETUP (LENGTH RATE DEST 1 DEST 2; SCL: the GLIDEs). The keys play nothing there.
+- *The page:* the first white keys (or ALGORITHM) pick a step: K1 XPOSE A, K2 XPOSE B, K3 lane 1, K4 lane 2; GLO: the
+  macros. B10 (D#5): SETUP (LENGTH RATE DEST 1 DEST 2; GLO: the GLIDEs). The keys play nothing there.
 
 ## 9. The clock
 
-- *MIDI clock* (USB or the jack; SYNC AUTO, SCL + PLAY: INT): the main loop counts the pulses (24 a quarter) and the
+- *MIDI clock* (USB or the jack; SYNC AUTO, GLO + PLAY: INT): the main loop counts the pulses (24 a quarter) and the
   engine moves everything on the tempo by them (`sd_clk_tick`: the tracks, ORBIT, ARP, TURING, the synced LFOs, MOVE),
   carried between pulses at their tempo and never past the next, so nothing drifts. While the tracks play a step stays
   6 pulses; the tempo shown is the mean of the last 8 beats. START and CONTINUE play from step 1 at the next pulse,
@@ -128,5 +129,5 @@ engine at level 0, bit for bit; a track OFF; B in MONO; the transpose at the one
 `test_orbit`, `test_xkey`, `test_clock`, `test_rec_note` (every transpose, IN KEY and CHROM, A and B: notes play back as
 played), `test_more` (the destinations' order, the divisions, KEEP), `test_cue` (in at the master's one), `test_tq`,
 `test_arp_grid`. Host scripts: `q1.txt` (the page, segments, REC), `q2.txt` (SAVE and recall), `q3.txt` (RATCHET and
-PROB), `u1.txt` (every page), `o1.txt` (ORBIT), `b1.txt` (PRESETS' list), `x1.txt` (SCL + OCT), `k1.txt` (the clock),
+PROB), `u1.txt` (every page), `o1.txt` (ORBIT), `b1.txt` (PRESETS' list), `x1.txt` (GLO + OCT), `k1.txt` (the clock),
 `m1.txt` (MIDI recorded); `web_test` in the browser's player.

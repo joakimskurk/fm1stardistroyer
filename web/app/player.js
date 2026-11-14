@@ -11,15 +11,15 @@ const VER = new URL(import.meta.url).search;    // (the page's stamp on this fil
 if (ship) {
   const BTN = { OCT_DOWN: 0, OCT_UP: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13 };
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
-  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SCL', 3, '2ND LAYER'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · TURING'],
-                ['EDIT', 6, 'ON · OFF'], ['GLO', 7, 'VOICES']];
+  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SCL', 3, 'VOICES'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · TURING'],
+                ['EDIT', 6, 'ON · OFF'], ['GLO', 7, '2ND LAYER']];
   const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARPEGGIO'], ['SEQ', 11, 'SEQ · ORBIT'],
                 ['PLAY', 12, 'RUN', 'red'], ['REC', 13, 'RECORD', 'red']];
-  const ABOUT = { 0: 'OCT−: an octave down (on SEQ, SCL + OCT−: the step bank)', 1: 'OCT+: an octave up (on SEQ, SCL + OCT+: the step bank)',
-    2: 'FX: REACTOR, DISTROY, SPACE', 3: 'SCL held: the second layer. A click locks it, another lets it go (or hold Shift)',
+  const ABOUT = { 0: 'OCT−: an octave down; NO to a question (on SEQ, GLO + OCT−: the step bank)', 1: 'OCT+: an octave up; YES to a question (on SEQ, GLO + OCT+: the step bank)',
+    2: 'FX: REACTOR, DISTROY, SPACE', 3: 'SCL: MONO, DUO, POLY',
     4: 'ENV: the envelopes, the filter', 5: 'LFO: LFO 1, LFO 2, TURING, the matrix', 6: 'EDIT: what the page shows, on or off',
-    7: 'GLO: MONO, DUO, POLY', 8: 'HOME: NAV, the macros', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
-    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, ORBIT (on SEQ, SCL + SEQ: the master, A or B, whose one leads)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
+    7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: NAV, the macros', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
+    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, ORBIT (on SEQ, GLO + SEQ: the master, A or B, whose one leads)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
   // the encoders: name, id, note
   const ENCS = { SELECT: [0, 'TEMPO'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
                  'KNOB 1': [2, 'K1'], 'KNOB 2': [3, 'K2'], 'KNOB 3': [4, 'K3'], 'KNOB 4': [5, 'K4'] };
@@ -28,7 +28,7 @@ if (ship) {
   // the computer's keys (by place, any layout): A row the white keys from C4, the row above the black ones
   const KEYMAP = { KeyA: 7, KeyW: 8, KeyS: 9, KeyE: 10, KeyD: 11, KeyF: 12, KeyT: 13, KeyG: 14, KeyY: 15, KeyH: 16,
                    KeyU: 17, KeyJ: 18, KeyK: 19, KeyO: 20, KeyL: 21, KeyP: 22, Semicolon: 23, Quote: 24 };
-  const KEYBTN = { KeyZ: BTN.OCT_DOWN, KeyX: BTN.OCT_UP, Space: BTN.PLAY, ShiftLeft: BTN.SCL, ShiftRight: BTN.SCL };
+  const KEYBTN = { KeyZ: BTN.OCT_DOWN, KeyX: BTN.OCT_UP, Space: BTN.PLAY, ShiftLeft: BTN.GLO, ShiftRight: BTN.GLO };
 
   const knob = (name, pot) => {
     const [id, note] = pot ? [-1, 'VOLUME'] : ENCS[name];
@@ -144,27 +144,16 @@ if (ship) {
   bed.addEventListener('pointerup', keyLift);
   bed.addEventListener('pointercancel', keyLift);
 
-  // ---- the buttons: down while pressed (SCL: a click locks it, another lets it go; held, it is held)
-  let sclLock = false, sclAt = 0;
+  // ---- the buttons: down while pressed (GLO's tap latch is the firmware's: a click is a tap)
   for (const b of btnEls) {
     const id = +b.dataset.btn;
     b.addEventListener('pointerdown', (e) => {
       if (!running) return;
       e.preventDefault();
       capture(b, e);
-      if (id === BTN.SCL) {
-        if (sclLock) { sclLock = false; b.classList.remove('locked'); btnUp(id); return; }
-        sclAt = performance.now();
-      }
       btnDown(id);
     });
-    const lift = () => {
-      if (id === BTN.SCL) {
-        if (sclLock || !btnHold[id]) return;
-        if (performance.now() - sclAt < 350) { sclLock = true; b.classList.add('locked'); return; }   // a click: locked
-      }
-      btnUp(id);
-    };
+    const lift = () => btnUp(id);
     b.addEventListener('pointerup', lift);
     b.addEventListener('pointercancel', lift);
     b.addEventListener('click', (e) => {           // the keyboard (Enter on a focused button): a press and a release
@@ -328,7 +317,7 @@ if (ship) {
         running = true;
         ship.classList.add('on');
         lamp('l-pwr', 1);
-        say('Running. Play the keys (or A–\' on the computer\'s keyboard, W E T Y U O P the black ones; Z X the octave, Space PLAY, Shift SCL).');
+        say('Running. Play the keys (or A–\' on the computer\'s keyboard, W E T Y U O P the black ones; Z X the octave, Space PLAY, Shift GLO).');
         window.dispatchEvent(new CustomEvent('sd-ready', { detail: { post: (msg, tr) => node.port.postMessage(msg, tr || []) } }));
       } else if (m.type === 'error') say(`It did not start: ${m.message}`);
     };
@@ -379,8 +368,7 @@ if (ship) {
     running = false;
     for (let k = 0; k < 27; k++) keyHold[k] = 0;
     for (let i = 0; i < 14; i++) btnHold[i] = 0;
-    sclLock = false;
-    for (const el of ship.querySelectorAll('.down, .locked')) el.classList.remove('down', 'locked');
+    for (const el of ship.querySelectorAll('.down')) el.classList.remove('down');
     node.disconnect();
     node.port.close();
     if (ac.state !== 'running') await ac.resume();

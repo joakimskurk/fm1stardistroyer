@@ -397,7 +397,7 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
 - *FREEZE* (ALGORITHM on SPACE, the player's): the input fades out over ~10 ms, the decay and the damping go to 1
   exactly, SHIMMER off, the LFOs glide out over ~0.2 s to a whole sample (and back after): the tail holds (-0.6 dB
   in 7 s) and nothing new gets in.
-- *SHIMMER* (s_mode's bits 2..7, SCL + ALGORITHM): the branches' ends, an octave up (two heads crossfading in a
+- *SHIMMER* (s_mode's bits 2..7, GLO + ALGORITHM): the branches' ends, an octave up (two heads crossfading in a
   93 ms window), take up to 0.2 of the way round, inside the loop: (1 - s) and s never pass more than the decay, so
   it cannot run away (an input shimmer, and an equal-power mix, both did at the longest DECAY); the decay is raised
   by the power the mix loses, to 1 at most.
@@ -456,9 +456,9 @@ core 1:  LOOPER (records, or plays its LENGTH at its SPEED) ─► + plate's way
 core 0:  dry ───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME. SPACE is the reverb: SIZE DECAY TONE R-LEVEL, SCL: SHIMMER
-  (as SCL + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL; SCL: the looper's GLIDE,
-  LENGTH, SPEED and L-LEVEL, SCL + EDIT the delay's MODE (FREE SYNC, PP: it was SCL + K1 until GLIDE came); ALGORITHM:
+- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME. SPACE is the reverb: SIZE DECAY TONE R-LEVEL, GLO: SHIMMER
+  (as GLO + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL; GLO: the looper's GLIDE,
+  LENGTH, SPEED and L-LEVEL, GLO + EDIT the delay's MODE (FREE SYNC, PP: it was GLO + K1 until GLIDE came); ALGORITHM:
   LOOP. TONE is now two (the delay's, the reverb's: s_dtone and
   s_rtone, which the one knob kept equal). EDIT: SPACE's is the reverb's, TIME's the delay's and the looper's (a
   patch saved with SPACE off before plays its delay now).
@@ -469,15 +469,15 @@ core 0:  dry ──────────────────────�
   pitch and the length together, a tape's, gliding), held; off, it fades out over 46 ms and records again. LENGTH
   as TIME (free 1 ms .. 1 s, or synced, 1/32 .. 1/2 and 1, 2 and 4 bars), halved until it fits its memory (red, and
   the hint says what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono,
-  the same share), so R-LEVEL is its send too. REVERSE (SCL + ALGORITHM on TIME) turns its head
+  the same share), so R-LEVEL is its send too. REVERSE (GLO + ALGORITHM on TIME) turns its head
   round: it plays the loop backwards, before it loops or while it does, round
   its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
-- *Its grid* (an octave finds it again, over a glide or at once: SCL + OCT the octave, GLIDE on SCL + K1, MODE on
-  SCL + EDIT; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
+- *Its grid* (an octave finds it again, over a glide or at once: GLO + OCT the octave, GLIDE on GLO + K1, MODE on
+  GLO + EDIT; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
   and its way: what it reads stays inside the loop). The loop's grid is its own: where it would read had it played
   at x 0.5, 1 or 2 since LOOP, from its start (backwards: from where REVERSE turned it). **GLIDE** is how long a new
   SPEED takes (OFF: at once; synced LENGTH's divisions, 1/32 .. 4 bars; free 0 .. 4 s), a smoothstep in the rate.
-  **SCL + OCT- / OCT+** sets SPEED to the next octave (-12, 0, +12). At an octave the glide is bent on the way, at most
+  **GLO + OCT- / OCT+** sets SPEED to the next octave (-12, 0, +12). At an octave the glide is bent on the way, at most
   a sixth of its own change (it stays a glide), to land where the grid has it, else on the grid's beats (a 32nd of
   the loop); what it misses after, it crossfades over (two heads, both on the beats, GLIDE long and at least a 16th
   of the loop: x(2 - x) in, 1 - x^2 out), or, a few samples, nudges (0.4 % at most). An octave at once waits for the
@@ -504,7 +504,7 @@ core 0:  dry ──────────────────────�
   with the room, here. The delay is always on core 0, so it never needs a fallback.
 - *Its memory* (borrowed from the delay: armed while L-LEVEL is above 0, ~5 s, mono mu-law at half rate): the delay
   line's second half, lent while the looper is armed, and what the RAM has left, 24 KB: two pieces of one ring of
-  bytes, 5.11 s (MAX in TIME's picture with SCL held; the SMK-37's build, with less RAM left, 23 KB: 5.07 s). A bar at
+  bytes, 5.11 s (MAX in TIME's picture with GLO held; the SMK-37's build, with less RAM left, 23 KB: 5.07 s). A bar at
   48 BPM and up, two at 96. Mono, the two sides' mean, a byte a sample (mu-law: a sign, 3 bits of octave, 4 of step:
   its noise 31 dB under a sine, a light tape). The delay line is kept its frames
   left and right in turn (as fast to read; the same sound bit for bit), so its second half is one run of bytes.
@@ -622,9 +622,12 @@ listening rounds are in the git history.
   `sd_mod_restore` putting back only what it wrote (no slot and the macros at 0: the patch, sample for sample). One
   copy of the patch only when the main loop hands one over (`-fno-builtin` copies a byte at a time).
 - *Sources:* ENV1..3, LFO1..2, NAV X/Y, VEL, KEY, WHEEL, AFTER, RAND, and the engines as modulators: STEP, SEG, D LOW,
-  D TOP, R STAGE, ECHO, TURING. *Destinations:* 54, in the chain's order (`SD_MD_ORDER`), each new one after the
-  others in the enum so a saved slot keeps its meaning: DISTROY's GAIN band by band and each crossover (sorted each
-  tick: one moved past another goes through it), the looper's SPEED (free; TURING's in semitones).
+  D TOP, R STAGE, ECHO, TURING. *Destinations:* 54, each new one after the
+  others in the enum so a saved slot keeps its meaning: DISTROY's DRIVE band by band and each crossover (sorted each
+  tick: one moved past another goes through it), the looper's SPEED (free; TURING's in semitones). The lists
+  (`SD_MD_ORDER`) name each by the page its knob is on and the knob's name there (REACTOR POS, TIME D-LEVEL), the
+  pages in the chain's order and on each its knobs' (K1..K4, then GLO's): the delay under TIME with the looper's
+  SPEED, not under SPACE; the first 24 (OFF .. ENV 3) where they were, so a DEST turn played before lands there.
 - *LFOs:* six shapes, free or synced, KEY, and ONE (one cycle a note, unipolar: a SAW a ramp down inside the note).
 - *The macros:* MUTATE (XM WP FD DT, gentle: past it the saw edges alias), MOVE (the nav and POS stepping on the beat,
   glided ~10 ms), BREAK (DISTROY weighted toward the top band, never its feedback: on a patch without one it opened a
@@ -636,7 +639,7 @@ listening rounds are in the git history.
 ### 6.6 The sound, as decided by ear after C1
 
 - *The essence:* an evolving spectrum; modulation stepped and rhythmic (S&H glided ~10 ms, MOVE on the beat), not
-  slow sines; the destruction on the top band (D HIGH, D SPLIT); no HARD or FOLD over 5 kHz in a new patch (without
+  slow sines; the destruction on the top band (DISTROY TOP DRIVE, HI-MID SPLIT); no HARD or FOLD over 5 kHz in a new patch (without
   oversampling they fold back inharmonic); no aliasing noise.
 - *The edge* (`SD_EDGE`, `sd_patches.h`): a plain FM patch sounds as it should with an edge: under the top split
   DISTROY passes it as it was (NONE through LR4: CMP's slopes let the body into the top's shaper), the top band alone
@@ -667,7 +670,7 @@ ends, so a performance ends with it off.
 | Scenario | The first core | The second core |
 |---|---|---|
 | The gate: DISTROY, SEQ A, MONO | 44.0 % | 9.9 % (10.1 at most) |
-| The looper armed, LOOP, GLIDE, SCL + OCT- | 45.3 % | 10.6 % (12.2 at most) |
+| The looper armed, LOOP, GLIDE, GLO + OCT- | 45.3 % | 10.6 % (12.2 at most) |
 | Everything at once | 51.8 % | 9.9 % |
 | One core (a second core that misreads): the room | 44.3 % | – |
 | One core, the room and the looper's glide | 47.4 % | – |
@@ -692,7 +695,7 @@ Firmware Hub, or OCT- held at power-on for the USB rescue.
 3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and VOYAGE through the line out against
    `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves or the looper is armed.
 4. *The pages:* every page button through its pages (HOME NAV MACROS; FX REACTOR DISTROY SPACE TIME; ENV ENV FILTER;
-   LFO LFO 1 LFO 2 TURING MOD; ARP; SEQ SEQ A SEQ B ORBIT); EDIT switches ON/OFF, SCL held is the second layer; the key
+   LFO LFO 1 LFO 2 TURING MOD; ARP; SEQ SEQ A SEQ B ORBIT); EDIT switches ON/OFF, GLO held (or latched by a tap) is the second layer; the key
    LEDs follow the screen; the macros move the sound live.
 5. *The voices:* `tests/scripts/v4.txt` by hand: ARP refused while SEQ plays in MONO, B locked in MONO, the
    messages; DUO and POLY share the voices without a note cut.

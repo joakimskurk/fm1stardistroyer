@@ -53,8 +53,12 @@ class StarDistroyer extends AudioWorkletProcessor {
     const layout = [];
     for (let i = 0; i < 64; i++) { const v = x.web_seq_layout(i); if (v === 0xFFFF) break; layout.push(v); }
     this.seqSent = this.seqNow();
+    const dstOrder = [];                           // the destinations in the FM-1's list's order
+    for (let i = 0; i < 256; i++) { const d = x.web_dst_order(i); if (d === 255) break; dstOrder.push(d); }
+    const srcOrder = [];
+    for (let i = 0; i < 256; i++) { const d = x.web_src_order(i); if (d === 255) break; srcOrder.push(d); }
     this.port.postMessage({ type: 'lab-init', fields, enums, patches, now: x.web_pat_now(), bytes: this.patSent.slice(),
-                            layout, seq: this.seqNow() });
+                            layout, seq: this.seqNow(), dstOrder, srcOrder });
   }
   seqNow() {                                     // (the lab) the sequencer: both patterns, ORBIT, the settings
     const x = this.x, n = x.web_seq_size(), m = x.memory.buffer, set = [];

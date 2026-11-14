@@ -273,17 +273,20 @@ enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD
           Each band's GAIN beside D GAIN (all four) and D HIGH (now GAIN 4, the top) */
        SD_MD_DSPLIT1, SD_MD_DSPLIT2, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3,
        SD_MDSTS };                              /* (D HIGH: the top band's gain; D SPLIT: the upper crossover) */
-/* the destinations in the chain's order, as the lists show them: the voice and its envelopes, the filter, the
-   Reactor, DISTROY, SPACE, the LFOs */
+/* the destinations in the lists' order: by the page their knob is on, the pages in the chain's order (the voice, NAV,
+   ENV 1, ENV 2, FILTER, ENV 3, REACTOR, DISTROY, SPACE, TIME, the LFOs), and on each page its knobs' order (K1..K4,
+   then GLO's). (The first 24, OFF .. ENV 3's RELEASE, kept their places when the list was ordered by the pages on
+   2026-11-14: a turn of DEST played before lands where it did) */
 static const uint8_t SD_MD_ORDER[SD_MDSTS] = {
     SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD_X, SD_MD_Y, SD_MD_WIDTH,
     SD_MD_E1A, SD_MD_E1D, SD_MD_E1S, SD_MD_E1R, SD_MD_E2A, SD_MD_E2D, SD_MD_E2S, SD_MD_E2R,
     SD_MD_FCUT, SD_MD_FRES, SD_MD_FENV, SD_MD_E3A, SD_MD_E3D, SD_MD_E3S, SD_MD_E3R,
-    SD_MD_RPOS, SD_MD_RFREQ, SD_MD_RRES, SD_MD_RDRIVE, SD_MD_RMIX, SD_MD_RSLEW,
+    SD_MD_RPOS, SD_MD_RRES, SD_MD_RSLEW, SD_MD_RDRIVE, SD_MD_RFREQ, SD_MD_RMIX,
     SD_MD_DGAIN, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3, SD_MD_DHIGH, SD_MD_DBIAS, SD_MD_DSPLIT1, SD_MD_DSPLIT2,
-    SD_MD_DSPLIT, SD_MD_DFB, SD_MD_DTIME, SD_MD_DSPREAD, SD_MD_DTAME,
-    SD_MD_DMIX, SD_MD_STIME, SD_MD_SFB, SD_MD_SDTONE, SD_MD_SDLVL, SD_MD_SSIZE, SD_MD_SDECAY, SD_MD_SRTONE,
-    SD_MD_SRLVL, SD_MD_LSPEED, SD_MD_L1RATE, SD_MD_L2RATE};
+    SD_MD_DSPLIT, SD_MD_DFB, SD_MD_DTIME, SD_MD_DSPREAD, SD_MD_DTAME, SD_MD_DMIX,
+    SD_MD_SSIZE, SD_MD_SDECAY, SD_MD_SRTONE, SD_MD_SRLVL,
+    SD_MD_STIME, SD_MD_SFB, SD_MD_SDTONE, SD_MD_SDLVL, SD_MD_LSPEED,
+    SD_MD_L1RATE, SD_MD_L2RATE};
 #define SD_MODS 8                               /* slots a patch */
 typedef struct {
     uint8_t src, dst;                           /* SD_MS_*, SD_MD_* */
@@ -644,7 +647,7 @@ typedef struct {                                /* a sequencer track: its patter
     volatile uint8_t mute;                      /* the main loop's ON / OFF (EDIT): the track keeps time, silent */
     uint8_t src;                                /* SD_SRC_A / SD_SRC_B */
     volatile uint8_t width;                     /* the most notes a step of its pattern plays at once (0: none) */
-    volatile int8_t xpose_next;                 /* the main loop's transpose (SCL + a key), semitones: taken at the
+    volatile int8_t xpose_next;                 /* the main loop's transpose (GLO + a key), semitones: taken at the
                                                    track's next one (or START) */
     int8_t xpose;                               /* the transpose playing */
     uint8_t quiet;                              /* silent this sub-block: muted, or B in MONO */
@@ -1483,7 +1486,7 @@ static int32_t sd_pl_sin(uint32_t ph)           /* a sine from a parabola, 4 u (
 }
 
 /* ---- the looper's head, planned here on core 0 a tick (16 of its samples) at a time: an octave finds the loop's
- * grid again, over GLIDE or at once (SCL + OCT the octave, GLIDE on SCL + K1: a glide bent a little to land on the
+ * grid again, over GLIDE or at once (GLO + OCT the octave, GLIDE on GLO + K1: a glide bent a little to land on the
  * beats, then a crossfade into its own place). The loop's grid
  * had it played at that speed (x 0.5, 1 or 2) since LOOP (pG), from its start (panc[0]; backwards, from where
  * REVERSE turned it: panc[1]). Between the octaves it runs free. A new speed glides there over GLIDE (a smoothstep in
@@ -2026,7 +2029,7 @@ static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a
 }
 
 /* REC writes what is heard: the note n a key plays,
- * back by the track's transpose (SCL + a key, ORBIT's XPOSE), so sd_seq_xn plays n again. IN KEY: back by as many
+ * back by the track's transpose (GLO + a key, ORBIT's XPOSE), so sd_seq_xn plays n again. IN KEY: back by as many
  * degrees of A's scale (a note off the scale keeps its step off it, as there); CHROM: by the semitones. TURING's NOTES
  * is a modulation, not taken back */
 static uint32_t sd_seq_rec_note(const SdEngine *e, const SdSeqT *t, uint32_t n)
@@ -2201,7 +2204,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k)   /* 
             t->seq_pos_q8 += e->clk_adv;
             return;
         }
-        if (one) t->xpose = t->xpose_next;      /* SCL + a key: the transpose at the one */
+        if (one) t->xpose = t->xpose_next;      /* GLO + a key: the transpose at the one */
         if (one && lead) sd_orb_one(e);         /* ORBIT: its step at the master's one (the other's notes take it
                                                    from its next step) */
         t->tur_deg = (int8_t)(!k ? sd_tur_degrees(e) : 0);   /* TURING's NOTES: this step's place (A) */

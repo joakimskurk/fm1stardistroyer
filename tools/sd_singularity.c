@@ -13,11 +13,11 @@
  * the delay then 0.5 s. F minor (the arp, TURING's NOTES and the transposes, IN KEY as the app has them, write from it), 72 BPM,
  * POLY throughout, 33 bars:
  *   1-8    GLASS    AURORA (saved wet) on SEQ A, Fm Db Bbm Fm, the arpeggiator over it in eighths; LOOP its last bar,
- *                   SEQ A off; REVERSE, SCL + OCT- (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
+ *                   SEQ A off; REVERSE, GLO + OCT- (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
  *                   plate: the loop an octave down under the plate an octave up
  *   9-16   VOICES   VOWEL (saved wet) on SEQ A, long notes, and SEQ B under it, the frozen glass behind: TURING's NOTES
  *                   on A; LFO 2 onto the Reactor's POS (its vowels, slowly), LFO 1 onto the loop's SPEED (a tape's
- *                   wobble); FREEZE let go; the delay's FDBK and D-LEVEL up; GLIDE 2 BAR, REVERSE off, SCL + OCT+
+ *                   wobble); FREEZE let go; the delay's FDBK and D-LEVEL up; GLIDE 2 BAR, REVERSE off, GLO + OCT+
  *                   twice: the loop two octaves up, onto its grid at +12; MOVE
  *   17-26  WALL     DISTROY (saved wet), POLY's four voices full: SEQ A's riff in octaves, SEQ B's bass, the arp in
  *                   16ths at random over two octaves; ORBIT stepping them both through F Db Ab Eb, its lanes on D
@@ -171,7 +171,7 @@ static void setup(void)
 {
     patterns();
     e.xkey = 1;                                 /* the transposes IN KEY: the app's default */
-    glo(SD_MODE_POLY);
+    scl(SD_MODE_POLY);
     preset_user(&U01, "U01 AURORA WET");
     page = PG_SEQA;
     pattern(0, &GLASS, "GLASS (Fm Db Bbm Fm)");
@@ -192,16 +192,16 @@ static int score(void)
     fx_to(4, BAR(3) + 4);                       /* TIME: LENGTH 1 BAR, GLIDE 1 BAR */
     if (at(BAR(3) + 9)) lp_length(12);
     if (at(BAR(3) + 11)) lp_glide_to(13);
-    LP_LEVEL(79, BAR(3) + 13, BAR(4) + 12);          /* SCL + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
+    LP_LEVEL(79, BAR(3) + 13, BAR(4) + 12);          /* GLO + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
     if (at(BAR(5))) loop_toggle();              /* its last bar (Fm and the arp), held */
     seq_to(1, BAR(5) + 1);                      /* EDIT: SEQ A off, PLAY running on (STOP would park the loop) */
     if (at(BAR(5) + 2)) track_on(0, 0);
     arp_off(BAR(5) + 3);
     fx_to(4, BAR(5) + 5);
     if (at(BAR(5) + 10)) reverse_toggle();
-    if (at(BAR(6))) loop_octave(0);             /* SCL + OCT-: down over the bar, onto its grid */
+    if (at(BAR(6))) loop_octave(0);             /* GLO + OCT-: down over the bar, onto its grid */
     fx_to(3, BAR(7));
-    SHIMMER(30, BAR(7) + 3, BAR(8));            /* SCL + ALGORITHM: SHIMMER 0 -> 48 % */
+    SHIMMER(30, BAR(7) + 3, BAR(8));            /* GLO + ALGORITHM: SHIMMER 0 -> 48 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 74, BAR(7) + 3, BAR(8));   /* K4: R-LEVEL */
     if (at(BAR(8))) freeze_toggle();
     /* VOICES: VOWEL over the frozen glass, A and B */
@@ -231,9 +231,9 @@ static int score(void)
     fx_to(1, BAR(12) + 2);
     KNOB99(PG_TIME, pat.s_fb, 70, BAR(12) + 3, BAR(12) + 10);        /* K2: FDBK */
     KNOB99(PG_TIME, pat.s_dlevel, 56, BAR(12) + 11, BAR(13) + 2);    /* K4: D-LEVEL */
-    if (at(BAR(13) + 4)) lp_glide_to(14);       /* SCL + K1: GLIDE 2 BAR */
+    if (at(BAR(13) + 4)) lp_glide_to(14);       /* GLO + K1: GLIDE 2 BAR */
     if (at(BAR(13) + 6)) reverse_toggle();
-    if (at(BAR(14))) loop_octave(1);            /* SCL + OCT+: to its pitch ... */
+    if (at(BAR(14))) loop_octave(1);            /* GLO + OCT+: to its pitch ... */
     if (at(BAR(14) + 4)) loop_octave(1);        /* ... and on to +12 */
     home_to(2, BAR(15));
     KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(17));         /* MOVE */
@@ -268,12 +268,12 @@ static int score(void)
     if (at(BAR(23) + 9)) tur_edit();
     fx_to(2, BAR(23) + 11);
     if (at(BAR(23) + 14)) { act(); say("ALGORITHM: band 4 (the top)"); }
-    if (at(BAR(24))) {                          /* SCL + ALGORITHM: the top band's shaper to CRUSH */
+    if (at(BAR(24))) {                          /* GLO + ALGORITHM: the top band's shaper to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
-        say("SCL + ALGORITHM: SHAPE CRUSH (band 4)");
+        say("GLO + ALGORITHM: SHAPE CRUSH (band 4)");
     }
     on_ramp_page(PG_DISTROY, BAR(24) + 1, BAR(25) + 8);
     if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 84, BAR(24) + 1, BAR(25) + 8, &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
@@ -298,13 +298,13 @@ static int score(void)
         say("EDIT: DISTROY OFF");
     }
     fx_to(2, BAR(27) + 12);
-    if (at(BAR(27) + 14)) loop_octave(0);       /* SCL + OCT-: to its pitch ... */
+    if (at(BAR(27) + 14)) loop_octave(0);       /* GLO + OCT-: to its pitch ... */
     if (at(BAR(28) + 4)) loop_octave(0);        /* ... and on to -12 */
     if (at(BAR(28) + 8)) preset_user(&U04, "U04 BEACON 1 S");
     pot(__LINE__, 3400, BAR(28) + 8, BAR(29));
     if (at(BAR(29))) key(72, 1);
     KNOB99(PG_TIME, pat.s_fb, 72, BAR(29) + 1, BAR(29) + 8);         /* K2: FDBK */
-    LP_LEVEL(1, BAR(29) + 10, BAR(32));         /* SCL + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
+    LP_LEVEL(1, BAR(29) + 10, BAR(32));         /* GLO + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
                                                    would change under BEACON's echoes) */
     if (at(BAR(31))) key(72, 0);
     if (at(BAR(32) + 2)) loop_toggle();

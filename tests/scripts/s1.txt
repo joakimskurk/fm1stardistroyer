@@ -1,6 +1,6 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # S1: PLUCKS (PRESETS +3 from DISTROY) in the loop on the SPACE page (FX three times); TIME one division on, FDBK up;
-# SEL held: MODE one step. Buttons: SEL 3, FX 2, PLAY 12. Encoders: K1..K4 2..5, PRESETS 6.
+# GLO held: MODE one step. Buttons: GLO 7, FX 2, PLAY 12. Encoders: K1..K4 2..5, PRESETS 6.
 1700 enc 6 3
 1750 btn 6
 1800 btn 12
@@ -11,8 +11,8 @@
 2800 enc 2 1
 3000 enc 3 10
 3300 shot
-3400 btndown 3
+3400 btndown 7
 3500 enc 5 1
 3800 shot
-3900 btnup 3
+3900 btnup 7
 4000 end

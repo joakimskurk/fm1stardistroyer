@@ -54,7 +54,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - The **NAV** X/Y blends the four banks. **COURSE** travels four stored X/Y cells (MONO): EDIT on NAV turns it
   **ON** (from each note, once round, held on the last), **LOOP** (round and round on its own, back to the first;
   a note does not start it again, PLAY does, in time with the sequencer) or OFF.
-- Harmonic generators re-roll a bank: ALL, ODD, RND, CLUST, CHRD (14 chords), CPY.
+- Harmonic generators re-roll a bank (GLO + K4 on NAV): ALL, ODD, RND, CLUST, 14 chords, CPY, from a list as the knob
+  turns, each with the harmonics it sets.
 - **MONO**, **DUO** or **POLY**, the banks spread by WIDTH round the middle of what sounds (never more than 6 dB to a
   side; a corner's bank alone in the middle), and gentle aliasing tracking up high.
 
@@ -81,8 +82,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - Four bands, LOW, LO-MID, HI-MID and TOP (LR4 or complementary crossovers). ALGORITHM picks one, and the hint line
   names it.
 - Each band: **TYPE** (NONE SOFT HARD FOLD CRUSH), **DRIVE**, what the type does (**KNEE**, **SPACING** or **DEPTH**)
-  and **LEVEL**; with SCL, **BIAS**, **PAN**, **DYNAMIC** and **SPLIT** (its upper edge, in Hz).
-- Dynamics in each band: **PHAT** lifts quiet parts and tails, **SHARP** spits transients, and **BODY** (SCL +
+  and **LEVEL**; with GLO, **BIAS**, **PAN**, **DYNAMIC** and **SPLIT** (its upper edge, in Hz).
+- Dynamics in each band: **PHAT** lifts quiet parts and tails, **SHARP** spits transients, and **BODY** (GLO +
   ALGORITHM) sets where.
 - The picture: the bands on a frequency axis, as tall as their drive, the splits in Hz under them. EDIT on a patch
   with no bands yet sets four that sound.
@@ -96,10 +97,10 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 
 **TIME** and **SPACE**: a delay and a looper into a plate, last in the chain (FX: REACTOR, DISTROY, SPACE, TIME).
 - **TIME** is the delay: stereo or ping-pong, free (1 ms – 1 s) or on the beat (1/32 … 1/2, triplets, dotted), with
-  **FDBK**, **TONE** and **D-LEVEL**; SCL + EDIT: its **MODE**. Ping-pong comes in pairs: an echo on the left, then one as
+  **FDBK**, **TONE** and **D-LEVEL**; GLO + EDIT: its **MODE**. Ping-pong comes in pairs: an echo on the left, then one as
   loud on the right. On the beat it stays on the beat: a division longer than its 1 s (1/2 under 120 BPM, 1/4D under
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays.
-- The **looper** (TIME's SCL layer: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**) records what you hear before the reverb,
+- The **looper** (TIME's GLO layer: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**) records what you hear before the reverb,
   always. **LOOP** (ALGORITHM on TIME) plays its last LENGTH round and round, while the delay goes on with what you
   play over it: a loop layer in the background. Synced, while the sequencer plays, LOOP locks on the beat: pressed a
   little late, the loop ends on the line you just passed and goes on at once; a little early, it waits for the line.
@@ -107,15 +108,15 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
   too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
   the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down (the pitch and the
-  length together, as a tape's), and **REVERSE** (SCL + ALGORITHM on TIME) plays it backwards, its attacks turned
-  into swells, before it loops or while it does. **SCL + OCT- / OCT+** takes it to the next octave, and **GLIDE**
+  length together, as a tape's), and **REVERSE** (GLO + ALGORITHM on TIME) plays it backwards, its attacks turned
+  into swells, before it loops or while it does. **GLO + OCT- / OCT+** takes it to the next octave, and **GLIDE**
   is how long a new speed takes (OFF: at once, or 1/32 … 4 bars): an octave lands on the loop's own grid, gliding
   onto its beats and then crossfading into its place, so back at its pitch it plays exactly where it was. It goes
   into the reverb as the synth does, and in the fallback into the room. **L-LEVEL** above 0 arms it (0 as the app
   starts): it then borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
   rate in 8 bits (mu-law: a light tape), while the delay keeps the first half, 0.5 s (a longer division plays at half,
   TIME red); back at 0 the delay has its whole second again. Arming or letting go fades the echoes out and in, the
-  line cleared. LENGTH synced reaches 4 bars, halved until it fits (MAX in the picture with SCL held). It is the
+  line cleared. LENGTH synced reaches 4 bars, halved until it fits (MAX in the picture with GLO held). It is the
   player's, not saved with the patch.
 - **SPACE** is the reverb, a **plate**: four diffusers into a tank of two branches in a figure of eight, its lines
   gently moving, so a long tail stays alive and never rings metallic. **SIZE** stretches it 0.35–1.75 x (turned, it
@@ -123,7 +124,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   **R-LEVEL** is how much. The echoes and the loop go into it.
 - **FREEZE** (ALGORITHM on SPACE) closes the plate's input and holds its tail as it is, for as long as you like; play
   over it, turn ALGORITHM again and it dies away. It is the player's, not saved with the patch.
-- **SHIMMER** (SCL + ALGORITHM, or SCL's knob) sends an octave up of the tail back into it, a little more each pass:
+- **SHIMMER** (GLO + ALGORITHM, or GLO's knob) sends an octave up of the tail back into it, a little more each pass:
   it climbs and fades, and stays stable at any DECAY.
 - The plate and the looper run on the FM-1's **second core**, a block of 5.8 ms at a time beside the audio; the
   delay on the first, as it always has. Some FM-1s' second core misreads memory now and then: every job carries a
@@ -166,17 +167,19 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top">
 
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
-- **Sources:** ENV 1, ENV 2, LFO 1, LFO 2, TURING, NAV X, NAV Y, VEL, KEY, WHEEL (CC 1), AFTER (channel pressure) and
-  RAND. The engines feed it too: STEP, SEGMENT, D LOW, D TOP, R STAGE and ECHO.
-- **Destinations:** 54, in the chain's order: PITCH and the nav, the three envelopes' ATTACK, DECAY, SUSTAIN and
-  RELEASE, the filter (CUTOFF, RES, ENV), the Reactor (POS … SLEW), DISTROY (GAIN, all four bands' or each band's,
-  BIAS, each of its three crossovers, SPLIT 1–3, and its loop's TIME and SPREAD: a crossover moved past another goes
-  through it, the band between closing and opening again on its other side),
-  SPACE (the delay's TIME and TONE, the plate's SIZE, DECAY and TONE), the looper's SPEED (±12 semitones, free: an
-  LFO on it a tape's wobble, the loop's grid following it and taking it back after; from TURING in whole semitones,
-  through GLIDE) and the LFOs' RATE. Turning DEST brings up a
-  list, as PRESETS does: each with its engine, the one picked in the middle. It plays as it turns and goes after
-  1.5 s. TURING's DEST and ORBIT's lanes use the same list.
+- **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, TURING, NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
+  AFTERTOUCH and RANDOM (each note). The engines feed it too: SEQ A's STEP and SEGMENT, the Reactor's STAGE,
+  DISTROY's LOW and TOP BAND, TIME's ECHOES. SOURCE turns a list as DEST does, each with where it comes from.
+- **Destinations:** 54, each named by the page its knob is on and the knob's name there, in the pages' order (and on
+  each page its knobs', K1–K4, then GLO's): PITCH; NAV (XM … WIDTH); ENV 1 and ENV 2 (ATTACK, DECAY, SUSTAIN,
+  RELEASE); FILTER (CUTOFF, RES, ENV) and ENV 3; REACTOR (POS, RES, SLEW, DRIVE, FREQ, MIX); DISTROY (DRIVE, all four
+  bands' or each band's, BIAS, each band's SPLIT: a crossover moved past another goes through it, the band between
+  closing and opening again on its other side; and its loop: FDBK, TIME, SPREAD, TAME, MIX); SPACE (SIZE, DECAY,
+  TONE, R-LEVEL); TIME (the delay's TIME, FDBK, TONE and D-LEVEL, and the looper's SPEED, ±12 semitones, free: an LFO
+  on it a tape's wobble, the loop's grid following it and taking it back after; from TURING in whole semitones,
+  through GLIDE); LFO 1 and LFO 2 (RATE). Turning DEST brings up the list, as PRESETS does: the page and the knob,
+  the one picked in the middle. It plays as it turns and goes after 1.5 s. TURING's DEST and ORBIT's lanes use the
+  same list.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars, from the one at PLAY),
   restarted by a note, or ONE cycle a note.
 
@@ -211,15 +214,15 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   and **PROB**, and can hold a chord of up to four notes.
 - **Segments A–F:** the pattern cut on the white keys, each with REPEAT, ORDER (forwards, reverse, ping-pong,
   random), SKIP and LENGTH.
-- **REC** records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
+- **REC** (or **B11**, the last black key, lit while it is on) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
   step (keys held together, a chord); playing, into the step that plays. It writes what you hear: under a transpose
-  (SCL's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
-- **SCL held** transposes a track from the keys (C4 none), taken at its next one; OCT moves the keys' octave, for a
-  transpose past them, and SCL + OCT the step bank.
+  (GLO's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
+- **GLO held** transposes a track from the keys (C4 none), taken at its next one; OCT moves the keys' octave, for a
+  transpose past them, and GLO + OCT the step bank.
 - **IN KEY** (the default): a transpose moves the notes in degrees of SEQ A's scale from its key, so B keeps to A's
   key and root, and a chord moves tone by tone (C minor up a third in C minor: E♭ major). +5 is up a fourth in the
-  key, +7 a fifth. **SCL + EDIT** on SEQ switches to **CHROM**, in semitones. ORBIT's XPOSE follows it too.
-- **MASTER** (SCL + SEQ, on SEQ and ORBIT): A or B, the track whose one leads; its tab is underlined, and with SCL
+  key, +7 a fifth. **GLO + EDIT** on SEQ switches to **CHROM**, in semitones. ORBIT's XPOSE follows it too.
+- **MASTER** (GLO + SEQ, on SEQ and ORBIT): A or B, the track whose one leads; its tab is underlined, and with GLO
   held the top line shows it. While the master plays, the other track and ORBIT switched on come in at its next
   one, from their step 1 (ON blinks until then); off is at once. ORBIT counts the master's loops; the key (IN KEY)
   and TURING's NOTES stay SEQ A's.
@@ -235,8 +238,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   changes at its one. The LED under
   each step's stripe lights while it plays.
 - Each step: **XPOSE A** and **XPOSE B** (±24), two free lanes each to its **DEST** (any matrix destination,
-  ±100 %), and with SCL the four macros' changes. Every value is a change from where you are: 0 changes nothing.
-- The last black key is SETUP: LENGTH, RATE, DEST 1, DEST 2; with SCL, **GLIDE** for each lane and the macros
+  ±100 %), and with GLO the four macros' changes. Every value is a change from where you are: 0 changes nothing.
+- **B10** (D♯5, lit) is SETUP: LENGTH, RATE, DEST 1, DEST 2; with GLO, **GLIDE** for each lane and the macros
   (jump at the step, or glide through it to the next). EDIT switches it; it is saved with the pattern.
 
 </td>
@@ -261,7 +264,7 @@ legato.
 **MIDI clock**, over USB or the TRS jack, leads while it comes (SYNC AUTO): both tracks, ORBIT, ARP, TURING, the
 synced LFOs and MOVE move by its pulses, so they cannot drift from the other gear, and SPACE's synced echoes take its
 tempo. START or CONTINUE plays from step 1 at the next pulse, STOP stops, and the status line shows the clock's tempo
-with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **SCL + PLAY** switches to SYNC INT,
+with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **GLO + PLAY** switches to SYNC INT,
 where a clock is not heard. With two clocks at once (USB and the jack, or two MIDI inputs in the browser), the first
 leads until it stops.
 
@@ -285,14 +288,14 @@ leads), the octave, who holds the voices (**A** and **B** the tracks, **R** the 
 | **ARP** | the arpeggiator |
 | **SEQ** | SEQ A → SEQ B → ORBIT |
 | **K1–K4** | the four values in the row on top |
-| **SCL** held | the second layer (the names turn red); on SEQ, the keys transpose the track (IN KEY or CHROM: SCL + EDIT), OCT turns the step bank and SEQ chooses the MASTER, A or B; on TIME, OCT the loop's octave and EDIT the delay's MODE |
-| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); SCL + ALGORITHM the second |
+| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track (IN KEY or CHROM: GLO + EDIT), OCT turns the step bank and SEQ chooses the MASTER, A or B; on TIME, OCT the loop's octave and EDIT the delay's MODE |
+| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); GLO + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, FILTER, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one) |
-| **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** loads, HOME not now |
-| **SELECT** · **GLO** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
-| **PLAY** · **REC** · **SAVE** | the sequencer (SCL + PLAY: SYNC AUTO or INT) · recording · a place of your own (32 patches, 32 patterns) |
-| **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, SCL + OCT the step bank) |
-| **The keys** | play; on SEQ the white keys are the steps (one tapped again: RATCHET, PROB) and the black keys RND, UNDO, CLR and SEG; on ORBIT the first white keys its steps, the last black key SETUP |
+| **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now |
+| **SELECT** · **SCL** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
+| **PLAY** · **REC** · **SAVE** | the sequencer (GLO + PLAY: SYNC AUTO or INT) · recording · a place of your own (32 patches, 32 patterns) |
+| **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the step bank); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
+| **The keys** | play; on SEQ the white keys are the steps (one tapped again: RATCHET, PROB) and the black keys, lit where they do something, B1 RND, B2 UNDO, B3 CLR, B10 SEG and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MASTER** | the volume |
 
