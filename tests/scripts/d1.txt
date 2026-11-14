@@ -1,6 +1,6 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # D1: SPLIT (PRESETS +7 from DISTROY) in the loop on the DISTROY page (FX twice); EDIT to band 2, its shaper one
-# step on (CRUSH -> NONE), GAIN up; SEL held: the split up, XOVER to CMP. Buttons: SEL 3, FX 2, EDIT 6, PLAY 12.
+# step on (CRUSH -> NONE), GAIN up; GLO held: the split up, XOVER to CMP. Buttons: GLO 7, FX 2, EDIT 6, PLAY 12.
 1700 enc 6 7
 1750 btn 6
 1800 btn 12
@@ -11,9 +11,9 @@
 2800 enc 1 -1
 3000 enc 2 10
 3300 shot
-3400 btndown 3
+3400 btndown 7
 3500 enc 2 8
 3600 enc 4 -1
 3900 shot
-4000 btnup 3
+4000 btnup 7
 4100 end

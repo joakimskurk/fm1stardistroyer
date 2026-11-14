@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // The page's player (web/app/): the firmware as WebAssembly, run here as the page's audio thread runs it. It boots
-// (the splash), a key plays, a press and release in one quantum still count, SCL held is held, a button turns a
+// (the splash), a key plays, a press and release in one quantum still count, GLO held is held, a button turns a
 // page, an encoder changes the tempo, SAVE writes the store, a stored store comes back after a restart, a MIDI clock
 // (as the page's MIDI button passes it on) leads the tempo and START plays, and the same clock on two inputs leads
-// at its tempo, not twice it; SEQ goes round its own pages, OCT is the octave on SEQ too and SCL + OCT its bank;
+// at its tempo, not twice it; SEQ goes round its own pages, OCT is the octave on SEQ too and GLO + OCT its bank;
 // MOD's DEST shows a list as it turns, and REC on ARP keeps what it played; SEQ B and ORBIT switched on while A
-// plays wait for A's one, and SCL + SEQ makes B the master, A then waiting for B's one. Writes the screens it saw as PPM
+// plays wait for A's one, and GLO + SEQ makes B the master, A then waiting for B's one. Writes the screens it saw as PPM
 // (OUT-*.ppm) to look at.
 //   node tests/web_test.mjs build/web/stardistroyer.wasm [OUT]
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -78,13 +78,14 @@ ppm(x, 'reactor');
 check(differ(before, lcd(x)) > 2000, 'FX turns the page (REACTOR)');
 check(((x.web_leds(0) >>> BTN.FX) & 1) === 1, 'FX lit there');
 
-x.web_btn(BTN.SEL, 1);                             // SCL held: the second layer (the names red)
-run(x, 200);
+tap(x, BTN.GLO);                                   // GLO tapped: the second layer, latched (the names red)
+run(x, 600);
 const held = lcd(x);
-ppm(x, 'reactor-scl');
-x.web_btn(BTN.SEL, 0);
+ppm(x, 'reactor-glo');
+check(((x.web_leds(0) >>> BTN.GLO) & 1) === 1, 'GLO lit while the second layer is latched');
+tap(x, BTN.GLO);                                   // GLO tapped again: let go
 run(x, 200);
-check(differ(held, lcd(x)) > 50, 'SCL held shows the second layer, let go the first');
+check(differ(held, lcd(x)) > 50, 'a GLO tap latches the second layer, a tap again the first');
 
 tap(x, BTN.HOME);
 run(x, 200);
@@ -136,7 +137,7 @@ check(differ(st1, stat(z)) === 0,
 ppm(z, 'clock2');
 
 // SEQ goes round its own pages (2026-11-10: the fourth press went back to the page before it, SPACE); OCT is the
-// octave on SEQ too, SCL + OCT the step bank
+// octave on SEQ too, GLO + OCT the step bank
 const w = await boot(store);
 run(w, 2500);
 const top = (x) => lcd(x).slice(0, 240 * 60);       // the title, the patch, the pages' line
@@ -152,13 +153,13 @@ tap(w, BTN.OCT_UP); run(w, 150);
 const su = stat(w);
 tap(w, BTN.OCT_DOWN); run(w, 150);
 check(differ(so, su) > 0 && differ(so, stat(w)) === 0, `OCT on SEQ moves the octave (+1 and back: ${differ(so, su)} pixels)`);
-w.web_btn(BTN.SEL, 1); run(w, 150);                 // SCL: LENGTH (K1) to 32, then SCL + OCT+ the second bank
+w.web_btn(BTN.GLO, 1); run(w, 150);                 // GLO held: LENGTH (K1) to 32, then GLO + OCT+ the second bank
 w.web_enc(ENC.K1, 16); run(w, 300);
 const b1 = lcd(w);
 tap(w, BTN.OCT_UP); run(w, 150);
 const b2 = lcd(w);
-w.web_btn(BTN.SEL, 0); run(w, 150);
-check(differ(b1, b2) > 0 && differ(so, stat(w)) === 0, `SCL + OCT on SEQ turns the bank, the octave stays (${differ(b1, b2)} pixels)`);
+w.web_btn(BTN.GLO, 0); run(w, 150);
+check(differ(b1, b2) > 0 && differ(so, stat(w)) === 0, `GLO + OCT on SEQ turns the bank, the octave stays (${differ(b1, b2)} pixels)`);
 ppm(w, 'bank');
 
 // MOD's DEST from a list as it turns, gone 1.5 s later; ARP at 1/32, REC there KEEPs what it played into SEQ A
@@ -188,7 +189,7 @@ ppm(v, 'kept');
 check(differ(h0, h1) > 100 && differ(sq0, mid(v)) > 1000,
       `REC on ARP keeps what it played in SEQ A (the message ${differ(h0, h1)}, SEQ A ${differ(sq0, mid(v))} pixels)`);
 
-// While the master plays, the other track and ORBIT switched on come in at its one (ON blinks till then); SCL + SEQ
+// While the master plays, the other track and ORBIT switched on come in at its one (ON blinks till then); GLO + SEQ
 // chooses the master, A or B (2026-11-10, the user, playing the player)
 const u = await boot();
 run(u, 2500);
@@ -198,7 +199,7 @@ const to = (ph) => go(((ph - T % 2000) + 2000) % 2000);   // to a place in A's l
 const nav = (x) => lcd(x).slice(240 * 44, 240 * 62);  // the pages' line and the switch
 const flips = () => { const s = []; for (let i = 0; i < 6; i++) { s.push(nav(u)); go(100); }
   return s.slice(1).filter((n, i) => differ(n, s[i]) > 0).length; };
-tap(u, BTN.GLO); run(u, 150);                      // DUO: B may play
+tap(u, BTN.SEL); run(u, 150);                      // SCL: DUO, B may play
 tap(u, BTN.SEQ); run(u, 150);                      // SEQ A
 tap(u, BTN.PLAY);                                  // A's one now
 go(150); tap(u, BTN.SEQ);                          // SEQ B
@@ -220,15 +221,15 @@ check(oWait >= 2 && oIn === 0, `ORBIT on while A plays: ON blinks till A's one (
 tap(u, BTN.EDIT); go(100);                         // ORBIT off, SEQ A
 tap(u, BTN.SEQ); go(150);
 const navA = nav(u);
-u.web_btn(BTN.SEL, 1); go(50);
-const sclA = nav(u);
-tap(u, BTN.SEQ); go(50);                           // SCL + SEQ: MASTER B
-const sclB = nav(u);
-u.web_btn(BTN.SEL, 0); go(50);
+u.web_btn(BTN.GLO, 1); go(50);
+const gloA = nav(u);
+tap(u, BTN.SEQ); go(50);                           // GLO + SEQ: MASTER B
+const gloB = nav(u);
+u.web_btn(BTN.GLO, 0); go(50);
 const navB = nav(u);
 ppm(u, 'master');
-check(differ(sclA, sclB) > 0 && differ(navA, navB) > 0 && differ(navA, sclA) > 0,
-      `SCL + SEQ chooses the master: SCL shows it, its tab marked (${differ(sclA, sclB)}, ${differ(navA, navB)} pixels)`);
+check(differ(gloA, gloB) > 0 && differ(navA, navB) > 0 && differ(navA, gloA) > 0,
+      `GLO + SEQ chooses the master: GLO shows it, its tab marked (${differ(gloA, gloB)}, ${differ(navA, navB)} pixels)`);
 tap(u, BTN.EDIT); to(600);                         // A OFF, then ON 0.6 s into B's loop: in at B's one
 tap(u, BTN.EDIT); go(20);
 const aWait = flips();

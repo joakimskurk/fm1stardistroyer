@@ -11,7 +11,7 @@
  *   web_leds(i), web_glow(i)  the LEDs, 32 ids each (i 0: ids 0..31, 1: 32..63): 0..13 the buttons, 14..40 the keys;
  *                           lit, and the dim layer
  *   web_key(k, down)        note key k (0 = F3 .. 26 = G5) down or up
- *   web_btn(id, down)       a button (BTN_*) down or up (SCL held: the second layer)
+ *   web_btn(id, down)       a button (BTN_*) down or up (GLO held: the second layer)
  *   web_enc(id, n)          an encoder turned n detents (ENC_*, + = clockwise)
  *   web_midi(st, d1, d2, src)  a MIDI message in, from input src (1..255; 0 as 1): each of the page's MIDI inputs
  *                           is a source of its own, as USB and the jack are on the FM-1, so a clock is taken from

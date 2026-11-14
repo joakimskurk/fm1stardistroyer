@@ -1,6 +1,6 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
-# R4: VOWEL (PRESETS +1 from DISTROY) in the loop on the REACTOR page (FX once); ALGORITHM: TRACK one step; SEL held:
-# ALGORITHM, LOW up. Buttons: SEL 3, FX 2, PLAY 12. Encoders: ALGORITHM 1, PRESETS 6.
+# R4: VOWEL (PRESETS +1 from DISTROY) in the loop on the REACTOR page (FX once); ALGORITHM: TRACK one step; GLO held:
+# ALGORITHM, LOW up. Buttons: GLO 7, FX 2, PLAY 12. Encoders: ALGORITHM 1, PRESETS 6.
 1700 enc 6 1
 1750 btn 6
 1800 btn 12
@@ -8,8 +8,8 @@
 2600 shot
 2700 enc 1 1
 3000 shot
-3100 btndown 3
+3100 btndown 7
 3200 enc 1 6
 3500 shot
-3600 btnup 3
+3600 btnup 7
 3800 end

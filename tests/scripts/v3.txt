@@ -1,20 +1,20 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
-# V3: DISTROY (the default) in the loop; SEL held: X and Y to corner B, WIDTH up; GLO to DUO; EDIT to bank B and a
-# generator (ALL); then PRESETS to VOYAGE, stop. Buttons: SEL 3, EDIT 6, GLO 7, PLAY 12.
+# V3: DISTROY (the default) in the loop; GLO held: X and Y to corner B, WIDTH up; SCL to DUO; EDIT to bank B and a
+# generator (ALL); then PRESETS to VOYAGE, stop. Buttons: SCL 3, EDIT 6, GLO 7, PLAY 12.
 200 btn 12
 1500 shot
-2000 btndown 3
+2000 btndown 7
 2100 enc 2 30
 2200 enc 3 30
 2300 enc 4 20
 2600 shot
-2700 btnup 3
-3000 btn 7
+2700 btnup 7
+3000 btn 3
 3200 btn 6
-3400 btndown 3
+3400 btndown 7
 3500 enc 1 1
 3700 shot
-3800 btnup 3
+3800 btnup 7
 4200 enc 6 -1
 4250 btn 6
 4500 shot

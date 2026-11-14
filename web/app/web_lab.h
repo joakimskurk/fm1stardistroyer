@@ -294,6 +294,24 @@ WEB_EXPORT(web_pat_name) const char *web_pat_name(uint32_t i) { return patch_ok(
 WEB_EXPORT(web_fields) const LabField *web_fields(void) { if (!lab_n) lab_build(); return lab_f; }
 WEB_EXPORT(web_nfields) uint32_t web_nfields(void) { if (!lab_n) lab_build(); return lab_n; }
 WEB_EXPORT(web_field_size) uint32_t web_field_size(void) { return (uint32_t)sizeof(LabField); }
+static const char *lab_dst_full(uint32_t d)     /* a destination as the FM-1's list names it: its page, its knob */
+{
+    static char full[SD_MDSTS][24];
+    char *p = full[d];
+    if (!*p) { if (DST_GRP[d] != DG_NONE) { p = put(p, DG_NAME[DST_GRP[d]]); *p++ = ' '; } p = put(p, DST_PARAM[d]); *p = 0; }
+    return full[d];
+}
+static const char *lab_src_full(uint32_t m)     /* a source as the FM-1's list names it: where it comes from, its name */
+{
+    static char full[SD_MSRCS][24];
+    char *p = full[m];
+    if (!*p) { if (*SRC_GRP[m]) { p = put(p, SRC_GRP[m]); *p++ = ' '; } p = put(p, SRC_PARAM[m]); *p = 0; }
+    return full[m];
+}
+/* the destinations and the sources in the lists' order (SD_MD_ORDER, SRC_ORDER), for the lab's menus; 255 past the
+   last */
+WEB_EXPORT(web_dst_order) uint32_t web_dst_order(uint32_t i) { return i < SD_MDSTS ? SD_MD_ORDER[i] : 255u; }
+WEB_EXPORT(web_src_order) uint32_t web_src_order(uint32_t i) { return i < SD_MSRCS ? SRC_ORDER[i] : 255u; }
 WEB_EXPORT(web_enum) const char *web_enum(uint32_t list, uint32_t i)
 {
     static const char *const ROLE[] = {"C", "S", "P"};
@@ -313,8 +331,8 @@ WEB_EXPORT(web_enum) const char *web_enum(uint32_t list, uint32_t i)
     case LAB_E_RCLOCK: return i < 4u ? RCLOCK[i] : 0;
     case LAB_E_XOVER: return i < 2u ? XOVER[i] : 0;
     case LAB_E_LFO: return i < 6u ? LFO[i] : 0;
-    case LAB_E_SRC: return i < SD_MSRCS ? SRC_NAME[i] : 0;
-    case LAB_E_DST: return i < SD_MDSTS ? DST_NAME[i] : 0;
+    case LAB_E_SRC: return i < SD_MSRCS ? lab_src_full(i) : 0;
+    case LAB_E_DST: return i < SD_MDSTS ? lab_dst_full(i) : 0;
     case LAB_E_M4: return i < 3u ? M4[i] : 0;
     case LAB_E_FILTER: return i < 3u ? FILT[i] : 0;
     case LAB_E_ONOFF: return i < 2u ? ONOFF[i] : 0;

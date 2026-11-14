@@ -206,8 +206,8 @@ export function buildSeq(Q) {
     seg(null, 'A STEP LASTS', { src: of('oRate', 'ORBIT RATE', 0, 2, String, (v) => Math.min(2, v)), names: ['1 LOOP', '2 LOOPS', '4 LOOPS'], values: [0, 1, 2] }),
     Q.lbl('GLIDE'), toggle(null, 'LANE 1', { src: gl(0, 'GLIDE LANE 1') }), toggle(null, 'LANE 2', { src: gl(1, 'GLIDE LANE 2') }),
     toggle(null, 'MACROS', { src: gl(2, 'GLIDE MACROS') }),
-    pick(null, 'LANE 1 TO', { src: of('oDst', 'LANE 1 DEST', 0, dn.length - 1), names: dn }),
-    pick(null, 'LANE 2 TO', { src: of('oDst', 'LANE 2 DEST', 0, dn.length - 1, String, undefined, 1), names: dn })));
+    pick(null, 'LANE 1 TO', { src: of('oDst', 'LANE 1 DEST', 0, dn.length - 1), names: Q.dord.map((d) => dn[d]), values: Q.dord }),
+    pick(null, 'LANE 2 TO', { src: of('oDst', 'LANE 2 DEST', 0, dn.length - 1, String, undefined, 1), names: Q.dord.map((d) => dn[d]), values: Q.dord })));
   const lanes = h('div', 'lanes');
   const LANES = [['XPOSE A', 'oXa', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`], ['XPOSE B', 'oXb', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`],
     ['LANE 1', 'oLane', 0, 100, (v) => `${v > 0 ? '+' : ''}${v}%`], ['LANE 2', 'oLane', 8, 100, (v) => `${v > 0 ? '+' : ''}${v}%`],

@@ -12,7 +12,7 @@ import { buildSeq, LS } from './seq.js';
 const $ = (id) => document.getElementById(id);
 const LIB = 'sd-lab-library';                    // this browser's library: { name: { bytes (base64), from, at } }
 let post = null;                                 // to the worklet (the player hands it over when it runs)
-let fields = [], byPath = new Map(), enums = {}, patches = [];
+let fields = [], byPath = new Map(), enums = {}, patches = [], dord = [], sord = [];
 let bytes = null, orig = null, from = '', nowI = -1;   // the patch as edited, as loaded, its name, its number
 let ab = 'B';
 const undo = [], redo = [];
@@ -68,7 +68,7 @@ const tap = (id) => { if (!post) return; post({ type: 'btn', id, down: true }); 
 // the sequencer's way to the firmware (web/lab/seq.js)
 const Q = {
   seq: () => seq, play: () => playNow, refresh: () => refresh(), tap, mod: (id, t, o) => mod(id, t, o),
-  row: (c, ...e) => row(c, ...e), lbl: (t) => lbl(t), get layout() { return layout; }, get enums() { return enums; },
+  row: (c, ...e) => row(c, ...e), lbl: (t) => lbl(t), get layout() { return layout; }, get enums() { return enums; }, get dord() { return dord; },
   writeTrack(k, b) { if (!post) return; remember(); if (k) seq.b = b; else seq.a = b; post({ type: 'lab-seq-set', k, bytes: b.slice() }); refresh(); },
   writeOrb(b) { if (!post) return; remember(); seq.orb = b; post({ type: 'lab-orb-set', bytes: b.slice() }); refresh(); },
   setting(i, v) { if (!post) return; seq.set[i] = v; post({ type: 'lab-lset', i, v }); refresh(); },
@@ -233,7 +233,7 @@ function build() {
       row('', knob('.s_time', 'TIME', { fmt: (v) => (bit('.s_mode', 0) ? SDIV[(v * 12) >> 16] : `${1 + Math.floor((v * 999) / 65535)} ms`) }),
         knob('.s_fb', 'FDBK'), knob('.s_dtone', 'TONE'), knob('.s_dlevel', 'LEVEL'),
         toggle('.s_mode', 'SYNC', { bits: [0, 1], title: 'TIME (and the looper\'s LENGTH and GLIDE) on the tempo' }), toggle('.s_mode', 'PING-PONG', { bits: [1, 1] })));
-    if (seq) {                                   // the looper: the player's (not the patch's), as SCL on TIME sets it
+    if (seq) {                                   // the looper: the player's (not the patch's), as GLO on TIME sets it
       const sync = () => bit('.s_mode', 0);
       b.append(loopGraph(() => lpNow, () => ({ lvl: seq.set[LS.LLVL] })),
         row('', toggle(null, 'LOOP', { src: ls(LS.LOOP, 'LOOP', 0, 1), title: 'LOOP: the last LENGTH round and round (L-LEVEL above 0 arms it)' }),
@@ -273,14 +273,14 @@ function build() {
     b.append(row('', toggle(null, 'ON', { src: turOn }), knob('.tur_set', 'CHANGE', { bits: [0, 7], hi: 100, fmt: (v) => `${v} %` }),
       knob('.tur_amt', 'AMOUNT', { fmt: (v) => `${v > 0 ? '+' : ''}${v} %` }),
       stepper('.tur_ld', 'LENGTH', { bits: [0, 5], lo: 2, hi: 16, dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 8), fmt: String })),
-    row('', pick('.tur_dst', 'DEST', { names: [...dn, 'NOTES'], values: [...dn.map((_, i) => i), 128] })),
+    row('', pick('.tur_dst', 'DEST', { names: [...dord.map((d) => dn[d]), 'SEQ A NOTES'], values: [...dord, 128] })),   // (the FM-1's list's order)
     row('', seg('.tur_ld', 'DIV', { bits: [5, 3], lo: 0, hi: 5, names: ['1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4'], values: [0, 1, 2, 3, 4, 5],
       dec: (v) => (v ? Math.min(5, v - 1) : 2), enc: (v) => v + 1, cls: 'wrap' })));
   }
   {
     const b = mod('mtx', 'MOD MATRIX');
     const t = h('div', 'mtx');
-    for (let k = 0; k < 8; k++) t.append(row('slot', h('i', 'oid', String(k + 1)), pick(`.mod[${k}].src`, ''), h('span', 'to', '›'), pick(`.mod[${k}].dst`, ''),
+    for (let k = 0; k < 8; k++) t.append(row('slot', h('i', 'oid', String(k + 1)), pick(`.mod[${k}].src`, '', { names: sord.map((d) => (enums[7] || [])[d]), values: sord }), h('span', 'to', '›'), pick(`.mod[${k}].dst`, '', { names: dord.map((d) => (enums[8] || [])[d]), values: dord }),
       knob(`.mod[${k}].amt`, '', { size: 'xs', fmt: pct })));
     b.append(t);
   }
@@ -329,7 +329,7 @@ window.addEventListener('sd-ready', (e) => {
 window.addEventListener('sd-lab', (e) => {
   const m = e.detail;
   if (m.type === 'lab-init') {
-    fields = m.fields; enums = m.enums; patches = m.patches;
+    fields = m.fields; enums = m.enums; patches = m.patches; dord = m.dstOrder || []; sord = m.srcOrder || [];
     byPath = new Map(fields.map((f) => [f.path, f]));
     layout = m.layout || []; seq = m.seq || null;
     const name = (patches.find((p) => p.i === m.now) || {}).name || 'PATCH';

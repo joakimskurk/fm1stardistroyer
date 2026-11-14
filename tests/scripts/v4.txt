@@ -1,5 +1,5 @@
 # V4 (2026-11-07): the voices' rules. MONO, PLAY (12): SEQ A has the voice; ARP (10), EDIT (6): refused, a message;
-# a key: no voice, a message; GLO (7) to DUO: EDIT turns ARP on (the status: A R); GLO twice, back to MONO: ARP off,
+# a key: no voice, a message; SCL (3) to DUO: EDIT turns ARP on (the status: A R); SCL twice, back to MONO: ARP off,
 # a message.
 1700 btn 12
 1800 btn 10
@@ -8,12 +8,12 @@
 2300 keys 0x91
 2350 keys 0
 2400 shot
-2600 btn 7
+2600 btn 3
 2900 btn 6
 3000 keys 0x91
 3400 shot
 3450 keys 0
-3600 btn 7
-3700 btn 7
+3600 btn 3
+3700 btn 3
 3800 shot
 3900 end

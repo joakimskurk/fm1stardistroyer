@@ -2917,7 +2917,7 @@ static void test_filter_seq_arp(void)
 }
 
 /* EDIT's OFF (fx_off) is the engine as if its level were 0, bit for bit; a track OFF is silent and keeps
-   time; B in MONO is silent; SCL's transpose waits for the track's one */
+   time; B in MONO is silent; GLO's transpose waits for the track's one */
 static void render_patch(const SdPatch *p, int32_t *o, uint32_t frames)
 {
     sd_engine_init(&e1); sd_engine_patch(&e1, p);
@@ -3685,12 +3685,12 @@ static void test_arp_grid(void)
 }
 
 /* REC writes what is heard (never back in another octave): a key under a transpose
- * (SCL's and ORBIT's, -24..+24 in all) goes in so the step plays that key again; CHROM every note, IN KEY every note
+ * (GLO's and ORBIT's, -24..+24 in all) goes in so the step plays that key again; CHROM every note, IN KEY every note
  * of A's scale (C minor), on both tracks; no transpose: the key as it is */
 static void test_rec_note(void)
 {
     static SdEngine e5;                         /* (zeroed: only the tracks' transposes and A's pattern are read) */
-    static const int32_t SPLIT[3][2] = {{1, 0}, {0, 1}, {2, -1}};   /* x as SCL's, ORBIT's, both */
+    static const int32_t SPLIT[3][2] = {{1, 0}, {0, 1}, {2, -1}};   /* x as GLO's, ORBIT's, both */
     uint32_t trk, key, n, bad = 0, tried = 0;
     int32_t x, s;
     sd_pattern_default(&e5.t[0].pat);
@@ -3714,7 +3714,7 @@ static void test_rec_note(void)
     CHECK(sd_seq_rec_note(&e5, &e5.t[0], 61) == 61, "REC, no transpose: the key as it is");
     e5.xkey = 0; e5.t[1].xpose = 12; e5.t[1].orb_x = 0;
     CHECK(sd_seq_rec_note(&e5, &e5.t[1], 72) == 60, "REC on B an octave up (CHROM): C5 goes in as C4");
-    printf("rec: under every transpose -24..+24 (SCL's, ORBIT's, both; IN KEY and CHROM; A and B) the step plays the "
+    printf("rec: under every transpose -24..+24 (GLO's, ORBIT's, both; IN KEY and CHROM; A and B) the step plays the "
            "key (%u notes)\n", tried);
 }
 
