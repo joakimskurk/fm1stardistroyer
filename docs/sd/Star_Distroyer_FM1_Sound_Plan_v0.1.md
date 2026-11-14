@@ -682,7 +682,7 @@ The app's CPU (the worst interrupt of a second) reads 52–54 % in the gate. RAM
 
 **HW, the checklist (on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
 `build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is
-FM-1_962XY, the first beta 0.1-beta FM-1_96201), installed with `python3 tools/fm1_install.py
+FM-1_962XY: 0.1-beta FM-1_96201, 0.2-beta FM-1_96202), installed with `python3 tools/fm1_install.py
 build/stardistroyer.fwsc` (needs `pip3 install mido python-rtmidi`; it asks before it writes). The way back: the FM-1
 Firmware Hub, or OCT- held at power-on for the USB rescue.
 0. *Before anything:* a full flash backup (M-Flasher or MvaveFM1Unbricker, both chips), kept off the unit. Note

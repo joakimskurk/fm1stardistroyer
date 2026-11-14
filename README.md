@@ -31,7 +31,7 @@ feeding a plate. Around them
 are a modulation matrix with a Turing machine, four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
-> **Status:** the first beta, [0.1-beta](https://github.com/joakimskurk/fm1stardistroyer/releases). Everything here
+> **Status:** the second beta, [0.2-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.2-beta). Everything here
 > runs on the host (the same C, the sound as WAV, the screen as images) and in the FM-1 emulator, but it has **not yet
 > been tested on a real FM-1**: install it only if you are ready to take the way back (Install, below). What you save
 > may not load in the next beta: the saves can change until 1.0.
@@ -343,7 +343,7 @@ Chrome, Edge or Brave and can be copied anywhere; EXPORT moves a patch between b
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
-The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases): `stardistroyer-0.1-beta.fwsc` is the FM-1's (the `-smk37` packages are the
+The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.2-beta): `stardistroyer-0.2-beta.fwsc` is the FM-1's (the `-smk37` packages are the
 SMK-37's, untested on one too). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
 of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
 `tools/fm1_install.py`. Either way, installing it is on you: it has not been tried on a real FM-1 yet.
@@ -363,7 +363,7 @@ of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package
    ([FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
 
 The package accepts both FM-1 flash chips: the first units' Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014) in
-units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.1-beta: `FM-1_96201`).
+units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.2-beta: `FM-1_96202`).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Build from source
 
