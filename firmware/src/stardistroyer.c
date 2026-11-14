@@ -296,17 +296,23 @@ static char *put_u(char *p, uint32_t v)
 
 /* The splash: the logo, stars streaming past behind it and now and then one shooting across. 1.5 s, drawn in two
  * halves a frame; the main loop's platform_poll keeps USB and MIDI alive meanwhile. (In a browser, web/app/, the
- * main loop draws its frames a pass at a time: splash_begin, then splash_draw.) */
+ * main loop draws its frames a pass at a time: splash_begin, then splash_draw.) The stars drift as the page's sky
+ * does (web/index.html): each at a depth z, 6 .. 96 px a second as z squared, its trail 1 .. 23 px, the near ones
+ * brighter. Spread even: one in each cell of a grid of 7 x 8, somewhere in it, so no part of the sky is empty */
 #define SPLASH_MS 1500u
 #define STARS 56u
-static int32_t sx[STARS], sy[STARS], sv[STARS];
+static int32_t sx[STARS];                       /* (1/1024 px) */
+static int16_t sy[STARS], sv[STARS];
+static uint8_t sz[STARS];
 static void splash_begin(void)
 {
     uint32_t seed = 0x5D15u, i;
     for (i = 0; i < STARS; i++) {
-        seed = seed * 1103515245u + 12345u; sx[i] = (int32_t)(seed >> 8 & 0xFFFFu) % (240 << 4);
-        seed = seed * 1103515245u + 12345u; sy[i] = (int32_t)(seed >> 8 & 0xFFFFu) % 240;
-        seed = seed * 1103515245u + 12345u; sv[i] = 6 + (int32_t)(seed >> 8 & 0xFFFFu) % 70;   /* 1/16 px a ms */
+        seed = seed * 1103515245u + 12345u;
+        sx[i] = (int32_t)(((i % 7u) * (240u << 10) + (seed >> 8 & 0xFFFFFFu) % (240u << 10)) / 7u);
+        seed = seed * 1103515245u + 12345u; sy[i] = (int16_t)((i / 7u) * 30u + (seed >> 8 & 0xFFFFu) % 30u);
+        seed = seed * 1103515245u + 12345u; sz[i] = (uint8_t)(seed >> 8 & 0xFFu);   /* the depth, 0 .. 255 */
+        sv[i] = (int16_t)(6 + sz[i] * sz[i] * 92 / 65025);   /* 1/1024 px a ms: 0.006 .. 0.096 px (the page's) */
     }
 }
 static void splash_draw(uint32_t now);
@@ -329,11 +335,11 @@ static void splash_draw(uint32_t now)           /* a frame, now ms in */
         for (half = 0; half < 2u; half++) {
             int32_t y0 = (int32_t)half * 120;
             cv_begin(240, 120, C_BG);
-            for (i = 0; i < STARS; i++) {       /* streaming right to left, the fast ones long and bright */
-                int32_t x = (sx[i] - sv[i] * (int32_t)now) % (240 << 4), len = sv[i] / 8;
-                uint32_t a = (uint32_t)(1 + sv[i] / 12);
-                if (x < 0) x += 240 << 4;
-                x >>= 4;
+            for (i = 0; i < STARS; i++) {       /* drifting right to left, the near ones long and bright */
+                int32_t x = (sx[i] - sv[i] * (int32_t)now) % (240 << 10), len = 1 + sz[i] * sz[i] * 22 / 65025;
+                uint32_t a = (uint32_t)(1 + sz[i] * 5 / 255);
+                if (x < 0) x += 240 << 10;
+                x >>= 10;
                 if (sy[i] < y0 || sy[i] >= y0 + 120) continue;
                 cv_blend(x, sy[i] - y0, C_ICE, a > 7u ? 7u : a);
                 for (int32_t k = 1; k <= len; k++) cv_blend(x + k, sy[i] - y0, C_ICE, (a * (uint32_t)(len - k + 1)) / (uint32_t)(len + 2));
