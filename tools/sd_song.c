@@ -128,19 +128,20 @@ static void verse(double s0)                    /* the verse melody on A, the ba
 
 static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MOVE build */
 {
-    if (at(S(2))) press("HOME", PG_NAV);
     if (at(S(4))) press("HOME", PG_MACROS);
     pot(__LINE__, 2350, S(0), S(16));           /* (a little down: the chorus lifts) */
     KNOB99(PG_MACROS, pat.mac[2], 35, S(16), S(120));   /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 30, S(64), S(120));   /* MOVE */
     if (at(S(128))) play(0);
-    /* the break: POLY, the chords on A, the hook on B, CHORDS last (its SPACE takes VOWEL's tail) */
+    /* the break: POLY, the hook on B, the chords on A, CHORDS last (its SPACE takes VOWEL's tail) */
     if (at(S(129.5))) scl(SD_MODE_POLY);
-    if (at(S(131))) press("SEQ", PG_SEQA);
-    if (at(S(132.5))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
-    if (at(S(134))) press("SEQ", PG_SEQB);
-    if (at(S(135.5))) pattern(1, &HOOK, "HOOK");
-    if (at(S(137))) press("HOME", PG_NAV);
+    if (at(S(131))) press("SEQ", PG_SEQB);      /* (SEQ: B, where it was; then round to A) */
+    if (at(S(132.5))) pattern(1, &HOOK, "HOOK");
+    if (at(S(134))) press("SEQ", PG_ORB);
+    if (at(S(135))) press("SEQ", PG_SEQA);
+    if (at(S(136))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
+    if (at(S(137))) press("HOME", PG_MACROS);
+    if (at(S(138))) press("HOME", PG_NAV);
     if (at(S(139.5))) preset(P_CHORDS);
     KNOB99(PG_NAV, pat.warp, 42, S(140.5), S(143.5));   /* K2: WARP down a little, warmer */
     pot(__LINE__, 3300, S(140), S(143));
@@ -149,14 +150,15 @@ static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MO
 static void chorus1(double s0)
 {
     if (at(S(0))) play(1);
-    if (at(S(124))) press("HOME", PG_MACROS);
+    if (at(S(124))) press("HOME", PG_SETUP);    /* (from NAV: round to MACROS) */
+    if (at(S(125))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 35, S(128), S(240));  /* MOVE: the second half wider, moving */
     if (at(S(256))) play(0);
     /* the break: MONO, the ostinato, ORBITAL */
     if (at(S(257.5))) scl(SD_MODE_MONO);
     if (at(S(259))) press("SEQ", PG_SEQA);
     if (at(S(260.5))) pattern(0, &OST, "OSTINATO (16)");
-    if (at(S(262))) press("HOME", PG_NAV);
+    if (at(S(262))) press("HOME", PG_MACROS);
     if (at(S(267.5))) preset(P_ORBITAL);
     pot(__LINE__, 2900, S(268), S(271));
 }
@@ -168,8 +170,8 @@ static void bridge(double s0)                   /* ORBITAL: TURING's NOTES moves
     TUR_DEST_BY(-1, S(10.5), S(11.5));
     TUR_AMOUNT(42, S(12), S(18));
     TUR_CHANGE(32, S(18), S(23));
+    TUR_LENGTH(8, S(19), S(21));   /* (K2, the other hand: the 8 it was written for; 16 since 2026-11-16) */
     if (at(S(24))) tur_edit();
-    if (at(S(32))) press("HOME", PG_NAV);
     if (at(S(34))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 60, S(36), S(120));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 30, S(64), S(120));   /* MUTATE */
@@ -209,7 +211,8 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
     if (at(S(131))) scl(SD_MODE_POLY);
     if (at(S(132.5))) press("SEQ", PG_SEQA);
     if (at(S(134))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
-    if (at(S(135.5))) press("HOME", PG_NAV);
+    if (at(S(135))) press("HOME", PG_MACROS);
+    if (at(S(136))) press("HOME", PG_NAV);
     if (at(S(137))) preset(P_CHORDS);
     KNOB99(PG_NAV, pat.warp, 42, S(138.5), S(141.5));
     pot(__LINE__, 3300, S(138), S(141));
@@ -218,19 +221,18 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
 static void chorus2(double s0)                  /* again; BREAK's grit, MOVE; at bar 9 up a tone */
 {
     if (at(S(0))) play(1);
-    if (at(S(4))) press("HOME", PG_MACROS);
+    if (at(S(4))) press("HOME", PG_SETUP);      /* (from NAV: round to MACROS) */
+    if (at(S(5))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[2], 35, S(8), S(60));     /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 40, S(32), S(100));   /* MOVE */
     if (at(S(118))) press("SEQ", PG_SEQA);
     if (at(S(120))) xpose(0, 2);
     if (at(S(122))) press("SEQ", PG_SEQB);
     if (at(S(124))) xpose(1, 2);
-    if (at(S(130))) press("HOME", PG_NAV);
     if (at(S(132))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 60, S(136), S(240));  /* MOVE */
     pot(__LINE__, 3700, S(128), S(160));        /* (a touch louder for the last half) */
-    if (at(S(244))) press("SEQ", PG_SEQA);
-    if (at(S(246))) press("SEQ", PG_SEQB);
+    if (at(S(246))) press("SEQ", PG_SEQB);      /* (SEQ: the one it showed last) */
     if (at(S(250))) track_on(1, 0);             /* the hook ends: B off (the arp needs its voice) */
     if (at(S(252))) press("ARP", PG_ARP);
     if (at(S(254))) {
@@ -269,13 +271,13 @@ static void setup(void)                         /* before the first note: DUO, V
     patterns();
     scl(SD_MODE_DUO);                           /* (quiet: the engine switches while it settles) */
     preset(P_VOWEL);
-    page = PG_SEQA;
+    page = PG_SEQB; remember();
+    pattern(1, &BASS, "BASS (D D Bb C)");
+    page = PG_SEQA; remember();                 /* (SEQ A last: SEQ comes back to it) */
     pattern(0, &HOOK, "HOOK");
     e.t[0].mute = 1;
     say("EDIT: SEQ A OFF");
-    page = PG_SEQB;
-    pattern(1, &BASS, "BASS (D D Bb C)");
-    page = PG_REACTOR;
+    page = PG_REACTOR; remember();
     master = 2600;
 }
 

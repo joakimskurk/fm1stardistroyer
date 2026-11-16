@@ -21,14 +21,14 @@
 <p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
   <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
-  <img src="docs/readme/screen_turing.png" width="256" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
+  <img src="docs/readme/screen_turing.png" width="256" alt="RADAR: its loop as a scope, each step a blip round it and the sweep where it is, a gauge of the value now, and where it goes">
 </p>
 
 Star Distroyer turns the FM-1 into one instrument with four engines in a row. A **voice** of sixteen oscillators,
 morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DISTROY**,
 which splits the sound into four bands and wrecks each its own way; and **TIME** and **SPACE**, a delay and a looper
 feeding a plate. Around them
-are a modulation matrix with a Turing machine, four macros, a two-track step sequencer with segments, and an
+are a modulation matrix with RADAR (a loop of random steps), four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
 > **Status:** the second beta, [0.3-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta). Everything here
@@ -37,7 +37,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 > may not load in the next beta: the saves can change until 1.0.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with RADAR and four macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
@@ -71,6 +71,13 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - A stage clock (forwards, backwards, ping-pong, random) and key tracking. **HARM** snaps the filters to the note's
   harmonics.
 - **MIX** keeps the dry voice whole up to the middle, and **LOW** lets the lows pass by. At 0 it is not there.
+- In a patch without it, **EDIT** turns it on with six vowels on POS (A, E, EE, AW, OO, ER), so the knobs are heard
+  at once.
+- **STAGES** (GLO + D♯5 on its page; D♯5 again goes back) edits them: the white keys 1–6 pick a stage (POS goes
+  there, so you hear it), **K1 TYPE** puts one of 13 vowels or 13 chords in it from a list, **K2 PITCH** moves it,
+  **K3 WIDTH** spreads or closes it, **K4 LEVEL**; with GLO, F1–F4 one by one. SAVE keeps it with the patch.
+- The picture: the filters as peaks across the frequency range, and under them the six stages as a piano roll, each
+  its four filters as notes at their pitch, the one playing red.
 
 </td>
 </tr>
@@ -95,28 +102,28 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top"><img src="docs/readme/screen_space.png" width="256" alt="SPACE"></td>
 <td valign="top">
 
-**TIME** and **SPACE**: a delay and a looper into a plate, last in the chain (FX: REACTOR, DISTROY, SPACE, TIME).
+**TIME** and **SPACE**: a delay and a looper into a plate, last in the chain (FX: REACTOR, DISTROY, SPACE, TIME; the looper on ARP, beside the arpeggiator).
 - **TIME** is the delay: stereo or ping-pong, free (1 ms – 1 s) or on the beat (1/32 … 1/2, triplets, dotted), with
-  **FDBK**, **TONE** and **D-LEVEL**; GLO + EDIT: its **MODE**. Ping-pong comes in pairs: an echo on the left, then one as
+  **FDBK**, **TONE** and **D-LEVEL**; ALGORITHM: its **MODE**. Ping-pong comes in pairs: an echo on the left, then one as
   loud on the right. On the beat it stays on the beat: a division longer than its 1 s (1/2 under 120 BPM, 1/4D under
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays.
-- The **looper** (TIME's GLO layer: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**) records what you hear before the reverb,
-  always. **LOOP** (ALGORITHM on TIME) plays its last LENGTH round and round, while the delay goes on with what you
+- The **looper** (its own page, **LOOPER**, ARP's second: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**; EDIT arms it) records what you hear
+  before the reverb, always. **LOOP** (ALGORITHM there) plays its last LENGTH round and round, while the delay goes on with what you
   play over it: a loop layer in the background. Synced, while the sequencer plays, LOOP locks on the beat: pressed a
   little late, the loop ends on the line you just passed and goes on at once; a little early, it waits for the line.
   The bar lines draw it most (a bar long: up to 60 % into the bar it takes the one just passed). It follows PLAY: **STOP** stops the loop too (it fades out and
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
   too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
   the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down (the pitch and the
-  length together, as a tape's), and **REVERSE** (GLO + ALGORITHM on TIME) plays it backwards, its attacks turned
-  into swells, before it loops or while it does. **GLO + OCT- / OCT+** takes it to the next octave, and **GLIDE**
+  length together, as a tape's), and **REVERSE** (GLO + ALGORITHM on LOOPER) plays it backwards, its attacks turned
+  into swells, before it loops or while it does. **GLO + OCT- / OCT+** (on LOOPER) takes it to the next octave, and **GLIDE**
   is how long a new speed takes (OFF: at once, or 1/32 … 4 bars): an octave lands on the loop's own grid, gliding
   onto its beats and then crossfading into its place, so back at its pitch it plays exactly where it was. It goes
   into the reverb as the synth does, and in the fallback into the room. **L-LEVEL** above 0 arms it (0 as the app
   starts): it then borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
   rate in 8 bits (mu-law: a light tape), while the delay keeps the first half, 0.5 s (a longer division plays at half,
   TIME red); back at 0 the delay has its whole second again. Arming or letting go fades the echoes out and in, the
-  line cleared. LENGTH synced reaches 4 bars, halved until it fits (MAX in the picture with GLO held). It is the
+  line cleared. LENGTH synced reaches 4 bars, halved until it fits (what it holds: the end of LOOPER's scale). It is the
   player's, not saved with the patch.
 - **SPACE** is the reverb, a **plate**: four diffusers into a tank of two branches in a figure of eight, its lines
   gently moving, so a long tail stays alive and never rings metallic. **SIZE** stretches it 0.35–1.75 x (turned, it
@@ -124,7 +131,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   **R-LEVEL** is how much. The echoes and the loop go into it.
 - **FREEZE** (ALGORITHM on SPACE) closes the plate's input and holds its tail as it is, for as long as you like; play
   over it, turn ALGORITHM again and it dies away. It is the player's, not saved with the patch.
-- **SHIMMER** (GLO + ALGORITHM, or GLO's knob) sends an octave up of the tail back into it, a little more each pass:
+- **SHIMMER** (GLO's K1) sends an octave up of the tail back into it, a little more each pass:
   it climbs and fades, and stays stable at any DECAY.
 - The plate and the looper run on the FM-1's **second core**, a block of 5.8 ms at a time beside the audio; the
   delay on the first, as it always has. Some FM-1s' second core misreads memory now and then: every job carries a
@@ -167,7 +174,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top">
 
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %.
-- **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, TURING, NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
+- **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, RADAR, NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
   AFTERTOUCH and RANDOM (each note). The engines feed it too: SEQ A's STEP and SEGMENT, the Reactor's STAGE,
   DISTROY's LOW and TOP BAND, TIME's ECHOES. SOURCE turns a list as DEST does, each with where it comes from.
 - **Destinations:** 54, each named by the page its knob is on and the knob's name there, in the pages' order (and on
@@ -176,27 +183,32 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   bands' or each band's, BIAS, each band's SPLIT: a crossover moved past another goes through it, the band between
   closing and opening again on its other side; and its loop: FDBK, TIME, SPREAD, TAME, MIX); SPACE (SIZE, DECAY,
   TONE, R-LEVEL); TIME (the delay's TIME, FDBK, TONE and D-LEVEL, and the looper's SPEED, ±12 semitones, free: an LFO
-  on it a tape's wobble, the loop's grid following it and taking it back after; from TURING in whole semitones,
+  on it a tape's wobble, the loop's grid following it and taking it back after; from RADAR in whole semitones,
   through GLIDE); LFO 1 and LFO 2 (RATE). Turning DEST brings up the list, as PRESETS does: the page and the knob,
-  the one picked in the middle. It plays as it turns and goes after 1.5 s. TURING's DEST and ORBIT's lanes use the
+  the one picked in the middle. It plays as it turns and goes after 1.5 s. RADAR's DEST and ORBIT's lanes use the
   same list.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars, from the one at PLAY),
-  restarted by a note, or ONE cycle a note.
+  restarted by a note, or ONE cycle a note. On an LFO's own page K3 **DEST** and K4 **AMOUNT** send it somewhere
+  (its first MOD slot, a free one the first time; DEST OFF lets the slot go), and ALGORITHM picks its **MODE**, said
+  on the hint line (FREE RUNNING, SYNC TO THE TEMPO, FREE, RESTARTS EACH NOTE ...).
 
 </td>
 </tr>
 <tr>
-<td valign="top"><img src="docs/readme/screen_turing.png" width="256" alt="TURING"></td>
+<td valign="top"><img src="docs/readme/screen_turing.png" width="256" alt="RADAR"></td>
 <td valign="top">
 
-**TURING**, on LFO after the two LFOs: a Turing machine, a modulation source of the patch. Off until you switch it on.
-- A loop of **LENGTH** bits (2–16) steps on the tempo (ALGORITHM: 1/32 … 1/4). As each bit comes round, **CHANGE**
+**RADAR**, on LFO after the two LFOs: a loop of random steps, a modulation source of the patch. Off until you switch it on.
+- A loop of **LENGTH** bits (2–16, 16 at first) steps on the tempo (ALGORITHM: 1/32 … 1/4). As each bit comes round, **CHANGE**
   is the chance it flips: 0 locks the loop, a little lets it drift, 100 plays it and its inverse.
 - Its 8 newest bits are the output: a stepped value, every step a new one.
 - **DEST** and **AMOUNT** send it anywhere the matrix can, XM by default. **NOTES** moves SEQ A's notes in the
   pattern's scale as they play, and never rewrites the pattern. To **PITCH** it is quantized first: every voice
   lands on a note of SEQ A's scale from its key (CHROM: whole semitones). In MOD it is a SOURCE too, for more
   places (to PITCH there quantized as well).
+- The picture is a scope: the loop's places round it, each step's value a blip (further out higher), the sweep on
+  the step playing, the newest blip red. Locked (CHANGE 0) the shape stays; with CHANGE it drifts. A gauge beside
+  it shows the value now.
 
 </td>
 </tr>
@@ -212,20 +224,24 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 **Two sequencer tracks on one sound**: a melody on A and a bass line on B, one tempo and one PLAY.
 - Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate, **RATCHET** (2 or 3 hits)
   and **PROB**, and can hold a chord of up to four notes.
-- **Segments A–F:** the pattern cut on the white keys, each with REPEAT, ORDER (forwards, reverse, ping-pong,
-  random), SKIP and LENGTH.
+- **Segments A–F:** up to six parts of the pattern, each with REPEAT, ORDER (forwards, reverse, ping-pong,
+  random), SKIP and LENGTH. **D♯5** opens them: a white key picks the part its step is in (framed, the others dim),
+  ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
 - **REC** (or **B11**, the last black key, lit while it is on) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
   step (keys held together, a chord); playing, into the step that plays. It writes what you hear: under a transpose
   (GLO's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
-- **GLO held** transposes a track from the keys (C4 none), taken at its next one; OCT moves the keys' octave, for a
-  transpose past them, and GLO + OCT the step bank.
-- **IN KEY** (the default): a transpose moves the notes in degrees of SEQ A's scale from its key, so B keeps to A's
-  key and root, and a chord moves tone by tone (C minor up a third in C minor: E♭ major). +5 is up a fourth in the
-  key, +7 a fifth. **GLO + EDIT** on SEQ switches to **CHROM**, in semitones. ORBIT's XPOSE follows it too.
-- **MASTER** (GLO + SEQ, on SEQ and ORBIT): A or B, the track whose one leads; its tab is underlined, and with GLO
-  held the top line shows it. While the master plays, the other track and ORBIT switched on come in at its next
+- **One key, the master's:** its step 1 is the root and its SCALE (GLO + ALGORITHM on its page) the scale; the hint
+  line shows it with GLO held (A MINOR). The other track has none of its own: what it plays is pulled to the nearest
+  note of the key, and on its page the hint line says whose key it follows (KEY SEQ A).
+- **GLO held** transposes a track from the keys, taken at its next one: the keys in the key are lit, and the root goes
+  to the one you press (the root itself: no transpose). The keys stay as printed whatever OCT's octave (OCT is the
+  playing's; a transpose past them: GLO + K4 XPOSE), and GLO + OCT turns the step bank.
+- **IN KEY** (the default): a transpose moves the notes in degrees of the key, and a chord moves tone by tone (C minor
+  up a third in C minor: E♭ major); K4 XPOSE and ORBIT's XPOSE count the same, +5 up a fourth in the key, +7 a fifth.
+  **SETUP**'s XPOSE switches to **CHROM**: each track as written, transposed in semitones (from C4, every key lit).
+- **MASTER** (on **SETUP**, K3): A or B, the track whose one leads; its tab is underlined. While the master plays, the other track and ORBIT switched on come in at its next
   one, from their step 1 (ON blinks until then); off is at once. ORBIT counts the master's loops; the key (IN KEY)
-  and TURING's NOTES stay SEQ A's.
+  is the master's, and RADAR's NOTES stay SEQ A's.
 
 </td>
 </tr>
@@ -237,7 +253,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - 2–8 steps on the first white keys, each **1, 2 or 4 loops** of the master (SEQ A unless you choose B); a step
   changes at its one. The LED under
   each step's stripe lights while it plays.
-- Each step: **XPOSE A** and **XPOSE B** (±24), two free lanes each to its **DEST** (any matrix destination,
+- Each step: **XPOS A** and **XPOS B** (±24, the transpositions), two free lanes each to its **DEST** (any matrix destination,
   ±100 %), and with GLO the four macros' changes. Every value is a change from where you are: 0 changes nothing.
 - **B10** (D♯5, lit) is SETUP: LENGTH, RATE, DEST 1, DEST 2; with GLO, **GLIDE** for each lane and the macros
   (jump at the step, or glide through it to the next). EDIT switches it; it is saved with the pattern.
@@ -261,10 +277,10 @@ and the keys take the rest. No source cuts another's note. What does not fit is 
 The keys remember what is held: in MONO, hold a note, play a second and let it go, and the first sounds again,
 legato.
 
-**MIDI clock**, over USB or the TRS jack, leads while it comes (SYNC AUTO): both tracks, ORBIT, ARP, TURING, the
+**MIDI clock**, over USB or the TRS jack, leads while it comes (SYNC AUTO): both tracks, ORBIT, ARP, RADAR, the
 synced LFOs and MOVE move by its pulses, so they cannot drift from the other gear, and SPACE's synced echoes take its
 tempo. START or CONTINUE plays from step 1 at the next pulse, STOP stops, and the status line shows the clock's tempo
-with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **GLO + PLAY** switches to SYNC INT,
+with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **SETUP**'s SYNC switches to INT,
 where a clock is not heard. With two clocks at once (USB and the jack, or two MIDI inputs in the browser), the first
 leads until it stops.
 
@@ -274,28 +290,38 @@ leads until it stops.
 
 ### The controls
 
-Every page is laid out the same: its button's pages on the top line (the current one a red tab, EDIT's ON / OFF on the
-right), K1–K4 as four boxes in a row like the knobs, the picture, the hint line, the steps and the status. The key
-LEDs show what the keys do. The status line: PLAY's square (red while it plays), the tempo (**CLK** while a MIDI clock
-leads), the octave, who holds the voices (**A** and **B** the tracks, **R** the ARP, **-** the keys) and the CPU.
+Every page is laid out the same, from the top: the patch's line (its name, the key, the master's, as IN KEY
+transposes in it, and its place, P01 or U01); its button's pages (the current one the red tab, EDIT's lamp and ON /
+OFF on the right; a page button brings back the page it showed last, and again the next; HOME always starts at
+MACROS, where the FM-1 starts too); K1–K4 in a row like the knobs, each value on a printed scale with its pointer, grey
+while the page's engine is off; the picture, the page's room (SEQ's steps in it); the hint line, two fixed places like
+a panel's legends (ALGORITHM's job on the left, GLO's or a key's from the middle; with GLO held ALGO turns red and
+shows its second job; what ALGORITHM switches on and off has a lamp there); the status. Halfway
+between a starship's screen and a synth's panel: boxes with soft corners, lamps, scales; red is the patch, where you
+are, what is on and what plays. The key
+LEDs show what the keys do, and a black key with a job has one mark on the screen wherever its job is named (SEQ's
+line, the hint line): a small key with its lamp, lit as the key is (dark, a glow, full, blinking), then the job's
+name. The status line: PLAY's square (red while it plays), the tempo (**CLK** while a MIDI clock
+leads), the octave and MONO, DUO or POLY with who holds the voices (**A** and **B** the tracks, **R** the ARP, **-**
+the keys; the CPU in their place when it reaches 45 %, red from 50).
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | NAV → MACROS |
+| **HOME** | MACROS → NAV → SETUP (SYNC AUTO or INT, XPOSE IN KEY or CHROM, MASTER A or B: one knob each, kept) |
 | **FX** | REACTOR → DISTROY → SPACE → TIME |
 | **ENV** | ENV → FILTER |
-| **LFO** | LFO 1 → LFO 2 → TURING → MOD |
-| **ARP** | the arpeggiator |
+| **LFO** | LFO 1 → LFO 2 → RADAR → MOD |
+| **ARP** | ARP → LOOPER: the arpeggiator and the looper, the player's tools (not saved in the patch) |
 | **SEQ** | SEQ A → SEQ B → ORBIT |
 | **K1–K4** | the four values in the row on top |
-| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track (IN KEY or CHROM: GLO + EDIT), OCT turns the step bank and SEQ chooses the MASTER, A or B; on TIME, OCT the loop's octave and EDIT the delay's MODE |
-| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP); GLO + ALGORITHM the second |
-| **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, FILTER, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one) |
-| **PRESETS** | the patch (on SEQ the pattern): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now |
+| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT turns the step bank; on LOOPER, OCT the loop's octave |
+| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP, a list as it turns; on NAV the algorithm, a list too); GLO + ALGORITHM the second |
+| **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, ARP, a track, ORBIT, RADAR (a track or ORBIT, while the master plays: in at its one). Off, the hint line says OFF: EDIT TURNS IT ON (not on SEQ and ORBIT, where you write a part while it is off) |
+| **PRESETS** | the patch (on SEQ and ORBIT the pattern; the list says PATCHES or PATTERNS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now |
 | **SELECT** · **SCL** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
-| **PLAY** · **REC** · **SAVE** | the sequencer (GLO + PLAY: SYNC AUTO or INT) · recording · a place of your own (32 patches, 32 patterns) |
+| **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
 | **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the step bank); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
-| **The keys** | play; on SEQ the white keys are the steps (one tapped again: RATCHET, PROB) and the black keys, lit where they do something, B1 RND, B2 UNDO, B3 CLR, B10 SEG and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP |
+| **The keys** | play; on SEQ the white keys are the steps and the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MASTER** | the volume |
 
@@ -323,7 +349,7 @@ The patches live in [`firmware/src/sd_patches.h`](firmware/src/sd_patches.h).
 The lab is Star Distroyer as one window on this computer, the way a software instrument has it: every section of the patch at once, in the order the sound goes, with no pages to turn. NAV's
 field to drag between the four banks, the oscillators, VOICE and MACROS; the three envelopes drawn, the filter's curve,
 the LFOs; the Reactor's six stages on the pitch; DISTROY's four bands on the spectrum, their splits to drag; TIME with
-its echoes and the looper (its loop drawn, the head going round), SPACE, TURING (its register stepping) and the mod
+its echoes and the looper (its loop drawn, the head going round), SPACE, RADAR (its register stepping) and the mod
 matrix; then the SEQUENCER (the tempo, the voices, ARP; SEQ A and B, their steps, their segments, the step picked) and
 ORBIT's lanes, the firmware's own patterns. The keys are along the bottom (the mouse, the computer's keyboard or a MIDI
 keyboard), and the FM-1's own panel opens behind its button: its knobs and the window set the same patch, so each
@@ -402,8 +428,8 @@ stock patch, the app's own controls and the voice rules.
   the plate, looped, played backwards and taken down an octave; AURORA's slow line over it, FREEZE and SHIMMER on the
   plate. One pass, every gesture in `performance.txt`, the looper on the FM-1's own memory (armed before LOOP).
 - **HELIOPAUSE** (`heliopause/`, ~1:47, E minor at 80 BPM): a cue, ambient for sixteen bars, then a wall, then its
-  freeze. Everything RANGE plays (the nav and its generators, the acid with TURING on the CUTOFF, the Reactor's vowels,
-  the arpeggiator over the chords, DISTROY's riff and macros, TURING's NOTES, the delay's echoes) in four passes on one
+  freeze. Everything RANGE plays (the nav and its generators, the acid with RADAR on the CUTOFF, the Reactor's vowels,
+  the arpeggiator over the chords, DISTROY's riff and macros, RADAR's NOTES, the delay's echoes) in four passes on one
   FM-1 layered, the patches saved wet, the looper as its texture: the bed's last bar held, backwards, an octave down
   under a FREEZE that SHIMMER takes an octave up, an LFO on its SPEED for a tape's wobble, then two octaves up over two
   bars into the wall, and two back down under the wall's frozen plate. Each pass's stem and every gesture in
@@ -411,9 +437,9 @@ stock patch, the app's own controls and the voice rules.
 - **SINGULARITY** (`singularity/`, ~1:57, F minor at 72 BPM): one take, one stem, nothing layered: one FM-1 at
   full. What sounds over what is the instrument's own: the looper holding a bar of one patch while the next plays,
   FREEZE holding the plate's tail across a patch change, the delay. AURORA's glass chords and arp, looped, backwards,
-  an octave down under SHIMMER and FREEZE; VOWEL on SEQ A and B, TURING's NOTES, LFOs on the Reactor's vowels and the
+  an octave down under SHIMMER and FREEZE; VOWEL on SEQ A and B, RADAR's NOTES, LFOs on the Reactor's vowels and the
   loop's SPEED; the loop two octaves up into a wall of DISTROY with all four of POLY's voices busy (SEQ A's riff, SEQ
-  B's bass, the arp), ORBIT stepping both, TURING on the FOLD, BREAK, BODY and CRUSH; then the wall frozen and the
+  B's bass, the arp), ORBIT stepping both, RADAR on the FOLD, BREAK, BODY and CRUSH; then the wall frozen and the
   loop falling. Every gesture in `performance.txt`; the looper on the FM-1's own memory, as TAPESTRY's.
 - The second cue (`epic/`, its parts layered as engines, with its stems), and the loops of the identity patches.
 
@@ -425,7 +451,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   sub-blocks inside the FM-1's audio interrupt, with modulation at the control rate.
 - **CPU:** in fm1-emu, DISTROY's loop takes **44.0 %** of the first core; the plate and the looper run on the second,
   9.9 % of it (the looper armed, gliding and crossfading: 45.3 % on the first, 12.2 % at most on the second);
-  everything at once (POLY, both tracks, ARP, all FX, all eight slots, TURING and ORBIT) 51.7 %. On one core (a second
+  everything at once (POLY, both tracks, ARP, all FX, all eight slots, RADAR and ORBIT) 51.7 %. On one core (a second
   core that misreads) the room and the looper play there: 44.3 % (47.4 % with the looper's glide and crossfade). The
   worst interrupt, the app's CPU, stays at 52..54 % as the looper is armed. The budget is under
   half, as Dinghy's [rules](docs/RULES.md) ask, because USB, the key scan and the screen need the rest. The emulator

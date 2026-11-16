@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Star Distroyer</title>
-<meta name="description" content="Star Distroyer: a starship FM synth firmware for the M-VAVE FM-1. Four banks of oscillators on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate, a two-track sequencer with a Turing machine. Install it from the browser.">
+<meta name="description" content="Star Distroyer: a starship FM synth firmware for the M-VAVE FM-1. Four banks of oscillators on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate, a two-track sequencer and RADAR, a loop of random steps. Install it from the browser.">
 <link rel="canonical" href="https://joakimskurk.github.io/fm1stardistroyer/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Star Distroyer">
@@ -20,7 +20,7 @@
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="The /// STAR DISTROYER logo over three of its FM-1 screens: the splash, NAV and TURING">
+<meta property="og:image:alt" content="The /// STAR DISTROYER logo over three of its FM-1 screens: the splash, NAV and RADAR">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#06080c">
 <meta name="color-scheme" content="dark">
@@ -209,14 +209,14 @@
   <div class="hero">
     <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
     <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
-    <img src="screens/turing.png" width="240" height="240" alt="TURING: its last steps as a stepped line, the loop's bits under it, and where it goes">
+    <img src="screens/turing.png" width="240" height="240" alt="RADAR: its loop as a scope, each step a blip round it and the sweep where it is, a gauge of the value now, and where it goes">
   </div>
   <p class="cta"><a href="#try">▶ Play it in the browser</a> · <a href="#hear">Hear the demos</a> · <a href="#start">Getting started</a></p>
 
   <p class="lead">Star Distroyer turns the FM-1 into one instrument with four engines in a row. A <b>voice</b> of
     sixteen oscillators, morphed across an X/Y field; a <b>Reactor</b> of four resonators that sweep through vowels,
     chords and combs; <b>DISTROY</b>, which splits the sound into four bands and wrecks each its own way; and
-    <b>TIME</b> and <b>SPACE</b>, a delay and a looper feeding a plate. Around them: a modulation matrix with a Turing machine, four macros, a
+    <b>TIME</b> and <b>SPACE</b>, a delay and a looper feeding a plate. Around them: a modulation matrix with RADAR (a loop of random steps), four macros, a
     two-track step sequencer with segments and ORBIT over it, and an arpeggiator.</p>
 
   <div class="facts">
@@ -282,7 +282,7 @@
 
   <section class="panel" id="sound" role="tabpanel">
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The sound</h2>
-  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with TURING and four macros reach every engine">
+  <img class="chain" src="screens/chain.svg" width="880" height="404" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with RADAR and four macros reach every engine">
 
   <div class="eng">
     <img class="scr" src="screens/nav.png" width="240" height="240" alt="NAV">
@@ -301,6 +301,8 @@
         <li>Four filters of one model: BP6, BP12, a variable BPF, KP combs, or two kinds of allpass.</li>
         <li>Six stages hold every filter's pitch and level; <b>POS</b> moves through them, <b>SLEW</b> jumps or glides.</li>
         <li>A stage clock and key tracking; <b>HARM</b> snaps the filters to the note's harmonics.</li>
+        <li><b>STAGES</b> (GLO + D♯5 on its page; D♯5 again goes back): the white keys 1–6 pick a stage, K1 puts a vowel or a chord in it,
+          K2 to K4 its pitch, width and level.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -320,7 +322,7 @@
         <li><b>TIME</b>, the delay: stereo or ping-pong (an echo left, then one as loud right), free (1 ms – 1 s) or on
           the beat, with feedback and tone. On the beat it stays there: a division longer than 1 s plays at half (TIME
           red).</li>
-        <li><b>LOOP</b> (ALGORITHM on TIME): the looper, armed with L-LEVEL (it borrows half the delay line: 5 s, a
+        <li><b>LOOPER</b>, its own page (ARP's second): LOOP on ALGORITHM, armed with EDIT or L-LEVEL (it borrows half the delay line: 5 s, a
           light 8-bit tape, the delay then 0.5 s), always recording what you hear, plays its last LENGTH round
           while the delay goes on; SPEED takes it an octave up or down, as a tape's (GLO + OCT the next octave, over
           GLIDE, landing on the loop's own grid), REVERSE (GLO + ALGORITHM) plays it backwards; it goes into the reverb
@@ -329,7 +331,7 @@
         <li><b>SPACE</b>, the plate: four diffusers into a tank in a figure of eight, its lines gently moving.
           <b>SIZE</b> 0.35–1.75 x (it glides there like tape), <b>DECAY</b> 0.3 s to about 40 s, <b>TONE</b>.</li>
         <li><b>FREEZE</b> (ALGORITHM on SPACE): the plate's tail held as it is, the input closed; play over it.
-          <b>SHIMMER</b> (GLO + ALGORITHM): an octave up of the tail back into it.</li>
+          <b>SHIMMER</b> (GLO's K1): an octave up of the tail back into it.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -338,17 +340,18 @@
       <ul>
         <li>Four macros: <b>MUTATE</b> the voice, <b>MOVE</b> the nav and the Reactor, <b>BREAK</b> the destruction,
           <b>MACRO 4</b> as the patch chooses. 0 is the patch as programmed.</li>
-        <li>Eight modulation slots: envelopes, two LFOs, TURING, the nav, velocity, the wheel, aftertouch, random,
+        <li>Eight modulation slots: envelopes, two LFOs, RADAR, the nav, velocity, the wheel, aftertouch, random,
           and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
         <li>54 destinations, from PITCH to the envelopes' times, the filter, every engine (DISTROY's DRIVE band by band
           and each band's SPLIT too, one going through another), the looper's speed (an LFO on it a tape's wobble;
-          TURING in semitones) and the LFOs' rates, picked from a list as DEST turns: each named by the page its knob is
+          RADAR in semitones) and the LFOs' rates, picked from a list as DEST turns: each named by the page its knob is
           on and the knob's name there, in the pages' order.</li>
+        <li>An LFO sends itself from its own page: K3 DEST, K4 AMOUNT (ALGORITHM its mode).</li>
       </ul></div>
   </div>
   <div class="eng">
-    <img class="scr" src="screens/turing.png" width="240" height="240" alt="TURING">
-    <div><h3>TURING <span>·</span> a Turing machine as a modulation source</h3>
+    <img class="scr" src="screens/turing.png" width="240" height="240" alt="RADAR">
+    <div><h3>RADAR <span>·</span> a loop of random steps as a modulation source</h3>
       <ul>
         <li>A loop of 2–16 bits steps on the tempo. <b>CHANGE</b> is the chance a bit flips as it comes round: 0 locks
           the loop, a little lets it drift.</li>
@@ -363,16 +366,16 @@
       <ul>
         <li>A melody on A and a bass line on B: up to 64 steps each, with slides, ties, ratchets, chance and chords.
           REC records from the keys or a MIDI keyboard, at its velocity: step by step, or into the step that plays.</li>
-        <li>Segments A–F cut a pattern on the white keys, each with its repeat and order.</li>
+        <li>Segments: up to six parts A–F of a pattern (D♯5, ALGORITHM how many), each with its repeat, order, skip and length; a white key picks one, the screen shows how they play.</li>
         <li><b>ORBIT</b> sequences the sequence: 2–8 steps of 1, 2 or 4 loops, each transposing A and B and moving
           two lanes and the macros, jumping or gliding.</li>
-        <li><b>MASTER</b> (GLO + SEQ): A or B, the track whose one leads. The other track and ORBIT switched on while
+        <li><b>MASTER</b> (on SETUP): A or B, the track whose one leads. The other track and ORBIT switched on while
           it plays come in at its next one.</li>
         <li><b>ARP</b> from 1/64 to 1/2, triplets and dotted, on the patterns' grid while they play. REC on ARP keeps
           what it just played as a pattern.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
-        <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, TURING and the synced LFOs move by its
-          pulses and never drift; START plays from step 1, STOP stops. GLO + PLAY: SYNC AUTO or INT.</li>
+        <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, RADAR and the synced LFOs move by its
+          pulses and never drift; START plays from step 1, STOP stops. SETUP: SYNC AUTO or INT.</li>
       </ul></div>
   </div>
 
@@ -381,21 +384,22 @@
   <section class="panel" id="controls" role="tabpanel">
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The controls</h2>
   <table>
-    <tr><td>HOME</td><td>NAV → MACROS</td></tr>
+    <tr><td>Page buttons</td><td>each brings back the page it showed last, and again the next (HOME always starts at MACROS, where the FM-1 starts)</td></tr>
+    <tr><td>HOME</td><td>MACROS → NAV → SETUP (SYNC, XPOSE IN KEY or CHROM, MASTER A or B)</td></tr>
     <tr><td>FX</td><td>REACTOR → DISTROY → SPACE → TIME</td></tr>
     <tr><td>ENV</td><td>ENV → FILTER</td></tr>
-    <tr><td>LFO</td><td>LFO 1 → LFO 2 → TURING → MOD</td></tr>
-    <tr><td>ARP</td><td>the arpeggiator</td></tr>
+    <tr><td>LFO</td><td>LFO 1 → LFO 2 → RADAR → MOD</td></tr>
+    <tr><td>ARP</td><td>ARP → LOOPER: the arpeggiator and the looper</td></tr>
     <tr><td>SEQ</td><td>SEQ A → SEQ B → ORBIT</td></tr>
     <tr><td>K1–K4</td><td>the four values in the row on top</td></tr>
-    <tr><td>GLO</td><td>held, the second layer (the names turn red); a tap keeps it (GLO lit), a tap again lets it go; on SEQ, the keys transpose the track, in SEQ A's key (GLO + EDIT: chromatic), OCT turns the step bank and SEQ chooses the master, A or B; on TIME, OCT moves the loop an octave and EDIT is the delay's MODE</td></tr>
+    <tr><td>GLO</td><td>held, the second layer (the names turn red); a tap keeps it (GLO lit), a tap again lets it go; on SEQ, the keys transpose the track in the master's key, its notes lit (SETUP's XPOSE: chromatic), OCT turns the step bank; on LOOPER, OCT moves the loop an octave</td></tr>
     <tr><td>ALGORITHM</td><td>the page's choice, named on the hint line; GLO + ALGORITHM the second</td></tr>
-    <tr><td>EDIT</td><td>ON / OFF of what the page shows: an engine, the filter, ARP, a track, ORBIT, TURING (a track or ORBIT, while the master plays: in at its one, ON blinking till then)</td></tr>
-    <tr><td>PRESETS</td><td>the patch (on SEQ the pattern): a list as it turns, the sound as it is; EDIT or OCT+ loads, OCT− or HOME not now</td></tr>
+    <tr><td>EDIT</td><td>ON / OFF of what the page shows: an engine, the looper (armed), the filter, ARP, a track, ORBIT, RADAR (a track or ORBIT, while the master plays: in at its one, ON blinking till then). Off, the hint line says so</td></tr>
+    <tr><td>PRESETS</td><td>the patch (on SEQ and ORBIT the pattern, as the list says): a list as it turns, the sound as it is; EDIT or OCT+ loads, OCT− or HOME not now</td></tr>
     <tr><td>SELECT · SCL</td><td>the tempo (40–240 BPM; a MIDI clock's while one leads: CLK) · MONO → DUO → POLY</td></tr>
-    <tr><td>PLAY · REC · SAVE</td><td>the sequencer (GLO + PLAY: SYNC AUTO or INT) · recording · a place of your own</td></tr>
+    <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own</td></tr>
     <tr><td>OCT− · OCT+</td><td>the keys' octave, on every page (on SEQ, GLO + OCT the step bank); to a question (the list, SAVE, CLR) OCT+ is yes and OCT− no</td></tr>
-    <tr><td>The keys</td><td>play; on SEQ the white keys are the steps, the black ones, lit where they do something, B1 RND, B2 UNDO, B3 CLR, B10 SEG and B11 the keys into the steps (REC); on ORBIT B10 is SETUP</td></tr>
+    <tr><td>The keys</td><td>play; on SEQ the white keys are the steps, the black ones, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB), B10 SEG and B11 the keys into the steps (REC); on ORBIT B10 is SETUP, on REACTOR GLO + B10 STAGES</td></tr>
     <tr><td>MIDI in</td><td>USB or the TRS jack: notes (as the keys play them; REC writes them at their velocity), the mod wheel, aftertouch and a clock</td></tr>
   </table>
   <div class="shots">

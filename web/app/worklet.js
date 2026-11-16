@@ -72,7 +72,7 @@ class StarDistroyer extends AudioWorkletProcessor {
     const n = Math.min(8, (c - this.turSeen) >>> 0);
     for (let i = n; i > 0; i--) vals.push(x.web_tur_dac(reg >>> (i - 1)));
     this.turSeen = c;
-    return { reg, vals };
+    return { reg, vals, c };
   }
   lpNow() {                                      // (the lab) the looper: its state each frame, its loop's outline
     const x = this.x, g = (i) => x.web_lp(i) >>> 0, on = g(0), total = g(6);   // (240 peaks) a few times a second

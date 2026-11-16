@@ -151,18 +151,15 @@ static void patterns(void)
 }
 
 /* ---- gestures */
-static void fx_to(int n, double s0)             /* FX n times, a sixteenth apart: REACTOR DISTROY SPACE TIME, as the
-                                                   app's button goes (from another page: REACTOR) */
+static void fx_to(int to, double s0)            /* FX, a sixteenth apart, till the page 'to': REACTOR DISTROY SPACE TIME,
+                                                   as the app's button goes (from another page first the one it
+                                                   showed last) */
 {
-    int i;
-    for (i = 0; i < n; i++)
-        if (at(s0 + i))
-            press("FX", page == PG_REACTOR ? PG_DISTROY : page == PG_DISTROY ? PG_SPACE : page == PG_SPACE ? PG_TIME : PG_REACTOR);
+    go_to("FX", to, s0);
 }
-static void home_to(int n, double s0)           /* HOME n times: NAV, MACROS */
+static void home_to(int to, double s0)          /* HOME, a sixteenth apart, till the page 'to': NAV, MACROS, SETUP */
 {
-    int i;
-    for (i = 0; i < n; i++) if (at(s0 + i)) press("HOME", page == PG_NAV ? PG_MACROS : PG_NAV);
+    go_to("HOME", to, s0);
 }
 static void gen_at(double s, uint32_t detents)  /* GLO + K4 on NAV: the harmonic generator on bank A */
 {
@@ -178,7 +175,7 @@ static void gen_at(double s, uint32_t detents)  /* GLO + K4 on NAV: the harmonic
     snprintf(t, sizeof t, "GLO + K4: GEN %s on bank A", sd_gen_name(gen));
     say(t);
 }
-static void in_key(void) { e.xkey = 1; }       /* the transposes IN KEY: the app's default (GLO + EDIT on SEQ) */
+static void in_key(void) { e.xkey = 1; }       /* the transposes IN KEY: the app's default (SETUP's XPOSE) */
 
 /* the bed: CHORDS (U01) in POLY with the arp; then the looper (down, FREEZE and SHIMMER over it, the wobble; up two
    octaves); the wall's chords; its plate frozen, the loop down two octaves, out */
@@ -187,7 +184,7 @@ static void bed_setup(void)
     in_key();
     scl(SD_MODE_POLY);
     preset_user(&U01, "U01 CHORDS DARK HALL");
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &BEDA, "DRIFT (Em C D Em)");
     looper_mem();
     master = 0;
@@ -198,7 +195,7 @@ static int bed_score(void)
     int i;
     if (at(BAR(3))) play(1);
     pot(__LINE__, 2200, BAR(3), BAR(5));        /* MASTER: in */
-    if (at(BAR(3) + 2)) press("ARP", PG_ARP);   /* the arp in eighths over it */
+    arp_to(PG_ARP, BAR(3) + 2);   /* the arp in eighths over it */
     if (at(BAR(3) + 3)) {
         on_page(PG_ARP, "ARP's EDIT off its page");
         if (e.t[0].width + (e.t[1].mute ? 0u : e.t[1].width) + 1u > 4u) fail("no voice for ARP");
@@ -209,22 +206,22 @@ static int bed_score(void)
     if (at(BAR(3) + 4)) { act(); e.arp_hold = 1; say("ALGORITHM: HOLD"); }
     if (at(BAR(3) + 5)) { act(); e.arp_oct = 2; say("K3: OCTAVES 2"); }
     for (i = 0; i < 4; i++) { if (at(BAR(3) + 6 + i * 0.1)) key(H[i], 1); if (at(BAR(3) + 8 + i * 0.1)) key(H[i], 0); }
-    fx_to(4, BAR(5));                           /* TIME: LENGTH 1 BAR, GLIDE 1 BAR */
+    arp_to(PG_LOOP, BAR(5));                          /* LOOPER: LENGTH 1 BAR, GLIDE 1 BAR */
     if (at(BAR(5) + 5)) lp_length(12);
     if (at(BAR(5) + 7)) lp_glide_to(13);
-    LP_LEVEL(79, BAR(5) + 9, BAR(6) + 8);      /* GLO + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
+    LP_LEVEL(79, BAR(5) + 9, BAR(6) + 8);      /* K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
     /* the tape: the bed's last bar held, backwards, down an octave */
     if (at(BAR(7))) loop_toggle();
     if (at(BAR(7) + 1)) press("SEQ", PG_SEQA);  /* EDIT: the bed off, PLAY running on (STOP would park the loop) */
     if (at(BAR(7) + 2)) track_on(0, 0);
-    if (at(BAR(7) + 3)) press("ARP", PG_ARP);
+    go_every("ARP", PG_ARP, BAR(7) + 2.66, 0.66);   /* (ARP: LOOPER, the one it showed last; ARP again, quick) */
     if (at(BAR(7) + 4)) { act(); e.arp_on = 0; say("EDIT: ARP OFF"); }
-    fx_to(4, BAR(7) + 5);
+    arp_to(PG_LOOP, BAR(7) + 5);
     if (at(BAR(7) + 10)) reverse_toggle();
     if (at(BAR(8))) loop_octave(0);             /* GLO + OCT-: down over the bar, onto its grid */
     /* SHIMMER and FREEZE on its plate: an octave up over the loop an octave down; the plate up */
-    fx_to(3, BAR(9));
-    SHIMMER(26, BAR(9) + 3, BAR(10));           /* GLO + ALGORITHM: SHIMMER 0 -> 41 % */
+    fx_to(PG_SPACE, BAR(9));
+    SHIMMER(26, BAR(9) + 3, BAR(10));           /* GLO + K1: SHIMMER 0 -> 41 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 62, BAR(9) + 3, BAR(10));   /* K4: R-LEVEL */
     if (at(BAR(10))) freeze_toggle();
     if (at(BAR(11))) press("LFO", PG_LFO1);     /* LFO 2 onto its SPEED: the wobble */
@@ -234,10 +231,10 @@ static int bed_score(void)
     if (at(BAR(11) + 10)) press("LFO", PG_MOD);
     if (at(BAR(11) + 11)) mod_slot(0, SD_MS_LFO2, SD_MD_LSPEED, 2);   /* LFO 2 -> L SPEED +2 % */
     /* the rise: FREEZE let go, forward, two octaves up over two bars */
-    fx_to(3, BAR(11) + 13);
+    fx_to(PG_SPACE, BAR(11) + 13);
     if (at(BAR(12) + 2)) freeze_toggle();
-    fx_to(1, BAR(12) + 4);
-    if (at(BAR(12) + 6)) lp_glide_to(14);       /* GLO + K1: GLIDE 2 BAR */
+    arp_to(PG_LOOP, BAR(12) + 4);                     /* LOOPER */
+    if (at(BAR(12) + 6)) lp_glide_to(14);       /* K1: GLIDE 2 BAR */
     if (at(BAR(12) + 8)) reverse_toggle();
     if (at(BAR(13))) loop_octave(1);            /* GLO + OCT+: to its pitch ... */
     if (at(BAR(13) + 4)) loop_octave(1);        /* ... and on to +12 */
@@ -249,18 +246,19 @@ static int bed_score(void)
     if (at(BAR(16) + 15)) track_on(0, 1);       /* the wall from its step 1, the loop back in sync on the one */
     if (at(BAR(17))) play(1);
     /* its freeze: the plate held as the wall stood, the chords off; the loop down two octaves, out */
-    fx_to(3, BAR(24) + 10);
+    fx_to(PG_SPACE, BAR(24) + 10);
     if (at(BAR(25))) freeze_toggle();
     if (at(BAR(25) + 1)) press("SEQ", PG_SEQA); /* EDIT: the chords off, PLAY running on under the loop */
     if (at(BAR(25) + 2)) track_on(0, 0);
-    fx_to(4, BAR(25) + 3);
+    arp_to(PG_LOOP, BAR(25) + 3);
     if (at(BAR(25) + 7)) loop_octave(0);        /* GLO + OCT-: to its pitch ... */
     if (at(BAR(25) + 11)) loop_octave(0);       /* ... and on to -12 */
-    LP_LEVEL(1, BAR(27) + 10, BAR(30));         /* GLO + K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
+    arp_to(PG_LOOP, BAR(27) + 9);                     /* LOOPER */
+    LP_LEVEL(1, BAR(27) + 10, BAR(30));         /* K4: L-LEVEL out, to 1 (armed still: at 0 the delay's line
                                                    would change under its echoes) */
     if (at(BAR(30) + 2)) loop_toggle();
     if (at(BAR(30) + 3)) play(0);
-    fx_to(3, BAR(30) + 4);
+    fx_to(PG_SPACE, BAR(30) + 4);
     if (at(BAR(31))) freeze_toggle();           /* the frozen wall let go */
     pot(__LINE__, 0, BAR(31), BAR(34));
     return q >= BAR(34);
@@ -272,9 +270,9 @@ static void low_setup(void)
 {
     in_key();
     preset(SD_P_GROWL);
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &ACID, "ACID (E minor, SLIDE, ratchet, PROB, swing 56)");
-    page = PG_NAV;
+    page = PG_NAV; remember();
     oct = -2;                                   /* (OCT- twice before: the keys from F1) */
     master = 0;
 }
@@ -302,12 +300,12 @@ static int low_score(void)
     TUR_DEST_BY(17, BAR(6) + 2.2, BAR(6) + 4.6);
     TUR_AMOUNT(30, BAR(6) + 5, BAR(6) + 10);
     TUR_CHANGE(25, BAR(6) + 10, BAR(6) + 14);
+    TUR_LENGTH(8, BAR(6) + 14.4, BAR(6) + 15.6);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(8) + 8)) key(40, 0);
     /* the acid, dark under the frozen plate, opening toward the rise */
     if (at(BAR(9))) play(1);
     if (at(BAR(9) + 4)) tur_edit();
-    if (at(BAR(10))) press("ENV", PG_ENV);
-    if (at(BAR(10) + 1)) press("ENV", PG_FILTER);
+    if (at(BAR(10) + 1)) press("ENV", PG_FILTER);   /* (ENV: the one it showed last) */
     on_ramp_page(PG_FILTER, BAR(10) + 2, BAR(10) + 12);
     if (ramp(__LINE__, pat.f_cut / 147, 29000 / 147, BAR(10) + 2, BAR(10) + 12, &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
     KNOB99(PG_FILTER, pat.f_res, 46, BAR(10) + 2, BAR(10) + 12);
@@ -318,14 +316,14 @@ static int low_score(void)
     /* the rise, resting: the riff, DISTROY */
     if (at(BAR(13) + 2)) press("SEQ", PG_SEQA);
     if (at(BAR(13) + 3)) pattern(0, &RIFF, "WALL RIFF (E, eighths, 4 segments: RND)");
-    home_to(2, BAR(14));
+    home_to(PG_MACROS, BAR(14));
     if (at(BAR(14) + 4)) preset(SD_P_DISTROY);
     pot(__LINE__, 4092, BAR(14) + 4, BAR(15));
     /* the wall */
     if (at(BAR(17))) play(1);
     KNOB99(PG_MACROS, pat.mac[2], 62, BAR(17), BAR(19));   /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 60, BAR(18), BAR(20));   /* MOVE */
-    fx_to(2, BAR(20) + 4);
+    fx_to(PG_DISTROY, BAR(20) + 4);
     if (at(BAR(20) + 7)) { act(); say("ALGORITHM: band 4 (the top)"); }
     if (at(BAR(20) + 9)) {                      /* GLO + ALGORITHM: the top band's shaper to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
@@ -354,9 +352,9 @@ static void motion_setup(void)
 {
     in_key();
     preset_user(&U02, "U02 VOYAGE WET");
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &FIG, "FIGURE (E B G F#)");
-    page = PG_NAV;
+    page = PG_NAV; remember();
     master = 0;
 }
 static int motion_score(void)
@@ -392,16 +390,17 @@ static int motion_score(void)
     /* the rise: ORBITAL, its ostinato, TURING's NOTES (set while off), MOVE */
     if (at(BAR(13) + 1)) press("SEQ", PG_SEQA);
     if (at(BAR(13) + 2)) pattern(0, &OST, "OSTINATO (E)");
-    if (at(BAR(13) + 4)) press("HOME", PG_NAV);
+    if (at(BAR(13) + 4)) press("HOME", PG_MACROS);
     if (at(BAR(13) + 6)) preset(SD_P_ORBITAL);
     pot(__LINE__, 2600, BAR(13) + 6, BAR(14));
     lfo_to_turing(BAR(13) + 8);                 /* NOTES, 36 %, CHANGE 30 */
     TUR_DEST_BY(-1, BAR(13) + 10.5, BAR(13) + 11.5);
     TUR_AMOUNT(36, BAR(13) + 12, BAR(14) + 2);
     TUR_CHANGE(30, BAR(14) + 2, BAR(14) + 6);
+    TUR_LENGTH(8, BAR(14) + 6.3, BAR(14) + 7.5);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(14) + 8)) tur_edit();
     if (at(BAR(15))) play(1);
-    home_to(2, BAR(15) + 2);
+    home_to(PG_MACROS, BAR(15) + 2);
     KNOB99(PG_MACROS, pat.mac[1], 55, BAR(15) + 4, BAR(18));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 35, BAR(19), BAR(22));       /* MUTATE */
     lfo_to_turing(BAR(22) + 2);
@@ -418,9 +417,9 @@ static void lead_setup(void)
     in_key();
     scl(SD_MODE_POLY);
     preset_user(&U03, "U03 AURORA WET");
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &LEAD, "LEAD (over the wall)");
-    page = PG_NAV;
+    page = PG_NAV; remember();
     master = 2400;                              /* (far back: the hall carries it) */
 }
 static int lead_score(void)
@@ -436,13 +435,13 @@ static int lead_score(void)
     /* BEACON for the wall */
     if (at(BAR(14))) preset_user(&U04, "U04 BEACON 1 S");
     if (at(BAR(14) + 2)) scl(SD_MODE_MONO);
-    home_to(1, BAR(14) + 4);                    /* (MACROS: DROWN) */
+    home_to(PG_MACROS, BAR(14) + 4);                    /* (MACROS: DROWN) */
     pot(__LINE__, 2600, BAR(14) + 4, BAR(16));
     if (at(BAR(17))) play(1);
     KNOB99(PG_MACROS, pat.mac[3], 72, BAR(19), BAR(24));   /* MACRO 4: DROWN */
     /* its last E, its echoes up */
     if (at(BAR(25))) play(0);
-    fx_to(4, BAR(25) + 1);
+    fx_to(PG_TIME, BAR(25) + 1);
     if (at(BAR(25) + 6)) key(76, 1);
     KNOB99(PG_TIME, pat.s_fb, 72, BAR(25) + 7, BAR(27));      /* K2: FDBK */
     if (at(BAR(28))) key(76, 0);

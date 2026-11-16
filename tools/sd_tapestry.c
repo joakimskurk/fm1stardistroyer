@@ -59,9 +59,9 @@ static void opening(void)                       /* bars 1-8: the cascades, the p
     KNOB99(PG_SPACE, pat.s_rlevel, 68, 8, 56);  /* K4: R-LEVEL 52 -> 68 */
     KNOB99(PG_SPACE, pat.s_decay, 93, 24, 88);  /* K2: DECAY 87 -> 93 */
     KNOB99(PG_SPACE, pat.s_size, 99, 40, 96);   /* K1: SIZE 98 -> 99 */
-    if (at(100)) press("FX", PG_TIME);
-    if (at(104)) lp_length(12);                 /* GLO + K2: LENGTH 1 BAR (two do not fit at 84 BPM) */
-    LP_LEVEL(79, 106, 114);                     /* GLO + K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
+    arp_to(PG_LOOP, 99);                        /* ARP: ARP, then LOOPER */
+    if (at(104)) lp_length(12);                 /* K2: LENGTH 1 BAR (two do not fit at 84 BPM) */
+    LP_LEVEL(79, 106, 114);                     /* K4: L-LEVEL up: the looper armed (the delay 0.5 s) */
 }
 
 static void bed(void)                           /* bars 9-12: the loop, backwards, an octave down */
@@ -70,12 +70,9 @@ static void bed(void)                           /* bars 9-12: the loop, backward
     if (at(129)) press("SEQ", PG_SEQA);         /* EDIT: SEQ A off: the loop carries it (PLAY runs on: STOP would
                                                    park the loop) */
     if (at(130)) track_on(0, 0);
-    if (at(131)) press("FX", PG_REACTOR);       /* back to TIME */
-    if (at(132)) press("FX", PG_DISTROY);
-    if (at(133)) press("FX", PG_SPACE);
-    if (at(134)) press("FX", PG_TIME);
+    arp_to(PG_LOOP, 131);                       /* back to LOOPER (ARP: the one it showed last) */
     if (at(144)) reverse_toggle();
-    if (at(152)) lp_glide_to(13);               /* GLO + K1: GLIDE 1 BAR */
+    if (at(152)) lp_glide_to(13);               /* K1: GLIDE 1 BAR */
     if (at(160)) loop_octave(0);                /* GLO + OCT-: an octave down, over the bar */
 }
 
@@ -93,12 +90,10 @@ static void line_over(void)                     /* bars 13-20: AURORA over the b
     if (at(221)) mod_slot(3, SD_MS_LFO2, SD_MD_LSPEED, 2);   /* the 4th slot: LFO 2 -> L SPEED +2 % */
     note(70, 224, 232); note(69, 232, 236); note(67, 236, 240);     /* 15: Bb A G */
     if (at(240)) key(69, 1);                                        /* 16: A, held into the FREEZE */
-    if (at(244)) press("FX", PG_REACTOR);
-    if (at(245)) press("FX", PG_DISTROY);
-    if (at(246)) press("FX", PG_SPACE);
+    go_to("FX", PG_SPACE, 243);                 /* (FX: the one it showed last, round to SPACE) */
     if (at(248)) freeze_toggle();
     if (at(254)) key(69, 0);
-    SHIMMER(24, 256, 288);                      /* GLO + ALGORITHM: SHIMMER 0 -> 38 % */
+    SHIMMER(24, 256, 288);                      /* GLO + K1: SHIMMER 0 -> 38 % */
     note(77, 256, 264); note(76, 264, 272);                         /* 17: F E */
     note(74, 272, 288);                                             /* 18: D */
     note(72, 288, 296); note(74, 296, 304);                         /* 19: C D */
@@ -107,7 +102,7 @@ static void line_over(void)                     /* bars 13-20: AURORA over the b
 
 static void return_up(void)                     /* bars 21-24: to pitch, forward */
 {
-    if (at(306)) press("FX", PG_TIME);
+    arp_to(PG_LOOP, 306);
     if (at(320)) loop_octave(1);                /* GLO + OCT+: back to its pitch, over the bar */
     note(69, 320, 336); note(74, 336, 352);                         /* 21, 22: A D */
     if (at(352)) reverse_toggle();
@@ -116,13 +111,11 @@ static void return_up(void)                     /* bars 21-24: to pitch, forward
 
 static int ending(void)                         /* bars 25-30: FREEZE off, the looper out, a last chord */
 {
-    if (at(356)) press("FX", PG_REACTOR);
-    if (at(357)) press("FX", PG_DISTROY);
-    if (at(358)) press("FX", PG_SPACE);
+    go_to("FX", PG_SPACE, 356);
     if (at(384)) freeze_toggle();
     SHIMMER(0, 386, 410);
-    if (at(412)) press("FX", PG_TIME);
-    LP_LEVEL(1, 416, 456);                      /* GLO + K4: L-LEVEL 79 -> 1 (armed still: at 0 the delay's line
+    arp_to(PG_LOOP, 411);
+    LP_LEVEL(1, 416, 456);                      /* K4: L-LEVEL 79 -> 1 (armed still: at 0 the delay's line
                                                    would change under its echoes) */
     if (at(416)) { key(62, 1); key(65, 1); key(69, 1); key(76, 1); }   /* Dm(add9), held */
     if (at(458)) loop_toggle();
@@ -135,9 +128,9 @@ static void setup(void)                         /* before the first note: PRISM,
 {
     patterns();
     preset(SD_P_PRISM);
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &ARP, "ARP (Dm9 Bbmaj7 C)");
-    page = PG_SPACE;
+    page = PG_SPACE; remember();
     looper_mem();
     master = 4092;                              /* (MASTER at its top) */
 }

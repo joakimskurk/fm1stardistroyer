@@ -209,7 +209,7 @@ static void chords_setup(void)
 {
     scl(SD_MODE_POLY);
     preset_user(&U02, "U02 AURORA 1 S");
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &CH[0], "THE CALL (Cm Cm Ab G7)");
     master = 0;
 }
@@ -222,7 +222,6 @@ static int chords_score(void)
     for (k = 1; k <= 6; k++) load(k, &CH[k], NAME[k]);
     pot(__LINE__, 3600, SEC(5), SEC(5) + 8);    /* (the breach a little up) */
     pot(__LINE__, 3000, SEC(6), SEC(6) + 8);
-    if (at(SEC(6) + 2)) press("HOME", PG_NAV);
     if (at(SEC(6) + 3.5)) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[3], 80, SEC(6) + 4, BAR(32));   /* MACRO 4: DROWN */
     if (at(BAR(33) - 1)) play(0);
@@ -235,7 +234,7 @@ static int chords_score(void)
 static void pulse_setup(void)
 {
     preset(SD_P_PULSAR);
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &PU[2], "THEME II (16ths)");
     master = 4092;
 }
@@ -250,6 +249,7 @@ static int pulse_score(void)
     TUR_DEST_BY(-1, SEC(4) + 4.5, SEC(4) + 5.5);
     TUR_AMOUNT(33, SEC(4) + 6, SEC(4) + 12);
     TUR_CHANGE(30, SEC(4) + 12, SEC(4) + 16);
+    TUR_LENGTH(8, SEC(4) + 16.2, SEC(4) + 17.4);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(SEC(4) + 18)) press("SEQ", PG_SEQA);
     load(5, &PU[5], "THEME IV (Phrygian)");
     lfo_to_turing(SEC(5) + 0.5);
@@ -265,7 +265,6 @@ static int pulse_score(void)
         say("GLO + ALGORITHM: SHAPE CRUSH (band 4)");
     }
     KNOB99(PG_DISTROY, pat.d_gain[3], 58, SEC(5) + 10, SEC(5) + 22);   /* K1: its GAIN */
-    if (at(SEC(5) + 24)) press("HOME", PG_NAV);
     if (at(SEC(5) + 25.5)) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[2], 62, SEC(5) + 26, SEC(6) - 6);   /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 65, SEC(5) + 26, SEC(6) - 6);   /* MOVE */
@@ -278,9 +277,9 @@ static int pulse_score(void)
 static void low_setup(void)
 {
     preset(SD_P_BRAAM);
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &LO[1], "LOW (THEME I: whole bars)");
-    page = PG_NAV;
+    page = PG_NAV; remember();
     oct = -2;                                   /* (OCT- twice before: the keys from F1) */
     master = 3200;
 }
@@ -302,7 +301,8 @@ static int low_score(void)
     load(3, &LO[3], "LOW (eighths)");
     load(4, &LO[4], "LOW (eighths)");
     load(5, &LO[5], "LOW (16ths)");
-    if (at(SEC(5) + 2)) press("HOME", PG_NAV);
+    if (at(SEC(5) + 2)) press("HOME", PG_MACROS);
+    if (at(SEC(5) + 3)) press("HOME", PG_NAV);
     KNOB99(PG_NAV, pat.warp, wp + 24, SEC(5) + 4, SEC(6) - 10);   /* K2: WARP toward the saw */
     if (at(SEC(6) - 1.5)) play(0);
     if (at(SEC(6) - 0.6)) preset(SD_P_BRAAM);
@@ -318,7 +318,7 @@ static int low_score(void)
 static void lead_setup(void)
 {
     preset_user(&U01, "U01 CELLO HALL");
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &LE[1], "THEME I");
     master = 1500;                              /* (far back: the room and the echoes carry it) */
 }
@@ -326,12 +326,12 @@ static int lead_score(void)
 {
     if (at(SEC(1))) play(1);
     load(2, &LE[2], "THEME I (the answer)");
-    if (at(SEC(3) - 4.6)) press("HOME", PG_NAV);   /* BEACON for THEME III, in the answer's last bar */
+    if (at(SEC(3) - 4.6)) press("HOME", PG_MACROS);   /* BEACON for THEME III, in the answer's last bar */
     if (at(SEC(3) - 3.6)) preset_user(&U03, "U03 BEACON 1 S");
     if (at(SEC(3) - 2.8)) press("SEQ", PG_SEQA);
     pot(__LINE__, 4092, SEC(3) - 3.4, SEC(3) - 1);   /* MASTER up for BEACON, far back already */
     load(3, &LE[3], "THEME III");
-    if (at(SEC(4) - 4.6)) press("HOME", PG_NAV);   /* back to U01, in THEME III's last half bar */
+    if (at(SEC(4) - 4.6)) press("HOME", PG_MACROS);   /* back to U01, in THEME III's last half bar */
     if (at(SEC(4) - 3.6)) preset_user(&U01, "U01 CELLO HALL");
     if (at(SEC(4) - 2.8)) press("SEQ", PG_SEQA);
     pot(__LINE__, 1500, SEC(4) - 3.4, SEC(4) - 1);

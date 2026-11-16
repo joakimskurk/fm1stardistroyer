@@ -14,7 +14,8 @@ A pixel is 4 bits: 0 nothing, 1..7 the logo's ice white at that coverage (of 7),
 coverage 1..7. Two pixels a byte, the left one high; a row starts on a byte.
     SD_LOGO_STAR       "/// STAR"     the splash's first line
     SD_LOGO_DISTROYER  "DISTROYER"    its second, at the same size
-    SD_LOGO_HEADER     the whole line, small: the main screen's top left
+    (the whole line, small, was the main screen's top left until 2026-11-15: the pages begin with the patch now;
+    it is still drawn in the preview)
 The banner is the whole line on the screen's background with the splash's streaming stars and its shooting star,
 at 2x for sharp screens (shown at half its width). Needs Pillow (with FreeType) and NumPy (python3 -m pip install
 pillow numpy); writes build/logo_preview.png to look at."""
@@ -171,7 +172,6 @@ def main():
         f.write("typedef struct { uint16_t w, h; const uint8_t *px; } SdLogo;   /* 4 bits a pixel, see the script */\n\n")
         emit(f, "SD_LOGO_STAR", star)
         emit(f, "SD_LOGO_DISTROYER", distroyer)
-        emit(f, "SD_LOGO_HEADER", header)
         f.write("#endif\n")
     preview([header, star, distroyer])
     cw, cr = line("STAR DISTROYER", BANNER_CAP, True)

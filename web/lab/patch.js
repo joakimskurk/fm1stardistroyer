@@ -6,7 +6,7 @@ export const TYPES = { 1: [1, false], 2: [1, true], 3: [2, false], 4: [2, true] 
 export const SHOW = { RAW: 0, P99: 1, PCT: 2, PITCH: 3, SEMI: 4, ENUM: 5, HEX: 6, MS: 7, CENTS: 8, POS: 9, PAN: 10, LEVEL: 11 };
 export const GROUPS = ['THE Q PAGE', 'NAV · COURSE', 'BANK A', 'BANK B', 'BANK C', 'BANK D', 'ENV 1 · LEVEL', 'ENV 2 · FM',
   'FILTER', 'ENV 3 · FILTER', 'REACTOR', 'REACTOR · STAGES', 'DISTROY', 'DISTROY · BANDS', 'DISTROY · LOOP', 'TIME',
-  'SPACE', 'MOD MATRIX', 'LFO', 'MACROS', 'TURING'];
+  'SPACE', 'MOD MATRIX', 'LFO', 'MACROS', 'RADAR'];
 
 // a field's value from the patch's bytes, and back (clamped to its range)
 export function get(bytes, f) {

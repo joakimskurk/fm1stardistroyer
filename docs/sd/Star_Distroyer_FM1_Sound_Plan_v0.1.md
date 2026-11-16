@@ -244,7 +244,7 @@ Two LFOs. All at control rate; AMP envelope ramped per sample across the sub-blo
 | RES, SLEW, a global frequency offset, key tracking | RES, SLEW, FREQ ± 48 semitones, key tracking of the last note |
 | A stage clock: division, range, FWD / BWD / ping-pong / random | the same, clocked by the note driver's steps |
 | A level that runs into saturation at its top | level to 2×, past 1 a soft clip on each filter |
-| Presets into a stage: 13 vowel formants (ee i ay e au u a aw oo ar er ir iir), 13 chords | the vowels as textbook formants; chords as patches use them |
+| Presets into a stage: 13 vowel formants (ee i ay e au u a aw oo ar er ir iir), 13 chords | the vowels as textbook formants; chords as patches use them; on the FM-1 STAGES (GLO + B10 on REACTOR; B10 plays without GLO): a stage's TYPE from a list, its PITCH, WIDTH and LEVEL, GLO F1..F4 |
 | A dry control | MIX dry ↔ wet, so 0 is no Reactor at all (the patches before R1 are bit for bit unchanged) |
 
 ### 4.1 Signal path
@@ -456,12 +456,15 @@ core 1:  LOOPER (records, or plays its LENGTH at its SPEED) ─► + plate's way
 core 0:  dry ───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME. SPACE is the reverb: SIZE DECAY TONE R-LEVEL, GLO: SHIMMER
-  (as GLO + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL; GLO: the looper's GLIDE,
-  LENGTH, SPEED and L-LEVEL, GLO + EDIT the delay's MODE (FREE SYNC, PP: it was GLO + K1 until GLIDE came); ALGORITHM:
-  LOOP. TONE is now two (the delay's, the reverb's: s_dtone and
-  s_rtone, which the one knob kept equal). EDIT: SPACE's is the reverb's, TIME's the delay's and the looper's (a
-  patch saved with SPACE off before plays its delay now).
+- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME; LOOPER is ARP's second (since 2026-11-15: the player's two
+  together, FX's names room again). SPACE is the reverb: SIZE DECAY TONE R-LEVEL, GLO:
+  SHIMMER (as GLO + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL, ALGORITHM (or GLO +
+  EDIT) the delay's MODE (FREE SYNC, PP). LOOPER (its own page since 2026-11-14; before, TIME's GLO layer; TIME says LOOPER ON: UP TO 0.5 S while it
+  has half the line): GLIDE,
+  LENGTH, SPEED and L-LEVEL, ALGORITHM LOOP, GLO + ALGORITHM REVERSE, GLO + OCT the octave (LOOPER only, since 2026-11-15), EDIT
+  armed or not. TONE is now two (the delay's, the reverb's: s_dtone and
+  s_rtone, which the one knob kept equal). EDIT: SPACE's is the reverb's, TIME's the delay's (a patch saved with
+  SPACE off before plays its delay now), LOOPER's the looper's (armed or not).
 - *The looper* records, always, what SPACE plays before the reverb: the dry and the echoes at D-LEVEL, each side at
   half rate (as the plate, through the same half-band), into its own memory (int16, two channels). LOOP: it stops
   recording and its last LENGTH goes round from its start, faded in over 12 ms, crossfaded where it comes round (the
@@ -469,11 +472,11 @@ core 0:  dry ──────────────────────�
   pitch and the length together, a tape's, gliding), held; off, it fades out over 46 ms and records again. LENGTH
   as TIME (free 1 ms .. 1 s, or synced, 1/32 .. 1/2 and 1, 2 and 4 bars), halved until it fits its memory (red, and
   the hint says what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono,
-  the same share), so R-LEVEL is its send too. REVERSE (GLO + ALGORITHM on TIME) turns its head
+  the same share), so R-LEVEL is its send too. REVERSE (GLO + ALGORITHM, now on LOOPER) turns its head
   round: it plays the loop backwards, before it loops or while it does, round
   its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
-- *Its grid* (an octave finds it again, over a glide or at once: GLO + OCT the octave, GLIDE on GLO + K1, MODE on
-  GLO + EDIT; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
+- *Its grid* (an octave finds it again, over a glide or at once: GLO + OCT the octave, GLIDE on LOOPER's K1, MODE on
+  TIME's ALGORITHM; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
   and its way: what it reads stays inside the loop). The loop's grid is its own: where it would read had it played
   at x 0.5, 1 or 2 since LOOP, from its start (backwards: from where REVERSE turned it). **GLIDE** is how long a new
   SPEED takes (OFF: at once; synced LENGTH's divisions, 1/32 .. 4 bars; free 0 .. 4 s), a smoothstep in the rate.
@@ -622,7 +625,7 @@ listening rounds are in the git history.
   `sd_mod_restore` putting back only what it wrote (no slot and the macros at 0: the patch, sample for sample). One
   copy of the patch only when the main loop hands one over (`-fno-builtin` copies a byte at a time).
 - *Sources:* ENV1..3, LFO1..2, NAV X/Y, VEL, KEY, WHEEL, AFTER, RAND, and the engines as modulators: STEP, SEG, D LOW,
-  D TOP, R STAGE, ECHO, TURING. *Destinations:* 54, each new one after the
+  D TOP, R STAGE, ECHO, TURING (on the screen RADAR since 2026-11-16). *Destinations:* 54, each new one after the
   others in the enum so a saved slot keeps its meaning: DISTROY's DRIVE band by band and each crossover (sorted each
   tick: one moved past another goes through it), the looper's SPEED (free; TURING's in semitones). The lists
   (`SD_MD_ORDER`) name each by the page its knob is on and the knob's name there (REACTOR POS, TIME D-LEVEL), the

@@ -18,7 +18,7 @@ let ab = 'B';
 const undo = [], redo = [];
 let lastPush = 0, sendQueued = false, built = false;
 let seq = null, layout = [], playNow = [0, 0, 0], playheads = null;   // the sequencer: the firmware's, as last read
-const tur = { hist: Array(16).fill(0), reg: 0 };   // TURING's last values and its register; the looper as it plays
+const tur = { hist: Array(16).fill(0), reg: 0, count: 0 };   // TURING's last values and its register; the looper as it plays
 let lpNow = null;
 // a setting the player sets beside the patch (the looper's, FREEZE): web_lab.h's LAB_LS_*, signed where it is
 const ls = (i, name, lo, hi, fmt, signed, def) => ({
@@ -252,7 +252,7 @@ function build() {
   }
   // movement: TURING, the matrix
   {
-    const b = mod('tur', 'TURING');
+    const b = mod('tur', 'RADAR');
     const dn = enums[8] || [];
     b.append(turGraph(() => tur));
     const fS = byPath.get('.tur_set'), fD = byPath.get('.tur_dst');
@@ -272,7 +272,7 @@ function build() {
     };
     b.append(row('', toggle(null, 'ON', { src: turOn }), knob('.tur_set', 'CHANGE', { bits: [0, 7], hi: 100, fmt: (v) => `${v} %` }),
       knob('.tur_amt', 'AMOUNT', { fmt: (v) => `${v > 0 ? '+' : ''}${v} %` }),
-      stepper('.tur_ld', 'LENGTH', { bits: [0, 5], lo: 2, hi: 16, dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 8), fmt: String })),
+      stepper('.tur_ld', 'LENGTH', { bits: [0, 5], lo: 2, hi: 16, dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 16), fmt: String })),
     row('', pick('.tur_dst', 'DEST', { names: [...dord.map((d) => dn[d]), 'SEQ A NOTES'], values: [...dord, 128] })),   // (the FM-1's list's order)
     row('', seg('.tur_ld', 'DIV', { bits: [5, 3], lo: 0, hi: 5, names: ['1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4'], values: [0, 1, 2, 3, 4, 5],
       dec: (v) => (v ? Math.min(5, v - 1) : 2), enc: (v) => v + 1, cls: 'wrap' })));
@@ -357,7 +357,7 @@ window.addEventListener('sd-lab', (e) => {
       refresh();
     }
     if (m.play) { playNow = m.play; if (playheads) playheads(m.play); }
-    if (m.tur) { for (const v of m.tur.vals) { tur.hist.shift(); tur.hist.push(v); } tur.reg = m.tur.reg; }
+    if (m.tur) { for (const v of m.tur.vals) { tur.hist.shift(); tur.hist.push(v); } tur.reg = m.tur.reg; tur.count = m.tur.c >>> 0; }
     if (m.lp) lpNow = m.lp;
     if ((m.tur || m.lp) && built && bytes) for (const f of lives) f();
   } else if (m.type === 'lab-rec') {             // the frames, as the firmware made them: a .wav

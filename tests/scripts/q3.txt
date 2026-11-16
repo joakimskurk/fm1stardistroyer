@@ -1,9 +1,9 @@
-# RATCHET and PROB: SEQ (11), step 1 (key 0) picked, tapped again: its second layer; RATCHET x3 (K1), PROB 70 (K2 -6);
+# RATCHET and PROB: SEQ (11), step 1 (key 0) picked, B4 (C#4, key 8: MORE) its second layer; RATCHET x3 (K1), PROB 70 (K2 -6);
 # step 5 (key 7) picked (the layer stays), RATCHET x2; PLAY (12).
 1700 btn 11
 1800 keys 0x1
 1850 keys 0
-1900 keys 0x1
+1900 keys 0x100
 1950 keys 0
 2000 enc 2 2
 2100 enc 3 -6

@@ -5,7 +5,7 @@
 // (as the page's MIDI button passes it on) leads the tempo and START plays, and the same clock on two inputs leads
 // at its tempo, not twice it; SEQ goes round its own pages, OCT is the octave on SEQ too and GLO + OCT its bank;
 // MOD's DEST shows a list as it turns, and REC on ARP keeps what it played; SEQ B and ORBIT switched on while A
-// plays wait for A's one, and GLO + SEQ makes B the master, A then waiting for B's one. Writes the screens it saw as PPM
+// plays wait for A's one, and SETUP's MASTER (HOME's third page, K3) makes B the master, A then waiting for B's one. Writes the screens it saw as PPM
 // (OUT-*.ppm) to look at.
 //   node tests/web_test.mjs build/web/stardistroyer.wasm [OUT]
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -140,7 +140,7 @@ ppm(z, 'clock2');
 // octave on SEQ too, GLO + OCT the step bank
 const w = await boot(store);
 run(w, 2500);
-const top = (x) => lcd(x).slice(0, 240 * 60);       // the title, the patch, the pages' line
+const top = (x) => lcd(x).slice(0, 240 * 44);       // the patch, the pages' line
 for (let i = 0; i < 3; i++) { tap(w, BTN.FX); run(w, 150); }   // REACTOR, DISTROY, SPACE
 const space = top(w);
 tap(w, BTN.SEQ); run(w, 150);
@@ -165,7 +165,7 @@ ppm(w, 'bank');
 // MOD's DEST from a list as it turns, gone 1.5 s later; ARP at 1/32, REC there KEEPs what it played into SEQ A
 const v = await boot(store);
 run(v, 2500);
-const mid = (x) => lcd(x).slice(240 * 60, 240 * 180);  // the knobs and the picture
+const mid = (x) => lcd(x).slice(240 * 46, 240 * 202);  // the knobs and the picture
 for (let i = 0; i < 4; i++) { tap(v, BTN.LFO); run(v, 150); }   // LFO 1, LFO 2, TURING, MOD
 const m0 = mid(v);
 v.web_enc(ENC.K2, 9); run(v, 200);
@@ -181,22 +181,22 @@ tap(v, BTN.ARP); run(v, 150); tap(v, BTN.EDIT); run(v, 150);   // ARP on
 v.web_enc(ENC.K2, -2); run(v, 150);                            // RATE 1/16 -> 1/32
 v.web_key(7, 1); v.web_key(11, 1); v.web_key(14, 1); run(v, 2200);
 v.web_key(7, 0); v.web_key(11, 0); v.web_key(14, 0); run(v, 100);
-const h0 = lcd(v).slice(240 * 186, 240 * 204);
+const h0 = lcd(v).slice(240 * 204, 240 * 220);
 tap(v, BTN.REC); run(v, 150);
-const h1 = lcd(v).slice(240 * 186, 240 * 204);
+const h1 = lcd(v).slice(240 * 204, 240 * 220);
 tap(v, BTN.SEQ); run(v, 200);
 ppm(v, 'kept');
 check(differ(h0, h1) > 100 && differ(sq0, mid(v)) > 1000,
       `REC on ARP keeps what it played in SEQ A (the message ${differ(h0, h1)}, SEQ A ${differ(sq0, mid(v))} pixels)`);
 
-// While the master plays, the other track and ORBIT switched on come in at its one (ON blinks till then); GLO + SEQ
-// chooses the master, A or B (2026-11-10, the user, playing the player)
+// While the master plays, the other track and ORBIT switched on come in at its one (ON blinks till then); SETUP's
+// MASTER chooses it, A or B (2026-11-10, from playing the player; on SETUP since 2026-11-15)
 const u = await boot();
 run(u, 2500);
 let T = 0;                                         // ms since PLAY (as the quanta ran)
 const go = (ms) => { run(u, ms); T += Math.ceil(ms * 44.1 / 128) * 128 / 44.1; };
 const to = (ph) => go(((ph - T % 2000) + 2000) % 2000);   // to a place in A's loop (2 s: 16 16ths at 120 BPM)
-const nav = (x) => lcd(x).slice(240 * 44, 240 * 62);  // the pages' line and the switch
+const nav = (x) => lcd(x).slice(240 * 24, 240 * 42);  // the pages' line and the switch
 const flips = () => { const s = []; for (let i = 0; i < 6; i++) { s.push(nav(u)); go(100); }
   return s.slice(1).filter((n, i) => differ(n, s[i]) > 0).length; };
 tap(u, BTN.SEL); run(u, 150);                      // SCL: DUO, B may play
@@ -221,15 +221,15 @@ check(oWait >= 2 && oIn === 0, `ORBIT on while A plays: ON blinks till A's one (
 tap(u, BTN.EDIT); go(100);                         // ORBIT off, SEQ A
 tap(u, BTN.SEQ); go(150);
 const navA = nav(u);
-u.web_btn(BTN.GLO, 1); go(50);
-const gloA = nav(u);
-tap(u, BTN.SEQ); go(50);                           // GLO + SEQ: MASTER B
-const gloB = nav(u);
-u.web_btn(BTN.GLO, 0); go(50);
-const navB = nav(u);
+for (let i = 0; i < 3; i++) { tap(u, BTN.HOME); go(150); }   // MACROS, NAV, SETUP
+const knA = mid(u);
+u.web_enc(ENC.K3, 1); go(150);                     // K3 right: MASTER B
+const knB = mid(u);
 ppm(u, 'master');
-check(differ(gloA, gloB) > 0 && differ(navA, navB) > 0 && differ(navA, gloA) > 0,
-      `GLO + SEQ chooses the master: GLO shows it, its tab marked (${differ(gloA, gloB)}, ${differ(navA, navB)} pixels)`);
+tap(u, BTN.SEQ); go(150);                          // back to SEQ A (SEQ: the one it showed last)
+const navB = nav(u);
+check(differ(knA, knB) > 0 && differ(navA, navB) > 0,
+      `SETUP's MASTER chooses the master, SEQ comes back to A with B's tab marked (${differ(knA, knB)}, ${differ(navA, navB)} pixels)`);
 tap(u, BTN.EDIT); to(600);                         // A OFF, then ON 0.6 s into B's loop: in at B's one
 tap(u, BTN.EDIT); go(20);
 const aWait = flips();

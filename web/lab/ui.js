@@ -493,29 +493,56 @@ export function lfoGraph(k) {
 // ---- what moves as it plays (redrawn each frame from the firmware's state, not only when the patch changes)
 export const lives = [];                         // () => void, each frame
 
-// TURING, as the FM-1 draws it: its last 16 values a stepped line (the newest red), the loop's bits under it (bit 0
-// at the right, going left; the 8 the value reads brighter); dark while it is off
-export function turGraph(st) {                   // st(): { hist (16 values, -32767 .. 32767), reg }
-  const W = 256, H = 76, Y = 32, s = svg(W, H, 'graph tur');
+// RADAR (TURING in the code), as the FM-1 draws it: its loop as a scope, LENGTH places round it clockwise from the
+// top, each step's value a blip's distance from the middle (the dotted ring 0), the sweep where it is (the two before
+// it fading), the newest red, the older dimmer as they age; beside it a gauge of the value now; dark while it is off
+export function turGraph(st) {                   // st(): { hist (16 values, -32767 .. 32767, the newest last), reg, count }
+  const W = 150, H = 104, CX = 52, CY = 52, RO = 46, RZ = 25, s = svg(W, H, 'graph tur');
   s.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  const ON = acc('.tur_set', { bits: [7, 1] }), LN = acc('.tur_ld', { bits: [0, 5], dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 8) });
-  node(s, 'path', { class: 'base', d: `M0 ${Y}H${W}` });
-  const joins = node(s, 'path', { class: 'joins' }), steps = node(s, 'path', { class: 'steps' }), last = node(s, 'rect', { class: 'last', width: 16, height: 3 });
-  const bits = [...Array(16)].map((_, i) => node(s, 'rect', { x: (15 - i) * 16 + 1, y: 60, width: 14, height: 14, class: 'bit' }));
+  const ON = acc('.tur_set', { bits: [7, 1] }), LN = acc('.tur_ld', { bits: [0, 5], dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 16) });
+  const pt = (p, n, r) => { const a = (p / n) * 2 * Math.PI; return [CX + r * Math.sin(a), CY - r * Math.cos(a)]; };
+  const rad = (v) => 4 + ((v + 32767) * (RO - 6)) / 65534;
+  node(s, 'circle', { cx: CX, cy: CY, r: RO, class: 'ring' });
+  node(s, 'circle', { cx: CX, cy: CY, r: RZ, class: 'zero' });
+  node(s, 'path', { class: 'cross', d: `M${CX - RO + 6} ${CY}H${CX + RO - 6}M${CX} ${CY - RO + 6}V${CY + RO - 6}` });
+  node(s, 'rect', { x: CX - 1.5, y: CY - 1.5, width: 3, height: 3, class: 'mid' });
+  const ticks = node(s, 'path', { class: 'ticks' }), tick = node(s, 'path', { class: 'tick' });
+  const trail = [node(s, 'path', { class: 'trail2' }), node(s, 'path', { class: 'trail1' }), node(s, 'path', { class: 'sweep' })];
+  const outline = node(s, 'path', { class: 'outline' }), blips = node(s, 'path', { class: 'blips' }), old = node(s, 'path', { class: 'blips old' });
+  const last = node(s, 'rect', { class: 'last', width: 5, height: 5, rx: 1 });
+  node(s, 'rect', { x: 112, y: 6, width: 12, height: 92, rx: 1.5, class: 'gframe' });
+  let sc = '';
+  for (let i = 0; i <= 10; i++) { const y = 8 + (i * 88) / 10; sc += `M106 ${y}H${i % 5 ? 108 : 110}`; }
+  node(s, 'path', { class: 'gscale', d: sc });
+  const gfill = node(s, 'rect', { x: 114, width: 8, class: 'gfill' }), gptr = node(s, 'rect', { x: 113, width: 10, height: 2, class: 'gptr' });
+  const f = (n) => n.toFixed(1);
   const draw = () => {
-    const b = P.bytes(), t = st(), on = !!ON.get(b), n = LN.get(b), y = (v) => (Y - (v * 26) / 32767).toFixed(1);
-    let d = '', j = '';
-    t.hist.forEach((v, i) => {
-      if (i < 15) d += `M${i * 16} ${y(v)}h16`;
-      if (i) j += `M${i * 16} ${y(t.hist[i - 1])}V${y(v)}`;
-    });
-    steps.setAttribute('d', d);
-    joins.setAttribute('d', j);
-    last.setAttribute('x', 240); last.setAttribute('y', (+y(t.hist[15]) - 1.5).toFixed(1));
-    bits.forEach((r, i) => {
-      r.style.display = i < n ? '' : 'none';
-      r.setAttribute('class', `bit${(t.reg >> i) & 1 ? (i < 8 ? ' one' : ' one far') : ''}`);
-    });
+    const b = P.bytes(), t = st(), on = !!ON.get(b), n = LN.get(b), c = t.count >>> 0, cur = c % n;
+    let tk = '', ol = '', bl = '', ob = '';
+    for (let i = 0; i < n; i++) { const [x0, y0] = pt(i, n, RO + 2), [x, y] = pt(i, n, RO + 6); tk += `M${f(x0)} ${f(y0)}L${f(x)} ${f(y)}`; }
+    ticks.setAttribute('d', tk);
+    const [tx0, ty0] = pt(cur, n, RO + 2), [tx, ty] = pt(cur, n, RO + 6);
+    tick.setAttribute('d', on ? `M${f(tx0)} ${f(ty0)}L${f(tx)} ${f(ty)}` : '');
+    trail.forEach((p, k) => { const [x, y] = pt((cur + n - 2 + k) % n, n, RO - 2); p.setAttribute('d', on && k < n ? `M${CX} ${CY}L${f(x)} ${f(y)}` : ''); });
+    const at = [];                               // place -> [value, age] (the newest 16 values: hist's last is step c)
+    for (let a = 0; a < n && a < 16; a++) at[(c - a + 16 * n) % n] = [t.hist[15 - a], a];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      if (!at[i] || !at[j]) continue;
+      const [x0, y0] = pt(i, n, rad(at[i][0])), [x, y] = pt(j, n, rad(at[j][0]));
+      ol += `M${f(x0)} ${f(y0)}L${f(x)} ${f(y)}`;
+    }
+    for (let i = 0; i < n; i++) {
+      if (!at[i] || i === cur) continue;
+      const [x, y] = pt(i, n, rad(at[i][0])), q = `M${f(x - 1.5)} ${f(y - 1.5)}h3v3h-3z`;
+      if (at[i][1] < n / 2) bl += q; else ob += q;
+    }
+    outline.setAttribute('d', ol); blips.setAttribute('d', bl); old.setAttribute('d', ob);
+    const v = at[cur] ? at[cur][0] : 0, [lx, ly] = pt(cur, n, rad(v));
+    last.setAttribute('x', f(lx - 2.5)); last.setAttribute('y', f(ly - 2.5));
+    const gy = 52 - (v * 42) / 32767;
+    gfill.setAttribute('y', f(Math.min(gy, 52))); gfill.setAttribute('height', f(Math.abs(gy - 52)));
+    gptr.setAttribute('y', f(gy));
     s.classList.toggle('off', !on);
   };
   lives.push(draw);

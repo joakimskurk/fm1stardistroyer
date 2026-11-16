@@ -353,17 +353,18 @@ typedef struct {
     uint16_t f_cut, f_res;                      /* 0..65535: CUTOFF MIDI 16 .. 130 (21 Hz .. 15 kHz); RES */
     int16_t f_env;                              /* ENV3's depth, -32767..32767 = -/+ 60 semitones */
     uint8_t f_vel, tur_ld;                      /* VEL: 0..100 % = up to +24 semitones at velocity 127; TURING's
-                                                   LENGTH (bits 0..4: 2..16, 0 reads as 8) and DIV (bits 5..7: the
+                                                   LENGTH (bits 0..4: 2..16, 0 reads as 16: 8 till
+                                                   2026-11-16) and DIV (bits 5..7: the
                                                    SD_SDIV index + 1, 0 reads as 1/16) */
     uint8_t e3_a, e3_d, e3_s, e3_r;             /* ENV3, the filter's: as ENV1 */
 } SdPatch;
-/* TURING, a modulation source: a looping shift register on the tempo, its four fields in the patch's four spare
+/* TURING (RADAR on the screen since 2026-11-16), a modulation source: a looping shift register on the tempo, its four fields in the patch's four spare
    bytes (so a patch saved before reads as TURING off). DEST is a matrix destination (SD_MD_*), or NOTES: SEQ A's
    notes moved in its scale as they play, the pattern itself never rewritten. 0: none */
 #define SD_TD_NOTES 0x80u
 #define SD_TUR_ON(p) ((p)->tur_set >> 7)
 #define SD_TUR_CHANGE(p) ((uint32_t)((p)->tur_set & 127u) > 100u ? 100u : (uint32_t)((p)->tur_set & 127u))
-#define SD_TUR_LEN(p) (((p)->tur_ld & 31u) ? ((p)->tur_ld & 31u) < 2u ? 2u : ((p)->tur_ld & 31u) > 16u ? 16u : (uint32_t)((p)->tur_ld & 31u) : 8u)
+#define SD_TUR_LEN(p) (((p)->tur_ld & 31u) ? ((p)->tur_ld & 31u) < 2u ? 2u : ((p)->tur_ld & 31u) > 16u ? 16u : (uint32_t)((p)->tur_ld & 31u) : 16u)
 #define SD_TUR_DIV(p) (((p)->tur_ld >> 5) ? (uint32_t)((p)->tur_ld >> 5) - 1u > SD_TUR_DIVS - 1u ? SD_TUR_DIVS - 1u : (uint32_t)((p)->tur_ld >> 5) - 1u : 2u)
 enum { SD_FT_OFF, SD_FT_LP12, SD_FT_LP24, SD_FTYPES };
 enum { SD_AM_UP, SD_AM_DOWN, SD_AM_UPDN, SD_AM_RND, SD_AM_ORDER, SD_AMODES };   /* the arpeggiator's orders */
@@ -2006,6 +2007,16 @@ static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, o
     t->seq_nn = 0;
 }
 
+/* The key IN KEY plays in: the master's (A, or B while it is master and on: lead), its step 1 the root and its SCALE
+ * the scale. The other track has none of its own there: its notes are pulled to the nearest of the key's (the lower
+ * of two as near), and its transposes move in the key's degrees; CHROM (the player's own choice) frees it */
+static const SdPattern *sd_key_pat(const SdEngine *e) { return &e->t[e->lead & 1u].pat; }
+static uint32_t sd_key_snap(uint32_t key, uint32_t sc, uint32_t n)   /* n to the nearest note of the scale */
+{
+    int32_t d = sd_scale_degree(key, sc, n);
+    uint32_t lo = sd_scale_note(key, sc, d), hi = sd_scale_note(key, sc, d + 1);
+    return n - lo <= hi - n || hi < n ? lo : hi;
+}
 static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a note of a step, TURING's NOTES
                                                    on it, transposed */
 {
@@ -2014,9 +2025,13 @@ static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a
         uint32_t key = t->pat.step[0].note, sc = t->pat.scale;
         n = sd_scale_note(key, sc, sd_scale_degree(key, sc, n) + t->tur_deg);
     }
-    if (x && e->xkey) {                         /* IN KEY: as many degrees of A's scale as its key is from the key
-                                                   the transpose names; a note off the scale keeps its step off it */
-        const SdPattern *a = &e->t[0].pat;
+    if (e->xkey && t != &e->t[e->lead & 1u]) { /* the other track: in the master's key */
+        const SdPattern *a = sd_key_pat(e);
+        n = sd_key_snap(a->step[0].note, a->scale, n);
+    }
+    if (x && e->xkey) {                         /* IN KEY: as many degrees of the key's scale as its root is from the
+                                                   note the transpose names; a note off the scale keeps its step off it */
+        const SdPattern *a = sd_key_pat(e);
         uint32_t key = a->step[0].note, sc = a->scale;
         int32_t to = (int32_t)key + x, d = sd_scale_degree(key, sc, n);
         int32_t off = (int32_t)n - (int32_t)sd_scale_note(key, sc, d);
@@ -2037,7 +2052,8 @@ static uint32_t sd_seq_rec_note(const SdEngine *e, const SdSeqT *t, uint32_t n)
     int32_t v, x = t->xpose + t->orb_x;
     if (!x) return n;
     if (e->xkey) {
-        const SdPattern *a = &e->t[0].pat;
+        const SdPattern *a = sd_key_pat(e);
+        if (t != &e->t[e->lead & 1u]) n = sd_key_snap(a->step[0].note, a->scale, n);   /* (as it plays) */
         uint32_t key = a->step[0].note, sc = a->scale;
         int32_t to = (int32_t)key + x, d = sd_scale_degree(key, sc, n);
         int32_t off = (int32_t)n - (int32_t)sd_scale_note(key, sc, d);
@@ -2580,12 +2596,12 @@ static void sd_mod_restore(SdEngine *e)         /* every field the matrix and th
 }
 
 /* TURING to PITCH, quantized first to the key and root: note n moved by t (semitones x 256) lands on the nearest
- * note of SEQ A's scale from its key (the
+ * note of the key's scale (the master's: sd_key_pat) from its root (the
  * lower of two as near; CHROM: the nearest semitone) -> the semitones from n. Each voice from its own note, so all
  * of them stay in the key; the other sources to PITCH (a vibrato) on top, as they are */
 static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
 {
-    const SdPattern *a = &e->t[0].pat;
+    const SdPattern *a = sd_key_pat(e);
     uint32_t m = SD_SCALE_MASK[a->scale < SD_SCALES ? a->scale : SD_SC_CHROM];
     int32_t x = (int32_t)n * 256 + t, c = (x + 128) >> 8, q = c - 6, best = c, bd = 0x7FFFFFFF;
     int32_t r = (q - (int32_t)(a->step[0].note % 12u)) % 12;   /* (the place in the scale: once, then counted) */

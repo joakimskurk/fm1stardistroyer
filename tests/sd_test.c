@@ -3318,6 +3318,7 @@ static void test_clock(void)
 
 /* IN KEY (SEQ B transposed keeps to SEQ A's key and root): the transposes in
  * degrees of A's scale from its key, a chord tone by tone; CHROM in semitones, as before */
+static uint32_t xkey_master;                    /* the master xkey_notes plays under (0 A, 1 B) */
 static uint32_t xkey_notes(SdEngine *e, const SdPattern *a, const SdPattern *b, int32_t xa, int32_t xb, uint32_t key,
                            uint32_t steps, uint8_t *na, uint8_t *nb)
 {   /* the notes A and B start on their first steps: A's lowest held, B's */
@@ -3329,6 +3330,7 @@ static uint32_t xkey_notes(SdEngine *e, const SdPattern *a, const SdPattern *b, 
     sd_engine_pattern_to(e, 0, a);
     sd_engine_pattern_to(e, 1, b);
     e->seqb = 1;
+    e->master = (uint8_t)xkey_master;
     e->xkey = (uint8_t)key;
     e->t[0].xpose_next = (int8_t)xa;
     e->t[1].xpose_next = (int8_t)xb;
@@ -3378,6 +3380,22 @@ static void test_xkey(void)
     CHECK(k == 3u && chord[0] + chord[1] + chord[2] == 63u + 67u + 70u, "IN KEY, the chord: %u %u %u (Eb G Bb)",
           chord[0], k > 1u ? chord[1] : 0u, k > 2u ? chord[2] : 0u);
     printf("in key: A +2 in C minor D F Ab Eb (CHROM D F A E), B +4 to Eb in A's key, Cm +3 to Eb major\n");
+    /* the other track has no key of its own: in the master's, its notes pulled to the nearest (the lower of two as
+       near); CHROM leaves them; B master: A in B's key */
+    for (k = 0; k < 4u; k++) b.step[k].note = 52;   /* E3: not in C minor */
+    xkey_notes(&e4, &a, &b, 0, 0, 1, 1, na, nb);
+    CHECK(nb[0] == 51, "IN KEY, B's E3 pulled into A's C minor: %u (Eb3)", nb[0]);
+    xkey_notes(&e4, &a, &b, 0, 0, 0, 1, na, nb);
+    CHECK(nb[0] == 52, "CHROM, B's E3 as it is: %u", nb[0]);
+    for (k = 0; k < 4u; k++) a.step[k].chord[0] = a.step[k].chord[1] = 0, a.step[k].type = SD_ST_NOTE;
+    b.scale = SD_SC_MAJOR;                      /* B, E major, the master: A's C Eb G D to B Eb F# C# */
+    xkey_master = 1;
+    xkey_notes(&e4, &a, &b, 0, 0, 1, 4, na, nb);
+    xkey_master = 0;
+    CHECK(na[0] == 59 && na[1] == 63 && na[2] == 66 && na[3] == 61, "IN KEY, B master in E major: A plays %u %u %u %u "
+          "(B Eb F# C#)", na[0], na[1], na[2], na[3]);
+    printf("in key: the other track pulled into the master's key (B's E3 to Eb3 in A's C minor; B master in E major: "
+           "A's C Eb G D to B D# F# C#), CHROM as written\n");
 }
 
 /* the destinations in the lists' order (each once); ENV 1's DECAY and S TIME moved by the
@@ -3837,7 +3855,7 @@ static void test_turing(void)
     uint32_t k, f, last, xmax = 0, xmin = 65535;
     int32_t vals[64];
     uint8_t notes[64];
-    CHECK(!SD_TUR_ON(&pt) && SD_TUR_LEN(&pt) == 8u && SD_TUR_DIV(&pt) == 2u, "TURING's zero: off, LENGTH 8, 1/16");
+    CHECK(!SD_TUR_ON(&pt) && SD_TUR_LEN(&pt) == 16u && SD_TUR_DIV(&pt) == 2u, "TURING's zero: off, LENGTH 16, 1/16");
     /* a locked loop: CHANGE 0, LENGTH 5, every 16th: the output repeats every 5 steps (once the 8 bits it reads are
        all the loop's: 3 steps in) */
     pt.tur_set = 0x80u; pt.tur_ld = 5u; pt.tur_dst = SD_MD_XM; pt.tur_amt = 50; pt.xm = 32768;

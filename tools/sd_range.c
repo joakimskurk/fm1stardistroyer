@@ -164,12 +164,12 @@ static void s2_filter(double s0)
     TUR_DEST_BY(17, S(67.2), S(69.6));          /* (OFF, PITCH, the nav's 7, the envelopes' 8, F CUT: 17 detents) */
     TUR_AMOUNT(40, S(70), S(75));
     TUR_CHANGE(25, S(75), S(79));
+    TUR_LENGTH(8, S(76), S(77.8));   /* (K2, the other hand: the 8 it was written for; 16 since 2026-11-16) */
     if (at(S(80))) tur_edit();
     if (at(S(86))) press("SEQ", PG_SEQA);
     if (at(S(88))) xpose(0, 5);
     if (at(S(104))) xpose(0, 3);
-    if (at(S(105))) press("ENV", PG_ENV);
-    if (at(S(106))) press("ENV", PG_FILTER);
+    if (at(S(106))) press("ENV", PG_FILTER);    /* (ENV: the one it showed last) */
     on_ramp_page(PG_FILTER, S(107), S(127));    /* the filter open all the way over the last bar and a half */
     if (ramp(__LINE__, pat.f_cut / 147, 54000 / 147, S(107), S(127), &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
     KNOB99(PG_FILTER, pat.f_res, 76, S(110), S(127));   /* and RES up with it: the acid screams, at the end */
@@ -198,8 +198,7 @@ static void s3_reactor(double s0)
     on_ramp_page(PG_REACTOR, S(3), S(21));
     if (ramp(__LINE__, pat.r_pos / 26, 512 / 26, S(3), S(21), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
     KNOB99(PG_REACTOR, pat.r_res, 60, S(6), S(20));
-    if (at(S(22))) press("SEQ", PG_SEQA);
-    if (at(S(23))) press("SEQ", PG_SEQB);
+    if (at(S(23))) press("SEQ", PG_SEQB);       /* (SEQ: the one it showed last) */
     for (i = 0; i < 6; i++) if (at(S(X[i]))) xpose(1, XV[i]);
     if (at(S(58))) press("FX", PG_REACTOR);
     on_ramp_page(PG_REACTOR, S(60), S(84));
@@ -212,15 +211,13 @@ static void s3_reactor(double s0)
     }
     KNOB99(PG_REACTOR, pat.r_drive, 44, S(62), S(84));   /* K4: DRIVE into the loops' saturation */
     KNOB99(PG_REACTOR, pat.r_res, 74, S(66), S(84));
-    if (at(S(86))) press("SEQ", PG_SEQA);       /* (the bass's transposes, on SEQ B) */
-    if (at(S(87))) press("SEQ", PG_SEQB);
+    if (at(S(87))) press("SEQ", PG_SEQB);       /* (the bass's transposes, on SEQ B) */
     if (at(S(128))) play(0);
     /* the bar between: DISTROY, the riff on A, the bass on B */
     if (at(S(130))) pattern(1, &B4, "PULSE (16)");   /* (on SEQ B still) */
-    if (at(S(131))) press("HOME", PG_NAV);
+    if (at(S(131))) press("SEQ", PG_ORB);
     if (at(S(132))) press("SEQ", PG_SEQA);
     if (at(S(133))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
-    if (at(S(135))) press("HOME", PG_NAV);
     if (at(S(136))) press("HOME", PG_MACROS);
     if (at(S(141))) preset(SD_P_DISTROY);
     pot(__LINE__, 4092, S(139), S(143));
@@ -272,6 +269,8 @@ static void s5_poly(double s0)
     if (at(S(10))) { e.arp_oct = 2; say("K3: OCTAVES 2"); }
     if (at(S(11))) { e.arp_gate = 40; say("K4: GATE 40"); }
     for (i = 0; i < 4; i++) { if (at(S(12) + i * 0.1)) key(H1[i], 1); if (at(S(14) + i * 0.1)) key(H1[i], 0); }
+    if (at(S(48))) press("SEQ", PG_SEQB);       /* (SEQ: B, where it was; round to A) */
+    if (at(S(49))) press("SEQ", PG_ORB);
     if (at(S(50))) press("SEQ", PG_SEQA);
     if (at(S(52))) xpose(0, 2);
     if (at(S(56))) press("ARP", PG_ARP);
@@ -288,7 +287,7 @@ static void s5_poly(double s0)
     if (at(S(131))) press("SEQ", PG_SEQA);
     if (at(S(132))) xpose(0, 0);
     if (at(S(133))) pattern(0, &A6, "OSTINATO (16)");
-    if (at(S(139))) press("HOME", PG_NAV);
+    if (at(S(139))) press("HOME", PG_MACROS);
     if (at(S(141))) preset(SD_P_ORBITAL);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
@@ -300,11 +299,11 @@ static void s6_turing(double s0)
     int32_t v;
     if (at(S(0))) play(1);
     lfo_to_turing(S(1));                        /* TURING, set while off: NOTES, 42 % (+-5 degrees), CHANGE 35; on */
+    TUR_LENGTH(8, S(1.6), S(3.2));   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     TUR_DEST_BY(-1, S(3.5), S(4.5));            /* (OFF, NOTES) */
     TUR_AMOUNT(42, S(5), S(11));
     TUR_CHANGE(35, S(11), S(16));
     if (at(S(16))) tur_edit();
-    if (at(S(17))) press("HOME", PG_NAV);
     if (at(S(18))) press("HOME", PG_MACROS);
     KNOB99(PG_MACROS, pat.mac[1], 70, S(19), S(60));   /* MOVE */
     KNOB99(PG_MACROS, pat.mac[0], 40, S(40), S(70));   /* MUTATE */
@@ -318,8 +317,7 @@ static void s6_turing(double s0)
     if (ramp(__LINE__, (int32_t)bpm, 112, S(129), S(135), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* (SELECT back) */
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
-    if (at(S(134))) press("FX", PG_REACTOR);
-    if (at(S(135))) press("FX", PG_DISTROY);
+    if (at(S(135))) press("FX", PG_DISTROY);    /* (FX: the one it showed last) */
     if (at(S(136))) press("FX", PG_SPACE);
     if (at(S(141))) preset(SD_P_BEACON);
 #undef S
@@ -344,9 +342,9 @@ static void setup(void)
 {
     patterns();
     preset(SD_P_VOYAGE);
-    page = PG_SEQA;
+    page = PG_SEQA; remember();
     pattern(0, &A1, "LINE (16)");
-    page = PG_NAV;
+    page = PG_NAV; remember();
 }
 static int score(void)
 {

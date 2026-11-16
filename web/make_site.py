@@ -56,19 +56,19 @@ SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "fil
 DEMOS = [
     {"id": "singularity", "wav": "build/audio/singularity/star_distroyer_singularity.wav", "title": "SINGULARITY",
      "about": "One take on one FM-1, nothing layered: F minor at 72 BPM, POLY throughout. AURORA's glass looped, "
-              "played backwards and frozen; VOWEL's voices over it, TURING moving their notes; then DISTROY's wall, "
+              "played backwards and frozen; VOWEL's voices over it, RADAR moving their notes; then DISTROY's wall, "
               "ORBIT stepping the chords and the destroyed band, the loop an octave up; at the end the wall's plate "
               "frozen and the loop two octaves down."},
     {"id": "derelict", "wav": "build/audio/derelict/star_distroyer_derelict.wav", "title": "DERELICT",
      "about": "An overture, C minor at 84 BPM, four themes in four-bar turns: BRAAM's call; the cello far back in "
               "its own hall; PULSAR's staccato, its nav jumping across all four banks; BEACON's high line; the "
-              "cello over the staccato; a pedal TURING rewrites, its top band crushed. Four passes on one FM-1."},
+              "cello over the staccato; a pedal RADAR rewrites, its top band crushed. Four passes on one FM-1."},
     {"id": "cine", "wav": "build/audio/cine/star_distroyer_cine.wav", "title": "CINEMATIC",
      "about": "A cue in D minor at 84 BPM, big, mighty and alien: NEBULA's chords and VOYAGE's alien line far "
               "back, PULSAR's 16ths, ION's bass and ORBITAL's taiko near, MONOLITH's and DISTROY's braams, a sine "
               "under it all, the macros stepping each bar. Eight parts layered as a multitrack."},
     {"id": "range", "wav": "build/audio/range/star_distroyer_range.wav", "title": "RANGE",
-     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DISTROY, POLY, TURING and SPACE."},
+     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DISTROY, POLY, RADAR and SPACE."},
 ]
 # the spectrum's picture: 40 Hz .. 16 kHz on a log scale, 75 dB of range, in the screen's ice
 SPEC_W, SPEC_H, SPEC_N = 1600, 240, 8192

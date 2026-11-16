@@ -28,10 +28,13 @@ static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
 enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DISTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_TURING,
-       PG_MOD, PG_TIME, PG_SEQA, PG_SEQB, PG_ORB };   /* (SEQ last: page >= PG_SEQA is SEQ, ORBIT its third) */
+       PG_MOD, PG_TIME, PG_LOOP, PG_SETUP, PG_SEQA, PG_SEQB, PG_ORB };   /* (SEQ last: page >= PG_SEQA is SEQ, ORBIT its
+                                                   third) */
 static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DISTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
-                                      "LFO 2", "TURING", "MOD", "TIME", "SEQ A", "SEQ B", "ORBIT"};
+                                      "LFO 2", "RADAR", "MOD", "TIME", "LOOPER", "SETUP", "SEQ A", "SEQ B", "ORBIT"};
 static int page = PG_NAV;
+static int fx_last = PG_REACTOR, env_last = PG_ENV, lfo_last = PG_LFO1, arp_last = PG_ARP, seq_last = PG_SEQA;   /* each
+                                                   page button: the page it showed last, where it comes back to from another */
 
 static void say(const char *what)
 {
@@ -45,14 +48,66 @@ static void fail(const char *why)
 static void on_page(int p, const char *what) { if (page != p) fail(what); }
 static int at(double s) { return pq < s && q >= s; }   /* the clock crossed s (sixteenths) this block */
 
-/* a button: the page it leads to, as the app's buttons do */
+/* a button: the page it leads to, as the app's buttons do: on its pages the next, from another the one it showed last
+   (HOME: MACROS) */
+static int button_page(const char *b)
+{
+    if (!strcmp(b, "HOME")) return page == PG_MACROS ? PG_NAV : page == PG_NAV ? PG_SETUP : PG_MACROS;
+    if (!strcmp(b, "FX")) return page == PG_REACTOR ? PG_DISTROY : page == PG_DISTROY ? PG_SPACE : page == PG_SPACE ? PG_TIME :
+                                 page == PG_TIME ? PG_REACTOR : fx_last;
+    if (!strcmp(b, "ENV")) return page == PG_ENV ? PG_FILTER : page == PG_FILTER ? PG_ENV : env_last;
+    if (!strcmp(b, "LFO")) return page == PG_LFO1 ? PG_LFO2 : page == PG_LFO2 ? PG_TURING : page == PG_TURING ? PG_MOD :
+                                  page == PG_MOD ? PG_LFO1 : lfo_last;
+    if (!strcmp(b, "SEQ")) return page == PG_SEQA ? PG_SEQB : page == PG_SEQB ? PG_ORB : page == PG_ORB ? PG_SEQA : seq_last;
+    if (!strcmp(b, "ARP")) return page == PG_ARP ? PG_LOOP : page == PG_LOOP ? PG_ARP : arp_last;
+    return page;
+}
+static void remember(void)                      /* the page buttons' memory, as the app keeps it */
+{
+    if (page == PG_REACTOR || page == PG_DISTROY || page == PG_SPACE || page == PG_TIME) fx_last = page;
+    if (page == PG_ARP || page == PG_LOOP) arp_last = page;
+    if (page == PG_ENV || page == PG_FILTER) env_last = page;
+    if (page == PG_LFO1 || page == PG_LFO2 || page == PG_TURING || page == PG_MOD) lfo_last = page;
+    if (page >= PG_SEQA) seq_last = page;
+}
 static uint32_t last_act;                       /* a button, an encoder's click, a PRESETS detent: one hand, in turn */
 static void act(void)
 {
     if (last_act && frame - last_act < (uint32_t)(SD_FS * 12u / 100u)) fail("two buttons closer than a hand presses them");
     last_act = frame ? frame : 1u;
 }
-static void press(const char *button, int to) { act(); page = to; say(button); }
+static void press(const char *button, int to)
+{
+    char t[80];
+    act();
+    if (button_page(button) != to) {
+        snprintf(t, sizeof t, "%s leads to %s from %s, not %s", button, PG_NAME[button_page(button)], PG_NAME[page], PG_NAME[to]);
+        fail(t);
+    }
+    page = to;
+    remember();
+    say(button);
+}
+static void next_page(const char *button) { press(button, button_page(button)); }   /* a page button, where it leads */
+/* a page button 'step' sixteenths apart from s0 till the page is 'to' (the app's way there: from another page first
+   the one it showed last), then no more: each call its s0 (a new pass, the clock from 0 again: anew) */
+static void go_every(const char *button, int to, double s0, double step)
+{
+    static double at_s[96], seen = -1.0;
+    static int busy[96], n;
+    int k, i;
+    if (q < seen) n = 0;
+    seen = q;
+    for (k = 0; k < n && at_s[k] != s0; k++) {}
+    if (k == n) { if (n == 96) fail("too many page moves"); at_s[n] = s0; busy[n++] = 1; }
+    for (i = 0; i < 6; i++)
+        if (busy[k] && at(s0 + i * step)) {
+            if (page != to) next_page(button);
+            if (page == to) busy[k] = 0;
+        }
+}
+static void go_to(const char *button, int to, double s0) { go_every(button, to, s0, 1.0); }
+static void arp_to(int to, double s0) { go_to("ARP", to, s0); }   /* ARP, a sixteenth apart, till ARP or LOOPER */
 
 /* ---- knobs: a value from where it is to a target over [s0, s1], a detent at a time */
 typedef struct { int line; int32_t from; int started; int32_t done; } RampSt;
@@ -147,10 +202,11 @@ static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS 
     snprintf(t, sizeof t, "PRESETS: pattern %s", name);
     say(t);
 }
-static void xpose(int trk, int semis)           /* GLO held + a key on SEQ: the transpose, at the one */
+static void xpose(int trk, int semis)           /* GLO held + a key on SEQ: the transpose, at the one (the keys as
+                                                   printed: OCT's octave left out) */
 {
     char t[48];
-    uint32_t key = (uint32_t)(60 + semis), base = (uint32_t)(53 + 12 * oct);
+    uint32_t key = (uint32_t)(60 + semis), base = 53u;
     if (page != (trk ? PG_SEQB : PG_SEQA)) fail("a transpose off its track's page");
     if (key < base || key > base + 26u) fail("the transpose's key is not on the keyboard");
     act();
@@ -260,11 +316,10 @@ static void tur_edit(void)
     snprintf(t, sizeof t, "EDIT: TURING %s (CHANGE %u, AMOUNT %+d)", SD_TUR_ON(&pat) ? "ON" : "OFF", SD_TUR_CHANGE(&pat), pat.tur_amt);
     say(t);
 }
-static void lfo_to_turing(double s0)            /* LFO three times: LFO 1, LFO 2, TURING (a sixteenth apart) */
+static void lfo_to_turing(double s0)            /* LFO till TURING, a sixteenth apart (from another page the one it
+                                                   showed last, then LFO 1, LFO 2, TURING, MOD round) */
 {
-    if (at(s0)) press("LFO", PG_LFO1);
-    if (at(s0 + 1)) press("LFO", PG_LFO2);
-    if (at(s0 + 2)) press("LFO", PG_TURING);
+    go_to("LFO", PG_TURING, s0);
 }
 
 /* the edit switches, as EDIT on their pages */
@@ -290,9 +345,10 @@ static void track_on(int trk, int on)
     say(t);
 }
 
-/* TIME's looper (2026-11-11), the player's as the app's: LOOP (ALGORITHM on TIME), REVERSE (GLO + ALGORITHM), GLIDE
-   (GLO + K1, OFF or a division a detent), LENGTH (GLO + K2, a division a detent), SPEED (GLO + K3, an eighth of a
-   semitone a detent; GLO + OCT, the next octave), L-LEVEL (GLO + K4: above 0 the looper armed; 0 as the app starts).
+/* The looper (2026-11-11; its own page, LOOPER, since 2026-11-14; ARP's second since 2026-11-15), the player's as the app's: LOOP
+   (ALGORITHM), REVERSE (GLO + ALGORITHM), GLIDE (K1, OFF or a division a detent), LENGTH (K2, a division a detent),
+   SPEED (K3, an eighth of a semitone a detent; GLO + OCT, the next octave, there), L-LEVEL (K4: above 0
+   the looper armed; 0 as the app starts).
    Its memory only when a performance asks for it (looper_mem: the FM-1's own, as the app has it since 2026-11-11:
    half the delay line, lent while the looper is armed, and 24 KB, mono mu-law at half rate, 5.1 s); the performances
    before it have none, and sound as they did */
@@ -305,52 +361,52 @@ static uint16_t lp_glide;
 static void looper_mem(void) { sd_engine_looper_borrow(&e, lp_mem, LP_BYTES); say("(the looper: half the delay line and 24 KB, 5.1 s)"); }
 static void loop_toggle(void)
 {
-    on_page(PG_TIME, "LOOP off TIME");
+    on_page(PG_LOOP, "LOOP off LOOPER");
     act();
     lp_on = (uint8_t)!lp_on;
-    say(lp_on ? "ALGORITHM: LOOP ON (the last LENGTH held)" : "ALGORITHM: LOOP OFF");
+    say(lp_on ? "LOOPER ALGORITHM: LOOP ON (the last LENGTH held)" : "LOOPER ALGORITHM: LOOP OFF");
 }
 static void reverse_toggle(void)
 {
-    on_page(PG_TIME, "REVERSE off TIME");
+    on_page(PG_LOOP, "REVERSE off LOOPER");
     act();
     lp_rev = (uint8_t)!lp_rev;
     say(lp_rev ? "GLO + ALGORITHM: REVERSE ON" : "GLO + ALGORITHM: REVERSE OFF");
 }
-static void lp_length(uint32_t d)               /* GLO + K2 turned to division d (a few detents: one gesture) */
+static void lp_length(uint32_t d)               /* K2 on LOOPER turned to division d (a few detents: one gesture) */
 {
     static const char *const N[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4",
                                                "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
     char t[48];
-    on_page(PG_TIME, "LENGTH off TIME");
+    on_page(PG_LOOP, "LENGTH off LOOPER");
     act();
     lp_len = (uint16_t)(d * 65536u / SD_LP_NDIV + 100u);
-    snprintf(t, sizeof t, "GLO + K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
+    snprintf(t, sizeof t, "LOOPER K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
     say(t);
 }
-static void lp_glide_to(uint32_t d)             /* GLO + K1 turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
+static void lp_glide_to(uint32_t d)             /* K1 on LOOPER turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
 {
     static const char *const N[SD_LP_NGLIDE] = {"OFF", "1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
                                                  "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
     char t[48];
-    on_page(PG_TIME, "GLIDE off TIME");
+    on_page(PG_LOOP, "GLIDE off LOOPER");
     act();
     lp_glide = (uint16_t)(d * 65536u / SD_LP_NGLIDE + (d ? 100u : 0u));
-    snprintf(t, sizeof t, "GLO + K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
+    snprintf(t, sizeof t, "LOOPER K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
     say(t);
 }
-static void loop_octave(int up)                 /* GLO + OCT- / OCT+ on TIME: SPEED to the next octave */
+static void loop_octave(int up)                 /* GLO + OCT- / OCT+ on LOOPER: SPEED to the next octave */
 {
     int32_t v = lp_speed;
-    on_page(PG_TIME, "GLO + OCT off TIME");
+    on_page(PG_LOOP, "GLO + OCT off LOOPER");
     act();
     v = up ? (v < 0 ? 0 : 3072) : (v > 0 ? 0 : -3072);
     lp_speed = (int16_t)v;
     say(up ? "GLO + OCT+: SPEED AN OCTAVE UP" : "GLO + OCT-: SPEED AN OCTAVE DOWN");
 }
-#define LP_SPEED(to8, s0, s1) do { int32_t v_; on_ramp_page(PG_TIME, s0, s1); \
+#define LP_SPEED(to8, s0, s1) do { int32_t v_; on_ramp_page(PG_LOOP, s0, s1); \
     if (ramp(__LINE__, lp_speed / 32, to8, s0, s1, &v_)) lp_speed = (int16_t)(v_ * 32); } while (0)   /* (eighths) */
-#define LP_LEVEL(to, s0, s1) do { int32_t v_; on_ramp_page(PG_TIME, s0, s1); \
+#define LP_LEVEL(to, s0, s1) do { int32_t v_; on_ramp_page(PG_LOOP, s0, s1); \
     if (ramp(__LINE__, (int32_t)d99(lp_lvl), to, s0, s1, &v_)) lp_lvl = u99(v_); } while (0)
 static void time_div(uint32_t d)                /* K1 on TIME, synced, turned to division d */
 {
@@ -369,7 +425,7 @@ static void freeze_toggle(void)                 /* ALGORITHM on SPACE */
 }
 #define SHIMMER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_SPACE, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_SP_SHIM(&pat), to, s0, s1, &v_)) { \
-        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (GLO + ALGORITHM, 0..63) */
+        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (GLO + K1, 0..63) */
 static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: ALGORITHM to slot k + 1, K1
                                                    SOURCE, K2 DEST (its list), K3 AMOUNT (a percent a detent) */
 {
@@ -408,7 +464,7 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     memset(&sm, 0, sizeof sm);
     e.sm = &sm;
     e.seqb = 1;                                 /* the app: B there, silent until it has notes */
-    e.xkey = 0;                                 /* the transposes CHROM (GLO + EDIT, set before): these were played
+    e.xkey = 0;                                 /* the transposes CHROM (SETUP's XPOSE, set before): these were played
                                                    so, before IN KEY (the app's default since 2026-11-10) */
     e.bpm = (uint8_t)bpm;
     e.mode = SD_MODE_MONO;
