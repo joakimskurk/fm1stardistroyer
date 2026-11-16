@@ -33,7 +33,8 @@ how it behaves; how it got there is in the git history.
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
   index keeps its meaning); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
 - *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (GLO + OCT the bank; the edited step goes along),
-  a step tapped again shows RATCHET and PROB; the black keys RND UNDO CLR (twice) and, the last, SEG.
+  B4 (C#4, MORE, lit) shows the step's RATCHET and PROB; the black keys B1 RND, B2 UNDO, B3 CLR (twice, or OCT+),
+  B10 SEG, B11 the keys into the steps.
 
 ## 3. Segments
 
@@ -44,22 +45,23 @@ how it behaves; how it got there is in the git history.
   n times before the next; SKIP plays nothing; the segments go A → F and round.
 - *TIE, SLIDE and PROB follow the playing order:* they connect to the next step played (in another segment, or the
   same step again under REPEAT); PROB is drawn each time a step plays.
-- *Editing (SEG, B10, D#5):* a white key cuts (a segment starts there, the new half copies the old one's
-  settings and is picked); where one already starts, it joins it to the one before; step 1 never cuts; no seventh.
-  The black keys pick A–F and EVEN (spread evenly: 64 in 3 is 21 21 22). K1 REPEAT, K2 ORDER (FWD REV P-P RND), K3 SKIP,
-  K4 LENGTH (the segment's end moves, the ones after keep their lengths, the last gives way). A new pattern LENGTH
-  rescales the segments.
-- *The picture:* each segment's letter and its order where not forwards, a cut where one starts, a skipped one struck
-  through in red, the playhead's key flipped.
+- *Editing (SEG, B10, D#5: SEGMENTS):* since 2026-11-15 (testers fell into it and were lost: a white key used to cut
+  and join) a white key only picks the part its step is in (framed red in the picture, the others dim; on the keys
+  its steps lit); ALGORITHM sets how many parts, 1..6, spread evenly (64 in 3 is 21 21 22; UNDO takes it back); the
+  black keys rest. K1 REPEAT, K2 ORDER (FWD REV P-P RND), K3 SKIP, K4 LENGTH (the part's end moves, the ones after keep
+  their lengths, the last gives way). A new pattern LENGTH rescales the segments. Entering, the step picked's part.
+- *The picture:* each segment's letter and its order where not forwards, a line where one starts; in SEGMENTS the
+  part picked framed, the line PLAYS A B<x2 C D (in turn, each its order and repeats, a skipped one left out) and
+  what the keys do.
 - *As sources:* STEP (where the pattern is, −1 .. +1 across it) and SEG (which segment) in the matrix.
 
 ## 4. Two tracks, the master, the voices
 
 - *Tracks:* SEQ A and SEQ B (`SdSeqT`) on the one sound, one tempo and one PLAY, each its own pattern, LENGTH, DIV and
   segments. EDIT switches a track ON / OFF (silent, in time). B is silent in MONO (its switch shows MONO).
-- *The master* (GLO + SEQ on SEQ A, SEQ B or ORBIT; `set.master`, kept): the track whose one leads, A by default. The
+- *The master* (SETUP's K3, HOME's third page; `set.master`, kept; GLO + SEQ until 2026-11-15): the track whose one leads, A by default. The
   other track and ORBIT switched on while it plays come in at its next one, from their step 1 (ON blinks till then);
-  off is at once; stopped, START starts them together. SEQ A's key (IN KEY, REC's note) and RADAR's NOTES stay A's.
+  off is at once; stopped, START starts them together. The key (IN KEY, REC's note) is the master's; RADAR's NOTES stay A's.
 - *The voices:* each voice knows its source (the hand, A, B, ARP) and only that source turns it off; `sd_plan` gives
   each a quota each tick (a playing track its widest chord, A first, then B, ARP one, the hand the rest); no source
   takes another's held voice. The app keeps what is on inside it: ARP and B refused with a message where they do not
@@ -73,11 +75,17 @@ how it behaves; how it got there is in the git history.
   under the track's transpose goes in back by it, so the step plays the key's note.
 - *MIDI's notes* (USB or the TRS jack, any channel; `midi_note`) are written as the keys' are, at their velocity (the
   FM-1's keys write 100); MIDI's held notes count with the keys'. They play on every page, the step pages too.
-- *The transpose:* GLO held on SEQ, a key sets the track's transpose from C4 (or K4 XPOSE, ±24), taken at its next
-  one; the keys show it (C4 a glow, its place full, blinking while it waits). OCT is the keys' octave on every page.
+- *The key* (IN KEY): the master's, its step 1 the root and its SCALE the scale (`sd_key_pat`, the app's `key_pat`).
+  The other track has none of its own: its notes are pulled to the nearest of the key's (the lower of two as near;
+  `sd_key_snap`), its page's hint says whose it follows (KEY SEQ A) and GLO + ALGORITHM there that the key is set on
+  the master's page. CHROM (the player's choice) frees it: each track as written.
+- *The transpose:* GLO held on SEQ, a key takes the track's root to it, in the key (IN KEY: the root in C4's octave
+  none, a key off the key: NOT IN THE KEY; CHROM: from C4), or K4 XPOSE (±24), taken at its next one; the keys show
+  it (the key's notes a glow, every key in CHROM; its place full, blinking while it waits). OCT is the keys' octave.
 - *IN KEY* (the default; `SdEngine.xkey`): a transpose (GLO's, K4's, ORBIT's XPOSE) moves each note as many degrees of
-  SEQ A's scale as A's key is from the key it names (+5 up a fourth in the key), a note off the scale keeping its step
-  off it, a chord tone by tone (`sd_seq_xn`). GLO + EDIT on SEQ or ORBIT switches to CHROM (semitones; `set.xchrom`).
+  the key as its root is from the note it names (+5 up a fourth in the key), the master's notes off the scale keeping
+  their step off it, a chord tone by tone (`sd_seq_xn`). SETUP's XPOSE (K2) switches to CHROM (semitones;
+  `set.xchrom`).
 
 ## 6. ARP and KEEP
 
@@ -110,12 +118,12 @@ how it behaves; how it got there is in the git history.
   the four macros' changes (±99). Every value a change from where the player is: 0 changes nothing.
 - *Playing:* its step moves at the master's one after RATE loops (`sd_orb_one`), START from step 1; the lanes and the
   macros jump at a step or glide through it to the next (GLIDE, a lane each).
-- *The page:* the first white keys (or ALGORITHM) pick a step: K1 XPOSE A, K2 XPOSE B, K3 lane 1, K4 lane 2; GLO: the
+- *The page:* the first white keys (or ALGORITHM) pick a step: K1 XPOS A, K2 XPOS B, K3 lane 1, K4 lane 2; GLO: the
   macros. B10 (D#5): SETUP (LENGTH RATE DEST 1 DEST 2; GLO: the GLIDEs). The keys play nothing there.
 
 ## 9. The clock
 
-- *MIDI clock* (USB or the jack; SYNC AUTO, GLO + PLAY: INT): the main loop counts the pulses (24 a quarter) and the
+- *MIDI clock* (USB or the jack; SYNC AUTO, SETUP's K1: INT): the main loop counts the pulses (24 a quarter) and the
   engine moves everything on the tempo by them (`sd_clk_tick`: the tracks, ORBIT, ARP, RADAR, the synced LFOs, MOVE),
   carried between pulses at their tempo and never past the next, so nothing drifts. While the tracks play a step stays
   6 pulses; the tempo shown is the mean of the last 8 beats. START and CONTINUE play from step 1 at the next pulse,

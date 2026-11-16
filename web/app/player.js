@@ -13,13 +13,13 @@ if (ship) {
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
   const ROW1 = [['FX', 2, 'FX CHAIN'], ['SCL', 3, 'VOICES'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · RADAR'],
                 ['EDIT', 6, 'ON · OFF'], ['GLO', 7, '2ND LAYER']];
-  const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARPEGGIO'], ['SEQ', 11, 'SEQ · ORBIT'],
+  const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARP · LOOPER'], ['SEQ', 11, 'SEQ · ORBIT'],
                 ['PLAY', 12, 'RUN', 'red'], ['REC', 13, 'RECORD', 'red']];
   const ABOUT = { 0: 'OCT−: an octave down; NO to a question (on SEQ, GLO + OCT−: the step bank)', 1: 'OCT+: an octave up; YES to a question (on SEQ, GLO + OCT+: the step bank)',
-    2: 'FX: REACTOR, DISTROY, SPACE', 3: 'SCL: MONO, DUO, POLY',
-    4: 'ENV: the envelopes, the filter', 5: 'LFO: LFO 1, LFO 2, RADAR, the matrix', 6: 'EDIT: what the page shows, on or off',
-    7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: NAV, the macros', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
-    10: 'ARP: the arpeggiator', 11: 'SEQ: SEQ A, SEQ B, ORBIT (on SEQ, GLO + SEQ: the master, A or B, whose one leads)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
+    2: 'FX: REACTOR, DISTROY, SPACE, TIME (back to the one it showed last)', 3: 'SCL: MONO, DUO, POLY',
+    4: 'ENV: the envelopes, the filter (back to the one it showed last)', 5: 'LFO: LFO 1, LFO 2, RADAR, the matrix (back to the one it showed last)', 6: 'EDIT: what the page shows, on or off',
+    7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: the macros, NAV, SETUP (sync, transposes, the master)', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
+    10: 'ARP: the arpeggiator, the looper (back to the one it showed last)', 11: 'SEQ: SEQ A, SEQ B, ORBIT (back to the one it showed last)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
   // the encoders: name, id, note
   const ENCS = { SELECT: [0, 'TEMPO'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
                  'KNOB 1': [2, 'K1'], 'KNOB 2': [3, 'K2'], 'KNOB 3': [4, 'K3'], 'KNOB 4': [5, 'K4'] };

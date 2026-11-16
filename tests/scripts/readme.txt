@@ -1,11 +1,14 @@
 # The README's screens (tools/make_readme_art.sh names them by their times): the splash, then each page while
 # DISTROY's loop plays, the macros up; RADAR on (to XM, 45 %) on LFO's third page; ORBIT (SEQ's third) on, XPOSE A
 # 0 +5 +7 -2 over its four steps, lane 1 to F CUT. Buttons: FX 2, SCL 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10,
-# SEQ 11, PLAY 12; encoders 2..5 are K1..K4 (0 SELECT, 1 ALGORITHM, 6 PRESETS).
+# SEQ 11, PLAY 12; encoders 2..5 are K1..K4 (0 SELECT, 1 ALGORITHM, 6 PRESETS). The boot shows MACROS (since
+# 2026-11-15): HOME to NAV for its screen, then HOME twice (SETUP) back to MACROS.
 700 shot
 1700 btn 12
+2500 btn 8
 2600 shot
 2700 btn 8
+2750 btn 8
 2800 enc 2 30
 2850 enc 3 55
 2900 enc 4 40

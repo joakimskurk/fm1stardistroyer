@@ -237,10 +237,14 @@
   .bar output { position: absolute; right: 3px; bottom: 1px; font: 9px/1 var(--mono); color: var(--dim); }
   .bar.out { opacity: .28; }
   /* what moves as it plays: RADAR's register, the echoes, the looper's loop */
-  .graph.tur { height: auto; aspect-ratio: 256 / 76; max-width: 420px; }
-  .tur .steps { stroke: var(--ice); stroke-width: 2.5; fill: none; } .tur .joins { stroke: #6f8794; stroke-width: 1; fill: none; }
-  .tur .last { fill: var(--red); } .tur .bit { fill: #16202a; } .tur .bit.one { fill: var(--ice); } .tur .bit.one.far { fill: #6f8794; }
-  .tur.off .steps, .tur.off .bit.one { fill: none; stroke: #2a3642; } .tur.off .bit.one { fill: #2a3642; } .tur.off .last { fill: #2a3642; }
+  .graph.tur { height: auto; aspect-ratio: 150 / 104; max-width: 300px; }   /* RADAR: the scope, the gauge */
+  .tur .ring { stroke: #54687a; fill: none; } .tur .zero { stroke: #54687a; stroke-dasharray: 1 3; fill: none; }
+  .tur .cross { stroke: #18202a; fill: none; } .tur .mid { fill: #54687a; } .tur .ticks { stroke: #54687a; fill: none; }
+  .tur .tick, .tur .sweep { stroke: var(--red); fill: none; } .tur .trail1 { stroke: #760e0e; fill: none; } .tur .trail2 { stroke: #3a0608; fill: none; }
+  .tur .outline { stroke: #54687a; fill: none; } .tur .blips { fill: var(--ice); } .tur .blips.old { fill: #54687a; } .tur .last { fill: var(--red); }
+  .tur .gframe { stroke: #54687a; fill: none; } .tur .gscale { stroke: #54687a; fill: none; } .tur .gfill { fill: #760e0e; } .tur .gptr { fill: var(--red); }
+  .tur.off .ring, .tur.off .ticks, .tur.off .outline, .tur.off .gframe { stroke: #18202a; } .tur.off .blips, .tur.off .last, .tur.off .gfill { fill: #18202a; }
+  .tur.off .gptr { fill: #54687a; }
   .graph.echo { height: 44px; } .echo .ered { stroke: var(--red); stroke-width: 2; } .echo .eice { stroke: var(--ice); stroke-width: 2; }
   .graph.loop { height: 84px; } .loop .wave { stroke: #6f8794; stroke-width: 1.4; } .loop.looping .wave { stroke: var(--ice); }
   .loop.idle .wave { stroke: #22303c; } .loop .head { stroke: var(--red); stroke-width: 2; }

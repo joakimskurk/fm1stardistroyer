@@ -209,7 +209,7 @@ export function buildSeq(Q) {
     pick(null, 'LANE 1 TO', { src: of('oDst', 'LANE 1 DEST', 0, dn.length - 1), names: Q.dord.map((d) => dn[d]), values: Q.dord }),
     pick(null, 'LANE 2 TO', { src: of('oDst', 'LANE 2 DEST', 0, dn.length - 1, String, undefined, 1), names: Q.dord.map((d) => dn[d]), values: Q.dord })));
   const lanes = h('div', 'lanes');
-  const LANES = [['XPOSE A', 'oXa', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`], ['XPOSE B', 'oXb', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`],
+  const LANES = [['XPOS A', 'oXa', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`], ['XPOS B', 'oXb', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`],
     ['LANE 1', 'oLane', 0, 100, (v) => `${v > 0 ? '+' : ''}${v}%`], ['LANE 2', 'oLane', 8, 100, (v) => `${v > 0 ? '+' : ''}${v}%`],
     ['MUTATE', 'oMac', 0, 99, String], ['MOVE', 'oMac', 8, 99, String], ['BREAK', 'oMac', 16, 99, String], ['MACRO 4', 'oMac', 24, 99, String]];
   for (const [name, key, at, hi, fmt] of LANES) {

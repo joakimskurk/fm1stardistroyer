@@ -236,6 +236,8 @@ const { x, out } = await play(sc);
   wk.message({ type: 'key', k: 7, down: true });
   quanta(150);
   const before = posted.length;
+  wk.message({ type: 'btn', id: 8, down: true }); quanta(4);   // HOME: from MACROS (the boot's) to NAV
+  wk.message({ type: 'btn', id: 8, down: false }); quanta(40);
   wk.message({ type: 'enc', id: 2, n: 6 });     // K1 on the Q page: XM
   quanta(60);
   const pat = posted.slice(before).filter((m) => m.type === 'frame' && m.pat).at(-1);
