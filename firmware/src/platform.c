@@ -404,6 +404,10 @@ static void platform_poll(void)
     int32_t a;
     fm1_wdt_feed();
     usb_retry(fm1_ms);
+#ifdef APP_SYSEX_HOOK
+    APP_SYSEX_HOOK();                           /* (the app's own SysEx first: Star Distroyer's read-only diagnosis;
+                                                   what it leaves goes on to the installer's handshake) */
+#endif
     ota_service();
     if (usb.ota_req) {
         usb.ota_req = 0;
@@ -429,21 +433,57 @@ static void platform_poll(void)
     }
 }
 
+/* The crash screen: the whole record, 20 s (a photo of it is the report). Left the CPU's: the vector, PC, RETS (as
+ * before), the guards' causes (EMU_MSG, DBG_MSG), SP, PSR, ICFG, the time up (ms), the count (early << 16), the core
+ * that took it; right the last four branches (ETM) and the second core's own: why it gave up, its faults, PC, RETS,
+ * DBG, EMU (fm1_cpu1.h; a fault there can raise CPU0's exception too). Star Distroyer's, 2026-11-17 (README) */
+#if FM1_CPU1
+/* the second core's own record at the crash, kept through the restart (.noinit) for the diagnosis over USB (the app's
+ * sd_diag_service): its fault, why it gave up, the mailbox's refusals and the zero word's misreads */
+#define FM1_C1_LAST_MAGIC 0x4331414Cu          /* "C1AL" */
+struct { uint32_t magic, count, dbg, emu, pc, rets, gave_up, rejected, misread, probe_bad, probe_last; }
+    fm1_c1_last __attribute__((section(".noinit")));
+#endif
 static void fm1_fault(const fm1_crash_t *c)
 {
-    char b[12];
-    uint32_t i, t0, v[3] = {c->vec, c->pc, c->rets};
+    static const char L[21][4] = {"VEC", "PC ", "RET", "EMU", "DBG", "SP ", "PSR", "ICF", "UPT", "CNT", "COR",
+                                  "ET0", "ET1", "ET2", "ET3", "C1G", "C1N", "C1P", "C1R", "C1D", "C1E"};
+    char b[16];
+    uint32_t i, t0, v[21] = {c->vec, c->pc, c->rets, c->emu, c->dbg, c->sp, c->psr, c->icfg, c->uptime_ms,
+                             c->count | c->early << 16, 0, c->etm[0], c->etm[1], c->etm[2], c->etm[3]};
+#if FM1_CPU1
+    fm1_c1_last.magic = FM1_C1_LAST_MAGIC;
+    fm1_c1_last.count = fm1_cpu1_fault.count;
+    fm1_c1_last.dbg = fm1_cpu1_fault.dbg;
+    fm1_c1_last.emu = fm1_cpu1_fault.emu;
+    fm1_c1_last.pc = fm1_cpu1_fault.pc;
+    fm1_c1_last.rets = fm1_cpu1_fault.rets;
+    fm1_c1_last.gave_up = fm1_cpu1_gave_up;
+    fm1_c1_last.rejected = fm1_cpu1_mb.rejected;
+    fm1_c1_last.misread = fm1_cpu1_mb.misread;
+    fm1_c1_last.probe_bad = fm1_cpu1_probe.bad;
+    fm1_c1_last.probe_last = fm1_cpu1_probe.last;
+    v[10] = fm1_cnum();
+    v[15] = (uint32_t)fm1_cpu1_gave_up | (uint32_t)fm1_cpu1_on << 16;
+    v[16] = fm1_cpu1_fault.count;
+    v[17] = fm1_cpu1_fault.pc;
+    v[18] = fm1_cpu1_fault.rets;
+    v[19] = fm1_cpu1_fault.dbg;
+    v[20] = fm1_cpu1_fault.emu;
+#endif
     fm1_audio_stop();
     lcd_fill(0, 0, 240, 240, RGB(160, 0, 0));
     draw_text_box(0, 20, 240, &FONT_S, APP_NAME " CRASH", C_WHITE, 1);
-    for (i = 0; i < 3u; i++) {
+    for (i = 0; i < 21u; i++) {
         uint32_t k;
-        for (k = 0; k < 8u; k++) b[k] = "0123456789ABCDEF"[(v[i] >> (28u - 4u * k)) & 15u];
-        b[8] = 0;
-        draw_text_box(10, 60 + i * 20, 220, &FONT_S, b, C_WHITE, 0);
+        for (k = 0; k < 3u; k++) b[k] = L[i][k];
+        b[3] = ' ';
+        for (k = 0; k < 8u; k++) b[4u + k] = "0123456789ABCDEF"[(v[i] >> (28u - 4u * k)) & 15u];
+        b[12] = 0;
+        draw_text_box(i < 11u ? 2u : 122u, 44u + (i % 11u) * 17u, 116, &FONT_S, b, C_WHITE, 0);
     }
     t0 = fm1_ticks();
-    while ((uint32_t)(fm1_ticks() - t0) < 8000u * 1000u * FM1_TICKS_PER_US)
+    while ((uint32_t)(fm1_ticks() - t0) < 20000u * 1000u * FM1_TICKS_PER_US)
         fm1_wdt_feed();
     fm1_reboot();
 }

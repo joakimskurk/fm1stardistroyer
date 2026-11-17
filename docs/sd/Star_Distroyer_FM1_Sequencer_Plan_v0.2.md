@@ -32,7 +32,9 @@ how it behaves; how it got there is in the git history.
   up to three more notes as semitones from its note, moving with it (RND, the transposes, RADAR's NOTES).
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
   index keeps its meaning); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
-- *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (the bank the edited step's: ALGORITHM or SELECT
+- *The page* (SEQ A, SEQ B): SELECT picks the step (2026-11-17, the user: "the keys are no longer the steps: try a line
+  before REC"; they play there, taking the track's voice; GLO + the black keys the tools below, GLO + the others the
+  transpose); until then the white keys were the bank's 16 steps (the bank the edited step's: ALGORITHM or SELECT
   moves it; SELECT, since 2026-11-16 the FM-1's picker wherever a page has things in a row, the user's wish: steps,
   parts; GLO + OCT was the bank until 2026-11-16, now the transpose's octave),
   B4 (C#4, MORE, lit) shows the step's RATCHET and PROB, and (2026-11-16, the user: a note one step late was hard to
@@ -62,7 +64,9 @@ how it behaves; how it got there is in the git history.
   `seg_skip` (a bit a segment). Six, not eight: they fit the black keys next to EVEN.
 - *Playing:* a segment's order is its non-skipped steps forwards, or backwards with REV; P-P is that and back without
   its ends (`a b c d c b`); RND a shuffle of it, drawn when the pass is built, not every step. REPEAT plays a segment
-  n times before the next; SKIP plays nothing; the segments go A → F and round.
+  n times before the next; SKIP plays nothing; the segments go A → F and round, inside the LENGTH (2026-11-17, the
+  user: the repeats made the loop longer than the pattern, and B and ORBIT drifted off its one): its LENGTH played,
+  step 1 again (`sd_seq_advance`, `sq_steps`); a traversal shorter than it (SKIPs) wraps as it ends.
 - *TIE, SLIDE and PROB follow the playing order:* they connect to the next step played (in another segment, or the
   same step again under REPEAT); PROB is drawn each time a step plays.
 - *Editing (SEG, B10, D#5: SEGMENTS):* since 2026-11-15 (testers fell into it and were lost: a white key used to cut

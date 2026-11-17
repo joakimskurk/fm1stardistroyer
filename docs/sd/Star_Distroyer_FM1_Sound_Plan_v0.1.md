@@ -627,8 +627,9 @@ listening rounds are in the git history.
   every store. Ping-pong in pairs (the left's echo into the right whole, the right's back x FDBK²: both sides as loud).
   Synced divisions exact, a division longer than the line halved until it fits, on the beat (`sd_space_sync_q8`). Its
   input loses its DC (a warp toward pulse built a rumble in the feedback).
-- *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2); the 4-line room its fallback on core 0, and
-  the build `DINGHY_DEFS=-DSD_ONE_CORE`. FREEZE (the player's) and SHIMMER.
+- *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2), a build of its own since 2026-11-18
+  (`DINGHY_DEFS=-DSD_TWO_CORES=1`: §6.8); the 4-line room on core 0, the default, and the fallback there. FREEZE
+  (the player's) and SHIMMER the plate's.
 - *The reverb's low cut* (2026-11-17, the user, having heard the headroom work: "the reverb MUST have a low cut,
   rounding off from about 200 Hz"): a 2-pole highpass at 200 Hz (`SD_RLC_F`, sd_hp2) at the reverb's half rate, on
   the plate's output in its job (second core: no cost on the first) and on the room's input. On the plate's input it
@@ -727,6 +728,22 @@ interrupt while a note sounds takes most, a rest about 30 %. Where it goes on th
 SPACE ~8 %, DISTROY's left ~8 %, the control tick and its parts ~10 %, REACTOR ~6 %, the voices ~4 %. The second
 core idles ~71 % of its time. RAM 97,148 B of 98,304 (the SMK-37's 97,740), the RAM code 29,280 B of 32,512, the
 image 179 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy's.
+- *The half off (2026-11-17, `SD_C1_HALVES 0` in stardistroyer.c):* on the user's FM-1 the second core faulted
+  inside it, 12 s up (its stack limit and a bus write, in `sd_bank_run`), and the FM-1 crashed to one core; the day
+  before, with the plate alone on that core, it ran clean. fm1-live never faults there unless its core 2 misreads
+  RAM (`--flaky-core1`): a job each sub-block reads far more shared RAM than the plate's each 5.8 ms. The second core
+  has the plate and the looper again; the first renders every bank: the gate 75.9 %, the looper with its FILTER and
+  sends 78.6 % (with the half 55.5 and 59.5). The crash screen now shows the whole record (platform.c).
+- *One core, the default (2026-11-18):* the plate alone on the second core crashed the user's FM-1 too, always at the
+  first key after a quiet spell (SPACE rests, no job; the key wakes it and the plate's first job runs): the second
+  core's bus-invalid read in `sd_plate_blk`, the first core taken with it, always at one place in `sd_distroy_ch`.
+  Found with a diagnosis over USB (`tools/fm1_diag.c`, the app's `sd_diag_service`: read only) and the crash screen.
+  Ruled out on the device: the second core's own loop (moved to the flash, a park in RAM for the flash gate), its
+  stack and mailbox (moved to the pool), misreads of its data (a zero word read millions of times, none), the RAM
+  code overwritten (compared with its flash copy: equal), USB. It needs the plate's job (a build that never posts
+  one held) and the audio's code in RAM (from the flash it held, at 120 %). The looper's step ran in every job
+  (`lp`, not `lq`: fixed). Still to find; fm1-live, its cores interleaved, never shows it. Meanwhile the FM-1 plays
+  on one core, the room in the plate's place: the gate 79.7 %, the looper with its FILTER and sends 86.7 %.
 - *Headroom (2026-11-17, the user: "never clipping anywhere, even with everything on"):* a census of every ceiling
   (built with SD_CENSUS: tests/sd_test.c's `test_headroom`, 29 patches, as made and everything at full, MONO and POLY)
   found hard cuts in the patches as made: SPACE's return at 2 x full scale (a long tail building up: NEBULA, CHORDS,

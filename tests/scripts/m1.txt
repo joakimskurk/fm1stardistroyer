@@ -1,16 +1,18 @@
 # M1: MIDI notes recorded (2026-11-11): a keyboard on MIDI records into SEQ as the FM-1's keys do, at its velocity.
-# Buttons: SEL 3, SEQ 11, REC 13, PLAY 12, ARP 10, EDIT 6, LFO 5 (a REST). The steps: the white keys (F3 0, G3 2, ...).
-# DUO (SEL), so a chord fits. SEQ A, CLR twice (the 3rd black key, key 5): an empty pattern. REC, stopped, step by
+# Buttons: SEL 3, SEQ 11, REC 13, PLAY 12, ARP 10, EDIT 6, LFO 5 (a REST), GLO 7. The steps: SELECT (encoder 0).
+# DUO (SEL), so a chord fits. SEQ A, GLO + CLR twice (the 3rd black key, key 5): an empty pattern. REC, stopped, step by
 # step: C4 at 40 (TRS), E4 + G4 together (one step, a chord), a REST, A4 at 127 (USB, channel 2), C5 with the FM-1's
 # C4 held (one step, a chord), D4 and F4 short and quick (two steps). REC off; steps 1-7 shown (their NOTE, VEL).
 # PLAY, REC: live, into the step that plays; REC off. POLY (SEL): room for the ARP over A's chords. ARP on (EDIT),
 # C E G held from MIDI, REC there: KEEP (into SEQ B, A playing). ARP off: a MIDI note over the patterns.
 1800 btn 3
 2000 btn 11
+2150 btndown 7
 2200 keys 0x20
 2250 keys 0
 2350 keys 0x20
 2400 keys 0
+2450 btnup 7
 2600 btn 13
 2800 trs 0x90 60 40
 2950 trs 0x80 60 0
@@ -31,26 +33,19 @@
 4430 trs 0x80 65 0
 4600 shot
 4700 btn 13
-4800 keys 0x1
-4850 keys 0
+4800 enc 0 -7
 4900 shot
-5000 keys 0x4
-5050 keys 0
+5000 enc 0 1
 5100 shot
-5200 keys 0x10
-5250 keys 0
+5200 enc 0 1
 5300 shot
-5400 keys 0x40
-5450 keys 0
+5400 enc 0 1
 5500 shot
-5600 keys 0x80
-5650 keys 0
+5600 enc 0 1
 5700 shot
-5800 keys 0x200
-5850 keys 0
+5800 enc 0 1
 5900 shot
-6000 keys 0x800
-6050 keys 0
+6000 enc 0 1
 6100 shot
 6200 btn 12
 6500 btn 13

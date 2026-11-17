@@ -15,11 +15,12 @@
  * so harmless before the RAM is set up): also first thing at a start (a reset that left CPU1 running), and on the
  * way to a reset or an update (fm1_sys.h). Harmless when CPU1 never ran.
  *
- * The gate: CPU1's jobs run from the flash, and a flash transaction switches the flash off. fm1_flash_cpu1_idle is
- * 1 while CPU1 sits in its RAM loop (fm1_cpu1.h: it sets it after each job; CPU0 clears it before handing one over).
- * irq_save (fm1_flash.h) calls fm1_flash_cpu1_gate with CPU0's interrupts off, so no new job comes: it waits for the
- * one under way (a job is an audio block's share, about a millisecond), and holds CPU1 if it has not come back in
- * 8 ms (it faulted, or hangs). fm1_flash_cpu1_cut tells fm1_cpu1.h it was held there. */
+ * The gate: CPU1's loop and jobs run from the flash, and a flash transaction switches the flash off. irq_save
+ * (fm1_flash.h) calls fm1_flash_cpu1_gate with CPU0's interrupts off, so no new job comes: it sets
+ * fm1_flash_cpu1_park and waits for CPU1 to park in RAM (fm1_cpu1.h's fm1_cpu1_park sets fm1_flash_cpu1_idle: after the
+ * job under way, an audio block's share, about a millisecond), and holds CPU1 if it has not parked in 8 ms (it
+ * faulted, or hangs); irq_restore lets it go back (fm1_flash_cpu1_ungate). fm1_flash_cpu1_cut tells fm1_cpu1.h it was
+ * held there. (Star Distroyer's park, 2026-11-17: the loop was in RAM, idle there itself.) */
 #pragma once
 #include <stdint.h>
 #include "fm1_cc.h"
@@ -29,9 +30,12 @@
  * so nothing to hold or wait for (the loader stays as Dinghy's, byte for byte) */
 FM1_INLINE void fm1_cpu1_stop(void) {}
 FM1_INLINE void fm1_flash_cpu1_gate(void) {}
+FM1_INLINE void fm1_flash_cpu1_ungate(void) {}
 #else
-static volatile uint32_t fm1_flash_cpu1_idle;
+static volatile uint32_t fm1_flash_cpu1_idle;   /* CPU1: parked in RAM (fm1_cpu1_park), the flash may go off */
 static volatile uint8_t fm1_flash_cpu1_cut;
+static volatile uint32_t fm1_flash_cpu1_park;   /* CPU0: park in RAM, the flash goes off (Star Distroyer's,
+                                                   2026-11-17: CPU1's loop runs from the flash, fm1_cpu1.h) */
 
 FM1_INLINE void fm1_cpu1_stop(void)
 {
@@ -66,10 +70,12 @@ FM1_INLINE int fm1_flash_cpu1_ok(void)
     return !(c & 8u) || (c & 2u) || fm1_flash_cpu1_idle == 1u;
 }
 
-/* CPU0, interrupts off, before the flash goes off (irq_save) */
+/* CPU0, interrupts off, before the flash goes off (irq_save): CPU1 asked to park in RAM, and waited for */
 FM1_INLINE void fm1_flash_cpu1_gate(void)
 {
     uint32_t t0;
+    fm1_flash_cpu1_park = 1;
+    __asm__ volatile("csync" ::: "memory");
     if (fm1_flash_cpu1_ok())
         return;
     t0 = *(volatile uint32_t *)0x10804u;                   /* TIMER4, 24 MHz */
@@ -80,5 +86,12 @@ FM1_INLINE void fm1_flash_cpu1_gate(void)
             __asm__ volatile("csync" ::: "memory");
             return;
         }
+}
+/* CPU0, the flash back on (irq_restore): CPU1 leaves its RAM park for its loop in the flash */
+FM1_INLINE void fm1_flash_cpu1_ungate(void)
+{
+    __asm__ volatile("csync" ::: "memory");
+    fm1_flash_cpu1_park = 0;
+    __asm__ volatile("csync" ::: "memory");
 }
 #endif

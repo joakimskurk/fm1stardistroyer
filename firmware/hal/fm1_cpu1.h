@@ -23,8 +23,9 @@
  *
  * Work: CPU0 hands a job over (fm1_cpu1_run: a function and an argument) and later waits for it (fm1_cpu1_wait).
  * One job at a time, a single writer for each word, csync around each (the cores share the caches): CPU0's words,
- * then CPU1's on a cache line of their own. CPU1's loop is in RAM (.c1_text, copied at boot), so an idle CPU1 never
- * fetches from the flash; the job itself runs from the flash, so CPU0 turns the flash off only with CPU1 idle (the
+ * then CPU1's on a cache line of their own. CPU1's loop and its jobs run from the flash (Star Distroyer's, 2026-11-17:
+ * the loop was in RAM, and beside CPU0's audio code there it faulted now and then); its stack and mailbox are in the
+ * pool, far from the RAM code. CPU0 turns the flash off only with CPU1 parked in RAM (fm1_cpu1_park, .c1_text: the
  * gate, fm1_cpu1_stop.h).
  *
  * Units that cannot run it (keremimo/melodee#17, charlesvestal/fm1-x0x#10; measured by Jangada,
@@ -99,7 +100,16 @@ static struct {
     volatile uint32_t ready __attribute__((aligned(32)));   /* CPU1: it started */
     volatile uint32_t complete, rejected;       /* the last job it finished; the jobs it would not run */
     volatile uint32_t misread, jobs;            /* the last refused, as it read it; how many it ran */
-} fm1_cpu1_mb __attribute__((aligned(32)));
+} fm1_cpu1_mb __attribute__((aligned(32), section(".pool.fm1_cpu1")));   /* (in the pool, as its stack: far
+                                                   from the RAM code, 2026-11-17) */
+/* a word that holds 0, read by CPU1 in its idle loop: what it reads otherwise is a misread (the flaw of some units
+ * above: 0x00200000 where it holds 0), counted for a diagnosis over USB (Star Distroyer's, 2026-11-17: the app's
+ * sd_diag_service; README). CPU0 never writes it; CPU1 writes only the counters, on a line of their own */
+static struct {
+    volatile uint32_t zero;
+    volatile uint32_t bad __attribute__((aligned(32)));   /* CPU1: reads that were not 0, and the last such value */
+    volatile uint32_t last;
+} fm1_cpu1_probe __attribute__((aligned(32), section(".pool.fm1_cpu1")));
 #define FM1_CPU1_CHECK(fn, arg, request) ((uint32_t)(uintptr_t)(fn) ^ (arg) ^ (request) * 0x9E3779B1u)
 
 static uint8_t fm1_cpu1_on;                     /* started and answering: CPU0 may hand it work */
@@ -129,11 +139,28 @@ static void fm1_cpu1_bar_build(uint32_t build)
     fm1_cpu1_bar.build = build;
 }
 
-/* CPU1's loop (in RAM): its guards, then one look at the mailbox after another. Only request, fn, arg and check
- * come from the RAM; a misread of any of them fails the check */
-void fm1_cpu1_main(void);
-void __attribute__((section(".c1_text"), noreturn, used)) fm1_cpu1_main(void)
+/* CPU1's park, the one piece of it in RAM (.c1_text): while CPU0 has the flash off (fm1_flash_cpu1_gate) it waits
+ * here, idle, till the flash is back (fm1_flash_cpu1_ungate) */
+void fm1_cpu1_park(void);
+void __attribute__((section(".c1_text"), used, noinline)) fm1_cpu1_park(void)
 {
+    fm1_flash_cpu1_idle = 1;
+    FM1_CPU1_SYNC();
+    while (fm1_flash_cpu1_park)
+        FM1_CPU1_SYNC();
+    fm1_flash_cpu1_idle = 0;
+    FM1_CPU1_SYNC();
+}
+
+/* CPU1's loop: its guards, then one look at the mailbox after another. Only request, fn, arg and check come from
+ * the RAM; a misread of any of them fails the check. In the flash, as its jobs (Star Distroyer's, 2026-11-17: in the
+ * RAM, beside CPU0's audio code there, .ram_audio, a fetch now and then came back wrong: CPU1 faulted in its own
+ * loop, its stack limit and a bus read, where it touches neither, and the FM-1 crashed; with CPU0's code in the
+ * flash it ran clean). The flash going off parks it in the RAM first (fm1_cpu1_park) */
+void fm1_cpu1_main(void);
+void __attribute__((noreturn, used)) fm1_cpu1_main(void)
+{
+    void (*volatile park)(void) = fm1_cpu1_park;   /* (through a register: the RAM is past a direct call's reach) */
     /* the stack limit at CPU1's EMU bank, over both its stacks less the lowest 256 bytes (a stack that runs
      * down traps before it reaches what lies below), and EMU_CON bit 2 and bits 16..20 off, bit 3 on */
     uint32_t lo = (uint32_t)(uintptr_t)fm1_cpu1_ustack + 256u, hi = (uint32_t)(uintptr_t)fm1_cpu1_sstack_top - 1u;
@@ -145,13 +172,20 @@ void __attribute__((section(".c1_text"), noreturn, used)) fm1_cpu1_main(void)
     FM1_C1_EMU_CON = (FM1_C1_EMU_CON & ~((1u << 2) | (0x1Fu << 16))) | (1u << 3);
     done = fm1_cpu1_mb.complete;
     FM1_CPU1_SYNC();
-    fm1_flash_cpu1_idle = 1;
-    FM1_CPU1_SYNC();
     fm1_cpu1_mb.ready = 1;
     FM1_CPU1_SYNC();
     for (;;) {
-        uint32_t request = fm1_cpu1_mb.request;
+        uint32_t request = fm1_cpu1_mb.request, z = fm1_cpu1_probe.zero;
         FM1_CPU1_SYNC();
+        if (fm1_flash_cpu1_park) {              /* the flash goes off: into the RAM till it is back */
+            park();
+            continue;
+        }
+        if (z) {                                /* (a misread: counted, the value kept) */
+            fm1_cpu1_probe.last = z;
+            fm1_cpu1_probe.bad++;
+            FM1_CPU1_SYNC();
+        }
         if (request == done)
             continue;
         if (request == done + 1u) {
@@ -161,8 +195,6 @@ void __attribute__((section(".c1_text"), noreturn, used)) fm1_cpu1_main(void)
                 fn(arg);                        /* the work itself runs from the flash */
                 fm1_cpu1_mb.jobs++;
                 done = request;
-                FM1_CPU1_SYNC();
-                fm1_flash_cpu1_idle = 1;
                 FM1_CPU1_SYNC();
                 fm1_cpu1_mb.complete = request;
                 FM1_CPU1_SYNC();
@@ -272,7 +304,6 @@ static inline int fm1_cpu1_run(fm1_cpu1_fn fn, uint32_t arg)
     if (!fm1_cpu1_on || (request = fm1_cpu1_mb.request) != fm1_cpu1_mb.complete)
         return 0;
     request++;
-    fm1_flash_cpu1_idle = 0;
     FM1_CPU1_SYNC();
     fm1_cpu1_mb.fn = fn;
     fm1_cpu1_mb.arg = arg;

@@ -24,7 +24,7 @@ fm1_cpu1_entry:
 	reti = fm1_cpu1_main
 	rti
 
-	.section .bss.fm1_cpu1_stack,"aw",@nobits
+	.section .pool.fm1_cpu1_stack,"aw",@nobits	/* (the pool, zeroed at boot: far from the RAM code, 2026-11-17) */
 	.balign 8
 	.globl fm1_cpu1_ustack
 fm1_cpu1_ustack:		/* after rti CPU1 runs on this one: the jobs' (FM1_CPU1_USTACK_WORDS; marked at start) */
