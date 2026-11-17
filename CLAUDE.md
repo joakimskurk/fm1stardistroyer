@@ -1,14 +1,23 @@
 # Working on Star Distroyer
 
 - Bare-metal FM-1 firmware on Dinghy 0.5. The plans are in docs/sd/; the current step is the first one in the Sound
-  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3, S4 and L1, the lab, are done; HW waits for the user's FM-1, so work
-  goes on without it, next W1, the console page; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan (the
+  Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3, S4 and L1, the lab, are done; HW: the user has an FM-1 since 2026-11-16
+  and played it: the CPU read 90 to 100 %, the work now; then W1, the console page; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan (the
   reference, v0.3); `firmware/src/sd_seq.h`. The plans hold the design and what each step decided, not a log: the
   history is git's.
 - After every change: `tests/run_sd.sh` (and `tests/run_host.sh tests/scripts/c1.txt`, `q1.txt`, `q2.txt` and `q3.txt` when the app changes). It
   stops at a failure (`set -e`): when it does, the renders in build/audio are the last run's, so check its end
   before measuring any of them. Every
-  step needs both gates: hear it (build/audio/*.wav) and fit it (`./build.sh`, `tools/emu_cpu.sh`).
+  step needs both gates: hear it (build/audio/*.wav) and fit it (`./build.sh`, `tools/emu_strict.sh`: fm1-live's
+  realistic mode, each instruction its cycles and the flash cache its misses, read as the app's own CPU meter; it
+  matched the user's FM-1 on 2026-11-16, where `tools/emu_cpu.sh`'s instruction count read half of it). The audio's
+  hot code runs from RAM (`SD_RAM` in sd_engine.h, app.ld's `.ram_audio`): the RAM code region is nearly full, so a
+  function there that grows can fail the link; a call between it and the flash goes through `SD_FAR`. The audio's
+  code that stays in the flash is `SD_HOT` (sd_engine.h): one section, first in the image after memcpy/memset, then
+  the tables, then the rest (app.ld), so the flash cache sees it at one place; a new function the control tick or the
+  plate's job calls gets `SD_HOT` too. It has 34 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
+  0xA800, the same cache sets), so what follows never moves with it. Compare CPU readings only at a fixed layout
+  (unpinned, a few lines of UI moved it 2-4 points), and like with like (`STRICT_PROF` itself reads ~0.8 lower).
 - `./build.sh` stops before the package when a check fails (its line says `FAIL`): never read only its `ok`
   lines, and never measure a `.fwsc` older than the source. CI builds the SMK-37's three models first (`BOARD=smk37 MODEL=pro|elite|mke
   sh build.sh`), whose RAM is tighter (884 B left on 2026-11-11): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)

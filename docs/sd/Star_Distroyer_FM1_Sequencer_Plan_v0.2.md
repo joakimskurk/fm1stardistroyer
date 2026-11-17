@@ -32,9 +32,27 @@ how it behaves; how it got there is in the git history.
   up to three more notes as semitones from its note, moving with it (RND, the transposes, TURING's NOTES).
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
   index keeps its meaning); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
-- *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (GLO + OCT the bank; the edited step goes along),
-  B4 (C#4, MORE, lit) shows the step's RATCHET and PROB; the black keys B1 RND, B2 UNDO, B3 CLR (twice, or OCT+),
+- *The page* (SEQ A, SEQ B): the white keys are the bank's 16 steps (the bank the edited step's: ALGORITHM or SELECT
+  moves it; SELECT, since 2026-11-16 the FM-1's picker wherever a page has things in a row, the user's wish: steps,
+  parts; GLO + OCT was the bank until 2026-11-16, now the transpose's octave),
+  B4 (C#4, MORE, lit) shows the step's RATCHET and PROB, and (2026-11-16, the user: a note one step late was hard to
+  fix) the note heard at the step: K3 MOVE, a step earlier or later, K4 LENGTH, how many steps it holds (its TIEs;
+  `sd_note_move`, `sd_note_resize`). A join stays a join: a note legato into the next keeps its end and only its start
+  moves; the step it leaves is a TIE where the note before was held into it, else a REST; another note's first step
+  is never taken (NO ROOM). The black keys B1 RND, B2 UNDO, B3 CLR (twice, or OCT+),
   B10 SEG, B11 the keys into the steps.
+- *Hearing the edit* (2026-11-16, the user): stopped, REC off, the step picked sounds: a white key while held,
+  SELECT, ALGORITHM or NOTE turned for 300 ms (the note heard there, a TIE's its note's, its chord, as the track plays
+  it: `aud_step`, on the keys' voices).
+- *The key's root* (2026-11-16, the user could not get the root off A: it was step 1's note): `SdPattern.root`, the
+  byte TURING's old CHANGE held (its values never had bit 7): `SD_ROOT_SET | 0..11`; without the bit step 1's note,
+  as before (`sd_pat_key`: the root at or below step 1's note, so RND keeps the line's octave). GLO + SELECT turns it
+  (IN KEY on the master's page; the notes as written), and the app gives every pattern it takes its own root from
+  what its key was (`root_own`), so a line written on step 1 no longer moves the key. The demos (the engine alone)
+  play as they did.
+- *CLEAR ALL* (SETUP's ALGORITHM, then OCT+; 2026-11-16, the user: "to start from scratch"): SEQ A and B every step a
+  rest, their LENGTH, DIV and segments new (the key and the scale kept), ORBIT off and empty, the transposes 0 at
+  the one; the sound stays (`clear_all`).
 
 ## 3. Segments
 
@@ -71,7 +89,10 @@ how it behaves; how it got there is in the git history.
 ## 5. Recording and transposing
 
 - *REC* (the track SEQ edits, on any page; on SEQ B11, F#5, too, lit while it records): stopped, step by step (keys
-  held together a chord; every key up, the next step; ENV a TIE, LFO a REST); playing, into the step that plays. It writes what is heard (`sd_seq_rec_note`): a key
+  held together a chord; every key up, the next step; ENV a TIE, LFO a REST); playing, into the step that plays, and a key held on a TIE into each step it is held over
+  (2026-11-16: a note as long as it was held; playing over a wrong one replaces it). A key pressed while another is
+  held joins its chord only in the same step (stopped: always); in a later step it is the next note, legato (before,
+  in MONO, a legato line lost its notes: ONE NOTE A STEP). It writes what is heard (`sd_seq_rec_note`): a key
   under the track's transpose goes in back by it, so the step plays the key's note.
 - *MIDI's notes* (USB or the TRS jack, any channel; `midi_note`) are written as the keys' are, at their velocity (the
   FM-1's keys write 100); MIDI's held notes count with the keys'. They play on every page, the step pages too.
@@ -120,10 +141,13 @@ how it behaves; how it got there is in the git history.
   macros jump at a step or glide through it to the next (GLIDE, a lane each).
 - *The page:* the first white keys (or ALGORITHM) pick a step: K1 XPOS A, K2 XPOS B, K3 lane 1, K4 lane 2; GLO: the
   macros. B10 (D#5): SETUP (LENGTH RATE DEST 1 DEST 2; GLO: the GLIDEs). The keys play nothing there.
+  The step picked (a white key, SELECT, ALGORITHM, a knob on it) is held while ORBIT plays (`orb_hold`, step + 1: its
+  values, no glide; stopped too, so the keys hear it), its own place counted on; the same key again, SETUP or leaving
+  ORBIT lets it go, in time (2026-11-16, the user: "I must hear the change while I work").
 
 ## 9. The clock
 
-- *MIDI clock* (USB or the jack; SYNC AUTO, SETUP's K1: INT): the main loop counts the pulses (24 a quarter) and the
+- *MIDI clock* (USB or the jack; SYNC AUTO, SETUP's GLO + K1: INT; the tempo SETUP's K1, SELECT's until 2026-11-16): the main loop counts the pulses (24 a quarter) and the
   engine moves everything on the tempo by them (`sd_clk_tick`: the tracks, ORBIT, ARP, TURING, the synced LFOs, MOVE),
   carried between pulses at their tempo and never past the next, so nothing drifts. While the tracks play a step stays
   6 pulses; the tempo shown is the mean of the last 8 beats. START and CONTINUE play from step 1 at the next pulse,
@@ -136,6 +160,6 @@ how it behaves; how it got there is in the git history.
 engine at level 0, bit for bit; a track OFF; B in MONO; the transpose at the one; the voices' rules), `test_turing`,
 `test_orbit`, `test_xkey`, `test_clock`, `test_rec_note` (every transpose, IN KEY and CHROM, A and B: notes play back as
 played), `test_more` (the destinations' order, the divisions, KEEP), `test_cue` (in at the master's one), `test_tq`,
-`test_arp_grid`. Host scripts: `q1.txt` (the page, segments, REC), `q2.txt` (SAVE and recall), `q3.txt` (RATCHET and
-PROB), `u1.txt` (every page), `o1.txt` (ORBIT), `b1.txt` (PRESETS' list), `x1.txt` (GLO + OCT), `k1.txt` (the clock),
-`m1.txt` (MIDI recorded); `web_test` in the browser's player.
+`test_arp_grid`, `test_note_move` (MOVE and LENGTH, the joins kept, no note taken). Host scripts: `q1.txt` (the page, segments, REC), `q2.txt` (SAVE and recall), `q3.txt` (RATCHET and
+PROB), `u1.txt` (every page), `o1.txt` (ORBIT), `b1.txt` (PRESETS' list), `x1.txt` (OCT, GLO), `k1.txt` (the clock),
+`m1.txt` (MIDI recorded), `w1.txt` (SELECT, MORE's MOVE and LENGTH, ROOT, SETUP's TEMPO and CLEAR ALL, RADAR); `web_test` in the browser's player.

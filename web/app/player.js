@@ -18,10 +18,10 @@ if (ship) {
   const ABOUT = { 0: 'OCT−: an octave down; NO to a question (on SEQ, GLO + OCT−: the step bank)', 1: 'OCT+: an octave up; YES to a question (on SEQ, GLO + OCT+: the step bank)',
     2: 'FX: REACTOR, DISTROY, SPACE, TIME (back to the one it showed last)', 3: 'SCL: MONO, DUO, POLY',
     4: 'ENV: the envelopes, the filter (back to the one it showed last)', 5: 'LFO: LFO 1, LFO 2, RADAR, the matrix (back to the one it showed last)', 6: 'EDIT: what the page shows, on or off',
-    7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: the macros, NAV, SETUP (sync, transposes, the master)', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
+    7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: the macros, NAV, SETUP (the tempo, sync, transposes, the master, CLEAR ALL)', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
     10: 'ARP: the arpeggiator, the looper (back to the one it showed last)', 11: 'SEQ: SEQ A, SEQ B, ORBIT (back to the one it showed last)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
   // the encoders: name, id, note
-  const ENCS = { SELECT: [0, 'TEMPO'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
+  const ENCS = { SELECT: [0, 'PICK'], ALGORITHM: [1, 'CHOICE'], PRESETS: [6, 'PATCH'],
                  'KNOB 1': [2, 'K1'], 'KNOB 2': [3, 'K2'], 'KNOB 3': [4, 'K3'], 'KNOB 4': [5, 'K4'] };
   const isBlack = (k) => (0x54A >> ((53 + k) % 12)) & 1;           // key 0 = F3 (MIDI 53)
   const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

@@ -130,14 +130,19 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   glides there like tape), **DECAY** is its tail, 0.3 s to about 40 s, whatever the SIZE, **TONE** darkens it and
   **R-LEVEL** is how much. The echoes and the loop go into it.
 - **FREEZE** (ALGORITHM on SPACE) closes the plate's input and holds its tail as it is, for as long as you like; play
-  over it, turn ALGORITHM again and it dies away. It is the player's, not saved with the patch.
+  over it, turn ALGORITHM again and it dies away. It is the player's, not saved with the patch. **PITCH** (GLO's K2)
+  takes the frozen tail up or down, up to an octave each way in semitones, without a break; back at 0, or the
+  freeze let go, it is the plate's own again.
 - **SHIMMER** (GLO's K1) sends an octave up of the tail back into it, a little more each pass:
   it climbs and fades, and stays stable at any DECAY.
 - The plate and the looper run on the FM-1's **second core**, a block of 5.8 ms at a time beside the audio; the
-  delay on the first, as it always has. Some FM-1s' second core misreads memory now and then: every job carries a
+  delay on the first, as it always has. The second core also takes half of every 0.7 ms of sound beside the first:
+  two of the four banks, two of REACTOR's four resonators, DISTROY's right channel (the same sound bit for bit, on one
+  core or two). Some FM-1s' second core misreads memory now and then: every job carries a
   check, and at the first sign of trouble (a misread, a job that does not come back, a fault) that core is held until
-  the power is off and the earlier room plays in the plate's place, the looper going on beside it: **ROOM** on
-  SPACE's screen, and *2ND CORE OFF: ROOM* once. The room has no FREEZE or SHIMMER.
+  the power is off: the first core does all of the sound, and the earlier room plays in the plate's place, the
+  looper going on beside it: **ROOM** on SPACE's screen, and *2ND CORE OFF: ROOM* once. The room has no FREEZE or
+  SHIMMER.
 
 </td>
 </tr>
@@ -206,8 +211,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   pattern's scale as they play, and never rewrites the pattern. To **PITCH** it is quantized first: every voice
   lands on a note of SEQ A's scale from its key (CHROM: whole semitones). In MOD it is a SOURCE too, for more
   places (to PITCH there quantized as well).
-- The picture is a scope: the loop's places round it, each step's value a blip (further out higher), the sweep on
-  the step playing, the newest blip red. Locked (CHANGE 0) the shape stays; with CHANGE it drifts. A gauge beside
+- The picture is a scope: the loop's places round it, each step held at its value over its arc (further out
+  higher) and a hard jump to the next, as it sounds, the sweep on the step playing, the newest blip red. Locked (CHANGE 0) the shape stays; with CHANGE it drifts. A gauge beside
   it shows the value now.
 
 </td>
@@ -224,21 +229,33 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 **Two sequencer tracks on one sound**: a melody on A and a bass line on B, one tempo and one PLAY.
 - Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate, **RATCHET** (2 or 3 hits)
   and **PROB**, and can hold a chord of up to four notes.
+- **SELECT** picks the step (ALGORITHM too), in SEGMENTS the part. Stopped, the step picked sounds (a white key held,
+  SELECT, ALGORITHM or its NOTE turned), so you hear what you edit.
+- **The key** is the master's: GLO + ALGORITHM its scale, **GLO + SELECT its root** (the hint line says SELECT ROOT
+  with GLO held). The notes stay as written. A pattern from before keeps the key it had (its step 1's note), and
+  from then on writing step 1 no longer moves it.
+- **B4 MORE** (C♯4): the step's RATCHET and PROB, and the note heard there: **MOVE** a step earlier or later and
+  **LENGTH**, how many steps it holds (its TIEs). A join stays a join: a note played legato into the next keeps its
+  end when it moves, and the note before holds into the step it leaves. It never takes another note's place.
 - **Segments A–F:** up to six parts of the pattern, each with REPEAT, ORDER (forwards, reverse, ping-pong,
   random), SKIP and LENGTH. **D♯5** opens them: a white key picks the part its step is in (framed, the others dim),
   ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
 - **REC** (or **B11**, the last black key, lit while it is on) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
-  step (keys held together, a chord); playing, into the step that plays. It writes what you hear: under a transpose
+  step (keys held together, a chord); playing, into the step that plays, and a key held on writes a TIE into each
+  step it is held over, so a note is as long as you held it (a new key while one is held is the next note, legato,
+  unless it comes in the same step: a chord). Play over a wrong note and it is replaced. It writes what you hear: under a transpose
   (GLO's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
 - **One key, the master's:** its step 1 is the root and its SCALE (GLO + ALGORITHM on its page) the scale; the hint
   line shows it with GLO held (A MINOR). The other track has none of its own: what it plays is pulled to the nearest
   note of the key, and on its page the hint line says whose key it follows (KEY SEQ A).
 - **GLO held** transposes a track from the keys, taken at its next one: the keys in the key are lit, and the root goes
   to the one you press (the root itself: no transpose). The keys stay as printed whatever OCT's octave (OCT is the
-  playing's; a transpose past them: GLO + K4 XPOSE), and GLO + OCT turns the step bank.
+  playing's), and GLO + OCT moves the transpose an octave (to ±24; GLO + K4 XPOSE sets any).
 - **IN KEY** (the default): a transpose moves the notes in degrees of the key, and a chord moves tone by tone (C minor
   up a third in C minor: E♭ major); K4 XPOSE and ORBIT's XPOSE count the same, +5 up a fourth in the key, +7 a fifth.
   **SETUP**'s XPOSE switches to **CHROM**: each track as written, transposed in semitones (from C4, every key lit).
+- **COLOUR** (on **SETUP**, K4): the screen's accent, red by default, or orange, pink, magenta, violet, blue, cyan
+  or green, from a list; the whole screen takes it at once, kept when switched off.
 - **MASTER** (on **SETUP**, K3): A or B, the track whose one leads; its tab is underlined. While the master plays, the other track and ORBIT switched on come in at its next
   one, from their step 1 (ON blinks until then); off is at once. ORBIT counts the master's loops; the key (IN KEY)
   is the master's, and RADAR's NOTES stay SEQ A's.
@@ -255,6 +272,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   each step's stripe lights while it plays.
 - Each step: **XPOS A** and **XPOS B** (±24, the transpositions), two free lanes each to its **DEST** (any matrix destination,
   ±100 %), and with GLO the four macros' changes. Every value is a change from where you are: 0 changes nothing.
+- **The step you pick is the one you hear:** a white key, SELECT or ALGORITHM (or a knob turned on it) holds ORBIT
+  on that step while it plays (the hint line's lamp lit, its light under the stripes red), so you hear your edit; the
+  same key again, or leaving ORBIT, lets it go on, in time, where it would have been.
 - **B10** (D♯5, lit) is SETUP: LENGTH, RATE, DEST 1, DEST 2; with GLO, **GLIDE** for each lane and the macros
   (jump at the step, or glide through it to the next). EDIT switches it; it is saved with the pattern.
 
@@ -271,7 +291,9 @@ ARP runs from the key. **REC on ARP keeps what it just played**: the last bar at
 that DIV, so you can save a run you liked after the fact. It goes to SEQ A, or to SEQ B while A plays. Press REC on
 the one and you keep the bar that just ended. UNDO on SEQ takes it back, and SAVE there keeps it.
 
-**The voices are shared by rules.** MONO has 1, DUO 2, POLY 4. A playing track takes its widest chord, ARP takes one,
+**The voices are shared by rules.** MONO has 1, DUO 2, POLY 4, and a sound is the same in each: DUO and POLY play
+the banks MONO weighs most where X / Y is (at each note), and a note is as loud as in MONO (the voices sharing the
+level by how loud each sounds, so a chord is no louder than four voices always were). A playing track takes its widest chord, ARP takes one,
 and the keys take the rest. No source cuts another's note. What does not fit is refused with a short message.
 
 The keys remember what is held: in MONO, hold a note, play a second and let it go, and the first sounds again,
@@ -280,7 +302,7 @@ legato.
 **MIDI clock**, over USB or the TRS jack, leads while it comes (SYNC AUTO): both tracks, ORBIT, ARP, RADAR, the
 synced LFOs and MOVE move by its pulses, so they cannot drift from the other gear, and SPACE's synced echoes take its
 tempo. START or CONTINUE plays from step 1 at the next pulse, STOP stops, and the status line shows the clock's tempo
-with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **SETUP**'s SYNC switches to INT,
+with **CLK**. Without pulses for half a second, the FM-1's own tempo takes over. **SETUP**'s SYNC (GLO + K1) switches to INT,
 where a clock is not heard. With two clocks at once (USB and the jack, or two MIDI inputs in the browser), the first
 leads until it stops.
 
@@ -291,7 +313,7 @@ leads until it stops.
 ### The controls
 
 Every page is laid out the same, from the top: the patch's line (its name, the key, the master's, as IN KEY
-transposes in it, and its place, P01 or U01); its button's pages (the current one the red tab, EDIT's lamp and ON /
+transposes in it, the battery, three bars, and its place, P01 or U01); its button's pages (the current one the red tab, EDIT's lamp and ON /
 OFF on the right; a page button brings back the page it showed last, and again the next; HOME always starts at
 MACROS, where the FM-1 starts too); K1–K4 in a row like the knobs, each value on a printed scale with its pointer, grey
 while the page's engine is off; the picture, the page's room (SEQ's steps in it); the hint line, two fixed places like
@@ -302,26 +324,26 @@ are, what is on and what plays. The key
 LEDs show what the keys do, and a black key with a job has one mark on the screen wherever its job is named (SEQ's
 line, the hint line): a small key with its lamp, lit as the key is (dark, a glow, full, blinking), then the job's
 name. The status line: PLAY's square (red while it plays), the tempo (**CLK** while a MIDI clock
-leads), the octave and MONO, DUO or POLY with who holds the voices (**A** and **B** the tracks, **R** the ARP, **-**
-the keys; the CPU in their place when it reaches 45 %, red from 50).
+leads), the octave and MONO, DUO or POLY (always) with who holds the voices (**A** and **B** the tracks, **R** the ARP, **-**
+the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS → NAV → SETUP (SYNC AUTO or INT, XPOSE IN KEY or CHROM, MASTER A or B: one knob each, kept) |
+| **HOME** | MACROS → NAV → SETUP (TEMPO, with GLO SYNC AUTO or INT; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept; ALGORITHM **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, OCT+ yes, the sound kept; the CPU, a lamp for each core (the second red if it gave up: the reverb then the room's), and the battery's volts) |
 | **FX** | REACTOR → DISTROY → SPACE → TIME |
 | **ENV** | ENV → FILTER |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD |
 | **ARP** | ARP → LOOPER: the arpeggiator and the looper, the player's tools (not saved in the patch) |
 | **SEQ** | SEQ A → SEQ B → ORBIT |
 | **K1–K4** | the four values in the row on top |
-| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT turns the step bank; on LOOPER, OCT the loop's octave |
+| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT moves it an octave; on LOOPER, OCT the loop's octave |
 | **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP, a list as it turns; on NAV the algorithm, a list too); GLO + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, ARP, a track, ORBIT, RADAR (a track or ORBIT, while the master plays: in at its one). Off, the hint line says OFF: EDIT TURNS IT ON (not on SEQ and ORBIT, where you write a part while it is off) |
 | **PRESETS** | the patch (on SEQ and ORBIT the pattern; the list says PATCHES or PATTERNS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now |
-| **SELECT** · **SCL** | the tempo (40–240 BPM; a MIDI clock's while one leads) · MONO → DUO → POLY |
+| **SELECT** · **SCL** | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
-| **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the step bank); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
-| **The keys** | play; on SEQ the white keys are the steps and the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
+| **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
+| **The keys** | play; on SEQ the white keys are the steps and the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MASTER** | the volume |
 
@@ -400,7 +422,7 @@ The toolchain, the JieLi SDK and the host mode are as Dinghy sets them up:
 tests/run_sd.sh                              # the engine's tests (also under ASan/UBSan) and the renders
 tests/run_host.sh tests/scripts/q1.txt       # the whole firmware on the host: a WAV and the screens
 ./build.sh                                   # -> build/stardistroyer.fwsc
-tools/emu_cpu.sh build/stardistroyer.fwsc    # the chip's load in fm1-emu
+tools/emu_strict.sh build/stardistroyer.fwsc # the chip's load as the FM-1 has it (fm1-live)
 sh tests/run_tests.sh                        # the update path, the loader, the installer, the flash maps
 sh web/app/build.sh                          # the player: the firmware as WebAssembly (clang + lld, wasm32)
 node tests/web_test.mjs build/web/stardistroyer.wasm   # ... boots, plays, turns pages, saves
@@ -449,13 +471,20 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 
 - **Integers only:** fixed point throughout, no float and no 64-bit division in the audio. It renders in 32-frame
   sub-blocks inside the FM-1's audio interrupt, with modulation at the control rate.
-- **CPU:** in fm1-emu, DISTROY's loop takes **44.0 %** of the first core; the plate and the looper run on the second,
-  9.9 % of it (the looper armed, gliding and crossfading: 45.3 % on the first, 12.2 % at most on the second);
-  everything at once (POLY, both tracks, ARP, all FX, all eight slots, RADAR and ORBIT) 51.7 %. On one core (a second
-  core that misreads) the room and the looper play there: 44.3 % (47.4 % with the looper's glide and crossfade). The
-  worst interrupt, the app's CPU, stays at 52..54 % as the looper is armed. The budget is under
-  half, as Dinghy's [rules](docs/RULES.md) ask, because USB, the key scan and the screen need the rest. The emulator
-  counts instructions, not cycles, so the real chip has the last word.
+- **The reverb has a low cut:** its tail rolls off from about 200 Hz, so it never muddies the low end; the dry
+  sound keeps all of it.
+- **Headroom:** nothing inside clips hard. Every ceiling a signal can meet (the voice filter, the Reactor's lines,
+  DISTROY's sum, SPACE's return and the plate, TIME and the looper) rounds off instead of cutting, the banks' sum
+  loses what is under 30 Hz before the FX, and the output its DC. `test_headroom` plays every patch, as made and with
+  everything at full, and fails if a ceiling is pushed deep, the output reaches its shoulder, or DC is left.
+- **CPU:** the app's own meter (the worst audio interrupt of a second) in fm1-live's realistic mode, which times each
+  instruction and the flash cache's misses as the chip does (`tools/emu_strict.sh`; it matched a real FM-1 on
+  2026-11-16): DISTROY's loop 51.7 %, the looper armed 53.6 %, everything at once (POLY with a chord, both tracks,
+  ARP, all FX, all eight slots, RADAR and ORBIT) 58.9 %. The audio's hot code runs from RAM, and the second core
+  takes half of every sub-block beside the first, besides the plate and the looper; from the flash on one core it
+  read 98 % (113 % everything at once). On one core (a second core that misreads) the room plays there: 74.7 %,
+  everything at once 82.8 %, the sound otherwise the same. Dinghy's [rules](docs/RULES.md) ask for under half,
+  because USB, the key scan and the screen need the rest.
 - **The output:** a limiter that looks 1.45 ms ahead turns a peak down before it comes, to −1.4 dBFS, so extreme
   modulation, the macros at full or a loud POLY chord never square off; a soft shoulder after it is the last safety.
 - **Generated:** the oscillator's laws are tables from `tools/gen_tables.py`.
@@ -469,7 +498,14 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `tools/build.py`: the identity FM-1_962XY; it assembles `hal/fm1_cpu1.S`, and its check of the RAM code lets
-    the second core's loop make its one call, the job.
+    the second core's loop make its one call, the job, and the audio's code in RAM (`.ram_audio`) call as any code.
+  - `firmware/app.ld`: the RAM code region runs to 0x01C07F00 (was 0x01C06000; crt0's STATUS above it stays), and
+    the audio's hot code (`.ram_audio`: the voices, REACTOR, DISTROY, SPACE, the render) is linked after the second
+    core's loop: from the flash it missed the cache, which both cores share, and the FM-1 read 90 to 100 %. In the
+    flash, after crt0: memcpy and memset (the RAM code calls them directly, and a call reaches only the flash's first
+    KB), then the audio's flash code (`.text.sd_hot`: the control tick's parts, the plate's job) in 34 KB of its own,
+    then the tables (`.rodata`) before the rest of the code, so the flash cache sees the audio at one place whatever
+    else changes.
   - The second core, from felucca-bsp (MPL-2.0, [LICENSING.md](LICENSING.md)): `firmware/hal/fm1_cpu1.h`,
     `fm1_cpu1.S` and `fm1_cpu1_stop.h` are new. `firmware/app.ld` links its loop (`.c1_text`) into the RAM code;
     `firmware/hal/fm1_flash.h`'s `irq_save` waits for it to be idle before the flash goes off; `fm1_irq.h`'s

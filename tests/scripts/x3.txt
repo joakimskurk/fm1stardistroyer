@@ -1,0 +1,21 @@
+# X3 (2026-11-16): SETUP's K4 COLOUR, the screen's accent (RED the default). HOME twice: NAV, SETUP (COLOUR RED);
+# K4 (enc 5) one right: ORANGE, the list over the knobs (its band the colour); four more: BLUE; the list gone
+# (1.5 s), SETUP in blue; SEQ A in blue; K4 three left: RED again, as it was.
+# Shots: 2000 (SETUP, RED), 2200 (the list, ORANGE), 2400 (the list, BLUE), 4200 (SETUP, BLUE), 4400 (SEQ A, BLUE),
+# 6300 (SETUP, RED again).
+1800 btn 8
+1900 btn 8
+2000 shot
+2100 enc 5 1
+2200 shot
+2300 enc 5 4
+2400 shot
+4200 shot
+4300 btn 11
+4400 shot
+4500 btn 8
+4600 btn 8
+4700 btn 8
+4800 enc 5 -5
+6300 shot
+6400 end

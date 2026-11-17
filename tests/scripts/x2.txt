@@ -1,0 +1,13 @@
+# X2 (2026-11-16): GLO + OCT on SEQ moves the track's transpose an octave, at its next one, as GLO + a key; OCT's
+# own octave stays (the status line OCT+0). PLAY (12), SEQ A (11), GLO held (7): K4 XPOSE in the row, the hint
+# KEYS XPOSE  OCT OCTAVE; OCT+ (1): XPOSE +12, red till the track's next one; GLO let go; the track an octave up.
+# Shots: 2100 (GLO held), 2300 (XPOSE +12 waiting), 6000 (played).
+1700 btn 12
+1800 btn 11
+2000 btndown 7
+2100 shot
+2200 btn 1
+2300 shot
+2400 btnup 7
+6000 shot
+6100 end

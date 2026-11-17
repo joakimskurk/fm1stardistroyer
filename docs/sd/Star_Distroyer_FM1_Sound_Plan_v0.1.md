@@ -191,10 +191,26 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   | Mode | Voices × operators | Banks per voice | Nav |
   |---|---|---|---|
   | **MONO** | 1 × 16 | A B C D | full XY field |
-  | **DUO** | 2 × 8 | A B | X only (A ↔ B), Y free for modulation |
-  | **POLY** | 4 × 4 | A | none: one bank, morph by mod only |
+  | **DUO** | 2 × 8 | the two MONO weighs most (A B in the middle) | MONO's balance between them |
+  | **POLY** | 4 × 4 | the one MONO weighs most (A in the middle) | none inside a voice: its bank at its note |
   | **POLY8** (candidate) | 8 × 2 | A, operators 1–2 | none: a 2-op pair; kept only if it sounds like more than a toy |
 
+  *The same sound in every mode* (2026-11-16, the user: a switch "had enormous changes in sound and volume"; until
+  then DUO played A ↔ B by X and POLY bank A, always, at −6 dB): DUO and POLY follow MONO's mix at X / Y, its motion
+  too (COURSE runs in every mode now, MOVE, the matrix). At a note a silent voice takes its banks (`sd_voice_banks`):
+  the one, or two, MONO weighs most; a bank must weigh 5/4 of an earlier one to win, so in the middle POLY plays A and
+  DUO A B, as the patches were made. A DUO voice's two are in MONO's balance between them, normalised as MONO's four;
+  a POLY voice's one at the power of MONO's mix. The level (`vg`): each voice counted by how loud it is against the
+  loudest (equal power: a note as loud as MONO's, four alike a half each as POLY always was; a fading tail hardly
+  counts, a chord ringing out counts as it was), down in ~3 ms, up over ~50 ms. Measured, one note against MONO's
+  (29 patches): POLY within 0..−2.7 dB (it was −3.5..−7.5), DUO's colour on the vector patches near MONO's (VOYAGE
+  7.6 → 0.6 dB a band off); POLY's on VOYAGE, PULSAR, BEACON still apart (≈10 dB a band: one bank cannot play a
+  four-bank blend or COURSE inside a note; each new note takes the bank COURSE is at). MONO: bit for bit as before.
+  *The voice's lowpass, its ceiling* (FILTER, `sd_fsat`; 2026-11-16, after the user heard crackle with every FX
+  off): a bank's sum must stay under 4 x full scale (x its gain it fits 32 bits). It was cut there; from 75 % RES with
+  loud notes that cut flat tops (in 6 of 29 patches at 75 %, 24 at 90 %; no other place clips: no wrap anywhere,
+  under UBSan, and the output limiter keeps under its shoulder). Now it is as it was to 3 x and rounds off toward
+  4 x (T + e S / (e + S), never flat). The patches as made never pass 2 x, 50 % RES hardly 3 x: unchanged.
   Each voice has its own note, ENV1 and ENV2. Patch, Reactor and Distroy are shared, since they sit after the voices.
   The allocator takes, in order:
   - the same note again
@@ -613,11 +629,20 @@ listening rounds are in the git history.
   input loses its DC (a warp toward pulse built a rumble in the feedback).
 - *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2); the 4-line room its fallback on core 0, and
   the build `DINGHY_DEFS=-DSD_ONE_CORE`. FREEZE (the player's) and SHIMMER.
+- *The reverb's low cut* (2026-11-17, the user, having heard the headroom work: "the reverb MUST have a low cut,
+  rounding off from about 200 Hz"): a 2-pole highpass at 200 Hz (`SD_RLC_F`, sd_hp2) at the reverb's half rate, on
+  the plate's output in its job (second core: no cost on the first) and on the room's input. On the plate's input it
+  made a SIZE sweep's small step stand out (9.7 x its surroundings against 6.9: the tank held no lows to hide it), so
+  it went to the output: the tank as it was, the same sound. The tails of NEBULA, AURORA, HALO: -5 .. -10 dB under
+  150 Hz, the mids within 0.8 dB. Fixed for now; a knob (GLO on SPACE) if the user wants one.
 - *TIME* (§5.5.3): the delay on its own page, the looper on the second core (with the room on one core), its memory
   the delay line's second half and 24 KB (5.11 s; the SMK-37's build 23 KB, 5.07 s) while L-LEVEL is above 0. The
   change clears 1024 a tick (~80 ms): at once it took the worst interrupt from 52 % to 79 %.
 - *Kept as the user heard them:* the demos made before the divisions were exact (DERELICT, CINEMATIC, the second cue)
   have SPACE on FREE at 1000 ms, as they were saved.
+- *To do (the user, 2026-11-17):* while the plate is FROZEN, the room after it in the chain, so the frozen tail goes
+  into the room too (now the room only takes what is played over the held tail, beside it). Open: the room on core 0
+  then runs on the plate's output each block (its cost to measure), and whether the room stays beside it as well.
 
 ### 6.5 The chain and the modulation (C1)
 
@@ -668,22 +693,65 @@ START, so its chords start from step 1 and the loop is back in sync. Its
 TURING DEST turns in `SD_MD_ORDER`, as the app does. A render waits for quiet: a loop left ringing (BREAK up) never
 ends, so a performance ends with it off.
 
-### 6.8 The numbers now (fm1-emu, 2026-11-11)
+### 6.8 The numbers now (the chip's timing, 2026-11-16)
 
-| Scenario | The first core | The second core |
-|---|---|---|
-| The gate: DISTROY, SEQ A, MONO | 44.0 % | 9.9 % (10.1 at most) |
-| The looper armed, LOOP, GLIDE, GLO + OCT- | 45.3 % | 10.6 % (12.2 at most) |
-| Everything at once | 51.8 % | 9.9 % |
-| One core (a second core that misreads): the room | 44.3 % | – |
-| One core, the room and the looper's glide | 47.4 % | – |
+The app's CPU (the worst audio interrupt of a second), in fm1-live's realistic mode (`FM1_STRICT=1`: each
+instruction its measured cycles, the flash cache, 32 KB shared by both cores, ~300 cycles a miss;
+`tools/emu_strict.sh`). It matched the user's FM-1, where fm1-emu's instruction count (`tools/emu_cpu.sh`) had read
+half: 44 % there, 90 to 100 % on the device.
 
-The app's CPU (the worst interrupt of a second) reads 52–54 % in the gate. RAM 96,796 B of 98,304 (the SMK-37's
-97,420), the image 173 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy's.
-- *Open:* the worst interrupt is a little over half in the emulator, and DISTROY in POLY with a held chord read 50.9 %
-  on average (2026-11-08); the emulator counts instructions, not cycles, so HW measures both on the chip.
+| Scenario | From the flash | The hot code in RAM | And the second core's half |
+|---|---|---|---|
+| The gate: DISTROY, SEQ A, MONO | 98 % | 72.5 % | 51.7 % |
+| The looper armed, LOOP, GLIDE, GLO + OCT- | 98 % | 73.8 % | 53.6 % |
+| Everything at once, a chord held | 113 % | 81.3 % | 58.9 % |
+| One core (a second core that misreads): the room | 94 % | 72.5 % | 74.7 % |
+| One core, everything at once | – | 79.5 % | 82.8 % |
 
-**HW, the checklist (on hold: the user has no FM-1 yet, so the work goes on without it).** The package:
+The second core's half (sd_c1_share, 2026-11-16): beside the first core, in every sub-block, banks 3 and 4,
+REACTOR's resonators 3 and 4 (the parallel models; AP1 and AP2 whole on the first), DISTROY's right channel; the
+sums are integers, so one core or two sound the same bit for bit (`test_c1_halves`). The control tick's parts are
+functions of their own (SD_NOINLINE: -2 points, the flash cache holds more of it). The load is not a spike: an
+interrupt while a note sounds takes most, a rest about 30 %. Where it goes on the first core now (on average):
+SPACE ~8 %, DISTROY's left ~8 %, the control tick and its parts ~10 %, REACTOR ~6 %, the voices ~4 %. The second
+core idles ~71 % of its time. RAM 97,148 B of 98,304 (the SMK-37's 97,740), the RAM code 29,280 B of 32,512, the
+image 179 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy's.
+- *Headroom (2026-11-17, the user: "never clipping anywhere, even with everything on"):* a census of every ceiling
+  (built with SD_CENSUS: tests/sd_test.c's `test_headroom`, 29 patches, as made and everything at full, MONO and POLY)
+  found hard cuts in the patches as made: SPACE's return at 2 x full scale (a long tail building up: NEBULA, CHORDS,
+  AURORA, DRIVE, ten patches), DISTROY's sum (STRINGS, its limiter a tick late), the Reactor's AP1 line (FLANGE), the
+  plate's store (NEBULA); and up to 12 % of full scale of DC in the banks' sum. Now every ceiling rounds (`sd_soft`:
+  never flat): the voice filter from 3 x to 4 x, the Reactor's lines toward 4 x, DISTROY's sum from 1.5 x to 2 x,
+  SPACE's return from 3 x to 4 x (its product with R-LEVEL in 64 bits), the plate's store from 2.25 x to 3 x, TIME's
+  and the looper's from 1.5 x to 2 x. The banks' sum has a 2-pole highpass at 30 Hz before the FX (`sd_subcut`), the
+  output a DC blocker at ~7 Hz: DC into the FX 0, out 0.06 % (everything on: 0.2 %, it was 14 %); under 20 Hz -39 dB
+  of the whole (it was -25.5). The shapers that are the sound (DISTROY's types, WARP's squash, FOLD, the Reactor's
+  saturation, KP's shoulder) stay: they reach their ceiling smoothly, without a corner. The test fails if a patch as
+  made pushes a ceiling deep (4 S past its knee), reaches the output's shoulder, or carries DC. Run under UBSan,
+  everything at full also found three products that wrapped (a click each time): the Reactor's AP dry with DRIVE
+  up, the delay's TONE on a hot line, the room's tone, decay and diffusers; now in 64 bits. Cost 0.8 points
+  (56.3 %), the RAM code 30,120 B of 32,512.
+- *The layout (2026-11-17):* the strict reading moved 2..4 points with code that never ran in the measure (a few
+  lines of SETUP drawing): the flash cache (32 KB, 4 ways of 128 sets of 64 B, shared by both cores) holds less than
+  the audio's flash code (~35 KB: the control tick's parts ~22 KB, the plate's job 12.7 KB) beside the main loop's,
+  and where each lands decides what evicts what. Now the audio's flash code is one section (`SD_HOT`) right after
+  memcpy and memset (the RAM code calls them directly, and a call reaches only the flash's first KB from the RAM),
+  in 34 KB of its own, then the tables, then the rest: a small change elsewhere moves the reading 0.1 point, a large
+  one (1.9 KB of code and strings) ~1 point, and a change inside the block moves nothing after it. The reserve was
+  chosen by measure, the tables' sets deciding: 32 KB and 40 KB (8 KB apart, the cache's period) both 53.5 % / 64.0
+  everything on, 34 KB 53.5 / 63.6, 36 KB 55.7 / 66.2, 38 KB 56.2 / 66.7. The plate's job is one copy (12.7 KB ->
+  8.2: its block took SIZE's gliding as a constant, inlined twice), the same sound bit for bit: -0.6 points at one
+  layout, its core's misses -18 %. Not done: skipping the engines' parameters while nothing changes, since 25 of the
+  29 patches modulate something every tick and the meter is the worst interrupt (only the average would drop). With
+  STRICT_PROF on a reading is ~0.8 lower: compare like with like. The gate 53.5 % (DISTROY's loop), everything on
+  (SD_CPU_WORST, no chord held) 63.6 %. The
+  key lights, set every pass of the main loop, took a quarter of the first core's time there (not the audio's): now
+  100 a second. A main loop paced to a pass a millisecond gained nothing (54.3 %): not kept.
+- *Open:* the gate 1.7 points over half. SPACE, the largest left on the first core, does not split by channel
+  (ping-pong, the plate's mono queue); its six-tap half-bands written out gained 0.3 points for 1 KB of RAM code,
+  not kept.
+
+**HW, the checklist (the user has an FM-1 since 2026-11-16; the install is always the user's).** The package:
 `build/stardistroyer.fwsc` (`./build.sh`, every check ok; identity FM-1_96200, a dev build; a release X.Y is
 FM-1_962XY: 0.1-beta FM-1_96201, 0.3-beta FM-1_96203), installed with `python3 tools/fm1_install.py
 build/stardistroyer.fwsc` (needs `pip3 install mido python-rtmidi`; it asks before it writes). The way back: the FM-1
@@ -692,7 +760,8 @@ Firmware Hub, or OCT- held at power-on for the USB rescue.
    the flash part: 0x856014 (the first units) or 0xB36014 (the UC25HQ80, units sold since autumn 2026); both must
    save and update (`firmware/hal/fm1_flash_map.h`).
 1. *It starts:* the splash, then DISTROY on the NAV page; no crash screen; the second core runs (no *2ND CORE OFF*).
-2. *Fit it:* PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's (the gate's 44.0 % on
+2. *Fit it* (2026-11-16, the user's FM-1: 90 to 100 %, over with everything on; the emulator's realistic mode reads the
+   same, §6.8): PLAY, DISTROY in the loop: the CPU readout's worst against the emulator's (the gate's 44.0 % on
    average, 52–54 % its worst interrupt; the emulator counts instructions, the chip cycles: the gap is what this step
    measures). Then the other patches with PRESETS, POLY with a chord, and the looper armed.
 3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and VOYAGE through the line out against
