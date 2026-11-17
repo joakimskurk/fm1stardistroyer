@@ -463,6 +463,10 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     sd_engine_init(&e);
     memset(&sm, 0, sizeof sm);
     e.sm = &sm;
+    {                                           /* the room beside the frozen plate, as the app has it */
+        static SdRoomMem frm;
+        e.frm = &frm;
+    }
     e.seqb = 1;                                 /* the app: B there, silent until it has notes */
     e.xkey = 0;                                 /* the transposes CHROM (SETUP's XPOSE, set before): these were played
                                                    so, before IN KEY (the app's default since 2026-11-10) */

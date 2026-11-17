@@ -237,15 +237,23 @@ def check(img, syms, dis, rt):
     def in_c1(ln):
         mm = re.match(r"\s*([0-9a-f]+):", ln)
         return bool(mm) and c1[0] <= int(mm.group(1), 16) < c1[1]
-    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln) and not in_c1(ln)]
+    # the app's audio code in RAM (.ram_audio, _ra_start.._ra_end) calls into XIP as any code does: the audio never
+    # runs while the flash is off (the flash driver's interrupts are off), and RAM only spares it the flash cache
+    ra = (sym_of(syms, "_ra_start"), sym_of(syms, "_ra_end"))
+    def in_ra(ln):
+        mm = re.match(r"\s*([0-9a-f]+):", ln)
+        return bool(mm) and ra[0] <= int(mm.group(1), 16) < ra[1]
+    rt_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln) and not in_c1(ln) and not in_ra(ln)]
     c1_calls = [ln for ln in rt.splitlines() if re.search(r"\bcall\b", ln) and in_c1(ln)]
     if len(c1_calls) > 1 or any(not re.search(r"\bcall\s+r\d+\b", ln) for ln in c1_calls):
         errors.append(f".c1_text calls other than its job: {c1_calls[:3]}")
     if rt_calls:                    # RAM code runs with the flash off: no calls into XIP
         errors.append(f".ram_text contains calls: {rt_calls[:3]}")
     else:
-        notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln)])} insns, no calls"
-                     + (f" (the second core's loop: its job, {c1_calls[0].split(chr(9))[-1].strip()})" if c1_calls else ""))
+        notes.append(f".ram_text: {len([ln for ln in rt.splitlines() if LINE.match(ln) and not in_ra(ln)])} insns, no calls"
+                     + (f" (the second core's loop: its job, {c1_calls[0].split(chr(9))[-1].strip()})" if c1_calls else "")
+                     + (f"; the audio's {ra[1] - ra[0]} B (.ram_audio), RAM code {sym_of(syms, '_rt_end') - 0x01C00000} B"
+                        f" of {0x7F00}" if ra[1] > ra[0] else ""))
     for ln in dis.splitlines():     # nothing may call or load an address in the chip ROM
         mm = LINE.match(ln)
         if not mm:

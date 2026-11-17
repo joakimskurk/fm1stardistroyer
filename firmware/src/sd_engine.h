@@ -107,6 +107,16 @@
 #define SD_ENGINE_H
 #include <stdint.h>
 #include "sd_tables.h"
+/* The audio's code that stays in the flash (the control tick's parts, the sequencer's, the plate's job on the second
+ * core): one section, first in the image after crt0 (app.ld), so its place in the flash cache (4 ways of 128 sets of
+ * 64 B: an address and the one 8 KB on share a set) never moves when the rest of the app changes. 2026-11-17: a few
+ * lines of SETUP drawing, never run in the measure, moved the gate 2 points; a reading is only worth comparing at a
+ * fixed layout. The firmware's builds only (SD_RAM_AUDIO): a computer's has no such section */
+#if defined(SD_RAM_AUDIO) && SD_RAM_AUDIO
+#define SD_HOT __attribute__((section(".text.sd_hot")))
+#else
+#define SD_HOT
+#endif
 #include "sd_seq.h"
 
 #define SD_FS 44100u
@@ -130,16 +140,67 @@
 #define SD_INC_12K 1168695946u
 #define SD_INC_16K 1558261261u                  /* 16 kHz and 20 kHz as phase increments: the fade-out above */
 #define SD_INC_20K 1947826576u
-#define SD_POLY_GAIN 16384                      /* a POLY voice's level, Q15: -6 dB, four voices share the output (R4: -3 dB
-                                                   clipped CHORDS and FUSION in chords once the Reactor kept the dry) */
+#define SD_C1_BANKS 1u                          /* the second core's halves of a sub-block (sd_c1_share) */
+#define SD_C1_REACTOR 2u
+#define SD_C1_DISTROY 3u
 
 #if defined(__GNUC__)
 #define SD_INLINE static inline __attribute__((always_inline))
+#define SD_NOINLINE __attribute__((noinline))   /* the control tick's parts kept apart: inlined, the tick is one large
+                                                   function the flash cache holds less of (-2 points on the chip) */
 #define SD_BARRIER() __asm__ volatile("" ::: "memory")
 #else
 #define SD_INLINE static inline
+#define SD_NOINLINE
 #define SD_BARRIER()
 #endif
+
+/* On the FM-1 the audio's hot code runs from RAM (SD_RAM: app.ld's .ram_audio, copied at boot, SD_RAM_AUDIO set by
+ * the app). From the flash it went through a 32 KB cache that both cores share, and the render's ~50 KB missed it a
+ * line at a time, ~300 cycles each: the device read 90 to 100 % (2026-11-16). RAM and the flash are over 4 MB apart,
+ * beyond a call's reach: a call across goes through a register (SD_FAR). On a computer both are nothing */
+#if defined(SD_RAM_AUDIO) && SD_RAM_AUDIO
+#define SD_RAM(n) __attribute__((section(".ram_audio." #n), noinline))
+static inline __attribute__((always_inline)) void *sd_far(void *p) { void *volatile q = p; return q; }
+#define SD_FAR(fn) ((__typeof__(&fn))sd_far((void *)&fn))
+#else
+#define SD_RAM(n)
+#define SD_FAR(fn) fn
+#endif
+
+/* ---- the ceilings: soft, and counted in the tests
+ * Every ceiling a signal can meet inside the engine is rounded, never cut (sd_soft: as it is to T, then toward T + S,
+ * T + S - S^2 / (e + S): the slope 1 where it starts, never flat, never reached), so nothing anywhere clips hard
+ * (2026-11-16, the user: "never clipping anywhere, even with everything on"). The shapers that are the sound (DISTROY's
+ * types, WARP's squash, FOLD, the Reactor's filter saturation) stay as they are. Built with SD_CENSUS (tests/sd_test.c),
+ * each ceiling counts its highest peak, how often T was passed and how often 4 S past it (deep): test_headroom */
+#ifdef SD_CENSUS
+#define SD_CK_N 10u
+static int64_t sd_ck_pk[SD_CK_N];
+static uint32_t sd_ck_hit[SD_CK_N], sd_ck_deep[SD_CK_N];
+static int64_t sd_ck_dc;
+static uint32_t sd_ck_dcn;
+static int32_t sd_ck(uint32_t id, int32_t v, int32_t t, int32_t deep)
+{
+    int64_t a = v < 0 ? -(int64_t)v : v;
+    if (a > sd_ck_pk[id]) sd_ck_pk[id] = a;
+    if (a > t) sd_ck_hit[id]++;
+    if (a > deep) sd_ck_deep[id]++;
+    return v;
+}
+#define SD_CK(id, v, t, d) sd_ck(id, v, t, d)
+#else
+#define SD_CK(id, v, t, d) (v)
+#endif
+static inline __attribute__((always_inline)) int32_t sd_soft(int32_t y, int32_t T, int32_t S)   /* (S <= 32767) */
+{
+    uint32_t a = y < 0 ? 0u - (uint32_t)y : (uint32_t)y, e;
+    if (a <= (uint32_t)T) return y;
+    e = a - (uint32_t)T;
+    a = (uint32_t)T + (uint32_t)S - ((uint32_t)S * (uint32_t)S) / (e + (uint32_t)S);   /* (S^2 < 2^30; e + S < 2^32) */
+    return y < 0 ? -(int32_t)a : (int32_t)a;
+}
+#define SD_SOFT(id, y, T, S) sd_soft(SD_CK(id, y, T, (T) + 4 * (S)), T, S)
 
 /* ---- numbers */
 static int32_t sd_sine(uint32_t ph)             /* a full cycle over 2^32 -> -32767..32767 (Dinghy's refined parabola) */
@@ -231,15 +292,18 @@ SD_INLINE uint32_t sd_lp_glide_ms(uint32_t t) { return (t * 4000u) / 65535u; }  
 enum { SD_PL_IN0, SD_PL_A1 = 4, SD_PL_D1 = 6, SD_PL_A2 = 8, SD_PL_D2 = 10, SD_PL_SH = 12, SD_PL_LINES };
 #define SD_PL_SHW 2048u                         /* the shifter's window: 93 ms */
 #define SD_PL_MOD 48u                           /* the modulation's room in each branch's first allpass */
-#define SD_PL_MEM (16665u * 7u / 4u + 12u * 4u + 2u * SD_PL_MOD + SD_PL_SHW + 24u)   /* every line, int16 */
+#define SD_PL_PS0 (16665u * 7u / 4u + 12u * 4u + 2u * SD_PL_MOD + SD_PL_SHW + 24u)   /* the lines before PITCH's */
+#define SD_PL_PSN 1032u                         /* PITCH's shifter, a line a side: a window of 1024 (46 ms), 8 more */
+#define SD_PL_MEM (SD_PL_PS0 + 2u * SD_PL_PSN)  /* every line, int16 */
 #define SD_PL_SMIN 22938                        /* SIZE: 0.35 .. 1.75 x, Q16 */
 #define SD_PL_SMAX 114688
 #define SD_PL_BLK 128u                          /* a job: 128 plate samples (256 frames: an audio half on the FM-1);
                                                    its output heard a block later (5.8 ms on the wet) */
 #define SD_PL_ZN 512u                           /* the outputs' ring (a power of two) */
 #define SD_PL_CH 24u                            /* the chunks' ring: a tick's settings each, two blocks of them */
-#define SD_SP_FLEN 2048u                        /* the room's lines (a power of two: masked), at half rate */
-#define SD_SP_APLEN 256u                        /* its diffusers, at half rate */
+#define SD_SP_RFN (1452u + 1668u + 1862u + 2028u)   /* the room's lines, each its longest + 1, at half rate (rings of
+                                                   their own length: 15 KB, not 18 as powers of two) */
+#define SD_SP_RAN (71u + 53u + 191u + 139u)     /* its diffusers, each its length, at half rate */
 enum { SD_FX_REACTOR = 1, SD_FX_DISTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8, SD_FX_TIME = 16 };   /* fx_off's bits
                                                    (SPACE: the reverb; TIME: the delay) */
 
@@ -381,7 +445,7 @@ static int32_t sd_toward(int32_t lvl, int32_t target, uint32_t c)   /* |lvl - ta
     return target + (int32_t)(((int64_t)(lvl - target) * (int64_t)c) >> 31);
 }
 
-static void sd_env_tick(SdEnv *v, uint32_t gate, uint32_t a, uint32_t d, uint32_t s, uint32_t r)
+SD_HOT static void sd_env_tick(SdEnv *v, uint32_t gate, uint32_t a, uint32_t d, uint32_t s, uint32_t r)
 {
     if (!gate && (v->stage == SD_ENV_ATTACK || v->stage == SD_ENV_DECAY)) v->stage = SD_ENV_RELEASE;
     switch (v->stage) {
@@ -495,13 +559,15 @@ typedef struct {                                /* DISTROY's state */
     int32_t mix;
 } SdDistroy;
 
+typedef struct { int16_t fdn[SD_SP_RFN], ap[SD_SP_RAN]; } SdRoomMem;   /* the room's lines and diffusers, one
+                                                   after another (SD_SP_FO, SD_SP_AO) */
 typedef struct {                                /* SPACE's memory: the app's (the pool) */
     int16_t dl[2u * SD_SP_DMAX];                /* the delay, its frames left and right in turn, Q14 (2 x full
                                                    scale): the line's second half one run of bytes (the looper's,
                                                    borrowed: sd_engine_looper_borrow) */
     union {                                     /* the reverb's: the plate's, or (one core) the room's */
         int16_t pl[SD_PL_MEM];                  /* the plate's lines, one after another, Q14 */
-        struct { int16_t fdn[4][SD_SP_FLEN], ap[4][SD_SP_APLEN]; } rm;   /* the room's lines and diffusers */
+        SdRoomMem rm;                           /* the room's lines and diffusers */
     } u;
 } SdSpaceMem;
 
@@ -532,6 +598,7 @@ typedef struct {                                /* the plate's settings for a ch
                                                    the looper) */
     SdLpTick lt;                                /* the looper's head over the tick, as core 0 planned it */
     uint8_t li0;                                /* the chunk's first sample, into its tick (a tick split by a block) */
+    int8_t pst;                                 /* PITCH, semitones (-12 .. 12): the frozen tail's */
 } SdPlateP;
 
 typedef struct {                                /* SPACE's state */
@@ -562,8 +629,12 @@ typedef struct {                                /* SPACE's state */
     int32_t g, c, sg, d2;                       /* the decay (each pass), the damping lowpass, SHIMMER's share of the
                                                    way round, the second allpasses'; Q14 (16384: 1) */
     int32_t ig;                                 /* the input, Q14: FREEZE fades it out (and back) over ~10 ms */
-    int32_t lpi, lp[2], fbk[2], shy;            /* the input's lowpass; the branches' damping, their ends; the shifter */
+    int32_t lpi, lp[2], fbk[2];                 /* the input's lowpass; the branches' damping, their ends */
     uint32_t lfo[2], shp;                       /* the two LFOs (2^32 a cycle, a step a tick); the shifter's place */
+    uint32_t pph, ppw;                          /* PITCH's shifter: its heads' place (2^32 the window), its write place */
+    int32_t ppg, pinc;                          /* its share of the output, Q14 (in over ~50 ms while frozen and PITCH
+                                                   is not 0, out the same way); its heads' step a sample */
+    int8_t pst;                                 /* PITCH as the tick has it (the main loop's sp_pitch) */
     int32_t hx[32];                             /* the half-band's way in (the last frames) */
     uint8_t hxw, frz, tick, room;               /* its write place; FREEZE as it plays; ticks (low byte); the room in
                                                    the plate's place (one core) */
@@ -579,8 +650,15 @@ typedef struct {                                /* SPACE's state */
     int32_t zl[SD_PL_ZN], zr[SD_PL_ZN];
     /* the room (one core): its write places, the tone lowpasses, the lines' lengths moving to their targets, the
        gain, the tone, the gathered input and the taps before and now */
-    uint32_t fw, apw[4];
+    uint32_t fwk[4], apw[4];
     int32_t flp[4], flen[4], ftgt[4], rg, rtone, racc, a0[2], a1[2];
+    int32_t rlc[2], plc[4];                     /* the reverb's low cut (sd_hp2, 200 Hz): the room's (its input), the
+                                                   plate's (its output, left and right: the second core's job's) */
+    /* the room beside the plate while FROZEN (two cores, e->frm its memory): what is played over the held tail
+       goes into the room, faded in and out over ~5 ms; let go, its tail dies away, and the room stops once quiet */
+    uint8_t fr_on;
+    int32_t fr_ig, fr_pk;
+    uint32_t fr_q;
     /* the looper (TIME's): it records what SPACE plays before the reverb (the dry and the echoes at D-LEVEL), each
        side at half rate (core 0 queues the frames, the job brings them down; on one core core 0 does, and the queue's
        count is the looper's ring's). The plate's out goes to zl and zr as before (core 0 puts R-LEVEL on it as it
@@ -590,13 +668,11 @@ typedef struct {                                /* SPACE's state */
     int16_t yl[SD_PL_ZN], yr[SD_PL_ZN];          /* the looper's out (x 1/2, at its level), a block late as the
                                                    plate's in zl and zr (on one core its own ring, a few samples late) */
     uint32_t lhear;                             /* core 0: frames it still reads them (while it loops, and its fade) */
-    int32_t hxr[32];
     int32_t hxm[32];                            /* the plate's way in, as before the looper: the dry and the echoes
                                                    whole (D-LEVEL is the echoes' level out, not into the reverb).
-                                                   hx, hxr and hxm: the half-bands' (the job's; core 0's on one core) */
+                                                   hx and hxm: the half-bands' (the job's; core 0's on one core) */
     int32_t llen, llvl;                         /* core 0's: LENGTH as set (half-rate samples x 256), the level */
-    uint8_t loop, lfold, lrev, lti;             /* LOOP, the halvings, REVERSE as set; (one core) the sample into
-                                                   the tick */
+    uint8_t loop, lrev, lti;                    /* LOOP, REVERSE as set; (one core) the sample into the tick */
     uint8_t qti;                                /* the samples of this tick queued so far */
     uint32_t lw, lbase;                         /* the job's (core 0's on one core): where it records, LOOP's end */
     SdLpTick lt;                                /* core 0's plan of this tick, for its chunks */
@@ -700,6 +776,10 @@ typedef struct {
     uint8_t orb_step, orb_loops;
     volatile uint8_t orb_shown;                 /* the step playing (the screen) */
     volatile uint8_t orb_live;                  /* on and in: switched on while the master played, at its one */
+    volatile uint8_t orb_hold;                  /* the main loop's: step + 1 heard instead of the one it is on (the
+                                                   player editing it: the step picked plays, its own place counted on,
+                                                   so it goes on in time when let go); 0 none */
+    uint8_t orb_hold_was;
     uint32_t orb_t, orb_loop_t, orb_loop_sb;
     /* RADAR: the register (bit 0 the newest), its clock, its output and where it glides (Q15) */
     volatile uint16_t tur_reg;
@@ -720,9 +800,15 @@ typedef struct {
     uint8_t course_seg, course_run;
     uint32_t course_ph, course_step;                  /* Q20 through the current segment */
     volatile uint16_t nav_x, nav_y;
-    uint32_t w_x, w_y, w_mode;                  /* the X / Y / mode the weights below were computed for */
+    uint32_t w_x, w_y, w_mode, w_src;           /* the X / Y / mode / banks' sources the weights below were for */
     uint8_t w_ok;
     int32_t w[SD_BANKS];
+    int32_t wn[SD_BANKS];                       /* MONO's mix at X / Y (Q15): what DUO's and POLY's voices take
+                                                   their banks from, at a note (sd_voice_banks) */
+    int32_t sc_lp[2], sc_bp[2];                 /* the 30 Hz cut on the banks' sum (sd_subcut): its states, x 2^10 */
+    int32_t odx[2], ody[2];                     /* the output's DC blocker (~7 Hz): its input before, its output x 256 */
+    int32_t vg;                                 /* the voices' level by how many sound (equal power: 1, 1/sqrt 2 ..
+                                                   1/2; Q15, 32768 one): a note as loud in every mode */
 
     /* the sequencer (sd_seq.h): two tracks on the one sound (a melody and a bass line at once). A always; B with
        seqb. One tempo, one transport (seq_run) */
@@ -750,7 +836,11 @@ typedef struct {
     uint32_t tempo_q8;                          /* a 16th as heard (SPACE's synced time): seq_len_q8, or the clock's */
     uint8_t seq_started;                        /* A started this sub-block: the synced LFOs and MOVE from the one */
     volatile uint8_t sp_freeze;                 /* SPACE's FREEZE (the main loop's, ALGORITHM on SPACE): the plate's
-                                                   input closed, its tail held */
+                                                   input closed, its tail held; what is played over it into the room
+                                                   (frm) */
+    SdRoomMem *frm;                             /* the room's memory beside the plate (the app's; NULL: none) */
+    volatile int8_t sp_pitch;                   /* SPACE's PITCH (the main loop's, GLO + K2 there): the frozen tail
+                                                   up or down, -12 .. 12 semitones; 0, the plate as ever */
     volatile uint8_t sp_room;                   /* the app's: the room in the plate's place, and the delay on this
                                                    core in the tape's (one core: the second cannot run, or gave up) */
     /* the looper (TIME's page, the player's, not the patch's): LOOP (it stops recording and its last LENGTH goes
@@ -777,6 +867,16 @@ typedef struct {
        once. The job is sd_plate_job */
     int (*pl_post)(void *e, uint32_t b);
     int (*pl_join)(void *e);
+    /* the second core's half of a sub-block, beside the first core's (sd_c1_share): banks 3 and 4, REACTOR's
+       resonators 3 and 4, DISTROY's right channel. c1_post hands job SD_C1_* over (arg: m | pos << 8 | job << 16)
+       and returns 1, or 0 (the core busy with the plate, or none): then the first core does it; c1_join waits for
+       it: 0 done, else the first core does it. Integer sums: the same sound, whichever core. NULL (a computer):
+       all here, the same code */
+    int (*c1_post)(void *e, uint32_t arg);
+    int (*c1_join)(void *e);
+    int32_t c1buf[2u * SD_SUB];                 /* the share's output (its own place: the core may read a pointer wrong) */
+    int32_t c1pk[5];                            /* DISTROY's right: its bands' peaks, its sum's */
+    int32_t c1d[4], c1ds[4];                    /* REACTOR's delays where these frames start, their steps */
     /* the master: the track whose one leads, A (0) or B (1). The other track and ORBIT switched on while
        it plays come in at its one, from their step 1 (at once while it plays no steps; stopped, START starts them
        all); ORBIT counts its loops and the Reactor its steps. SEQ A's key (IN KEY) and RADAR's NOTES stay A's */
@@ -795,7 +895,7 @@ typedef struct {
     /* the hand's keys held now, the latest last (in MONO, a second key let go goes back to the first, still held):
        sd_hand_key keeps it, sd_hand_off gives a voice back to it */
     uint8_t hand_note[SD_HELD], hand_vel[SD_HELD], hand_n;
-    uint8_t arp_i, arp_dir, arp_playing, arp_cur;   /* the place in the run; UPDN's way; a note sounds; which */
+    uint8_t arp_i, arp_playing, arp_cur;        /* the place in the run; a note sounds; which */
     uint32_t arp_pos_q8, arp_step_q8;           /* samples x 256 into the step; its length */
     /* the grid (ARP's steps on SEQ's beat, not from the moment the keys went down): clock time since the master's
        START, within
@@ -834,7 +934,7 @@ typedef struct {
 
 /* The loop: semitones over the root, -1 a rest. A test line, not a pattern to keep. */
 
-static void sd_seq_retime(SdEngine *e)          /* the step's length from the tempo, in samples x 256 (32-bit only) */
+SD_HOT static void sd_seq_retime(SdEngine *e)          /* the step's length from the tempo, in samples x 256 (32-bit only) */
 {
     uint32_t bpm = e->bpm < 40u ? 40u : e->bpm > 240u ? 240u : e->bpm;
     uint32_t len = (SD_FS * 60u * 256u) / (bpm * 4u);           /* 677,376,000 / (bpm*4): fits in 32 bits */
@@ -872,7 +972,7 @@ static void sd_clk_beat(SdEngine *e, uint32_t b)
  * last pulse's place plus the time since it at their tempo, never as far as the next pulse; behind, it catches up a
  * pulse at once and the rest at twice the tempo (a stall's burst plays no steps at once). 0.5 s without a pulse: the
  * FM-1's own tempo again. */
-static void sd_clk_tick(SdEngine *e)
+SD_HOT static void sd_clk_tick(SdEngine *e)
 {
     uint32_t n = e->clk_in - e->clk_seen, L = e->seq_len_q8, pc = L / 6u, iv, s, d, nom;
     e->clk_seen += n;
@@ -973,7 +1073,7 @@ static void sd_engine_patch(SdEngine *e, const SdPatch *p)
     e->patch_seq++;
 }
 
-static void sd_map_banks(SdEngine *e)           /* which voice plays which bank, which bank patch it plays */
+SD_HOT static void sd_map_banks(SdEngine *e)           /* which voice plays which bank, which bank patch it plays */
 {
     uint32_t b;
     e->nvoices = e->mode_on == SD_MODE_POLY ? 4u : e->mode_on == SD_MODE_DUO ? 2u : 1u;
@@ -984,7 +1084,7 @@ static void sd_map_banks(SdEngine *e)           /* which voice plays which bank,
 }
 
 /* RADAR's DAC: the register's 8 newest bits, the newest the top one (the last coin weighs most), as -1 .. +1 */
-static int32_t sd_tur_dac(uint32_t reg)
+SD_HOT static int32_t sd_tur_dac(uint32_t reg)
 {
     uint32_t v = 0, k;
     for (k = 0; k < 8u; k++) v |= ((reg >> k) & 1u) << (7u - k);
@@ -1025,8 +1125,8 @@ static void sd_engine_init(SdEngine *e)
     sd_seq_retime(e);
 }
 
-static int sd_voice_silent(const SdVoice *v) { return v->env1.stage == SD_ENV_OFF && !v->amp && !v->amp_next; }
-static int sd_engine_silent(const SdEngine *e)
+SD_HOT static int sd_voice_silent(const SdVoice *v) { return v->env1.stage == SD_ENV_OFF && !v->amp && !v->amp_next; }
+SD_HOT static int sd_engine_silent(const SdEngine *e)
 {
     uint32_t i;
     for (i = 0; i < SD_VOICES; i++)
@@ -1035,7 +1135,7 @@ static int sd_engine_silent(const SdEngine *e)
 }
 
 /* main loop: a note on (vel 1..127) or off (vel 0). Dropped when the queue is full. */
-static void sd_engine_note(SdEngine *e, uint32_t note, uint32_t vel)
+SD_HOT static void sd_engine_note(SdEngine *e, uint32_t note, uint32_t vel)
 {
     uint32_t w = e->q_w;
     if (w - e->q_r >= SD_QLEN || note > 127u) return;
@@ -1049,7 +1149,7 @@ static void sd_engine_note(SdEngine *e, uint32_t note, uint32_t vel)
    tracks), else from where it is */
 #define SD_COURSE_ON 1u
 #define SD_COURSE_LOOP 2u
-static void sd_course_start(SdEngine *e)           /* COURSE from its first cell */
+SD_HOT static void sd_course_start(SdEngine *e)           /* COURSE from its first cell */
 {
     uint32_t ms = e->patch.cell_ms[0] ? e->patch.cell_ms[0] : 1u;
     e->course_seg = 0;
@@ -1058,7 +1158,8 @@ static void sd_course_start(SdEngine *e)           /* COURSE from its first cell
     e->course_run = 1;
 }
 
-static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t src)   /* 1: it sounds */
+static void sd_voice_banks(SdEngine *e, uint32_t vi);
+SD_HOT static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t src)   /* 1: it sounds */
 {
     uint32_t i, pick = 0xFFu, held = 0, best = 0xFFFFFFFFu, rank, q = e->quota[src % SD_SRCS];
     SdVoice *v;
@@ -1078,6 +1179,7 @@ static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t s
     }
     if (pick == 0xFFu) return 0;                /* no voice for it: silent */
     v = &e->voice[pick];
+    if (e->mode_on != SD_MODE_MONO && sd_voice_silent(v)) sd_voice_banks(e, pick);   /* (DUO, POLY: MONO's mix now) */
     v->note = (uint8_t)note;
     v->vel = (uint8_t)vel;
     v->src = (uint8_t)src;
@@ -1095,11 +1197,11 @@ static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uint32_t s
     v->env1.stage = SD_ENV_ATTACK;              /* from where the level is: a retrigger never clicks */
     v->env2.stage = SD_ENV_ATTACK;
     v->env3.stage = SD_ENV_ATTACK;
-    if (e->mode_on == SD_MODE_MONO && e->patch.course == SD_COURSE_ON) sd_course_start(e);   /* (LOOP: not from a
+    if (e->patch.course == SD_COURSE_ON) sd_course_start(e);   /* (LOOP: not from a
                                                    note) */
     return 1;
 }
-static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's notes only */
+SD_HOT static void sd_voice_off(SdEngine *e, uint32_t note, uint32_t src)   /* src's notes only */
 {
     uint32_t i;
     for (i = 0; i < e->nvoices; i++)
@@ -1162,7 +1264,7 @@ static void sd_hand_off(SdEngine *e, uint32_t note)
 /* The plan: each source's quota from the mode's voices. A playing track holds its widest step (its chords), A first;
  * ARP one; the hand the rest. Stopped, the tracks hold none. B never in MONO. The main loop keeps what is switched on
  * inside it (nothing tries to play more than is possible), so a quota cut here is only a chord's top notes. */
-static void sd_plan(SdEngine *e)
+SD_HOT SD_NOINLINE static void sd_plan(SdEngine *e)
 {
     uint32_t n = e->nvoices, a, b, r, run = e->seq_run;
     a = run && !e->t[0].mute ? e->t[0].width : 0u;
@@ -1203,14 +1305,14 @@ static void sd_reactor_clock(SdEngine *e)         /* a step of the note driver: 
 }
 
 /* 1 / D for D in Q24 (1 .. ~60), in Q30: a 32-bit division to 15 bits, one Newton step to ~28 */
-static int32_t sd_recip30(int32_t d)
+SD_HOT static int32_t sd_recip30(int32_t d)
 {
     int32_t x = (int32_t)(0x80000000u / ((uint32_t)d >> 8)) << 15;   /* 2^15 / D, in Q30 */
     int32_t e = (int32_t)(((int64_t)d * x) >> 24);                   /* D x, Q30 */
     return (int32_t)(((int64_t)x * ((int64_t)(1 << 30) * 2 - e)) >> 30);
 }
 
-static void sd_reactor_params(SdEngine *e)        /* once a sub-block: position, slew, coefficients, gains */
+SD_HOT SD_NOINLINE static void sd_reactor_params(SdEngine *e)        /* once a sub-block: position, slew, coefficients, gains */
 {
     const SdPatch *p = &e->patch;
     SdReactor *r = &e->r;
@@ -1294,7 +1396,7 @@ static void sd_reactor_params(SdEngine *e)        /* once a sub-block: position,
 }
 
 /* ---- DISTROY: control */
-static void sd_knee_params(int32_t t, int32_t l, int32_t *T, int32_t *S, int32_t *inv)   /* a knee at t, a ceiling at l */
+SD_HOT static void sd_knee_params(int32_t t, int32_t l, int32_t *T, int32_t *S, int32_t *inv)   /* a knee at t, a ceiling at l */
 {
     *T = t;
     *S = l - t;
@@ -1345,7 +1447,7 @@ static int32_t sd_dyn(SdDistroy *d, const SdPatch *p, uint32_t k)
     return d->dyn[k] = g;
 }
 
-static void sd_distroy_params(SdEngine *e)      /* once a sub-block */
+SD_HOT SD_NOINLINE static void sd_distroy_params(SdEngine *e)      /* once a sub-block */
 {
     const SdPatch *p = &e->patch;
     SdDistroy *d = &e->d;
@@ -1450,7 +1552,7 @@ static uint32_t sd_sp_half(uint32_t d)          /* the division half as long as 
  * (held at the line's end instead, 1/2 below 120 BPM, 1/4D below 90 and 1/2T below 80 fell off the beat). A halving
  * is three places down the list (1/2 -> 1/4,
  * 1/4D -> 1/8D, 1/2T -> 1/4T); at 40 BPM 1/2 takes two. *fold: how many (the screen says so) */
-static uint32_t sd_space_sync_q8(uint32_t t, uint32_t d, uint32_t *fold, uint32_t lim)   /* lim: the line's
+SD_HOT static uint32_t sd_space_sync_q8(uint32_t t, uint32_t d, uint32_t *fold, uint32_t lim)   /* lim: the line's
                                                    (SD_SP_LIM), samples x 256 */
 {
     uint32_t q, f = 0;
@@ -1462,7 +1564,7 @@ static uint32_t sd_space_sync_q8(uint32_t t, uint32_t d, uint32_t *fold, uint32_
 }
 /* The reverb runs at half rate (22.05 kHz: it costs half, and its tail is darker under 11 kHz), so its lengths are
  * in half-rate samples: 66 .. 92 ms lines, 2.4 .. 8.7 ms diffusers */
-static uint32_t sd_semis_mul(int32_t semis)    /* 2^(semis / 12), semis x 256 (+-60 semitones): Q16 */
+SD_HOT static uint32_t sd_semis_mul(int32_t semis)    /* 2^(semis / 12), semis x 256 (+-60 semitones): Q16 */
 {
     int32_t n = semis >> 8, c = ((semis & 255) * 100) >> 8, o = n >= 0 ? n / 12 : -((11 - n) / 12);
     uint32_t r = (uint32_t)(((uint64_t)SD_SEMI[n - o * 12] * SD_CENTS[99 + c]) >> 16);   /* Q16, 1 .. 2.1 */
@@ -1478,6 +1580,8 @@ static const uint16_t SD_PL_PN[SD_PL_LINES] = {187, 142, 495, 362, 923, 1229, 57
                       SD_PL_PO[SD_PL_LINES] = {0, 187, 329, 824, 1186, 2109, 3338, 9115, 14586, 16924, 20372, 25199, 29303};
 static const uint16_t SD_SP_FMAX[4] = {1451, 1667, 1861, 2027};   /* the room's lines' longest, primes */
 static const uint16_t SD_SP_APL[4] = {71, 53, 191, 139};          /* its diffusers, primes */
+static const uint16_t SD_SP_FO[4] = {0, 1452, 3120, 4982}, SD_SP_AO[4] = {0, 71, 124, 315};   /* their places in
+                                                   SdRoomMem (a line's ring: its longest + 1; a diffuser's: its length) */
 #define SD_PL_BRANCH_US 362721                  /* a branch's way at x 1 (7998 samples), us: the decay's span */
 static int32_t sd_pl_sin(uint32_t ph)           /* a sine from a parabola, 4 u (1 - |u|): -32767 .. 32767 */
 {
@@ -1603,7 +1707,7 @@ static int32_t sd_lp_snap(const SdEngine *e, uint32_t llen)
     return pick;
 }
 
-static void sd_lp_plan(SdEngine *e, SdSpace *s)
+SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
 {
     int32_t sp = e->lp_speed + e->lp_mtq, to, adv, bend = 0, A, gi;   /* (RADAR's semitones on the speed set) */
     uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow;
@@ -1742,8 +1846,8 @@ static void sd_lp_plan(SdEngine *e, SdSpace *s)
     }
 }
 
-static void sd_plate_join(SdEngine *e);
-static void sd_space_params(SdEngine *e)
+SD_RAM(plate) static void sd_plate_join(SdEngine *e);
+SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
 {
     const SdPatch *p = &e->patch;
     SdSpace *s = &e->sp;
@@ -1802,7 +1906,7 @@ static void sd_space_params(SdEngine *e)
         else for (lq = sd_sp_ms(e->lp_len) * 11290u; lq > lm; lq >>= 1) f++;
         if (lq > lm) lq = lm;
         s->llen = (int32_t)(lq / 2u);           /* (half-rate samples x 256) */
-        s->lfold = (uint8_t)f;
+        (void)f;                                /* (the halvings: sd_space_sync_q8's count, not kept) */
         s->llvl = s->larm ? e->lp_lvl >> 1 : 0;   /* (armed: recording, or playing) */
         s->loop = e->lp_on && s->llvl != 0;
         s->lrev = e->lp_rev != 0;
@@ -1815,14 +1919,33 @@ static void sd_space_params(SdEngine *e)
     if (e->sp_room && !s->room) {               /* one core from now: the room, its memory cleared (the plate's was
                                                    there), its lines at their lengths */
         uint32_t i;
-        sd_plate_join(e);                       /* (a block still handed over: back first, or dropped) */
+        SD_FAR(sd_plate_join)(e);               /* (a block still handed over: back first, or dropped) */
         if (e->sm) for (i = 0; i < sizeof e->sm->u.rm / 2u; i++) ((int16_t *)&e->sm->u.rm)[i] = 0;
-        s->fw = 0;
-        for (k = 0; k < 4u; k++) { s->apw[k] = 0; s->flp[k] = 0; s->flen[k] = 0; }
+        for (k = 0; k < 4u; k++) { s->fwk[k] = 0; s->apw[k] = 0; s->flp[k] = 0; s->flen[k] = 0; }
         s->racc = s->a0[0] = s->a0[1] = s->a1[0] = s->a1[1] = 0;
+        s->rlc[0] = s->rlc[1] = 0;
         s->room = 1;
+        s->fr_on = 0;
     }
-    if (s->room) {                              /* the room (§5.5, before the plate): SIZE its lines 0.25 .. 1 of
+    if (!s->room && e->frm) {                   /* the room beside the plate: on as FREEZE comes (cleared), off once
+                                                   it has been let go and the room has stayed under 4 LSB for 100
+                                                   sub-blocks (73 ms) with its input closed */
+        if (e->sp_freeze && !s->fr_on) {
+            uint32_t i;
+            for (i = 0; i < sizeof *e->frm / 2u; i++) ((int16_t *)e->frm)[i] = 0;
+            for (k = 0; k < 4u; k++) { s->fwk[k] = 0; s->apw[k] = 0; s->flp[k] = 0; s->flen[k] = 0; }
+            s->racc = s->a0[0] = s->a0[1] = s->a1[0] = s->a1[1] = 0;
+            s->rlc[0] = s->rlc[1] = 0;
+            s->fr_on = 1;
+            s->fr_ig = 0;
+        }
+        if (s->fr_on) {
+            s->fr_q = e->sp_freeze || s->fr_ig || s->fr_pk >= 4 ? 0u : s->fr_q + 1u;
+            if (s->fr_q >= 100u) s->fr_on = 0;
+        }
+        s->fr_pk = 0;
+    }
+    if (s->room || s->fr_on) {                              /* the room (§5.5, before the plate): SIZE its lines 0.25 .. 1 of
                                                    their longest, DECAY their gain, TONE a lowpass in each */
         int32_t sz = 8192 + (int32_t)((p->s_size * 24575u) >> 16);   /* 0.25 .. 1, Q15 */
         s->rtone = 2621 + (int32_t)((p->s_rtone * 30146u) >> 16);
@@ -1833,8 +1956,7 @@ static void sd_space_params(SdEngine *e)
             if (!s->on || !s->flen[k]) s->flen[k] = s->ftgt[k];
             else s->flen[k] += s->flen[k] < s->ftgt[k] ? 1 : s->flen[k] > s->ftgt[k] ? -1 : 0;
         }
-        s->on = 1;
-        return;
+        if (s->room) { s->on = 1; return; }
     }
     /* SIZE: 0.35 .. 1.75 x, gliding there (a 256th of x 1 a tick at most: the whole way in a quarter second) */
     s->stgt = SD_PL_SMIN + (int32_t)(((uint32_t)p->s_size * (uint32_t)(SD_PL_SMAX - SD_PL_SMIN)) >> 16);
@@ -1868,6 +1990,7 @@ static void sd_space_params(SdEngine *e)
         s->g = (int32_t)(v > 16383u ? 16383u : v);
     }
     s->frz = e->sp_freeze;
+    s->pst = e->sp_pitch;
     if (s->frz) { s->g = 16384; s->c = 16384; s->sg = 0; }   /* FREEZE: the tail as it is, for ever (x 1 exactly:
                                                    nothing rounded off) */
     s->d2 = s->g + 2458;                        /* the second allpasses: DECAY + 0.15, 0.25 .. 0.5 */
@@ -1893,7 +2016,7 @@ static void sd_space_params(SdEngine *e)
 
 /* The traversal: a pass is one play of a segment in its order; the next pass is built when this one starts, so
  * the step after this one is always known (a TIE ahead keeps the note on past its gate). */
-static uint32_t sd_seq_build(SdSeqT *t, uint32_t seg, uint8_t *ord)   /* a pass of segment seg -> its length */
+SD_HOT static uint32_t sd_seq_build(SdSeqT *t, uint32_t seg, uint8_t *ord)   /* a pass of segment seg -> its length */
 {
     const SdPattern *p = &t->pat;
     uint8_t b[SD_SEGS + 1u];
@@ -1916,7 +2039,7 @@ static uint32_t sd_seq_build(SdSeqT *t, uint32_t seg, uint8_t *ord)   /* a pass 
     return n;
 }
 
-static void sd_seq_next_pass(SdSeqT *t)       /* after (sq_seg, sq_rep): the next pass with steps, built */
+SD_HOT static void sd_seq_next_pass(SdSeqT *t)       /* after (sq_seg, sq_rep): the next pass with steps, built */
 {
     uint8_t b[SD_SEGS + 1u];
     uint32_t sc = sd_seg_bounds(&t->pat, b), seg = t->sq_seg, rep = t->sq_rep, tries, n = 0, nb = t->sq_cur ^ 1u;
@@ -1932,7 +2055,7 @@ static void sd_seq_next_pass(SdSeqT *t)       /* after (sq_seg, sq_rep): the nex
     t->sq_n[nb] = (uint8_t)n;                   /* 0: every step skipped */
 }
 
-static void sd_seq_start(SdSeqT *t)           /* START: the first pass with steps, from segment A */
+SD_HOT static void sd_seq_start(SdSeqT *t)           /* START: the first pass with steps, from segment A */
 {
     t->sq_cur = 0;
     t->sq_seg = 0;
@@ -1963,7 +2086,7 @@ static uint32_t sd_seq_advance(SdSeqT *t)     /* to the next step of the travers
     return one;
 }
 
-static uint32_t sd_seq_peek(const SdSeqT *t)  /* the step after this one */
+SD_HOT static uint32_t sd_seq_peek(const SdSeqT *t)  /* the step after this one */
 {
     uint32_t c = t->sq_cur;
     if (t->sq_pos + 1u < t->sq_n[c]) return t->sq_ord[c][t->sq_pos + 1u];
@@ -1981,7 +2104,7 @@ static void sd_seq_steplen(SdEngine *e, SdSeqT *t)         /* this step's length
     t->seq_gate_q8 = (len >> 7) * (st->gate < 1u ? 1u : st->gate > 100u ? 100u : st->gate) / 100u << 7;
 }
 
-static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   /* SLIDE: the held note glides to note */
+SD_HOT static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   /* SLIDE: the held note glides to note */
 {
     uint32_t i;
     for (i = 0; i < e->nvoices; i++) {
@@ -1999,7 +2122,7 @@ static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   
     sd_voice_on(e, note, vel, t->src);          /* (nothing held: a new note) */
 }
 
-static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, off */
+SD_HOT static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, off */
 {
     uint32_t i;
     for (i = 0; i < t->seq_nn && i < 4u; i++) sd_voice_off(e, t->seq_note[i], t->src);
@@ -2011,28 +2134,28 @@ static void sd_seq_off(SdEngine *e, SdSeqT *t)  /* every note the track holds, o
  * the scale. The other track has none of its own there: its notes are pulled to the nearest of the key's (the lower
  * of two as near), and its transposes move in the key's degrees; CHROM (the player's own choice) frees it */
 static const SdPattern *sd_key_pat(const SdEngine *e) { return &e->t[e->lead & 1u].pat; }
-static uint32_t sd_key_snap(uint32_t key, uint32_t sc, uint32_t n)   /* n to the nearest note of the scale */
+SD_HOT static uint32_t sd_key_snap(uint32_t key, uint32_t sc, uint32_t n)   /* n to the nearest note of the scale */
 {
     int32_t d = sd_scale_degree(key, sc, n);
     uint32_t lo = sd_scale_note(key, sc, d), hi = sd_scale_note(key, sc, d + 1);
     return n - lo <= hi - n || hi < n ? lo : hi;
 }
-static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a note of a step, RADAR's NOTES
+SD_HOT static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a note of a step, RADAR's NOTES
                                                    on it, transposed */
 {
     int32_t v, x = t->xpose + t->orb_x;
-    if (t->tur_deg) {                           /* NOTES: degrees of the pattern's scale, from its key (step 1) */
-        uint32_t key = t->pat.step[0].note, sc = t->pat.scale;
+    if (t->tur_deg) {                           /* NOTES: degrees of the pattern's scale, from its key */
+        uint32_t key = sd_pat_key(&t->pat), sc = t->pat.scale;
         n = sd_scale_note(key, sc, sd_scale_degree(key, sc, n) + t->tur_deg);
     }
     if (e->xkey && t != &e->t[e->lead & 1u]) { /* the other track: in the master's key */
         const SdPattern *a = sd_key_pat(e);
-        n = sd_key_snap(a->step[0].note, a->scale, n);
+        n = sd_key_snap(sd_pat_key(a), a->scale, n);
     }
     if (x && e->xkey) {                         /* IN KEY: as many degrees of the key's scale as its root is from the
                                                    note the transpose names; a note off the scale keeps its step off it */
         const SdPattern *a = sd_key_pat(e);
-        uint32_t key = a->step[0].note, sc = a->scale;
+        uint32_t key = sd_pat_key(a), sc = a->scale;
         int32_t to = (int32_t)key + x, d = sd_scale_degree(key, sc, n);
         int32_t off = (int32_t)n - (int32_t)sd_scale_note(key, sc, d);
         to = to < 0 ? 0 : to > 127 ? 127 : to;
@@ -2047,14 +2170,14 @@ static uint32_t sd_seq_xn(const SdEngine *e, const SdSeqT *t, uint32_t n)   /* a
  * back by the track's transpose (GLO + a key, ORBIT's XPOSE), so sd_seq_xn plays n again. IN KEY: back by as many
  * degrees of A's scale (a note off the scale keeps its step off it, as there); CHROM: by the semitones. RADAR's NOTES
  * is a modulation, not taken back */
-static uint32_t sd_seq_rec_note(const SdEngine *e, const SdSeqT *t, uint32_t n)
+SD_HOT static uint32_t sd_seq_rec_note(const SdEngine *e, const SdSeqT *t, uint32_t n)
 {
     int32_t v, x = t->xpose + t->orb_x;
     if (!x) return n;
     if (e->xkey) {
         const SdPattern *a = sd_key_pat(e);
-        if (t != &e->t[e->lead & 1u]) n = sd_key_snap(a->step[0].note, a->scale, n);   /* (as it plays) */
-        uint32_t key = a->step[0].note, sc = a->scale;
+        if (t != &e->t[e->lead & 1u]) n = sd_key_snap(sd_pat_key(a), a->scale, n);   /* (as it plays) */
+        uint32_t key = sd_pat_key(a), sc = a->scale;
         int32_t to = (int32_t)key + x, d = sd_scale_degree(key, sc, n);
         int32_t off = (int32_t)n - (int32_t)sd_scale_note(key, sc, d);
         to = to < 0 ? 0 : to > 127 ? 127 : to;
@@ -2065,16 +2188,22 @@ static uint32_t sd_seq_rec_note(const SdEngine *e, const SdSeqT *t, uint32_t n)
     return (uint32_t)(v < 0 ? 0 : v > 127 ? 127 : v);
 }
 
+/* the step ORBIT is heard on: the one held (being edited), else its own */
+SD_HOT static uint32_t sd_orb_at(const SdEngine *e)
+{
+    uint32_t h = e->orb_hold;
+    return h && h <= SD_ORB_LEN(&e->orb) ? h - 1u : e->orb_step % SD_ORB_STEPS;
+}
 /* ORBIT's transposes on both tracks, from its step (0 when it is off) */
-static void sd_orb_xpose(SdEngine *e)
+SD_HOT static void sd_orb_xpose(SdEngine *e)
 {
     const SdOrbit *o = &e->orb;
-    uint32_t s = e->orb_step % SD_ORB_STEPS;
+    uint32_t s = sd_orb_at(e);
     e->t[0].orb_x = o->on && e->orb_live ? o->xa[s] : 0;
     e->t[1].orb_x = o->on && e->orb_live ? o->xb[s] : 0;
 }
 /* at the master's one: its loop measured (the glide's span), and after RATE loops the next step */
-static void sd_orb_one(SdEngine *e)
+SD_HOT static void sd_orb_one(SdEngine *e)
 {
     const SdOrbit *o = &e->orb;
     e->orb_loop_sb = e->orb_loop_t;
@@ -2089,7 +2218,7 @@ static void sd_orb_one(SdEngine *e)
         e->orb_t = 0;
     }
     if (e->orb_step >= SD_ORB_LEN(o)) e->orb_step = 0;   /* (LENGTH made shorter meanwhile) */
-    e->orb_shown = e->orb_step;
+    e->orb_shown = (uint8_t)sd_orb_at(e);
     sd_orb_xpose(e);
 }
 
@@ -2107,7 +2236,7 @@ static int32_t sd_tur_degrees(const SdEngine *e)
 /* RADAR's clock, once a sub-block before the tracks: a step every DIV of the tempo. The bit leaving the loop
  * (LENGTH bits) comes back in at the newest place, flipped CHANGE % of the time: CHANGE 0 a locked loop, 100 its
  * inverse every pass (a loop twice as long), between them it drifts. START lines it up with step 1. */
-static void sd_tur_tick(SdEngine *e, uint32_t start)
+SD_HOT static void sd_tur_tick(SdEngine *e, uint32_t start)
 {
     const SdPatch *p = &e->patch;
     uint32_t d = SD_TUR_DIV(p), len = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
@@ -2125,7 +2254,7 @@ static void sd_tur_tick(SdEngine *e, uint32_t start)
     e->tur_pos_q8 += e->clk_adv;
 }
 
-static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* the step's note and its chord */
+SD_HOT static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* the step's note and its chord */
 {
     uint32_t i, n = 1, root = sd_seq_xn(e, t, st->note);
     if (t->quiet) return;                       /* OFF (or B in MONO): it keeps time, silent */
@@ -2159,7 +2288,7 @@ static void sd_seq_restart(SdEngine *e, SdSeqT *t)   /* at the master's one: fro
     t->seq_pos_q8 = t->seq_step_q8 + e->a_rem;
 }
 
-static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k)   /* track k (0 A, 1 B), once a
+SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k)   /* track k (0 A, 1 B), once a
                                                    sub-block: start, stop, steps, gates */
 {
     uint32_t sq = t->pat_seq, lead = k == e->lead, back = 0;
@@ -2280,7 +2409,7 @@ static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k)   /* 
     t->seq_pos_q8 += e->clk_adv;
 }
 
-static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks, the master first */
+SD_HOT SD_NOINLINE static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks, the master first */
 {
     sd_clk_tick(e);                             /* first: the MIDI clock's pulses, this sub-block's clock time */
     e->seq_started = 0;                         /* (set by the master's START below; sd_mod_tick reads it after) */
@@ -2311,6 +2440,11 @@ static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks
         }
         if (!e->orb.on) e->orb_live = 0;        /* (off: at once; on: at A's one, sd_orb_one) */
         else if (!e->orb_live && !e->a_wait) { e->orb_live = 1; sd_orb_xpose(e); }
+        if (e->orb_hold != e->orb_hold_was) {   /* a step held, another, let go: heard from now */
+            e->orb_hold_was = e->orb_hold;
+            e->orb_shown = (uint8_t)sd_orb_at(e);
+            sd_orb_xpose(e);
+        }
         e->orb_t++;
         e->orb_loop_t++;
     }
@@ -2323,6 +2457,32 @@ static void sd_seq_tick(SdEngine *e)            /* once a sub-block: both tracks
 /* >> n toward zero: C's / 2^n without the divide (the compiler emits the chip's divide for a signed / 2: C1 took
  * them out of every per-sample path, as the rules say) */
 SD_INLINE int32_t sd_tz(int32_t t, uint32_t n) { return t < 0 ? -((-t) >> n) : t >> n; }   /* >> n toward zero */
+SD_INLINE int64_t sd_tz64(int64_t t, uint32_t n) { return t < 0 ? -((-t) >> n) : t >> n; }   /* (the same, 64 bits) */
+
+/* The banks' sum, before the FX: a 2-pole highpass at 30 Hz (Butterworth, -1 dB at 41 Hz, -8 at 20, -19 at 10; a
+ * state-variable filter of the plain kind: its steps f x the signal, so no dead zone at so low a corner; toward zero
+ * in the loop). DC and what is under hearing (the banks carried up to 12 % of full scale of DC) take no headroom
+ * from the FX and are not shaped by them (2026-11-16, the user: "round it off at 30 or 40 Hz") */
+#define SD_SUB_F 9178930                        /* 2 sin(pi 30 / 44100), Q31 */
+#define SD_SUB_Q 1518500250                     /* 1.414, Q30 */
+#define sd_subcut(x, lp, bp) sd_hp2(x, lp, bp, SD_SUB_F)
+SD_INLINE int32_t sd_hp2(int32_t x, int32_t *lp, int32_t *bp, int32_t f)   /* a 2-pole Butterworth highpass, f its
+                                                   2 sin(pi fc / fs) in Q31; x Q15, to 8 x full scale; the states x
+                                                   2^10 (also the reverb's low cut: SD_RLC_F) */
+{
+    int32_t hp = x * 1024 - *lp - (int32_t)(((int64_t)*bp * SD_SUB_Q) >> 30);   /* (2^18 x 2^10, and as much again
+                                                   twice: under 2^31) */
+    int64_t t = (int64_t)hp * f;
+    *bp += (int32_t)(t < 0 ? -((-t) >> 31) : t >> 31);
+    t = (int64_t)*bp * f;
+    *lp += (int32_t)(t < 0 ? -((-t) >> 31) : t >> 31);
+    return hp < 0 ? -((-hp) >> 10) : hp >> 10;
+}
+/* The reverb's low cut (2026-11-17, the user: "the reverb must have a low cut, rounding off from about 200 Hz"): the
+ * same highpass at 200 Hz (-3 dB; -12 at 100, -24 at 50) at the reverb's half rate: on the plate's output (in its job,
+ * on the second core; on its input it made a SIZE sweep's step stand out, the tank holding no lows to hide it) and on
+ * the room's input (one core, or beside the frozen plate). The tail has no mud, FREEZE's too; the dry is untouched */
+#define SD_RLC_F 122369268                      /* 2 sin(pi 200 / 22050), Q31 */
 static int32_t sd_iabs(int32_t x) { return x < 0 ? -x : x; }   /* (no libc in the firmware) */
 static int32_t sd_clamp16(int32_t x) { return x < 0 ? 0 : x > 65535 ? 65535 : x; }
 static int32_t sd_mod(int32_t base, int32_t env_q15, int32_t depth)   /* base + env * depth, 0..65535 */
@@ -2375,7 +2535,7 @@ fold:
 
 /* A bank's parameters for a sub-block, played by voice v from bank patch bp: its waveform, every oscillator's
  * frequency and level, the routing. */
-static void sd_bank_params(SdBank *bk, const SdPatch *p, const SdBankPatch *bp, const SdVoice *v, uint32_t track,
+SD_HOT SD_NOINLINE static void sd_bank_params(SdBank *bk, const SdPatch *p, const SdBankPatch *bp, const SdVoice *v, uint32_t track,
                            uint32_t pmul)
 {
     int32_t e2 = v->env2.lvl >> 15;             /* Q15 */
@@ -2414,16 +2574,13 @@ static void sd_bank_params(SdBank *bk, const SdPatch *p, const SdBankPatch *bp, 
     }
 }
 
-static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q15 */
+SD_HOT SD_NOINLINE static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q15 */
 {
-    uint32_t x, y, b, s = 0, r;
-    if (e->mode_on == SD_MODE_POLY) {
-        for (b = 0; b < SD_BANKS; b++) w[b] = SD_POLY_GAIN;
-        return;
-    }
-    if (e->mode_on == SD_MODE_MONO && e->patch.course == SD_COURSE_LOOP && (e->seq_started || !e->course_run))
+    uint32_t x, y, b, s = 0, r, src = 0;
+    int32_t raw[SD_BANKS];
+    if (e->patch.course == SD_COURSE_LOOP && (e->seq_started || !e->course_run))
         sd_course_start(e);                     /* LOOP: from the master's START, or the first time it runs */
-    if (e->course_run && e->patch.course && e->mode_on == SD_MODE_MONO) {   /* COURSE: between two cells */
+    if (e->course_run && e->patch.course) {     /* COURSE: between two cells (every mode since 2026-11-16) */
         const SdPatch *p = &e->patch;
         uint32_t a = e->course_seg & 3u, nx = (a + 1u) & 3u, f = e->course_ph >> 5;   /* Q15 */
         int loop = p->course == SD_COURSE_LOOP;
@@ -2460,7 +2617,9 @@ static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q1
     }
     e->nav_x = (uint16_t)x;
     e->nav_y = (uint16_t)y;
-    if (e->w_ok && x == e->w_x && y == e->w_y && e->mode_on == e->w_mode) {   /* unmoved: the last weights */
+    for (b = 0; b < SD_BANKS; b++) src |= (uint32_t)(e->bank[b].src & 3u) << (2u * b);
+    if (e->w_ok && x == e->w_x && y == e->w_y && e->mode_on == e->w_mode && src == e->w_src) {   /* unmoved: the
+                                                   last weights */
         for (b = 0; b < SD_BANKS; b++) w[b] = e->w[b];
         return;
     }
@@ -2468,26 +2627,69 @@ static void sd_nav(SdEngine *e, int32_t w[SD_BANKS])   /* each bank's weight, Q1
     e->w_x = x;
     e->w_y = y;
     e->w_mode = e->mode_on;
+    e->w_src = src;
     x >>= 1; y >>= 1;                           /* Q15 */
-    if (e->mode_on == SD_MODE_DUO) {            /* X only, inside each voice: A <-> B */
-        w[0] = w[2] = (int32_t)(32767u - x);
-        w[1] = w[3] = (int32_t)x;
-    } else {                                    /* A top left, B top right, C bottom right, D bottom left */
-        w[0] = (int32_t)((32767u - x) * y >> 15);
-        w[1] = (int32_t)(x * y >> 15);
-        w[2] = (int32_t)(x * (32767u - y) >> 15);
-        w[3] = (int32_t)((32767u - x) * (32767u - y) >> 15);
-    }
+    /* MONO's mix, the sound every mode follows: A top left, B top right, C bottom right, D bottom left */
+    w[0] = (int32_t)((32767u - x) * y >> 15);
+    w[1] = (int32_t)(x * y >> 15);
+    w[2] = (int32_t)(x * (32767u - y) >> 15);
+    w[3] = (int32_t)((32767u - x) * (32767u - y) >> 15);
+    for (b = 0; b < SD_BANKS; b++) raw[b] = w[b];
     /* normalised by (sum w^2)^(1/4): a corner is 1, the centre's four are 0.354 (between 0.25 and 0.5) */
     for (b = 0; b < SD_BANKS; b++) s += (uint32_t)(w[b] * w[b]) >> 2;   /* Q28 */
-    if (e->mode_on == SD_MODE_DUO) s >>= 1;     /* two pairs counted: one voice's */
     r = sd_isqrt(sd_isqrt(s) << 14);            /* (s)^(1/4) in Q14 */
     if (r)
         for (b = 0; b < SD_BANKS; b++) {
             int32_t g = (w[b] << 14) / (int32_t)r;
             w[b] = g > 32767 ? 32767 : g;
         }
+    for (b = 0; b < SD_BANKS; b++) e->wn[b] = w[b];
+    if (e->mode_on != SD_MODE_MONO) {           /* DUO, POLY: each voice its banks (sd_voice_banks), as loud as MONO's
+                                                   mix (its power: sum w^2, at most 1) */
+        uint32_t p = 0, sp, v;
+        for (b = 0; b < SD_BANKS; b++) p += (uint32_t)(e->wn[b] * e->wn[b]);   /* Q30 */
+        sp = sd_isqrt(p);                       /* Q15 */
+        if (e->mode_on == SD_MODE_POLY)         /* a bank a voice: the one X / Y was nearest at its note */
+            for (b = 0; b < SD_BANKS; b++) w[b] = (int32_t)(sp > 32767u ? 32767u : sp);
+        else
+            for (v = 0; v < 2u; v++) {          /* two banks a voice: the two X / Y weighed most at its note, in
+                                                   MONO's balance between them as X / Y moves, normalised as MONO's
+                                                   four are (on the top edge: DUO as it always was) */
+                uint32_t sa = e->bank[2u * v].src & 3u, sb = e->bank[2u * v + 1u].src & 3u;
+                uint32_t sum = (uint32_t)raw[sa] + (uint32_t)raw[sb], pa, pb, s2, r2;
+                pa = sa == sb || sum < 512u ? 16384u : (uint32_t)raw[sa] * 32767u / sum;   /* (far from both: half
+                                                   each) */
+                pb = 32767u - pa;
+                s2 = (pa * pa >> 2) + (pb * pb >> 2);   /* Q28 */
+                r2 = sd_isqrt(sd_isqrt(s2) << 14);
+                w[2u * v] = r2 ? (int32_t)((pa << 14) / r2) : (int32_t)pa;
+                w[2u * v + 1u] = r2 ? (int32_t)((pb << 14) / r2) : (int32_t)pb;
+                if (w[2u * v] > 32767) w[2u * v] = 32767;
+                if (w[2u * v + 1u] > 32767) w[2u * v + 1u] = 32767;
+            }
+    }
     for (b = 0; b < SD_BANKS; b++) e->w[b] = w[b];
+}
+
+/* DUO, POLY: a voice's banks at its note (silent before it: a sounding tail keeps its own), from MONO's mix at X /
+ * Y now (its motion too: COURSE, MOVE, the matrix): POLY the bank weighed most, DUO the two. A bank must weigh
+ * clearly more (5/4) to win over an earlier one: in the middle (all alike) POLY plays A and DUO A and B, as the
+ * patches were made for. So a mode plays what MONO plays, as near as a voice's banks allow */
+SD_HOT static uint32_t sd_bank_rank(const SdEngine *e, uint32_t skip)   /* the bank weighed most but skip, A first */
+{
+    uint32_t b, t = skip ? 0u : 1u;
+    for (b = t + 1u; b < SD_BANKS; b++)
+        if (b != skip && e->wn[b] * 4 > e->wn[t] * 5) t = b;   /* (32767 x 5: fits) */
+    return t;
+}
+SD_HOT static void sd_voice_banks(SdEngine *e, uint32_t vi)
+{
+    uint32_t t1 = sd_bank_rank(e, 0xFFu), t2 = sd_bank_rank(e, t1);
+    if (e->mode_on == SD_MODE_POLY && vi < SD_BANKS) e->bank[vi].src = (uint8_t)t1;
+    else if (e->mode_on == SD_MODE_DUO && vi < 2u) {
+        e->bank[2u * vi].src = (uint8_t)(t1 < t2 ? t1 : t2);   /* (in the bank order: A before B) */
+        e->bank[2u * vi + 1u].src = (uint8_t)(t1 < t2 ? t2 : t1);
+    }
 }
 
 /* ---- C1: the modulation, once a tick: two LFOs, the matrix, the four macros, onto e->patch (a copy of the base).
@@ -2506,7 +2708,7 @@ SD_INLINE int32_t sd_lfo_wave(uint32_t shape, uint32_t ph, int32_t sh)   /* Q15,
     }
 }
 
-static int32_t sd_lfo_tick(SdEngine *e, const SdPatch *p, uint32_t k)
+SD_HOT static int32_t sd_lfo_tick(SdEngine *e, const SdPatch *p, uint32_t k)
 {
     uint32_t inc, old = e->lfo_ph[k], wrap;
     if (p->lfo_mode[k] & SD_LM_SYNC) {          /* a division of the sixteenth, on the clock time: exact (it keeps to
@@ -2569,7 +2771,7 @@ static void sd_add7(uint8_t *f, int32_t a)     /* an envelope's 0..127, by a (Q1
 }
 SD_INLINE int32_t sd_mw(int32_t m, int32_t w) { return (m * w) >> 15; }   /* a macro (Q15) x its depth */
 
-static void sd_mod_restore(SdEngine *e)         /* every field the matrix and the macros write, from the base */
+SD_HOT static void sd_mod_restore(SdEngine *e)         /* every field the matrix and the macros write, from the base */
 {
     SdPatch *p = &e->patch;
     const SdPatch *b = &e->base;
@@ -2599,12 +2801,12 @@ static void sd_mod_restore(SdEngine *e)         /* every field the matrix and th
  * note of the key's scale (the master's: sd_key_pat) from its root (the
  * lower of two as near; CHROM: the nearest semitone) -> the semitones from n. Each voice from its own note, so all
  * of them stay in the key; the other sources to PITCH (a vibrato) on top, as they are */
-static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
+SD_HOT static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
 {
     const SdPattern *a = sd_key_pat(e);
     uint32_t m = SD_SCALE_MASK[a->scale < SD_SCALES ? a->scale : SD_SC_CHROM];
     int32_t x = (int32_t)n * 256 + t, c = (x + 128) >> 8, q = c - 6, best = c, bd = 0x7FFFFFFF;
-    int32_t r = (q - (int32_t)(a->step[0].note % 12u)) % 12;   /* (the place in the scale: once, then counted) */
+    int32_t r = (q - (int32_t)(sd_pat_key(a) % 12u)) % 12;   /* (the place in the scale: once, then counted) */
     if (r < 0) r += 12;
     for (; q <= c + 6; q++) {                   /* (a scale's widest gap is 4: 13 places find it) */
         int32_t d = q * 256 - x;
@@ -2615,7 +2817,7 @@ static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
     return best - (int32_t)n;
 }
 
-static void sd_mod_tick(SdEngine *e)
+SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
 {
     SdPatch *p = &e->patch;
     int32_t acc[SD_MDSTS], src[SD_MSRCS], m[4], semis = 0, tq = 0, lq = 0;
@@ -2689,8 +2891,10 @@ static void sd_mod_tick(SdEngine *e)
                                                    from this step's value to the next's through the step) */
         const SdOrbit *o = &e->orb;
         int32_t om[4] = {0, 0, 0, 0};
-        if (o->on && e->orb_live && e->t[e->lead].seq_on) {
-            uint32_t s = e->orb_step % SD_ORB_STEPS, nx = (e->orb_step + 1u) % SD_ORB_LEN(o);
+        if (o->on && e->orb_live && (e->t[e->lead].seq_on || e->orb_hold)) {   /* (held: stopped too, so the
+                                                   keys hear it) */
+            uint32_t s = sd_orb_at(e), nx = e->orb_hold ? s : (e->orb_step + 1u) % SD_ORB_LEN(o);   /* (held: no
+                                                   glide, the step's own values) */
             uint32_t span = e->orb_loop_sb * SD_ORB_LOOPS(o);
             uint32_t sh = span > 65535u ? 8u : 0u;   /* (a long step: both scaled, so the product fits) */
             int32_t f = !span || e->orb_t >= span ? 32767 :
@@ -2896,7 +3100,7 @@ static void sd_arp_key(SdEngine *e, uint32_t note, uint32_t vel)
         for (i = 0; i < e->arp_n; i++)
             if (e->arp_note[i] == note) return; /* (already in it) */
         if (!e->arp_n) {                        /* the first note: the run starts now, on its first step */
-            e->arp_i = 0; e->arp_dir = 0;
+            e->arp_i = 0;
             e->arp_pos_q8 = 0xFFFFFFFFu;
         }
         if (e->arp_n == 8u) {                   /* full: the oldest goes */
@@ -2920,7 +3124,7 @@ static void sd_arp_key(SdEngine *e, uint32_t note, uint32_t vel)
     }
 }
 
-static void sd_arp_hpush(SdEngine *e, uint32_t note, uint32_t vel)   /* a step into KEEP's ring */
+SD_HOT static void sd_arp_hpush(SdEngine *e, uint32_t note, uint32_t vel)   /* a step into KEEP's ring */
 {
     e->arp_hn[e->arp_hw] = (uint8_t)note;
     e->arp_hv[e->arp_hw] = (uint8_t)vel;
@@ -2928,7 +3132,7 @@ static void sd_arp_hpush(SdEngine *e, uint32_t note, uint32_t vel)   /* a step i
     if (e->arp_hc < SD_PSTEPS) e->arp_hc++;
 }
 
-static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
+SD_HOT SD_NOINLINE static void sd_arp_tick(SdEngine *e)            /* once a sub-block */
 {
     uint32_t n = e->arp_n, oct = e->arp_oct < 1u ? 1u : e->arp_oct > 4u ? 4u : e->arp_oct, len, k, i;
     uint32_t span = e->seq_len_q8 * 48u;        /* (<= 48 x 4.3 M at 40 BPM: fits) */
@@ -3057,7 +3261,7 @@ static uint32_t sd_arp_keep(const SdEngine *e, uint32_t n, uint8_t *notes, uint8
 /* The filter: each voice's cutoff (MIDI x 256) from CUTOFF, KEY, VEL and ENV3, then two TPT SVF stages' coefficients
  * as the Reactor's (SD_RG's warp; SD_FK's damping by RES). LP12: one stage, k 1.41 (flat) .. 0.1 (+23 dB) by RES.
  * LP24: a Butterworth pair, k 1.85 and 0.77 .. 0.054 (+25 dB). A silent voice's banks have their states cleared. */
-static void sd_filter_params(SdEngine *e)
+SD_HOT SD_NOINLINE static void sd_filter_params(SdEngine *e)
 {
     const SdPatch *p = &e->patch;
     uint32_t i, b, two = p->f_type == SD_FT_LP24, ri = p->f_res >> 9, rf = p->f_res & 511u;
@@ -3094,7 +3298,7 @@ static void sd_filter_params(SdEngine *e)
     }
 }
 
-static void sd_mod_snap(SdEngine *e)            /* the envelopes' times and the LFOs' rates, as the matrix left them */
+SD_HOT SD_NOINLINE static void sd_mod_snap(SdEngine *e)            /* the envelopes' times and the LFOs' rates, as the matrix left them */
 {
     const SdPatch *q = &e->patch;
     e->envp[0] = q->e1_a; e->envp[1] = q->e1_d; e->envp[2] = q->e1_s; e->envp[3] = q->e1_r;
@@ -3103,7 +3307,7 @@ static void sd_mod_snap(SdEngine *e)            /* the envelopes' times and the 
     e->lfor[0] = q->lfo_rate[0]; e->lfor[1] = q->lfo_rate[1];
 }
 
-static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its frames */
+SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its frames */
 {
     int32_t w[SD_BANKS], mid;
     uint32_t b, i, k;
@@ -3244,10 +3448,32 @@ static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its 
         }
         mid = sw ? sc * 32768 / sw : 0;         /* (|sc| <= 2^15: x 2^15 fits) */
     }
+    {   /* the voices' level by how many sound, each counted by how loud it is now against the loudest (equal power:
+           one as MONO's, four alike at a half each, as POLY always had; a tail fading under a new note hardly
+           counts, a chord ringing out counts as it was, so it does not swell). 2026-11-16, the user: a mode's
+           switch jumped in level. Down fast (a note joins without a peak), up over ~50 ms */
+        uint32_t i, mx = 0, n = 0, q;
+        int32_t t;
+        for (i = 0; i < e->nvoices && i < SD_VOICES; i++) {
+            int32_t a = e->voice[i].amp;
+            if ((uint32_t)(a < 0 ? 0 : a) > mx) mx = (uint32_t)a;
+        }
+        if (mx > 32u)
+            for (i = 0; i < e->nvoices && i < SD_VOICES; i++) {
+                int32_t a = e->voice[i].amp;
+                uint32_t r = a <= 0 ? 0u : ((uint32_t)a << 16) / mx;   /* Q16, 1 the loudest (32767 << 16: fits) */
+                n += (r * r) >> 16;             /* (65536^2 >> 16: as uint32, 2^32 would not: r < 65537) */
+            }
+        q = n > 65536u ? sd_isqrt(n) : 256u;    /* sqrt of how many, Q8 (256: one) */
+        t = (int32_t)(8388608u / q);            /* 1 / sqrt: Q15, 32768 one */
+        if (!e->vg) e->vg = 32768;
+        if (t < e->vg) { e->vg += (t - e->vg) / 4 - 1; if (e->vg < t) e->vg = t; }   /* (~3 ms) */
+        else if (t > e->vg) { e->vg += (t - e->vg) / 64 + 1; if (e->vg > t) e->vg = t; }   /* (~50 ms) */
+    }
     for (b = 0; b < SD_BANKS; b++) {
         SdBank *bk = &e->bank[b];
         const SdVoice *v = &e->voice[bk->voice];
-        int32_t g = (v->amp_next * w[b]) >> 15, pan, far;   /* 16256 * 32767: fits */
+        int32_t g = (((v->amp_next * w[b]) >> 15) * e->vg) >> 15, pan, far;   /* 16256 * 32767, then x 32768: fits */
         bk->gl = bk->gl_next;
         bk->gr = bk->gr_next;
         /* the balance: A and D lean left, B and C right, by WIDTH, from the mix's middle (a corner's bank alone plays
@@ -3313,7 +3539,7 @@ SD_INLINE void sd_osc_run(SdOsc *o, const SdShape *sh, const int32_t *in, int32_
 #define SD_RUN(SH, SQ, FD) sd_osc_run(o, sh, in, dst, m, lvl, lstep, fg, fstep, SH, SQ, FD)
 
 /* A bank, frames pos..pos+m of the sub-block, into its mix: oscillators 1 -> 4, left to right. */
-static void sd_bank_run(SdBank *bk, uint32_t pos, uint32_t m)
+SD_RAM(render) static void sd_bank_run(SdBank *bk, uint32_t pos, uint32_t m)
 {
     const SdShape *sh = &bk->sh;
     uint32_t k, variant = (uint32_t)sh->shape << 2 | (uint32_t)sh->sq << 1 | sh->fold;
@@ -3358,6 +3584,7 @@ SD_INLINE int32_t sd_sat19(int32_t v)            /* Q19: linear to 2 x full scal
 SD_INLINE int32_t sd_sat13(int32_t w)            /* KP's line, Q13: linear to 1.5 x full scale, a ceiling at 3 x */
 {
     int32_t a = w < 0 ? -w : w, e;
+    (void)SD_CK(8u, w, 12288, 30720);           /* (counted: into the shoulder, to its flat) */
     if (a <= 12288) return w;
     e = a - 12288;                              /* of a 1.5 FS shoulder: e / (1.5 x 1.5 FS) in Q23 = e x 455 */
     e = e > 18432 ? 18432 : e;
@@ -3415,7 +3642,7 @@ SD_INLINE void sd_reactor_loop(SdReactor *r, const int32_t *in, int32_t *out, ui
             }
         } else {
             int32_t x13 = x >> 2, s, wet;              /* the lines hold Q13: 4 x full scale */
-            x13 = x13 > 32767 ? 32767 : x13 < -32767 ? -32767 : x13;
+            x13 = SD_SOFT(1u, x13, 24576, 8191);   /* (Q13: rounded toward 4 x full scale) */
             if (MODEL == SD_RM_KP) {         /* four combs in parallel, each panned */
                 for (k = 0; k < 4u; k++) {
                     int32_t z = sd_dl_read(r->dl[k], wp, d[k]), avg = sd_tz(z + r->prev[k], 1), w, v, t;
@@ -3434,7 +3661,7 @@ SD_INLINE void sd_reactor_loop(SdReactor *r, const int32_t *in, int32_t *out, ui
                 if (MODEL == SD_RM_AP1) {    /* four Schroeder allpasses in series, g 0.6 */
                     for (k = 0; k < 4u; k++) {
                         int32_t z = sd_dl_read(r->dl[k], wp, d[k]), v = s + ((z * 19661) >> 15);
-                        v = v > 32767 ? 32767 : v < -32767 ? -32767 : v;
+                        v = SD_SOFT(2u, v, 24576, 8191);   /* (the line rounds toward its ceiling) */
                         r->dl[k][wp] = (int16_t)v;
                         s = z - ((v * 19661) >> 15);
                     }
@@ -3449,8 +3676,12 @@ SD_INLINE void sd_reactor_loop(SdReactor *r, const int32_t *in, int32_t *out, ui
                     }
                 }
                 wet = s * 4;                    /* Q15 */
-                wl = sd_rclip((int32_t)(((int64_t)(wet - ((x * r->dry) >> 15)) * r->aplvl) >> 14));
-                wr = sd_rclip((int32_t)(((int64_t)(wet + ((x * r->dry) >> 15)) * r->aplvl) >> 14));
+                {                               /* (the dry's product in 64 bits: with DRIVE up, x 31000 passed
+                                                   2^31 and wrapped, a click; test_headroom found it) */
+                    int32_t dr = (int32_t)(((int64_t)x * r->dry) >> 15);
+                    wl = sd_rclip((int32_t)(((int64_t)(wet - dr) * r->aplvl) >> 14));
+                    wr = sd_rclip((int32_t)(((int64_t)(wet + dr) * r->aplvl) >> 14));
+                }
             }
             wp = (wp + 1u) & (SD_DL - 1u);
             for (k = 0; k < 4u; k++) d[k] += ds[k];
@@ -3485,7 +3716,95 @@ SD_INLINE void sd_reactor_loop(SdReactor *r, const int32_t *in, int32_t *out, ui
 
 #define SD_RLOOP(M) (fill ? sd_reactor_loop(r, in, out, m, d, ds, M, 1) : sd_reactor_loop(r, in, out, m, d, ds, M, 0))
 
-static void sd_reactor_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+/* The parallel models (the band-passes, KP's combs) a pair of resonators at a time, k0 and k0 + 1: their wet, left
+ * and right, into w; the two pairs' sums are added in sd_reactor_join (integers: the same sound in any order). The
+ * pair 3 and 4 runs on the second core beside the first's 1 and 2 (sd_c1_share): what it reads from RAM to place a
+ * write is kept inside its line */
+SD_INLINE void sd_reactor_pair(SdReactor *r, const int32_t *in, int32_t *w, uint32_t m, const int32_t *d0,
+                               const int32_t *ds, const int MODEL, uint32_t k0)
+{
+    uint32_t i, k, k1 = k0 + 2u, wp = r->wp & (SD_DL - 1u);
+    int32_t drive = r->drive, d[4];
+    for (k = 0; k < 4u; k++) d[k] = d0[k];
+    for (i = 0; i < m; i++) {
+        int32_t x = (in[2u * i] + in[2u * i + 1u]) >> 1, wl = 0, wr = 0;   /* mono, x DRIVE, as sd_reactor_loop */
+        x = (int32_t)(((int64_t)x * drive) >> 14);
+        x = x > (1 << 18) ? 1 << 18 : x < -(1 << 18) ? -(1 << 18) : x;
+        if (MODEL <= SD_RM_VBP) {
+            int32_t x19 = x * 16;
+            for (k = k0; k < k1; k++) {
+                int32_t y = sd_svf(x19, &r->ic1[0][k], &r->ic2[0][k], r->a1[k], r->a2[k], r->a3[k]), v;
+                if (MODEL != SD_RM_BP6) y = (int32_t)(((int64_t)y * r->kn[k]) >> 24);
+                if (MODEL == SD_RM_BP12) y = sd_svf(y, &r->ic1[1][k], &r->ic2[1][k], r->a1[k], r->a2[k], r->a3[k]);
+                y = (int32_t)(((int64_t)(y >> 4) * r->lvl[k]) >> 14);
+                v = sd_rclip(y);
+                wl += (v * r->pl[k]) >> 15;
+                wr += (v * r->pr[k]) >> 15;
+            }
+        } else {                                /* KP */
+            int32_t x13 = x >> 2;
+            x13 = SD_SOFT(1u, x13, 24576, 8191);   /* (Q13: rounded toward 4 x full scale) */
+            for (k = k0; k < k1; k++) {
+                int32_t z = sd_dl_read(r->dl[k], wp, d[k]), avg = sd_tz(z + r->prev[k], 1), y, v, tt;
+                r->prev[k] = z;
+                tt = avg * r->fbk;
+                y = x13 + (tt < 0 ? -((-tt) >> 15) : tt >> 15);
+                y = sd_sat13(y);
+                r->dl[k][wp] = (int16_t)y;
+                v = sd_rclip((int32_t)(((int64_t)y * 4 * r->lvl[k]) >> 14));
+                wl += (v * r->pl[k]) >> 15;
+                wr += (v * r->pr[k]) >> 15;
+            }
+            wp = (wp + 1u) & (SD_DL - 1u);
+            for (k = 0; k < 4u; k++) d[k] += ds[k];
+        }
+        w[2u * i] = wl;
+        w[2u * i + 1u] = wr;
+    }
+}
+SD_RAM(render) static void sd_reactor_half(SdReactor *r, const int32_t *in, int32_t *w, uint32_t m, const int32_t *d0,
+                                           const int32_t *ds, uint32_t k0)
+{
+    switch (r->model) {
+    case SD_RM_BP6: sd_reactor_pair(r, in, w, m, d0, ds, SD_RM_BP6, k0); break;
+    case SD_RM_BP12: sd_reactor_pair(r, in, w, m, d0, ds, SD_RM_BP12, k0); break;
+    case SD_RM_VBP: sd_reactor_pair(r, in, w, m, d0, ds, SD_RM_VBP, k0); break;
+    default: sd_reactor_pair(r, in, w, m, d0, ds, SD_RM_KP, k0); break;
+    }
+}
+/* the two pairs' wet summed, its peak, and the mix out, as sd_reactor_loop's end */
+SD_INLINE void sd_reactor_join(SdReactor *r, const int32_t *in, int32_t *out, uint32_t m, const int32_t *w0,
+                               const int32_t *w1, const int FILL)
+{
+    uint32_t i;
+    int32_t peak = r->peak, dg = r->dg, wg = r->wg, wg2 = r->wg >> 2, lowc = r->lowc;
+    int32_t lz0 = r->lowz[0], lz1 = r->lowz[1];
+    for (i = 0; i < m; i++) {
+        int32_t wl = w0[2u * i] + w1[2u * i], wr = w0[2u * i + 1u] + w1[2u * i + 1u];
+        int32_t al = wl < 0 ? -wl : wl, ar = wr < 0 ? -wr : wr;
+        if (al > peak) peak = al;
+        if (ar > peak) peak = ar;
+        if (FILL) {
+            out[2u * i] += in[2u * i] + ((wl * wg2) >> 13);
+            out[2u * i + 1u] += in[2u * i + 1u] + ((wr * wg2) >> 13);
+        } else {
+            int32_t xl = in[2u * i], xr = in[2u * i + 1u], ll = 0, lr = 0;
+            if (lowc) {
+                lz0 += ((xl - lz0) * lowc) >> 15;
+                lz1 += ((xr - lz1) * lowc) >> 15;
+                ll = lz0;
+                lr = lz1;
+            }
+            out[2u * i] += (int32_t)(((int64_t)xl * dg + (int64_t)ll * (32768 - dg) + (int64_t)wl * wg) >> 15);
+            out[2u * i + 1u] += (int32_t)(((int64_t)xr * dg + (int64_t)lr * (32768 - dg) + (int64_t)wr * wg) >> 15);
+        }
+    }
+    r->peak = peak;
+    r->lowz[0] = lz0;
+    r->lowz[1] = lz1;
+}
+
+SD_RAM(render) static void sd_reactor_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
 {
     SdReactor *r = &e->r;
     uint32_t k;
@@ -3494,14 +3813,19 @@ static void sd_reactor_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_
         ds[k] = (r->dnext[k] - r->dq[k]) >> SD_SUB_SHIFT;
         d[k] = r->dq[k] + ds[k] * (int32_t)pos;
     }
-    switch (r->model) {
-    case SD_RM_BP6: SD_RLOOP(SD_RM_BP6); break;
-    case SD_RM_BP12: SD_RLOOP(SD_RM_BP12); break;
-    case SD_RM_VBP: SD_RLOOP(SD_RM_VBP); break;
-    case SD_RM_KP: SD_RLOOP(SD_RM_KP); break;
-    case SD_RM_AP1: SD_RLOOP(SD_RM_AP1); break;
-    default: SD_RLOOP(SD_RM_AP2); break;
+    if (r->model <= SD_RM_VBP || r->model == SD_RM_KP) {   /* the parallel ones: a pair here, a pair there */
+        int32_t w0[2u * SD_SUB];
+        int two;
+        for (k = 0; k < 4u; k++) { e->c1d[k] = d[k]; e->c1ds[k] = ds[k]; }
+        two = e->c1_post && e->c1_post(e, m | pos << 8 | SD_C1_REACTOR << 16);
+        sd_reactor_half(r, in, w0, m, d, ds, 0u);
+        if (!two || e->c1_join(e) != 0) sd_reactor_half(r, in, e->c1buf, m, d, ds, 2u);
+        if (fill) sd_reactor_join(r, in, out, m, w0, e->c1buf, 1); else sd_reactor_join(r, in, out, m, w0, e->c1buf, 0);
+        if (r->model == SD_RM_KP) r->wp = (r->wp + m) & (SD_DL - 1u);
+        return;
     }
+    if (r->model == SD_RM_AP1) SD_RLOOP(SD_RM_AP1);   /* the series ones whole */
+    else SD_RLOOP(SD_RM_AP2);
 }
 
 /* ---- DISTROY: audio */
@@ -3556,9 +3880,10 @@ SD_INLINE int32_t sd_knee(int32_t a, int32_t T, int32_t S, int32_t inv)   /* a m
     return T + (int32_t)(((int64_t)sd_cubic((int32_t)(((int64_t)e * inv) >> 8)) * S * 3) >> 24);   /* x 1.5 S / 2^23 */
 }
 
-/* One band through its shaper, both channels, m frames: the type picked once, not a sample (as the voice's kernel) */
+/* One band of one channel (c) through its shaper, m frames: the type picked once, not a sample (as the voice's
+ * kernel) */
 #define SD_DLOOP(...)                                                                                \
-    for (c = 0; c < 2u; c++) {                                                                       \
+    {                                                                                                \
         const int32_t *bin = d->bb[k][c];                                                            \
         int32_t *wo = d->w[c], gch = d->g2[c][k], gn = g0;                                          \
         for (i = 0; i < m; i++) {                                                                    \
@@ -3571,9 +3896,9 @@ SD_INLINE int32_t sd_knee(int32_t a, int32_t T, int32_t S, int32_t inv)   /* a m
         }                                                                                            \
     }
 
-static void sd_dband(SdDistroy *d, uint32_t k, uint32_t m, uint32_t pos)
+SD_RAM(render) static int32_t sd_dband(SdDistroy *d, uint32_t k, uint32_t m, uint32_t pos, uint32_t c)   /* its peak */
 {
-    uint32_t c, i;
+    uint32_t i;
     int32_t gs = d->gs[k], g0 = d->g0[k] + gs * (int32_t)pos, pk = d->pk[k];   /* the gain ramps through the sub-block */
     int32_t bias = d->bias[k];                  /* (|band| >> 6 <= 2^16) x (gain Q12 >> 4 <= 2^14): fits */
     int32_t T = d->t[k], S = d->s[k], inv = d->inv[k], Tn = d->tn[k], Sn = d->sn[k], invn = d->invn[k];
@@ -3594,7 +3919,7 @@ static void sd_dband(SdDistroy *d, uint32_t k, uint32_t m, uint32_t pos)
         SD_DLOOP((void)a; y = v > 4 * 32768 ? 4 * 32768 : v < -4 * 32768 ? -4 * 32768 : v);
         break;
     }
-    d->pk[k] = pk;
+    return pk;
 }
 
 /* The crossover, one channel, m frames, into the band buffers; LR4 and FB constants: each variant compiles without
@@ -3644,19 +3969,22 @@ SD_INLINE void sd_dx_loop(SdDistroy *d, const int32_t *in, uint32_t m, uint32_t 
     }
 }
 
-static void sd_distroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+/* One channel (c) of DISTROY: the crossover, the bands, their sum (the DC blocker, TAME, the limiter, the feedback's
+ * line, MIX) into out; its peaks into pk (the bands', the sum's: the two channels' are joined by the largest, as one
+ * loop over both found them). The right channel runs on the second core beside the left (sd_c1_share): every place
+ * it writes is the channel's own, or kept inside its line */
+SD_RAM(render) static void sd_distroy_ch(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos,
+                                         uint32_t c, int32_t *pk5)
 {
     SdDistroy *d = &e->d;
-    uint32_t i, c, k;
-    for (c = 0; c < 2u; c++) {
-        if (d->xover == SD_DX_LR4) {
-            if (d->fb) sd_dx_loop(d, in, m, c, 1, 1); else sd_dx_loop(d, in, m, c, 1, 0);
-        } else {
-            if (d->fb) sd_dx_loop(d, in, m, c, 0, 1); else sd_dx_loop(d, in, m, c, 0, 0);
-        }
+    uint32_t i, k;
+    if (d->xover == SD_DX_LR4) {
+        if (d->fb) sd_dx_loop(d, in, m, c, 1, 1); else sd_dx_loop(d, in, m, c, 1, 0);
+    } else {
+        if (d->fb) sd_dx_loop(d, in, m, c, 0, 1); else sd_dx_loop(d, in, m, c, 0, 0);
     }
-    for (k = 0; k < 4u; k++) sd_dband(d, k, m, pos);
-    for (c = 0; c < 2u; c++) {                  /* the DC blocker on the sum (linear: as on each band, 2 not 8),
+    for (k = 0; k < 4u; k++) pk5[k] = sd_dband(d, k, m, pos, c);
+    {                                           /* the DC blocker on the sum (linear: as on each band, 2 not 8),
                                                    TAME, the limiter, into the feedback's line, then MIX */
         int16_t *fl = d->fl[c];
         const int32_t *w = d->w[c];             /* the state in locals: out[] and the line could alias it, and
@@ -3675,8 +4003,8 @@ static void sd_distroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_
             pk = a > pk ? a : pk;
             if (lg < 32768) y = (int32_t)(((int64_t)y * lg) >> 15);   /* (a 32-bit version with its clamps
                                                    measured slower: the chip's 64-bit multiply is cheap) */
-            y = y > 65534 ? 65534 : y < -65534 ? -65534 : y;   /* the ceiling, 2 x full scale: the limiter is a
-                                                   tick late, a surge inside a call stops here */
+            y = SD_SOFT(3u, y, 49152, 16382);   /* the ceiling, toward 2 x full scale: the limiter is a tick late, a
+                                                   surge inside a call is rounded here */
             if (fb) fl[(fw + i) & (SD_DFLEN - 1u)] = (int16_t)sd_tz(y, 1);   /* Q14; toward zero */
             out[2u * i + c] += in[2u * i + c] + (int32_t)(((int64_t)(y - in[2u * i + c]) * mix) >> 15);
         }
@@ -3684,8 +4012,27 @@ static void sd_distroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_
         d->dy[c] = dy;
         d->tic1[c] = t1;
         d->tic2[c] = t2;
-        d->lpk = pk;
+        pk5[4] = pk;
     }
+}
+
+SD_RAM(render) static void sd_distroy_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+{
+    SdDistroy *d = &e->d;
+    int32_t pk[5];
+    uint32_t i, k;
+    int two = e->c1_post && e->c1_post(e, m | pos << 8 | SD_C1_DISTROY << 16);   /* the right there, the left here */
+    sd_distroy_ch(e, in, out, m, pos, 0u, pk);
+    if (two && e->c1_join(e) == 0) {            /* (out held nothing before: the right's own buffer added is the same) */
+        for (i = 0; i < m; i++) out[2u * i + 1u] += e->c1buf[2u * i + 1u];
+        for (k = 0; k < 5u; k++) if (e->c1pk[k] > pk[k]) pk[k] = e->c1pk[k];
+    } else {
+        int32_t pr[5];
+        sd_distroy_ch(e, in, out, m, pos, 1u, pr);
+        for (k = 0; k < 5u; k++) if (pr[k] > pk[k]) pk[k] = pr[k];
+    }
+    for (k = 0; k < 4u; k++) d->pk[k] = pk[k];
+    d->lpk = pk[4];
     if (d->fb) {
         d->fpk |= d->lpk;
         d->fw = (d->fw + m) & (SD_DFLEN - 1u);
@@ -3717,10 +4064,6 @@ SD_INLINE int16_t sd_sp_store(int32_t v)        /* Q15 -> Q14, past 1.5 x full s
  * (a straight line: a glide is short), and each branch's modulated allpass (a straight line too: a cubic took 70
  * instructions a read; FREEZE glides the LFOs out to a whole sample, so the held tail loses nothing there); the
  * products are 32-bit with Q14 coefficients (every operand under 2^17); the LFOs move once a tick */
-SD_INLINE int32_t sd_pl_rd(const int16_t *b, uint32_t n, uint32_t w, uint32_t d)   /* d back (1: the last written) */
-{
-    return (int32_t)b[w >= d ? w - d : w + n - d] * 2;   /* Q14 -> Q15 */
-}
 SD_INLINE int32_t sd_pl_rdq(const int16_t *b, uint32_t n, uint32_t w, uint32_t dq)   /* dq x 256 back, linear */
 {
     uint32_t d = dq >> 8 < n ? dq >> 8 : n - 1u, i = w >= d ? w - d : w + n - d, j = i ? i - 1u : n - 1u;   /* (d
@@ -3734,15 +4077,8 @@ SD_INLINE void sd_pl_put(int16_t *b, uint32_t n, uint32_t *w, int32_t v)
     *w = *w + 1u < n ? *w + 1u : 0u;
 }
 SD_INLINE int32_t sd_pq(int32_t a, int32_t g) { return sd_tz(a * g, 14); }   /* a (|a| < 2^17) x g (Q14, <= 1) */
-SD_INLINE int32_t sd_pl_clip(int32_t v) { return v > 98304 ? 98304 : v < -98304 ? -98304 : v; }   /* (the store's
-                                                   ceiling, ~1.9 x: kept the same before a product) */
-SD_INLINE int32_t sd_pl_ap(int16_t *b, uint32_t n, uint32_t *w, int32_t z, int32_t x, int32_t g)   /* an allpass, z
-                                                   its line d back: v = x + g z in, out z - g v */
-{
-    int32_t v = sd_pl_clip(x + sd_pq(z, g));
-    sd_pl_put(b, n, w, v);
-    return z - sd_pq(v, g);
-}
+SD_INLINE int32_t sd_pl_clip(int32_t v) { return SD_SOFT(5u, v, 73728, 24575); }   /* (the store's
+                                                   ceiling: rounded from 2.25 x toward 3 x, before a product) */
 /* the half rate's way in and out: a 23-tap half-band (Q14; every other tap 0, the centre a half): flat to 8 kHz,
    -25 dB past 13.5 kHz, -57 past 15 (a straight line between the outputs let images through, a fizz;
    31 taps cost more than the top they kept, where the damping has taken most of it) */
@@ -3784,7 +4120,10 @@ SD_INLINE uint32_t sd_pl_w(const SdSpace *s, uint32_t ln) { uint32_t w = s->pw[l
 SD_INLINE int32_t sd_pl_q14(int32_t v, int32_t lo) { return v > 16384 ? 16384 : v < lo ? lo : v; }   /* a gain, lo .. 1:
                                                    one read wrong (2^21 more) would blow the tank up for its T60 */
 SD_INLINE uint32_t sd_pl_d(uint32_t d, uint32_t ln) { return d - 1u < SD_PL_PN[ln] - 3u ? d : 1u; }   /* (1 .. room - 3) */
-SD_INLINE void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, const int G, const int32_t *pin)
+SD_HOT SD_NOINLINE static void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, int G, const int32_t *pin)
+                                                /* (one copy, G a value: as two inlined copies, one a constant G
+                                                   each, it was 12.7 KB of the flash cache's 32 shared with the first
+                                                   core; the same reads either way, so the same sound bit for bit) */
 {
     static const int16_t DIF[4] = {12288, 12288, 10240, 10240};   /* the diffusers: 0.75 0.75 0.625 0.625 */
     int32_t v[16], bk[2][16], fk[2][16], sch[16];
@@ -3838,13 +4177,11 @@ SD_INLINE void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, const i
                 sd_pq(sd_pl_rdq(sb, nn, w, ((65536u - f1) << 3) + 512u), 16383 - g0);
             shp = (shp + 32u) & 65535u;
             for (k = 0; k < 2u; k++) fk[k][i] = sd_pq(bk[k][i] + sd_pq(y - bk[k][i], sg), g);
-            s->shy = y;
         }
         s->pw[SD_PL_SH] = w;
         s->shp = shp;
     } else {
         for (i = 0; i < n; i++) { fk[0][i] = sd_pq(bk[0][i], g); fk[1][i] = sd_pq(bk[1][i], g); }
-        s->shy = 0;
     }
     for (k = 0; k < 2u; k++) {                  /* each branch, its input the other's end a sample before */
         uint32_t a1 = SD_PL_A1 + k, d1 = SD_PL_D1 + k, a2 = SD_PL_A2 + k, d2 = SD_PL_D2 + k;
@@ -3898,10 +4235,43 @@ SD_INLINE void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, const i
                 a[i] += sgn > 0 ? x : -x;
             }
         }
-        for (i = 0; i < n; i++) {               /* x 1.11: R-LEVEL as loud as the room before it was (the factory
+        {   /* PITCH: while FROZEN, the tail out through a shifter a side (two heads sweeping a 1024-sample window,
+               crossfaded by triangles, zero where each jumps, as SHIMMER's), in and out over ~50 ms; the lines always
+               written, so a freeze finds them full. PITCH 0, or never frozen: the plate as it was, bit for bit */
+            int16_t *p0 = pm + SD_PL_PS0, *p1 = p0 + SD_PL_PSN;
+            uint32_t pw = s->ppw < SD_PL_PSN ? s->ppw : 0u, ph = s->pph;
+            int32_t pg = sd_pl_q14(s->ppg, 0), st = pp->pst < -12 ? -12 : pp->pst > 12 ? 12 : pp->pst, on = pp->frz && st;
+            int32_t inc = s->pinc;
+            if (on) inc = ((int32_t)sd_semis_mul(st * 256) - 65536) * 64;   /* (2^r - 1) x 2^22: the window's 2^32
+                                                   in 1024 samples at an octave up */
+            for (i = 0; i < n; i++) {           /* x 1.11: R-LEVEL as loud as the room before it was (the factory
                                                    patches' wets, a chord and its tail: the median of 22) */
-            s->zl[(m0 + i) & (SD_PL_ZN - 1u)] = sd_pl_clip(sd_pq(sd_pl_clip(acc[0][i]), 18225));
-            s->zr[(m0 + i) & (SD_PL_ZN - 1u)] = sd_pl_clip(sd_pq(sd_pl_clip(acc[1][i]), 18225));
+                int32_t l = sd_pl_clip(sd_pq(sd_pl_clip(acc[0][i]), 18225));
+                int32_t r = sd_pl_clip(sd_pq(sd_pl_clip(acc[1][i]), 18225));
+                p0[pw] = sd_sp_store(l);
+                p1[pw] = sd_sp_store(r);
+                pw = pw + 1u < SD_PL_PSN ? pw + 1u : 0u;
+                if (on ? pg < 16384 : pg > 0) pg += on ? (pg < 16384 - 15 ? 15 : 16384 - pg) : (pg > 15 ? -15 : -pg);
+                if (pg) {
+                    uint32_t f1 = ph + 0x80000000u, d0 = ((0u - ph) >> 14) + 512u, d1 = ((0u - f1) >> 14) + 512u;
+                    int32_t g0 = 16383 - (int32_t)((ph > 0x80000000u ? ph - 0x80000000u : 0x80000000u - ph) >> 17), yl, yr;
+                    g0 = g0 < 0 ? 0 : g0;
+                    yl = sd_pq(sd_pl_rdq(p0, SD_PL_PSN, pw, d0), g0) + sd_pq(sd_pl_rdq(p0, SD_PL_PSN, pw, d1), 16383 - g0);
+                    yr = sd_pq(sd_pl_rdq(p1, SD_PL_PSN, pw, d0), g0) + sd_pq(sd_pl_rdq(p1, SD_PL_PSN, pw, d1), 16383 - g0);
+                    yl = sd_pq(yl, 23170);      /* x 1.41: the two heads crossfaded lose ~3 dB (measured on a chord) */
+                    yr = sd_pq(yr, 23170);
+                    {                   /* (64-bit: |yl - l| reaches past 2^17) */
+                        int64_t ql = (int64_t)(yl - l) * pg, qr = (int64_t)(yr - r) * pg;
+                        l += (int32_t)(ql < 0 ? -((-ql) >> 14) : ql >> 14);
+                        r += (int32_t)(qr < 0 ? -((-qr) >> 14) : qr >> 14);
+                    }
+                    ph += (uint32_t)inc;
+                }
+                s->zl[(m0 + i) & (SD_PL_ZN - 1u)] = sd_hp2(l, &s->plc[0], &s->plc[1], SD_RLC_F);   /* (the low cut, on
+                                                   what it gives: the plate's inside as it was, a SIZE sweep as smooth) */
+                s->zr[(m0 + i) & (SD_PL_ZN - 1u)] = sd_hp2(r, &s->plc[2], &s->plc[3], SD_RLC_F);
+            }
+            s->ppw = pw; s->pph = ph; s->ppg = pg; s->pinc = inc;
         }
     }
 }
@@ -3915,7 +4285,7 @@ SD_INLINE void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPlateP *pp, const i
  * the plate's job, on core 0 with the room (one core). What it reads to place a read or a write is kept inside its
  * memory (the second core reads RAM wrong on some units) */
 typedef struct { uint8_t *a, *b; uint32_t na, n; } SdLpMem;   /* the ring: a (na bytes), then b; n in all */
-SD_INLINE int32_t sd_td_clip(int32_t v) { return v > 65535 ? 65535 : v < -65535 ? -65535 : v; }
+SD_INLINE int32_t sd_td_clip(int32_t v) { return SD_SOFT(6u, v, 49152, 16383); }
 SD_INLINE uint32_t sd_mu_enc(int32_t q)         /* Q14 (int16) -> mu-law: a sign, 3 bits of octave, 4 of step; 0 -> 0 */
 {
     uint32_t sg = q < 0 ? 128u : 0u, m = (uint32_t)(q < 0 ? -q : q), ex;
@@ -4004,7 +4374,7 @@ SD_INLINE void sd_lp_step(SdSpace *s, const SdLpMem *L, int32_t xm, const SdLpTi
 
 /* the plate's job: block b of its queue, its chunks in order (on the second core when the app has one: a job between
  * the audio's interrupts, read a block later; else here). What it reads to count is kept in range */
-static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32_t na, uint8_t *lb, uint32_t nbb, uint32_t b)
+SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32_t na, uint8_t *lb, uint32_t nbb, uint32_t b)
                                                 /* pm: e->sm->u.pl; la na, lb nbb: the looper's memory's two pieces
                                                    (the second core's caller passes them as constants: a pointer read
                                                    wrong would write anywhere; kept to SD_LP_NMAX) */
@@ -4038,8 +4408,7 @@ static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32_t na, 
                                &yo[2u * i], &yo[2u * i + 1u]);
             pin[i] = sd_td_clip(xm) + ((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3);
         }
-        if (pp->G) sd_plate_blk(s, pm, pp, 1, pin);
-        else sd_plate_blk(s, pm, pp, 0, pin);
+        sd_plate_blk(s, pm, pp, pp->G != 0, pin);
         for (i = 0; i < n; i++) {               /* the looper's out to its ring (x 1/2: 16 bits) */
             uint32_t q = (pp->m0 + i) & z;
             s->yl[q] = (int16_t)(sd_td_clip(yo[2u * i]) >> 1);
@@ -4047,12 +4416,12 @@ static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32_t na, 
         }
     }
 }
-static void sd_plate_job(SdEngine *e, uint32_t b) { sd_plate_job_at(e, e->sm->u.pl, e->lpa, e->lpa_n, e->lpb, e->lpb_n, b); }
+static void sd_plate_job(SdEngine *e, uint32_t b) { SD_FAR(sd_plate_job_at)(e, e->sm->u.pl, e->lpa, e->lpa_n, e->lpb, e->lpb_n, b); }
 
 /* block b not run (the second core gave up, or there is none: on the FM-1 the plate never runs on the first core):
  * its outputs fade from the last one heard to silence over the block, and the room plays from the
  * next tick (the app sets sp_room) */
-static void sd_plate_drop(SdEngine *e, uint32_t b)
+SD_RAM(plate) static void sd_plate_drop(SdEngine *e, uint32_t b)
 {
     SdSpace *s = &e->sp;
     uint32_t i, m0 = b * SD_PL_BLK, z = SD_PL_ZN - 1u;
@@ -4065,7 +4434,7 @@ static void sd_plate_drop(SdEngine *e, uint32_t b)
 }
 /* the plate's jobs, in order: block b waits for b - 1 (they share its lines). Without hooks (a computer: the host,
  * the page's player) each runs here at once; with them (the FM-1) a block not handed over or not back is dropped */
-static void sd_plate_join(SdEngine *e)
+SD_RAM(plate) static void sd_plate_join(SdEngine *e)
 {
     SdSpace *s = &e->sp;
     if (s->qdone == s->qpost) return;
@@ -4096,7 +4465,7 @@ SD_INLINE void sd_plate_queue(SdEngine *e, int32_t sc, int32_t sstep)
         for (k = 0; k < 14u; k++) pp->ti[k] = s->ti[k];
         pp->ma[0] = s->ma[0]; pp->ma[1] = s->ma[1];
         pp->g = s->g; pp->c = s->c; pp->sg = s->sg; pp->d2 = s->d2; pp->snext = s->snext;
-        pp->sc0 = sc; pp->sst2 = 2 * sstep; pp->G = sstep != 0; pp->frz = s->frz; pp->tick = s->tick;
+        pp->sc0 = sc; pp->sst2 = 2 * sstep; pp->G = sstep != 0; pp->frz = s->frz; pp->tick = s->tick; pp->pst = s->pst;
         pp->m0 = m; pp->n = 0;
         pp->llvl = s->llvl; pp->rlvl = s->rlvl;
         if (nt) s->qti = 0;                     /* the looper's tick (a part of it after a block's end: from there) */
@@ -4113,7 +4482,8 @@ SD_INLINE void sd_plate_queue(SdEngine *e, int32_t sc, int32_t sstep)
 }
 /* the room (one core): a sample at half rate of the dry and the echoes, through four diffusers into a 4-line FDN
  * (Hadamard); between its outputs a straight line, a frame late (§5.5, before the plate) */
-SD_INLINE void sd_room(SdSpace *s, SdSpaceMem *mem, int32_t r, int32_t *al, int32_t *ar)
+SD_RAM(space) static void sd_room(SdSpace *s, SdRoomMem *rm, int32_t r, int32_t *al, int32_t *ar)   /* (a call: the
+                                                   loop stays lean beside the plate) */
 {
     if (!s->ph) {
         s->racc = r;
@@ -4121,29 +4491,34 @@ SD_INLINE void sd_room(SdSpace *s, SdSpaceMem *mem, int32_t r, int32_t *al, int3
         *ar = s->a1[1];
     } else {
         int32_t h[4], z[4], v[4];
-        uint32_t k, fw = s->fw;
-        r = (s->racc + r) >> 1;
-        for (k = 0; k < 4u; k++) {              /* Schroeder allpasses, g 0.625 */
-            uint32_t aw = s->apw[k], rp = (aw + SD_SP_APLEN - SD_SP_APL[k]) & (SD_SP_APLEN - 1u);
-            int32_t zz = mem->u.rm.ap[k][rp] * 2, vv = r + sd_tz(zz * 20480, 15);
-            mem->u.rm.ap[k][aw] = sd_sp_store(vv);
-            r = zz - sd_tz(vv * 20480, 15);
-            s->apw[k] = (aw + 1u) & (SD_SP_APLEN - 1u);
+        uint32_t k;
+        r = sd_hp2((s->racc + r) >> 1, &s->rlc[0], &s->rlc[1], SD_RLC_F);   /* (the low cut: 200 Hz) */
+        for (k = 0; k < 4u; k++) {              /* Schroeder allpasses, g 0.625: a ring of its length, its oldest out */
+            uint32_t n = SD_SP_APL[k], aw = s->apw[k] < n ? s->apw[k] : 0u;
+            int16_t *b = rm->ap + SD_SP_AO[k];
+            int32_t zz = b[aw] * 2, vv = r + sd_tz(zz * 20480, 15);   /* (65534 x 20480 fits; vv's below in 64 bits:
+                                                   a hot input passes 2^31) */
+            b[aw] = sd_sp_store(vv);
+            r = zz - (int32_t)sd_tz64((int64_t)vv * 20480, 15);
+            s->apw[k] = aw + 1u < n ? aw + 1u : 0u;
         }
         for (k = 0; k < 4u; k++) {              /* each line: read, the tone, the decay */
-            z[k] = mem->u.rm.fdn[k][(fw - (uint32_t)s->flen[k]) & (SD_SP_FLEN - 1u)] * 2;
-            s->flp[k] += ((z[k] - s->flp[k]) * s->rtone) >> 15;   /* as the delay's tone: the decay rounds */
-            v[k] = sd_tz(s->flp[k] * s->rg, 15);
+            uint32_t n = SD_SP_FMAX[k] + 1u, w = s->fwk[k] < n ? s->fwk[k] : 0u;
+            uint32_t d = (uint32_t)s->flen[k] - 1u < n - 1u ? (uint32_t)s->flen[k] : 1u;
+            z[k] = rm->fdn[SD_SP_FO[k] + (w >= d ? w - d : w + n - d)] * 2;
+            s->flp[k] += (int32_t)(((int64_t)(z[k] - s->flp[k]) * s->rtone) >> 15);   /* as the delay's tone: the decay
+                                                   rounds (in 64 bits: a hot line wrapped, test_headroom found it) */
+            v[k] = (int32_t)sd_tz64((int64_t)s->flp[k] * s->rg, 15);
         }
         h[0] = sd_tz((v[0] + v[1] + v[2] + v[3]), 1);   /* the Hadamard matrix / 2: orthonormal, energy kept */
         h[1] = sd_tz((v[0] - v[1] + v[2] - v[3]), 1);
         h[2] = sd_tz((v[0] + v[1] - v[2] - v[3]), 1);
         h[3] = sd_tz((v[0] - v[1] - v[2] + v[3]), 1);
-        mem->u.rm.fdn[0][fw] = sd_sp_store(h[0] + r);
-        mem->u.rm.fdn[1][fw] = sd_sp_store(h[1] - r);
-        mem->u.rm.fdn[2][fw] = sd_sp_store(h[2] + r);
-        mem->u.rm.fdn[3][fw] = sd_sp_store(h[3] - r);
-        s->fw = (fw + 1u) & (SD_SP_FLEN - 1u);
+        for (k = 0; k < 4u; k++) {
+            uint32_t n = SD_SP_FMAX[k] + 1u, w = s->fwk[k] < n ? s->fwk[k] : 0u;
+            rm->fdn[SD_SP_FO[k] + w] = sd_sp_store(k == 1u || k == 3u ? h[k] - r : h[k] + r);
+            s->fwk[k] = w + 1u < n ? w + 1u : 0u;
+        }
         s->a0[0] = s->a1[0];
         s->a0[1] = s->a1[1];
         s->a1[0] = (z[0] - z[3]) >> 1;          /* two decorrelated taps */
@@ -4151,6 +4526,27 @@ SD_INLINE void sd_room(SdSpace *s, SdSpaceMem *mem, int32_t r, int32_t *al, int3
         *al = (s->a0[0] + s->a1[0]) >> 1;
         *ar = (s->a0[1] + s->a1[1]) >> 1;
     }
+}
+
+/* the room beside the frozen plate, over a call's frames: what came in (in), faded in and out over ~5 ms (tg: in or
+ * not), into the room at half rate (ph: the first frame's), its tail into rv */
+SD_RAM(space) static void sd_frz_room(SdSpace *s, SdRoomMem *rm, const int32_t *in, int32_t *rv, uint32_t m, uint32_t ph,
+                                      int32_t tg)
+{
+    uint32_t i;
+    int32_t g = s->fr_ig;
+    for (i = 0; i < m; i++) {
+        int32_t x = in[i];
+        if (g != tg) g += g < tg ? (g < 16384 - 75 ? 75 : 16384 - g) : (g > 75 ? -75 : -g);
+        if (g < 16384) {                        /* (64-bit: |x| reaches 2^17) */
+            int64_t q = (int64_t)x * g;
+            x = (int32_t)(q < 0 ? -((-q) >> 14) : q >> 14);
+        }
+        s->ph = (uint8_t)ph;
+        sd_room(s, rm, x, &rv[2u * i], &rv[2u * i + 1u]);
+        ph ^= 1u;
+    }
+    s->fr_ig = g;
 }
 
 /* SPACE's frames, PP constant: the delay, the looper's and the reverb's way in (pass A), then out (pass C, as the
@@ -4162,6 +4558,8 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
     SdSpace *s = &e->sp;
     SdSpaceMem *mem = e->sm;
     uint32_t i, dw = s->dw, ph0 = s->ph, ph = ph0, ml, room = s->room, z = SD_PL_ZN - 1u;
+    SdRoomMem *frm = !room && s->fr_on ? e->frm : 0;   /* the room beside the frozen plate */
+    int32_t fpk = s->fr_pk;
     int32_t dstep = (s->dnext - s->dq) >> SD_SUB_SHIFT, dq = s->dq + dstep * (int32_t)pos;
     int32_t sstep = (s->snext - s->sc) >> SD_SUB_SHIFT, sc = s->sc + sstep * (int32_t)pos;
     int32_t lpd0 = s->lpd[0], lpd1 = s->lpd[1], fb = PP ? s->fb2 : s->fb, dtone = s->dtone, dlvl = s->dlvl, rlvl = s->rlvl;
@@ -4189,15 +4587,17 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
         /* the delay: read, the tone, the feedback back in (crossed in ping-pong) */
         el = sd_sp_read(dl, dw, dq, dmax);
         er = sd_sp_read(dl + 1, dw, dq, dmax);
-        lpd0 += ((el - lpd0) * dtone) >> 15;    /* |difference| <= 2^17: x 2^15 fits; a floor here */
-        lpd1 += ((er - lpd1) * dtone) >> 15;    /* parks at most at -1, which FDBK's toward-zero drops */
+        lpd0 += (int32_t)(((int64_t)(el - lpd0) * dtone) >> 15);   /* (in 64 bits: |difference| 2^17 x 2^15 does not
+                                                   fit 32, a hot line wrapped, test_headroom found it); a floor here */
+        lpd1 += (int32_t)(((int64_t)(er - lpd1) * dtone) >> 15);   /* parks at most at -1, which FDBK's toward-zero
+                                                   drops */
         el = lpd0;
         er = lpd1;
-        if (dg < 32767 && (dsw == 1 || dsw == 3)) { el = (el * dg) >> 15; er = (er * dg) >> 15; }   /* (the line about
+        if (dg < 32767 && (dsw == 1 || dsw == 3)) { el = (int32_t)(((int64_t)el * dg) >> 15); er = (int32_t)(((int64_t)er * dg) >> 15); }   /* (the line about
                                                    to change: its echoes out) */
         {
             int32_t wl = xl, wr = xr;
-            if (dg < 32767 && dsw != 1) { wl = (xl * dg) >> 15; wr = (xr * dg) >> 15; }   /* (clearing: silence in;
+            if (dg < 32767 && dsw != 1) { wl = (int32_t)(((int64_t)xl * dg) >> 15); wr = (int32_t)(((int64_t)xr * dg) >> 15); }   /* (clearing: silence in;
                                                    the line new: what goes in faded in, so its first echo comes in as
                                                    smooth) */
             if (PP) {                           /* (fb is FDBK^2 here: the whole way round) */
@@ -4249,14 +4649,16 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
             lo[2u * i] = ll;
             lo[2u * i + 1u] = lr;
             s->ph = (uint8_t)ph;
-            sd_room(s, mem, (xl + xr + el + er + ll + lr) >> 2, &rv[2u * i], &rv[2u * i + 1u]);   /* (the looper in as
+            sd_room(s, &mem->u.rm, (xl + xr + el + er + ll + lr) >> 2, &rv[2u * i], &rv[2u * i + 1u]);   /* (the looper in as
                                                    the synth goes in) */
-        } else if (ph) {
-            sd_plate_queue(e, sc, sstep);
+        } else {
+            if (frm) lo[i] = (xl + xr + el + er) >> 2;   /* FROZEN: what comes in, for the room (sd_frz_room) */
+            if (ph) sd_plate_queue(e, sc, sstep);
         }
         dq += dstep;
         ph ^= 1u;
     }
+    if (frm) sd_frz_room(s, frm, lo, rv, m, ph0, e->sp_freeze ? 16384 : 0);
     ph = ph0;
     for (i = 0; i < m; i++) {                   /* out: the dry, the echoes; the second core's mix (the plate, the
                                                    looper, at their levels) a block late, a sample, then the
@@ -4278,6 +4680,12 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
                 if (s->lhear) { ll = s->yl[c] * 2; lr = s->yr[c] * 2; }
             }
             if (s->lhear) s->lhear--;
+            if (frm) {                          /* (the room's tail with the plate's, at R-LEVEL) */
+                int32_t fl = rv[2u * i], fr = rv[2u * i + 1u], fa = (fl < 0 ? -fl : fl) | (fr < 0 ? -fr : fr);
+                al += fl;
+                ar += fr;
+                fpk = fa > fpk ? fa : fpk;
+            }
         } else {
             al = rv[2u * i];
             ar = rv[2u * i + 1u];
@@ -4285,20 +4693,23 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
             lr = lo[2u * i + 1u];
         }
         ph ^= 1u;
-        al = al > 65535 ? 65535 : al < -65535 ? -65535 : al;   /* (2 x full scale: x R-LEVEL stays under 2^31) */
-        ar = ar > 65535 ? 65535 : ar < -65535 ? -65535 : ar;
+        al = SD_SOFT(4u, al, 98304, 32767);   /* the tail's return, rounded toward 4 x full scale (it was cut at 2 x:
+                                                   a long tail building up crackled, 2026-11-16) */
+        ar = SD_SOFT(4u, ar, 98304, 32767);
         {
             int32_t pl = (el < 0 ? -el : el) | (al < 0 ? -al : al) | (ll < 0 ? -ll : ll);
             int32_t pr = (er < 0 ? -er : er) | (ar < 0 ? -ar : ar) | (lr < 0 ? -lr : lr);
             if (pl > peak) peak = pl;
             if (pr > peak) peak = pr;
         }
-        out[2u * i] += in[2u * i] + (el * dlvl >> 15) + (al * rlvl >> 15) + ll;   /* the dry with its DC, as it
-                                                   came; not a loop: a floor is fine; each product < 2^31 */
-        out[2u * i + 1u] += in[2u * i + 1u] + (er * dlvl >> 15) + (ar * rlvl >> 15) + lr;
+        out[2u * i] += in[2u * i] + (el * dlvl >> 15) + (int32_t)(((int64_t)al * rlvl) >> 15) + ll;   /* the dry with
+                                                   its DC, as it came; not a loop: a floor is fine; the tail's
+                                                   product in 64 bits (4 x full scale x R-LEVEL) */
+        out[2u * i + 1u] += in[2u * i + 1u] + (er * dlvl >> 15) + (int32_t)(((int64_t)ar * rlvl) >> 15) + lr;
     }
     s->dw = dw;
     s->ph = (uint8_t)ph;
+    s->fr_pk = fpk;
     s->lpd[0] = lpd0;
     s->lpd[1] = lpd1;
     s->peak = peak;
@@ -4306,7 +4717,7 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
     s->dcz[1] = dz1;
 }
 
-static void sd_space_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
+SD_RAM(space) static void sd_space_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t m, uint32_t pos)
 {
     if (e->sp.pp) sd_space_loop(e, in, out, m, pos, 1);
     else sd_space_loop(e, in, out, m, pos, 0);
@@ -4316,7 +4727,11 @@ static void sd_space_run(SdEngine *e, const int32_t *in, int32_t *out, uint32_t 
  * n is any count; sub-blocks continue across calls. */
 /* The filter on a bank's mix, in place: one or two TPT SVF lowpass stages (as DISTROY's sd_lp), the mix x 8 inside
  * (the states' resolution at low cutoffs); out at most 4 x full scale, where the render's sum is written for it */
-static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m, uint32_t two)
+/* The filter's ceiling (the bank's sum must stay under 4 x full scale: x its gain it fits 32 bits): as it is to 3 x,
+ * then rounded toward 4 x (sd_soft), so a resonant peak is squashed, not cut. 2026-11-16: a hard cut there crackled
+ * from 75 % RES with loud notes; the patches as made never pass 2 x, 50 % RES hardly 3 x (unchanged) */
+#define sd_fsat(y) SD_SOFT(0u, y, 98301, 32767)
+SD_RAM(render) static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m, uint32_t two)
 {
     int32_t *x = bk->mix + pos, *end = x + m;
     int32_t i1 = bk->fic1[0], i2 = bk->fic2[0], j1 = bk->fic1[1], j2 = bk->fic2[1];
@@ -4324,12 +4739,12 @@ static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m
     if (two)                                    /* (two loops: -Os does not take the test out of one) */
         while (x < end) {
             int32_t y = sd_tz(sd_lp(sd_lp(*x * 8, &i1, &i2, a1, a2, a3), &j1, &j2, b1, b2, b3), 3);
-            *x++ = y > 131068 ? 131068 : y < -131068 ? -131068 : y;
+            *x++ = sd_fsat(y);
         }
     else
         while (x < end) {
             int32_t y = sd_tz(sd_lp(*x * 8, &i1, &i2, a1, a2, a3), 3);
-            *x++ = y > 131068 ? 131068 : y < -131068 ? -131068 : y;
+            *x++ = sd_fsat(y);
         }
     bk->fic1[0] = i1; bk->fic2[0] = i2; bk->fic1[1] = j1; bk->fic2[1] = j2;
 }
@@ -4337,7 +4752,7 @@ static void sd_filter_run(SdBank *bk, const SdVoice *v, uint32_t pos, uint32_t m
 /* The limiter at a sub-block's start: the block coming out now (two back) and the one after it (just in) are
  * measured, so the gain ramps over this block to what both need, and never stands above what this one needs (it did
  * reach that by the end of the block before). Down within a block; up an 1/256 of the way a block (~0.19 s). */
-static void sd_lim_block(SdEngine *e)
+SD_RAM(render) static void sd_lim_block(SdEngine *e)
 {
     int32_t pk = e->lim_pk1 > e->lim_acc ? e->lim_pk1 : e->lim_acc, tgt = 32768, g = e->lim_end;
     if (pk > SD_LIM_T) tgt = (int32_t)(((uint32_t)SD_LIM_T << 15) / (uint32_t)pk);   /* (32-bit: one a block) */
@@ -4349,12 +4764,65 @@ static void sd_lim_block(SdEngine *e)
     if (e->lim_end < g && e->lim_step * (int32_t)SD_SUB > e->lim_end - g) e->lim_step--;   /* (down: never short of it) */
 }
 
-static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
+/* Banks b0 .. b1 - 1, frames pos..pos+m of the sub-block, added into dst: each through its oscillators and the
+ * filter, at its gains. The second core runs 3 and 4 into its own buffer beside the first core's 1 and 2 (the sums
+ * added after: integers, the same in any order); what it reads from RAM to place a write stays inside the banks */
+SD_RAM(render) static void sd_banks_run(SdEngine *e, int32_t *dst, uint32_t pos, uint32_t m, uint32_t b0, uint32_t b1)
+{
+    uint32_t b, k, i;
+    for (b = b0; b < b1; b++) {
+        SdBank *bk = &e->bank[b];
+        const SdVoice *v = &e->voice[bk->voice & (SD_VOICES - 1u)];
+        if ((!v->amp && !v->amp_next) || (!bk->gl && !bk->gl_next && !bk->gr && !bk->gr_next)) {
+            for (k = 0; k < SD_OPS; k++) bk->osc[k].ph += bk->osc[k].inc * m;   /* silent or weighted out */
+            continue;
+        }
+        sd_bank_run(bk, pos, m);
+        if (e->patch.f_type) sd_filter_run(bk, v, pos, m, e->patch.f_type == SD_FT_LP24);
+        {
+            int32_t lstep = (bk->gl_next - bk->gl) >> SD_SUB_SHIFT, gl = bk->gl + lstep * (int32_t)pos;
+            int32_t rstep = (bk->gr_next - bk->gr) >> SD_SUB_SHIFT, gr = bk->gr + rstep * (int32_t)pos;
+            const int32_t *mix = bk->mix + pos;
+            for (i = 0; i < m; i++) {           /* the sum <= 4 x 32767, a gain <= 16256: fits */
+                dst[2u * i] += (mix[i] * gl) >> 15;
+                dst[2u * i + 1u] += (mix[i] * gr) >> 15;
+                gl += lstep;
+                gr += rstep;
+            }
+        }
+    }
+}
+
+/* The second core's half of a sub-block (arg: m | pos << 8 | job << 16, as c1_post had it): into c1buf, from the
+ * engine's own buffers (the voice's for REACTOR, the Reactor's for DISTROY) */
+SD_RAM(render) static void sd_c1_share(SdEngine *e, uint32_t arg)
+{
+    uint32_t m = arg & 63u, pos = (arg >> 8) & 31u, i;
+    m = pos + m > SD_SUB ? SD_SUB - pos : m;    /* (read wrong: kept inside the sub-block) */
+    switch (arg >> 16) {
+    case SD_C1_BANKS:
+        for (i = 0; i < 2u * SD_SUB; i++) e->c1buf[i] = 0;
+        sd_banks_run(e, e->c1buf, pos, m, 2u, SD_BANKS);
+        break;
+    case SD_C1_REACTOR:
+        sd_reactor_half(&e->r, e->vbuf, e->c1buf, m, e->c1d, e->c1ds, 2u);
+        break;
+    case SD_C1_DISTROY:
+        for (i = 0; i < 2u * SD_SUB; i++) e->c1buf[i] = 0;
+        sd_distroy_ch(e, e->dbuf, e->c1buf, m, pos, 1u, e->c1pk);
+        break;
+    default:
+        break;
+    }
+}
+
+
+SD_RAM(render) static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
 {
     while (n) {
-        uint32_t m, pos, i, b, k;
+        uint32_t m, pos, i;
         int32_t *dst;
-        if (!e->sub_left) { sd_control_tick(e); sd_lim_block(e); e->sub_left = SD_SUB; }
+        if (!e->sub_left) { SD_FAR(sd_control_tick)(e); sd_lim_block(e); e->sub_left = SD_SUB; }
         m = n < e->sub_left ? n : e->sub_left;
         pos = SD_SUB - e->sub_left;             /* where in the sub-block this call starts: ramps continue */
         {                                       /* voice -> (Reactor) -> (DISTROY) -> (SPACE) -> out */
@@ -4367,31 +4835,44 @@ static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
             if (e->r.on)
                 for (i = 0; i < 2u * m; i++) e->vbuf[i] = 0;
         }
-        for (b = 0; b < SD_BANKS; b++) {
-            SdBank *bk = &e->bank[b];
-            const SdVoice *v = &e->voice[bk->voice];
-            if ((!v->amp && !v->amp_next) || (!bk->gl && !bk->gl_next && !bk->gr && !bk->gr_next)) {
-                for (k = 0; k < SD_OPS; k++) bk->osc[k].ph += bk->osc[k].inc * m;   /* silent or weighted out */
-                continue;
+        {                                       /* the banks: 3 and 4 on the second core, 1 and 2 here */
+            int two = e->c1_post && e->c1_post(e, m | pos << 8 | SD_C1_BANKS << 16);
+            sd_banks_run(e, dst, pos, m, 0u, two ? 2u : SD_BANKS);
+            if (two && e->c1_join(e) == 0)
+                for (i = 0; i < 2u * m; i++) dst[i] += e->c1buf[i];
+            else if (two)
+                sd_banks_run(e, dst, pos, m, 2u, SD_BANKS);
+        }
+        {                                       /* the 30 Hz cut (the states in locals) */
+            int32_t l0 = e->sc_lp[0], b0 = e->sc_bp[0], l1 = e->sc_lp[1], b1 = e->sc_bp[1];
+            for (i = 0; i < m; i++) {
+                dst[2u * i] = sd_subcut(dst[2u * i], &l0, &b0);
+                dst[2u * i + 1u] = sd_subcut(dst[2u * i + 1u], &l1, &b1);
+#ifdef SD_CENSUS
+                (void)SD_CK(9u, dst[2u * i], 32767, 131068);   /* (the sum into the FX, and its DC) */
+                sd_ck_dc += dst[2u * i]; sd_ck_dcn++;
+#endif
             }
-            sd_bank_run(bk, pos, m);
-            if (e->patch.f_type) sd_filter_run(bk, v, pos, m, e->patch.f_type == SD_FT_LP24);
-            {
-                int32_t lstep = (bk->gl_next - bk->gl) >> SD_SUB_SHIFT, gl = bk->gl + lstep * (int32_t)pos;
-                int32_t rstep = (bk->gr_next - bk->gr) >> SD_SUB_SHIFT, gr = bk->gr + rstep * (int32_t)pos;
-                const int32_t *mix = bk->mix + pos;
-                for (i = 0; i < m; i++) {       /* the sum <= 4 x 32767, a gain <= 16256: fits */
-                    dst[2u * i] += (mix[i] * gl) >> 15;
-                    dst[2u * i + 1u] += (mix[i] * gr) >> 15;
-                    gl += lstep;
-                    gr += rstep;
-                }
-            }
+            e->sc_lp[0] = l0; e->sc_bp[0] = b0; e->sc_lp[1] = l1; e->sc_bp[1] = b1;
         }
         if (e->r.on && !e->r.rest)              /* resting: the voice is silent too */
             sd_reactor_run(e, e->vbuf, e->d.on ? e->dbuf : e->sp.on ? e->sbuf : out, m, pos);
         if (e->d.on && !e->d.rest) sd_distroy_run(e, e->dbuf, e->sp.on ? e->sbuf : out, m, pos);
         if (e->sp.on && !e->sp.rest) sd_space_run(e, e->sbuf, out, m, pos);
+        {                                       /* the output's DC blocker, ~7 Hz (y - y[-1] + (1 - 2^-10) out[-1], x 256,
+                                                   toward zero): what the FX leave of DC (DISTROY's BIAS, the feedbacks)
+                                                   takes no headroom from the limiter; the lows untouched (-0.1 dB at
+                                                   40 Hz). |x| < 2^22: x 256 fits */
+            int32_t x0 = e->odx[0], y0 = e->ody[0], x1 = e->odx[1], y1 = e->ody[1];
+            for (i = 0; i < m; i++) {
+                int32_t a = out[2u * i], b = out[2u * i + 1u];
+                y0 = y0 - sd_tz(y0, 10) + (a - x0) * 256; x0 = a;
+                y1 = y1 - sd_tz(y1, 10) + (b - x1) * 256; x1 = b;
+                out[2u * i] = sd_tz(y0, 8);
+                out[2u * i + 1u] = sd_tz(y1, 8);
+            }
+            e->odx[0] = x0; e->ody[0] = y0; e->odx[1] = x1; e->ody[1] = y1;
+        }
         {                                       /* the limiter: each frame in, the one 64 back out, at the gain */
             int32_t g = e->lim_g, st = e->lim_step, acc = e->lim_acc;
             int32_t *lb = e->lim_buf;
@@ -4411,7 +4892,7 @@ static void sd_engine_render(SdEngine *e, int32_t *out, uint32_t n)
         }
         for (i = 0; i < 2u * m; i++) {          /* the output's shoulder: linear to 0.85 of full scale, then a cubic
                                                    one to it (the macros together, long tied notes, could clip hard) */
-            int32_t v = out[i];
+            int32_t v = SD_CK(7u, out[i], 27853, 35224);   /* (counted: into the shoulder, past where it is flat) */
             if ((uint32_t)(v + 27853) > 55706u) {
                 int32_t a = sd_knee(v < 0 ? -v : v, 27853, 4914, 291354);   /* inv = 2^31 / (1.5 S) */
                 out[i] = v < 0 ? -a : a;

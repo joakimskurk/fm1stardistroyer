@@ -16,6 +16,9 @@
 #ifndef SD_SEQ_H
 #define SD_SEQ_H
 #include <stdint.h>
+#ifndef SD_HOT
+#define SD_HOT                                  /* (sd_engine.h's: the audio's code kept in one place) */
+#endif
 
 #define SD_PSTEPS 64u                           /* steps a pattern at most: four banks of 16 on the white keys */
 #define SD_SEGS 6u                              /* segments A-F */
@@ -48,17 +51,30 @@ typedef struct {
     uint8_t len;                                /* 1..64 */
     uint8_t div;                                /* SD_SDIV index; 2 = 1/16 */
     uint8_t swing;                              /* 50..75 %: the first of each pair of steps that much of the pair */
-    uint8_t old_change;                         /* (RADAR's CHANGE once, when it was the pattern's: unread, its
-                                                   place kept so the saved patterns still read) */
+    uint8_t root;                               /* the key's root when set (SD_ROOT_SET | 0..11, C..B: GLO + SELECT
+                                                   on SEQ, since 2026-11-16); without the bit, step 1's note is the root,
+                                                   as for every pattern before (the low bits then RADAR's CHANGE of
+                                                   when it was the pattern's: unread). sd_pat_key */
     uint8_t seg_count;                          /* 1..6 */
     uint8_t seg_split[SD_SEGS - 1u];            /* where segments 2.. start (steps, rising) */
     uint8_t seg_rep[SD_SEGS];                   /* 1..4 */
     uint8_t seg_order[SD_SEGS];                 /* SD_SO_* */
     uint8_t seg_skip;                           /* bit k: segment k is skipped */
     uint8_t scale;                              /* SD_SC_*: what RANDOMIZE and RADAR's NOTES choose notes from; the
-                                                   key is the first step's note */
+                                                   key's root: root, or the first step's note */
     uint8_t old_tur, old_range;                 /* (the old RADAR's switch, RESTS and RANGE: unread, as above) */
 } SdPattern;
+
+#define SD_ROOT_SET 0x80u
+/* the key a pattern is in, as a note: its root (set) at or below step 1's note, so the octave stays the line's (RND
+   writes round it); unset, step 1's note. Only its place in the octave matters to the scales */
+SD_HOT static uint32_t sd_pat_key(const SdPattern *p)
+{
+    uint32_t n0 = p->step[0].note, r;
+    if (!(p->root & SD_ROOT_SET)) return n0;
+    r = (n0 % 12u + 12u - (p->root & 15u) % 12u) % 12u;
+    return n0 >= r ? n0 - r : n0 + 12u - r;
+}
 
 /* ORBIT, a sub-sequencer (a bigger change over time, as a sequence transposed): 2..8 steps, each RATE loops of SEQ A
  * long (1, 2, 4: a step changes at A's
@@ -80,10 +96,10 @@ typedef struct {
 /* the scales as the semitones they hold, a bit each from the key */
 static const uint16_t SD_SCALE_MASK[SD_SCALES] = {0x5AD, 0xAB5, 0x6AD, 0x5AB, 0x4A9, 0x295, 0xFFF};
 
-static uint32_t sd_seq_rand(uint32_t *s) { *s = *s * 1103515245u + 12345u; return *s >> 8; }   /* 24 bits */
+SD_HOT static uint32_t sd_seq_rand(uint32_t *s) { *s = *s * 1103515245u + 12345u; return *s >> 8; }   /* 24 bits */
 
 /* the segments' boundaries: b[0] = 0 .. b[sc] = len, each at least one step (build_bounds) */
-static uint32_t sd_seg_bounds(const SdPattern *p, uint8_t b[SD_SEGS + 1u])
+SD_HOT static uint32_t sd_seg_bounds(const SdPattern *p, uint8_t b[SD_SEGS + 1u])
 {
     uint32_t n = p->len < 1u ? 1u : p->len > SD_PSTEPS ? SD_PSTEPS : p->len, sc = p->seg_count, i;
     if (sc < 1u) sc = 1u;
@@ -229,7 +245,7 @@ static uint32_t sd_pattern_width(const SdPattern *p)   /* the most notes a step 
 
 static void sd_pattern_randomize(SdPattern *p, uint32_t *rng)   /* RANDOMIZE: a new line in the scale, now */
 {
-    uint32_t k, key = p->step[0].note;
+    uint32_t k, key = sd_pat_key(p);
     for (k = 0; k < p->len && k < SD_PSTEPS; k++) {
         SdStep *s = &p->step[k];
         uint32_t r = sd_seq_rand(rng);
@@ -272,5 +288,58 @@ static void sd_pattern_empty(SdPattern *p)      /* the default, every step a res
     uint32_t k;
     sd_pattern_default(p);
     for (k = 0; k < SD_PSTEPS; k++) p->step[k].type = SD_ST_REST;
+}
+
+/* A note on the steps: its NOTE (or SLIDE) and the TIEs after it (STEP's MORE: MOVE and LENGTH). The one heard at
+ * step s: its first step, or -1 (a REST, a SKIP, a TIE after nothing) */
+SD_HOT static int32_t sd_note_at(const SdPattern *p, uint32_t s)
+{
+    if (s >= p->len || s >= SD_PSTEPS) return -1;
+    while (p->step[s].type == SD_ST_TIE) { if (!s) return -1; s--; }
+    return p->step[s].type <= SD_ST_SLIDE ? (int32_t)s : -1;
+}
+static uint32_t sd_note_len(const SdPattern *p, uint32_t s)   /* its steps: its own and the TIEs after it */
+{
+    uint32_t n = 1;
+    while (s + n < p->len && p->step[s + n].type == SD_ST_TIE) n++;
+    return n;
+}
+/* MOVE: the note at s a step earlier (d < 0) or later, inside the pattern (no wrap). A join stays a join: played
+ * legato into the next note it keeps its end and only its start moves (it gets longer or shorter); else the whole
+ * note moves. The step it leaves: a TIE where the note before was held into it, else a REST. Another note's first
+ * step is never taken. Returns the note's new first step, or -1 (no room) */
+static int32_t sd_note_move(SdPattern *p, uint32_t s, int32_t d)
+{
+    uint32_t n = p->len < SD_PSTEPS ? p->len : SD_PSTEPS, l = sd_note_len(p, s), i;
+    uint32_t in = s > 0u && p->step[s - 1u].type <= SD_ST_TIE, out = s + l < n && p->step[s + l].type <= SD_ST_SLIDE;
+    if (d > 0) {
+        if (s + l >= n || p->step[s + l].type == SD_ST_SKIP) return -1;
+        if (out) {                              /* legato out: the start moves, the end stays */
+            if (l < 2u) return -1;
+            p->step[s + 1u] = p->step[s];
+        } else {                                /* a REST after it: the whole note */
+            for (i = s + l; i > s; i--) p->step[i] = p->step[i - 1u];
+        }
+        p->step[s].type = (uint8_t)(in ? SD_ST_TIE : SD_ST_REST);
+        return (int32_t)s + 1;
+    }
+    if (!s || p->step[s - 1u].type <= SD_ST_SLIDE || p->step[s - 1u].type == SD_ST_SKIP) return -1;
+    for (i = s - 1u; i + 1u < s + l; i++) p->step[i] = p->step[i + 1u];
+    p->step[s + l - 1u].type = (uint8_t)(out ? SD_ST_TIE : SD_ST_REST);   /* (legato out: the end stays) */
+    return (int32_t)s - 1;
+}
+/* LENGTH: the note at s a step longer (over a REST: never into another note, nor past the pattern's end) or shorter
+ * (its last TIE a REST; one step at least). Returns its new length, or 0 (no room) */
+static uint32_t sd_note_resize(SdPattern *p, uint32_t s, int32_t d)
+{
+    uint32_t l = sd_note_len(p, s), e = s + l;
+    if (d > 0) {
+        if (e >= p->len || e >= SD_PSTEPS || p->step[e].type != SD_ST_REST) return 0;
+        p->step[e].type = SD_ST_TIE;
+        return l + 1u;
+    }
+    if (l < 2u) return 0;
+    p->step[e - 1u].type = SD_ST_REST;
+    return l - 1u;
 }
 #endif

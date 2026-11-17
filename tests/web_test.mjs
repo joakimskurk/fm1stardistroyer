@@ -3,7 +3,7 @@
 // (the splash), a key plays, a press and release in one quantum still count, GLO held is held, a button turns a
 // page, an encoder changes the tempo, SAVE writes the store, a stored store comes back after a restart, a MIDI clock
 // (as the page's MIDI button passes it on) leads the tempo and START plays, and the same clock on two inputs leads
-// at its tempo, not twice it; SEQ goes round its own pages, OCT is the octave on SEQ too and GLO + OCT its bank;
+// at its tempo, not twice it; SEQ goes round its own pages, OCT is the octave on SEQ too and GLO + OCT the transpose's;
 // MOD's DEST shows a list as it turns, and REC on ARP keeps what it played; SEQ B and ORBIT switched on while A
 // plays wait for A's one, and SETUP's MASTER (HOME's third page, K3) makes B the master, A then waiting for B's one. Writes the screens it saw as PPM
 // (OUT-*.ppm) to look at.
@@ -87,12 +87,16 @@ tap(x, BTN.GLO);                                   // GLO tapped again: let go
 run(x, 200);
 check(differ(held, lcd(x)) > 50, 'a GLO tap latches the second layer, a tap again the first');
 
-tap(x, BTN.HOME);
+tap(x, BTN.HOME); run(x, 100); tap(x, BTN.HOME); run(x, 100); tap(x, BTN.HOME);   // MACROS, NAV, SETUP
 run(x, 200);
 const bpm0 = lcd(x);
-x.web_enc(ENC.SELECT, 7);                          // the tempo, 120 -> 127
+x.web_enc(ENC.K1, 7);                              // SETUP's TEMPO, 120 -> 127 (SELECT's until 2026-11-16)
 run(x, 200);
-check(differ(bpm0, lcd(x)) > 20, 'SELECT turns the tempo');
+check(differ(bpm0, lcd(x)) > 20, 'SETUP K1 turns the tempo');
+const sel0 = lcd(x).slice(222 * 240);
+x.web_enc(ENC.SELECT, 5);                          // SELECT: nothing in a row on SETUP, the tempo as it was
+run(x, 200);
+check(differ(sel0, lcd(x).slice(222 * 240)) === 0, 'SELECT no longer turns the tempo');
 
 const rev0 = x.web_store_rev();
 tap(x, BTN.SAVE); run(x, 300); tap(x, BTN.SAVE); run(x, 4000);   // SAVE, SAVE: the patch to a place of its own
@@ -137,7 +141,7 @@ check(differ(st1, stat(z)) === 0,
 ppm(z, 'clock2');
 
 // SEQ goes round its own pages (2026-11-10: the fourth press went back to the page before it, SPACE); OCT is the
-// octave on SEQ too, GLO + OCT the step bank
+// octave on SEQ too, GLO + OCT the transpose's (an octave, at the track's next one; the step bank until 2026-11-16)
 const w = await boot(store);
 run(w, 2500);
 const top = (x) => lcd(x).slice(0, 240 * 44);       // the patch, the pages' line
@@ -153,14 +157,13 @@ tap(w, BTN.OCT_UP); run(w, 150);
 const su = stat(w);
 tap(w, BTN.OCT_DOWN); run(w, 150);
 check(differ(so, su) > 0 && differ(so, stat(w)) === 0, `OCT on SEQ moves the octave (+1 and back: ${differ(so, su)} pixels)`);
-w.web_btn(BTN.GLO, 1); run(w, 150);                 // GLO held: LENGTH (K1) to 32, then GLO + OCT+ the second bank
-w.web_enc(ENC.K1, 16); run(w, 300);
+w.web_btn(BTN.GLO, 1); run(w, 300);                 // GLO held: K4 XPOSE in the row, then GLO + OCT+ an octave
 const b1 = lcd(w);
 tap(w, BTN.OCT_UP); run(w, 150);
 const b2 = lcd(w);
 w.web_btn(BTN.GLO, 0); run(w, 150);
-check(differ(b1, b2) > 0 && differ(so, stat(w)) === 0, `GLO + OCT on SEQ turns the bank, the octave stays (${differ(b1, b2)} pixels)`);
-ppm(w, 'bank');
+check(differ(b1, b2) > 0 && differ(so, stat(w)) === 0, `GLO + OCT on SEQ moves the transpose, the octave stays (${differ(b1, b2)} pixels)`);
+ppm(w, 'xpose_oct');
 
 // MOD's DEST from a list as it turns, gone 1.5 s later; ARP at 1/32, REC there KEEPs what it played into SEQ A
 const v = await boot(store);

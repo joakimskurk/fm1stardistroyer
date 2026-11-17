@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define SD_CENSUS 1                            /* the ceilings counted (test_headroom); the sound the same */
 #include "sd_engine.h"
 #include "sd_gen.h"
 
@@ -451,12 +452,16 @@ static void test_nav(void)                   /* the weights: corners, centre, DU
     sd_nav(&e1, w);
     for (b = 0; b < SD_BANKS; b++)
         CHECK(w[b] > 11585 - 120 && w[b] < 11585 + 120, "centre: bank %c weighs %d, not 0.354", 'A' + b, w[b]);
+    /* DUO and POLY follow MONO's mix (2026-11-16): a DUO voice's two banks normalised as MONO's four are (at the
+       centre 0.595 each, as DUO always was), a POLY voice's one 0.707 (MONO's four at 0.354: the same power) */
     e1.mode_on = SD_MODE_DUO;
+    e1.bank[0].src = 0; e1.bank[1].src = 1; e1.bank[2].src = 2; e1.bank[3].src = 3;
     sd_nav(&e1, w);
-    CHECK(w[0] == w[2] && w[1] == w[3] && w[0] > 19483 - 120 && w[0] < 19483 + 120, "DUO at X 0.5: %d %d", w[0], w[1]);
+    CHECK(w[0] > 19483 - 120 && w[0] < 19483 + 120 && w[1] > 19483 - 120 && w[1] < 19483 + 120 && w[2] > 19483 - 120 &&
+          w[3] < 19483 + 120, "DUO at the centre: %d %d", w[0], w[1]);
     e1.mode_on = SD_MODE_POLY;
     sd_nav(&e1, w);
-    CHECK(w[0] == SD_POLY_GAIN && w[3] == SD_POLY_GAIN, "POLY: %d", w[0]);
+    CHECK(w[0] == w[3] && w[0] > 23170 - 120 && w[0] < 23170 + 120, "POLY at the centre: %d", w[0]);
 }
 
 static void test_course(void)                     /* VOYAGE's COURSE: from the gate, A -> B -> C -> D, 1.5 s each, then held */
@@ -1912,15 +1917,20 @@ static void test_looper(void)
  * while a chord rings (a tape) leaves no click in the wet; FREEZE holds the tail's level and keeps new notes out;
  * SHIMMER at its most on the longest DECAY still dies away */
 static int32_t pl_out[2u * 32u * SD_FS], pl_in[2u * 32u * SD_FS];
+static int8_t pl_pitch;                         /* SPACE's PITCH for plate_feed */
+static SdRoomMem pl_frm;                        /* the room beside the frozen plate, for plate_feed (pl_room) */
+static int pl_room;
 static void plate_feed(SdPatch *p, uint32_t frames, uint32_t sweep, double frz_on, double frz_off)
 {
     uint32_t b, i;
     memset(&tsm, 0, sizeof tsm);
     sd_engine_init(&e1); e1.sm = &tsm; e1.bpm = 120; sd_seq_retime(&e1);
+    if (pl_room) e1.frm = &pl_frm;
     for (b = 0; b * SD_SUB < frames; b++) {
         double t = (double)b * SD_SUB / SD_FS;
         if (sweep) p->s_size = (uint16_t)(32767.5 + 32767.5 * sin(2 * M_PI * t / 4.0));   /* the whole way in 2 s */
         e1.sp_freeze = (uint8_t)(frz_on >= 0 && t >= frz_on && (frz_off < 0 || t < frz_off));
+        e1.sp_pitch = pl_pitch;
         e1.patch = *p;
         sd_space_params(&e1);
         for (i = 0; i < SD_SUB; i++) pl_out[2u * (b * SD_SUB + i)] = pl_out[2u * (b * SD_SUB + i) + 1u] = 0;
@@ -1934,6 +1944,87 @@ static double pl_db(uint32_t f0, uint32_t f1)  /* the wet's left, its RMS in dB,
     uint32_t i;
     for (i = f0; i < f1; i++) s += (double)pl_out[2u * i] * pl_out[2u * i];
     return 10 * log10(s / (f1 - f0) + 1e-9);
+}
+/* PITCH: a 440 Hz tone into the plate, FREEZE at 1.5 s (the tone off at 2 s): the held tail at PITCH 0, +12, -12, +7
+ * plays 440, 880, 220, 659 Hz; PITCH set but never frozen, and the frozen tail at PITCH 0: the plate bit for bit */
+static double pl_band(uint32_t f0, uint32_t f1, double hz)   /* the wet's left: its energy within 4 % of hz (the
+                                                   shifter's two heads crossfaded: sidebands round the pitch) */
+{
+    double e = 0, f;
+    uint32_t i;
+    for (f = hz * 0.96; f <= hz * 1.04; f += 1) {
+        double w = 2 * cos(2 * M_PI * f / SD_FS), s1 = 0, s2 = 0;
+        for (i = f0; i < f1; i++) { double s0 = pl_out[2u * i] + w * s1 - s2; s2 = s1; s1 = s0; }
+        e += s1 * s1 + s2 * s2 - w * s1 * s2;
+    }
+    return e;
+}
+/* the room beside the frozen plate: 440 Hz into the plate, FREEZE at 1.2 s, then 660 Hz played over it (2 .. 2.5 s):
+ * after it, its tail at 660 Hz with the room, none without (the plate's input closed); FREEZE let go at 3.5 s: the
+ * room off again once quiet; never frozen: the room never on, the plate bit for bit */
+static void test_freeze_room(void)
+{
+    static int32_t ref[2u * 9u * SD_FS];
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t i, n = 9u * SD_FS, same = 1;
+    double with, without, at440;
+    p.s_dlevel = 0; p.s_rlevel = 65535; p.s_rtone = 50000; p.s_mode = 0; p.s_decay = 52000; p.s_size = 32768;
+    for (i = 0; i < n; i++) {
+        double tt = (double)i / SD_FS;
+        pl_in[2u * i] = pl_in[2u * i + 1u] = (int32_t)lrint(tt < 1 ? 9000 * sin(2 * M_PI * 440 * tt) :
+                                                             tt >= 2 && tt < 2.5 ? 9000 * sin(2 * M_PI * 660 * tt) : 0);
+    }
+    pl_room = 0;
+    plate_feed(&p, n, 0, -1, -1);
+    memcpy(ref, pl_out, sizeof ref);
+    pl_room = 1;
+    plate_feed(&p, n, 0, -1, -1);
+    for (i = 0; i < 2u * n; i++) same &= ref[i] == pl_out[i];
+    CHECK(same && !e1.sp.fr_on, "the room beside the plate came on, never frozen");
+    pl_room = 0;
+    plate_feed(&p, n, 0, 1.2, 3.5);
+    without = 10 * log10(pl_band(2u * SD_FS + SD_FS * 6u / 10u, 3u * SD_FS + SD_FS * 4u / 10u, 660) + 1);
+    pl_room = 1;
+    plate_feed(&p, n, 0, 1.2, 3.5);
+    with = 10 * log10(pl_band(2u * SD_FS + SD_FS * 6u / 10u, 3u * SD_FS + SD_FS * 4u / 10u, 660) + 1);
+    at440 = 10 * log10(pl_band(2u * SD_FS + SD_FS * 6u / 10u, 3u * SD_FS + SD_FS * 4u / 10u, 440) + 1);
+    CHECK(with > without + 30 && !e1.sp.fr_on, "the room beside the frozen plate: 660 Hz's tail %.0f dB with it, %.0f "
+          "without; still on at the end: %u", with, without, e1.sp.fr_on);
+    pl_room = 0;
+    printf("plate: FROZEN, a note played over it: its tail %+.0f dB with the room beside (the held 440 %+.0f dB against it), "
+           "none without; let go, the room off once quiet; never frozen, the plate bit for bit\n", with - without,
+           at440 - with);
+}
+static void test_plate_pitch(void)
+{
+    static int32_t ref[2u * 4u * SD_FS];
+    static const int8_t ST[4] = {0, 12, -12, 7};
+    static const double HZ[4] = {440, 880, 220, 659.3};
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t i, k, n = 4u * SD_FS, same = 1;
+    double got[4];
+    p.s_dlevel = 0; p.s_rlevel = 65535; p.s_rtone = 50000; p.s_mode = 0; p.s_decay = 52000; p.s_size = 32768;
+    for (i = 0; i < n; i++) {
+        double tt = (double)i / SD_FS;
+        pl_in[2u * i] = pl_in[2u * i + 1u] = tt < 2 ? (int32_t)lrint(9000 * sin(2 * M_PI * 440 * tt)) : 0;
+    }
+    pl_pitch = 0;
+    plate_feed(&p, n, 0, -1, -1);
+    memcpy(ref, pl_out, sizeof ref);
+    pl_pitch = 12;
+    plate_feed(&p, n, 0, -1, -1);               /* (never frozen: PITCH does nothing) */
+    for (i = 0; i < 2u * n; i++) same &= ref[i] == pl_out[i];
+    CHECK(same, "PITCH set, never frozen: the plate changed");
+    for (k = 0; k < 4u; k++) {                  /* the held tail at 3 .. 4 s: its energy at the new pitch over 440's */
+        pl_pitch = ST[k];
+        plate_feed(&p, n, 0, 1.5, -1);
+        got[k] = k ? 10 * log10(pl_band(3u * SD_FS, 4u * SD_FS, HZ[k]) / (pl_band(3u * SD_FS, 4u * SD_FS, 440) + 1e-9)) :
+                     10 * log10(pl_band(3u * SD_FS, 4u * SD_FS, 440) / (pl_band(3u * SD_FS, 4u * SD_FS, 880) + 1e-9));
+        CHECK(got[k] > 20, "PITCH %+d on a frozen 440 Hz: %.1f Hz only %.1f dB over the rest", ST[k], HZ[k], got[k]);
+    }
+    pl_pitch = 0;
+    printf("plate: PITCH on the frozen tail of 440 Hz, the new pitch over 440 (0: 440 over 880): 0 %+.0f dB, +12 %+.0f, "
+           "-12 %+.0f, +7 %+.0f; set but never frozen, the plate bit for bit\n", got[0], got[1], got[2], got[3]);
 }
 static void test_plate(void)
 {
@@ -2112,6 +2203,76 @@ static void pj_feed(SdEngine *e, int32_t *outbuf, uint32_t frames, uint32_t hook
     }
 }
 static uint32_t pj_drop_at_frames(double t) { return (uint32_t)(t * SD_FS / 2.0) / SD_PL_BLK * SD_PL_BLK * 2u; }
+/* The second core's half of each sub-block (sd_c1_share: banks 3 and 4, REACTOR's resonators 3 and 4, DISTROY's
+ * right channel), run before the first core's half or after it, the core busy now and then (c1_post 0: the first
+ * core does it), or giving one up (c1_join -1, dropped, never run: the first core does it): the same sound bit for bit
+ * as one core, for every REACTOR model, both crossovers, DISTROY's feedback, POLY, calls of odd lengths */
+static void run_ms(SdEngine *e, uint32_t ms);
+static uint32_t c1t_n, c1t_arg, c1t_have, c1t_busy, c1t_drop, c1t_before, c1t_after;
+static int c1t_post(void *ev, uint32_t arg)
+{
+    if (++c1t_n % 7u == 3u) { c1t_busy++; return 0; }
+    c1t_arg = arg;
+    c1t_have = 1;
+    if (c1t_n & 1u) { sd_c1_share((SdEngine *)ev, arg); c1t_have = 2; c1t_before++; }
+    return 1;
+}
+static int c1t_join(void *ev)
+{
+    int r = 0;
+    if (c1t_have == 1) {
+        if (c1t_n % 11u == 4u) { c1t_drop++; r = -1; }
+        else { sd_c1_share((SdEngine *)ev, c1t_arg); c1t_after++; }
+    }
+    c1t_have = 0;
+    return r;
+}
+static void test_c1_halves(void)
+{
+    static SdEngine e[2];
+    static SdSpaceMem sm2;
+    static int32_t o[2][2u * SD_FS];
+    static const uint8_t MODEL[SD_RMODELS] = {SD_RM_BP6, SD_RM_BP12, SD_RM_VBP, SD_RM_KP, SD_RM_AP1, SD_RM_AP2};
+    uint32_t mi, x, k, i, diff = 0, frames = SD_FS * 3u / 4u, runs = 0;
+    int32_t pk = 0;
+    for (mi = 0; mi < SD_RMODELS; mi++)
+        for (x = 0; x < 2u; x++) {
+            SdPatch p = SD_PATCH[SD_P_DISTROY];
+            p.r_model = MODEL[mi]; p.r_mix = 40000; p.r_drive = 20000;
+            p.d_mix = 50000; p.d_xover = x ? SD_DX_LR4 : SD_DX_CMP; p.d_fb = x ? 30000 : 0;
+            p.s_dlevel = 12000; p.s_rlevel = 30000;
+            for (k = 0; k < 2u; k++) {
+                uint32_t done = 0, c = 0;
+                memset(k ? (void *)&sm2 : (void *)&tsm, 0, sizeof tsm);
+                sd_engine_init(&e[k]); e[k].sm = k ? &sm2 : &tsm; e[k].bpm = 120; sd_seq_retime(&e[k]);
+                if (k) { e[k].c1_post = c1t_post; e[k].c1_join = c1t_join; }
+                sd_engine_patch(&e[k], &p);
+                e[k].mode = SD_MODE_POLY;
+                run_ms(&e[k], 20);
+                sd_engine_note(&e[k], 45, 120); sd_engine_note(&e[k], 52, 100); sd_engine_note(&e[k], 57, 90);
+                sd_engine_note(&e[k], 64, 110);
+                memset(o[k], 0, sizeof o[k]);
+                while (done < frames) {         /* calls of 1 .. 47 frames: the halves start inside sub-blocks */
+                    uint32_t n = 1u + (c++ * 13u) % 47u;
+                    n = n > frames - done ? frames - done : n;
+                    sd_engine_render(&e[k], o[k] + 2u * done, n);
+                    done += n;
+                }
+            }
+            for (i = 0; i < 2u * frames; i++) {
+                diff += o[0][i] != o[1][i];
+                if (abs(o[0][i]) > pk) pk = abs(o[0][i]);
+            }
+            runs++;
+        }
+    CHECK(diff == 0 && c1t_before && c1t_after && c1t_busy && c1t_drop && pk > 1000,
+          "the second core's halves: %u samples differ (%u before, %u after, %u busy, %u dropped; peak %d)", diff,
+          c1t_before, c1t_after, c1t_busy, c1t_drop, pk);
+    printf("second core: %u patches (every REACTOR model, both crossovers, POLY): the halves run before the first core's "
+           "%u times, after it %u, busy %u, dropped %u: the same sound bit for bit (peak %d)\n", runs, c1t_before,
+           c1t_after, c1t_busy, c1t_drop, pk);
+}
+
 static void test_plate_jobs(void)
 {
     static SdEngine ej;
@@ -2638,6 +2799,67 @@ static int seq_is(const uint8_t *got, const char *want)   /* "0 1 2 ..." */
     }
     return 1;
 }
+/* STEP's MORE: MOVE and LENGTH (sd_note_move, sd_note_resize) on a pattern written as letters: N a NOTE, S a SLIDE,
+ * T a TIE, - a REST, x a SKIP; each NOTE's pitch its step, so a moved note is seen as itself */
+static void np_set(SdPattern *p, const char *w)
+{
+    uint32_t k;
+    sd_pattern_empty(p);
+    p->len = (uint8_t)strlen(w);
+    for (k = 0; w[k]; k++) {
+        p->step[k].type = (uint8_t)(w[k] == 'N' ? SD_ST_NOTE : w[k] == 'S' ? SD_ST_SLIDE : w[k] == 'T' ? SD_ST_TIE :
+                                    w[k] == 'x' ? SD_ST_SKIP : SD_ST_REST);
+        p->step[k].note = (uint8_t)(40u + k);
+    }
+}
+static int np_is(const SdPattern *p, const char *w)
+{
+    static const char L[SD_STYPES] = {'N', 'S', 'T', '-', 'x'};
+    uint32_t k;
+    if (p->len != strlen(w)) return 0;
+    for (k = 0; w[k]; k++) if (L[p->step[k].type % SD_STYPES] != w[k]) return 0;
+    return 1;
+}
+static void test_note_move(void)
+{
+    SdPattern p;
+    /* a held note, found from any of its steps; a REST, a stray TIE: none */
+    np_set(&p, "-NTT-T");
+    CHECK(sd_note_at(&p, 1) == 1 && sd_note_at(&p, 3) == 1 && sd_note_len(&p, 1) == 3, "note at: its first step, 3 long");
+    CHECK(sd_note_at(&p, 0) < 0 && sd_note_at(&p, 5) < 0, "note at: a rest, a tie after a rest: none");
+    /* the user's case: C held 1-3, D one step late at 4 held to 5, E at 6. MOVE D earlier: the change a step sooner,
+       C shorter, D ends where it did (legato into E) */
+    np_set(&p, "NTTNTN");
+    CHECK(sd_note_move(&p, 3, -1) == 2 && np_is(&p, "NTNTTN") && p.step[2].note == 43, "MOVE earlier, legato: %d", 0);
+    /* and back: later again, its end kept, C held into the step it leaves */
+    CHECK(sd_note_move(&p, 2, 1) == 3 && np_is(&p, "NTTNTN") && p.step[3].note == 43, "MOVE later, legato: back");
+    /* detached: the whole note, its length kept, a rest where it was */
+    np_set(&p, "N--NT--");
+    CHECK(sd_note_move(&p, 3, 1) == 4 && np_is(&p, "N---NT-") && p.step[4].note == 43, "MOVE later, detached");
+    CHECK(sd_note_move(&p, 4, -1) == 3 && sd_note_move(&p, 3, -1) == 2 && np_is(&p, "N-NT---"), "MOVE earlier, detached");
+    /* never onto another note's first step, nor past the ends, nor a SKIP */
+    CHECK(sd_note_move(&p, 2, -1) == 1 && np_is(&p, "NNT----"), "MOVE earlier into a rest, up to the note before");
+    CHECK(sd_note_move(&p, 1, -1) == -1 && np_is(&p, "NNT----"), "MOVE: not onto another note");
+    CHECK(sd_note_move(&p, 0, -1) == -1, "MOVE: not before step 1");
+    np_set(&p, "N-NT");
+    CHECK(sd_note_move(&p, 2, 1) == -1 && np_is(&p, "N-NT"), "MOVE: not past the end");
+    np_set(&p, "NxN");
+    CHECK(sd_note_move(&p, 0, 1) == -1, "MOVE: not into a SKIP");
+    /* legato out and one step long: its start cannot pass the next note */
+    np_set(&p, "-NN");
+    CHECK(sd_note_move(&p, 1, 1) == -1 && np_is(&p, "-NN"), "MOVE: a one-step note legato into the next stays");
+    /* a SLIDE moves as a NOTE does */
+    np_set(&p, "N-S-");
+    CHECK(sd_note_move(&p, 2, 1) == 3 && np_is(&p, "N--S"), "MOVE: a SLIDE");
+    /* LENGTH: over rests, never into a note or past the end; at least one step */
+    np_set(&p, "N--N");
+    CHECK(sd_note_resize(&p, 0, 1) == 2 && sd_note_resize(&p, 0, 1) == 3 && np_is(&p, "NTTN"), "LENGTH longer");
+    CHECK(sd_note_resize(&p, 0, 1) == 0 && np_is(&p, "NTTN"), "LENGTH: not into the next note");
+    CHECK(sd_note_resize(&p, 0, -1) == 2 && sd_note_resize(&p, 0, -1) == 1 && sd_note_resize(&p, 0, -1) == 0 &&
+          np_is(&p, "N--N"), "LENGTH shorter, one step at least");
+    CHECK(sd_note_resize(&p, 3, 1) == 0, "LENGTH: not past the end");
+}
+
 static void test_seq(void)
 {
     static SdPattern p;
@@ -2796,6 +3018,102 @@ static void run_ms(SdEngine *e, uint32_t ms)
     uint32_t f;
     for (f = 0; f < ms * 441u / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(e, o, SD_SUB); }   /* (zeroed
                                                    each time, as the platform hands it: the limiter's line keeps it) */
+}
+/* Headroom (2026-11-16, the user: "never clipping anywhere, even with everything on"): every factory patch, as made
+ * and with everything on at full (all the FX, the Reactor's DRIVE, DISTROY +36 dB with feedback and BIAS, SPACE and
+ * TIME at their tops, SHIMMER, FREEZE with PITCH, the filter at 90 % RES, the macros, all eight MOD slots, the wheel),
+ * MONO and POLY, loud chords low and high, a fast line. Each ceiling is soft by construction (sd_soft: never flat);
+ * here: as made none is pushed deep (4 S past its knee) and the output never reaches its shoulder; with everything on
+ * the output never reaches the shoulder's flat; no DC left before the FX or at the output */
+static SdRoomMem hr_frm;
+static void hr_all_on(SdPatch *p)
+{
+    static const SdModSlot W[SD_MODS] = {
+        {SD_MS_LFO1, SD_MD_RFREQ, 32767}, {SD_MS_LFO2, SD_MD_DSPLIT, 32767}, {SD_MS_LFO1, SD_MD_FCUT, 32767},
+        {SD_MS_LFO2, SD_MD_FRES, 32767}, {SD_MS_ENV1, SD_MD_SSIZE, 32767}, {SD_MS_LFO1, SD_MD_STIME, 32767},
+        {SD_MS_TUR, SD_MD_RPOS, 32767}, {SD_MS_ENV2, SD_MD_XM, 32767}};
+    uint32_t k, j;
+    p->fx_off = 0;
+    p->r_mix = 65535; p->r_drive = 65535; p->r_res = 60000;
+    for (k = 0; k < 6u; k++)
+        for (j = 0; j < 4u; j++)
+            if (!p->stage[k].level[j]) { p->stage[k].level[j] = 50000; p->stage[k].pitch[j] = (uint16_t)((48u + 7u * j + 5u * k) * 256u); }
+    p->d_mix = 65535;
+    for (k = 0; k < 4u; k++) {
+        if (!p->d_type[k]) p->d_type[k] = (uint8_t)(1u + k % 4u);
+        p->d_gain[k] = 65535; p->d_level[k] = 49152; p->d_bias[k] = 12000;
+    }
+    p->d_fb = 65535; p->d_tame = 0;
+    p->s_rlevel = 65535; p->s_size = 65535; p->s_decay = 65535; p->s_dlevel = 65535; p->s_fb = 65535;
+    p->s_mode = (uint8_t)((p->s_mode & 3u) | (63u << 2));
+    p->f_type = SD_FT_LP24; p->f_res = 58982; p->f_env = 32767;
+    for (k = 0; k < 4u; k++) p->mac[k] = 65535;
+    for (k = 0; k < SD_MODS; k++) p->mod[k] = W[k];
+    p->lfo_rate[0] = 52000; p->lfo_rate[1] = 44000; p->lfo_mode[0] = p->lfo_mode[1] = 0;
+    p->tur_set = 0x80u | 50u; p->tur_ld = 8u; p->tur_dst = SD_MD_PITCH; p->tur_amt = 40;
+}
+static double hr_dc, hr_n;
+static void hr_run(SdEngine *e, uint32_t ms)
+{
+    static int32_t o[2u * SD_SUB];
+    uint32_t f, i;
+    for (f = 0; f < ms * 441u / 10u; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(e, o, SD_SUB);
+        for (i = 0; i < 2u * SD_SUB; i++) hr_dc += o[i];
+        hr_n += 2u * SD_SUB;
+    }
+}
+static void test_headroom(void)
+{
+    static const char *const NM[SD_CK_N] = {"voice filter", "REACTOR in", "REACTOR AP1", "DISTROY sum", "SPACE return",
+        "plate store", "TIME / looper", "output shoulder", "REACTOR KP", "banks' sum"};
+    static const uint8_t LO[4] = {36, 43, 48, 55}, HI[4] = {72, 79, 84, 91};
+    uint32_t hard, pt, m, k, i, deep_as_made = 0, flat_all = 0, shoulder_as_made = 0;
+    int64_t pk[2][SD_CK_N];
+    double odc[2] = {0, 0}, bdc[2] = {0, 0};
+    memset(pk, 0, sizeof pk);
+    for (hard = 0; hard < 2u; hard++)
+        for (pt = 0; pt < SD_PATCHES; pt++)
+            for (m = 0; m < 3u; m += 2u) {
+                SdPatch p = SD_PATCH[pt];
+                if (hard) hr_all_on(&p);
+                memset(sd_ck_pk, 0, sizeof sd_ck_pk); memset(sd_ck_hit, 0, sizeof sd_ck_hit);
+                memset(sd_ck_deep, 0, sizeof sd_ck_deep); sd_ck_dc = 0; sd_ck_dcn = 0; hr_dc = hr_n = 0;
+                sd_engine_init(&e1); e1.sm = &tsm; e1.frm = &hr_frm;
+                e1.mode = (uint8_t)m;
+                sd_engine_patch(&e1, &p);
+                if (hard) e1.wheel = 127;
+                hr_run(&e1, 30);
+                for (k = 0; k < 4u; k++) sd_engine_note(&e1, LO[k], 127);
+                hr_run(&e1, 900);
+                for (k = 0; k < 4u; k++) { sd_engine_note(&e1, LO[k], 0); sd_engine_note(&e1, HI[k], 127); }
+                hr_run(&e1, 600);
+                for (k = 0; k < 4u; k++) sd_engine_note(&e1, HI[k], 0);
+                for (k = 0; k < 16u; k++) { sd_engine_note(&e1, 36u + (k * 7u) % 48u, 127); hr_run(&e1, 60); sd_engine_note(&e1, 36u + (k * 7u) % 48u, 0); }
+                if (hard) { e1.sp_freeze = 1; e1.sp_pitch = 7; }
+                for (k = 0; k < 4u; k++) sd_engine_note(&e1, LO[k] + 12u, 127);
+                hr_run(&e1, 900);
+                for (k = 0; k < 4u; k++) sd_engine_note(&e1, LO[k] + 12u, 0);
+                hr_run(&e1, 900);
+                for (i = 0; i < SD_CK_N; i++) if (sd_ck_pk[i] > pk[hard][i]) pk[hard][i] = sd_ck_pk[i];
+                if (!hard) {
+                    for (i = 0; i <= 6u; i++)
+                        if (sd_ck_deep[i]) { deep_as_made++; CHECK(0, "headroom: %s, as made (%s), pushed deep %u times", NM[i], SD_PATCH_NAME[pt], sd_ck_deep[i]); }
+                    if (sd_ck_hit[7]) { shoulder_as_made++; CHECK(0, "headroom: %s, as made, into the output's shoulder %u times", SD_PATCH_NAME[pt], sd_ck_hit[7]); }
+                }
+                if (sd_ck_deep[7]) { flat_all++; CHECK(0, "headroom: %s (%s), the output past its shoulder %u times", SD_PATCH_NAME[pt], hard ? "all on" : "as made", sd_ck_deep[7]); }
+                if (sd_ck_dcn && fabs((double)sd_ck_dc / sd_ck_dcn) > fabs(bdc[hard])) bdc[hard] = (double)sd_ck_dc / sd_ck_dcn;
+                if (hr_n && fabs(hr_dc / hr_n) > fabs(odc[hard])) odc[hard] = hr_dc / hr_n;
+            }
+    CHECK(fabs(bdc[0]) < 0.002 * 32768 && fabs(bdc[1]) < 0.002 * 32768, "headroom: DC into the FX %.4f / %.4f of full scale",
+          bdc[0] / 32768, bdc[1] / 32768);
+    CHECK(fabs(odc[0]) < 0.005 * 32768 && fabs(odc[1]) < 0.01 * 32768, "headroom: DC out %.4f / %.4f of full scale",
+          odc[0] / 32768, odc[1] / 32768);
+    printf("headroom: 29 patches, MONO and POLY, as made and all on: nothing cut (every ceiling rounds); as made the deepest "
+           "SPACE return %.2fx (of 3x before it rounds), DISTROY %.2fx, plate %.2fx; DC into the FX %.4f, out %.4f / %.4f\n",
+           pk[0][4] / 32768.0, pk[0][3] / 32768.0, pk[0][5] / 32768.0, bdc[0] / 32768, odc[0] / 32768, odc[1] / 32768);
+    (void)deep_as_made; (void)flat_all; (void)shoulder_as_made;
 }
 static double band_db(const int32_t *x, uint32_t n, double f0, double f1)   /* left channel, a Hann DFT's bins */
 {
@@ -3950,11 +4268,16 @@ int main(void)
     test_orbit();
     test_xkey();
     test_rec_note();
+    test_note_move();
+    test_headroom();
     test_more();
     test_cue();
     test_tq();
     test_plate();
     test_plate_jobs();
+    test_plate_pitch();
+    test_freeze_room();
+    test_c1_halves();
     test_arp_grid();
     test_pingpong();
     test_clock();
