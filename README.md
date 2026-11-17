@@ -114,8 +114,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   The bar lines draw it most (a bar long: up to 60 % into the bar it takes the one just passed). It follows PLAY: **STOP** stops the loop too (it fades out and
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
   too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
-  the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down (the pitch and the
-  length together, as a tape's), and **REVERSE** (GLO + ALGORITHM on LOOPER) plays it backwards, its attacks turned
+  the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down, a semitone a detent (the pitch
+  and the length together, as a tape's), and **REVERSE** (GLO + ALGORITHM on LOOPER) plays it backwards, its attacks turned
   into swells, before it loops or while it does. **GLO + OCT- / OCT+** (on LOOPER) takes it to the next octave, and **GLIDE**
   is how long a new speed takes (OFF: at once, or 1/32 … 4 bars): an octave lands on the loop's own grid, gliding
   onto its beats and then crossfading into its place, so back at its pitch it plays exactly where it was. It goes
@@ -139,14 +139,14 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   freeze let go, it is the plate's own again.
 - **SHIMMER** (GLO's K1) sends an octave up of the tail back into it, a little more each pass:
   it climbs and fades, and stays stable at any DECAY.
-- The plate and the looper run on the FM-1's **second core**, a block of 5.8 ms at a time beside the audio; the
-  delay on the first, as it always has. The second core also takes half of every 0.7 ms of sound beside the first:
-  two of the four banks, two of REACTOR's four resonators, DISTROY's right channel (the same sound bit for bit, on one
-  core or two). Some FM-1s' second core misreads memory now and then: every job carries a
-  check, and at the first sign of trouble (a misread, a job that does not come back, a fault) that core is held until
-  the power is off: the first core does all of the sound, and the earlier room plays in the plate's place, the
-  looper going on beside it: **ROOM** on SPACE's screen, and *2ND CORE OFF: ROOM* once. The room has no FREEZE or
-  SHIMMER.
+- **One core, for now (2026-11-18):** the FM-1 plays everything on its first core, and SPACE's reverb is the earlier
+  **room** (**ROOM** on SPACE's screen; it has no FREEZE or SHIMMER), the looper beside it. The plate runs on the
+  FM-1's **second core**, a block of 5.8 ms at a time beside the audio, but on a real FM-1 its first job after SPACE
+  had rested (the first key after a quiet spell) crashed it, since the audio's code runs from RAM (with that code in
+  the flash it held, but read 120 %); the hunt goes on with a build of its own, `DINGHY_DEFS=-DSD_TWO_CORES=1
+  ./build.sh`, and a diagnosis over USB (`tools/fm1_diag.c`). There every job carries a check, and at the first sign
+  of trouble (a misread, a job that does not come back, a fault) the second core is held until the power is off and
+  the room plays in the plate's place.
 
 </td>
 </tr>
@@ -243,8 +243,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   **LENGTH**, how many steps it holds (its TIEs). A join stays a join: a note played legato into the next keeps its
   end when it moves, and the note before holds into the step it leaves. It never takes another note's place.
 - **Segments A–F:** up to six parts of the pattern, each with REPEAT, ORDER (forwards, reverse, ping-pong,
-  random), SKIP and LENGTH. **D♯5** opens them: a white key picks the part its step is in (framed, the others dim),
-  ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
+  random), SKIP and LENGTH. **GLO + D♯5** opens them: a white key picks the part its step is in (framed, the others
+  dim), ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
+  The loop keeps to the pattern's LENGTH: repeats play inside it, and when it has played its LENGTH it starts at step 1.
 - **REC** (or **B11**, the last black key, lit while it is on) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
   step (keys held together, a chord); playing, into the step that plays, and a key held on writes a TIE into each
   step it is held over, so a note is as long as you held it (a new key while one is held is the next note, legato,
@@ -348,7 +349,7 @@ the keys). The CPU is on SETUP.
 | **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
 | **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
-| **The keys** | play; on SEQ the white keys are the steps and the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
+| **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC; GLO + B11 again: back), the other keys the track's transpose; on ORBIT, with GLO, the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MASTER** | the volume |
 
@@ -428,6 +429,8 @@ tests/run_sd.sh                              # the engine's tests (also under AS
 tests/run_host.sh tests/scripts/q1.txt       # the whole firmware on the host: a WAV and the screens
 ./build.sh                                   # -> build/stardistroyer.fwsc
 tools/emu_strict.sh build/stardistroyer.fwsc # the chip's load as the FM-1 has it (fm1-live)
+cc -O2 -o build/fm1_diag tools/fm1_diag.c -framework CoreMIDI -framework CoreFoundation
+build/fm1_diag -w 250 -o build/diag.txt      # a Mac: what the FM-1 does, read over USB MIDI four times a second
 sh tests/run_tests.sh                        # the update path, the loader, the installer, the flash maps
 sh web/app/build.sh                          # the player: the firmware as WebAssembly (clang + lld, wasm32)
 node tests/web_test.mjs build/web/stardistroyer.wasm   # ... boots, plays, turns pages, saves
@@ -485,10 +488,10 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 - **CPU:** the app's own meter (the worst audio interrupt of a second) in fm1-live's realistic mode, which times each
   instruction and the flash cache's misses as the chip does (`tools/emu_strict.sh`; it matched a real FM-1 on
   2026-11-16): DISTROY's loop 51.7 %, the looper armed 53.6 %, everything at once (POLY with a chord, both tracks,
-  ARP, all FX, all eight slots, RADAR and ORBIT) 58.9 %. The audio's hot code runs from RAM, and the second core
-  takes half of every sub-block beside the first, besides the plate and the looper; from the flash on one core it
-  read 98 % (113 % everything at once). On one core (a second core that misreads) the room plays there: 74.7 %,
-  everything at once 82.8 %, the sound otherwise the same. Dinghy's [rules](docs/RULES.md) ask for under half,
+  ARP, all FX, all eight slots, RADAR and ORBIT) 58.9 % (those with the second core taking half of every sub-block,
+  off since: see above). The audio's hot code runs from RAM; from the flash on one core it read 98 % (113 %
+  everything at once). On one core, the default since 2026-11-18, the room in the plate's place: DISTROY's loop
+  79.7 %, the looper with its FILTER and sends 86.7 % (two cores, the plate there: 75.3 %). Dinghy's [rules](docs/RULES.md) ask for under half,
   because USB, the key scan and the screen need the rest.
 - **The output:** a limiter that looks 1.45 ms ahead turns a peak down before it comes, to −1.4 dBFS, so extreme
   modulation, the macros at full or a loud POLY chord never square off; a soft shoulder after it is the last safety.
@@ -500,7 +503,11 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   [make it yours](docs/MAKE-IT-YOURS.md).
 - **Departures from Dinghy 0.5's own files:**
   - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host and in the browser.
-  - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`.
+  - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`;
+    the crash screen shows the whole record for 20 s (the guards' causes, SP, the last branches, the second core's
+    own), not only the vector, PC and RETS for 8 s; that second core's record is also kept through the restart
+    (`fm1_c1_last`, `.noinit`), and `platform_poll` lets the app see a SysEx first (`APP_SYSEX_HOOK`: the
+    diagnosis below), before the installer's handshake.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `tools/build.py`: the identity FM-1_962XY; it assembles `hal/fm1_cpu1.S`, and its check of the RAM code lets
     the second core's loop make its one call, the job, and the audio's code in RAM (`.ram_audio`) call as any code.
@@ -515,7 +522,13 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     `fm1_cpu1.S` and `fm1_cpu1_stop.h` are new. `firmware/app.ld` links its loop (`.c1_text`) into the RAM code;
     `firmware/hal/fm1_flash.h`'s `irq_save` waits for it to be idle before the flash goes off; `fm1_irq.h`'s
     `fm1_fault_c` hands it a fault first; `fm1_sys.h` holds it before a reset or an update; `platform.c` holds it
-    first thing at boot and, with `FM1_CPU1`, starts it before the audio.
+    first thing at boot and, with `FM1_CPU1`, starts it before the audio. Its idle loop reads a word that holds 0
+    and counts what else it reads (`fm1_cpu1_probe`: a misread, the flaw some units have), for the diagnosis.
+    Since 2026-11-17 its loop runs from the flash, as its jobs, and its stack, mailbox and probe are in the pool: in
+    RAM, beside the audio's code there (`.ram_audio`), it faulted now and then on the user's FM-1 (in its own loop,
+    its stack limit and a bus read) and the FM-1 crashed; with the audio's code in the flash it ran clean. The flash
+    gate now parks it in RAM (`fm1_cpu1_park`, the one piece of it in `.c1_text`; `fm1_cpu1_stop.h`'s
+    `fm1_flash_cpu1_park`, `fm1_flash.h`'s `irq_restore` lets it go).
   - `firmware/hal/fm1_ram2.h` is new: the RAM2 test build's look for a second RAM bank (it sets nothing up; no
     firmware for the FM-1 is known to use one).
   - `.github/workflows/release.yml`: it also runs on every push to `main`, and publishes the page (`web/`) with the

@@ -730,6 +730,7 @@ typedef struct {                                /* a sequencer track: its patter
     uint8_t rat_n, rat_i, rat_vel;              /* the hits, the one playing, its velocity */
     uint8_t sq_seg, sq_rep, sq_pos, sq_cur;     /* the segment, its pass, the place in its order, which buffer */
     uint8_t sq_n[2], sq_nseg, sq_nrep;          /* the passes' lengths; the next pass's segment and repeat */
+    uint8_t sq_steps;                           /* the steps played since the loop's one (its LENGTH at most) */
     uint8_t sq_ord[2][SD_PSTEPS * 2u];          /* this pass's steps in order, and the next one's (P-P: ~2 x) */
     uint32_t sq_rng;
     volatile uint8_t mute;                      /* the main loop's ON / OFF (EDIT): the track keeps time, silent */
@@ -1149,6 +1150,7 @@ static void sd_engine_init(SdEngine *e)
     sd_seq_retime(e);
 }
 
+#define SD_MODE_REL 37u                         /* a new mode's release: 15 ms (SD_ENV_MS), so it comes in at once */
 SD_HOT static int sd_voice_silent(const SdVoice *v) { return v->env1.stage == SD_ENV_OFF && !v->amp && !v->amp_next; }
 SD_HOT static int sd_engine_silent(const SdEngine *e)
 {
@@ -1187,6 +1189,7 @@ SD_HOT static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uin
 {
     uint32_t i, pick = 0xFFu, held = 0, best = 0xFFFFFFFFu, rank, q = e->quota[src % SD_SRCS];
     SdVoice *v;
+    if (e->mode != e->mode_on) return 0;        /* (a new mode waiting for quiet: none till it is in) */
     for (i = 0; i < e->nvoices; i++) held += e->voice[i].gate && e->voice[i].src == src;
     for (i = 0; i < e->nvoices; i++) {          /* its own note again; else, under its quota, the oldest silent, then
                                                    released; at its quota, its own oldest held. Never another's held */
@@ -2092,6 +2095,7 @@ SD_HOT static void sd_seq_start(SdSeqT *t)           /* START: the first pass wi
     t->sq_seg = 0;
     t->sq_rep = 0;
     t->sq_pos = 0;
+    t->sq_steps = 0;
     t->sq_n[0] = (uint8_t)sd_seq_build(t, 0, t->sq_ord[0]);
     if (!t->sq_n[0]) {                          /* A skipped or empty: the next with steps */
         t->sq_rep = 0xFF;                       /* (any: past the repeats) */
@@ -2103,18 +2107,30 @@ SD_HOT static void sd_seq_start(SdSeqT *t)           /* START: the first pass wi
     sd_seq_next_pass(t);
 }
 
-static uint32_t sd_seq_advance(SdSeqT *t)     /* to the next step of the traversal -> 1 at the loop's one */
+static uint32_t sd_seq_advance(SdSeqT *t)     /* to the next step of the traversal -> 1 at the loop's one. The
+                                                   loop is the pattern's LENGTH at most (2026-11-17, the user: repeats
+                                                   made it longer; "it keeps to the length and starts at one when it has
+                                                   counted up"): its LENGTH played, step 1 (segment A) again, the
+                                                   segments and repeats inside it; a shorter traversal (SKIPs) wraps
+                                                   as it ends */
 {
-    uint32_t one = 0;
-    if (++t->sq_pos < t->sq_n[t->sq_cur]) return 0;
-    t->sq_pos = 0;
-    one = t->sq_nseg < t->sq_seg || (t->sq_nseg == t->sq_seg && t->sq_nrep <= t->sq_rep);   /* the passes go
+    uint32_t one, ln = t->pat.len < 1u ? 1u : t->pat.len > SD_PSTEPS ? SD_PSTEPS : t->pat.len;
+    if (++t->sq_pos < t->sq_n[t->sq_cur]) {
+        if (++t->sq_steps <= ln) return 0;
+    } else {
+        t->sq_pos = 0;
+        one = t->sq_nseg < t->sq_seg || (t->sq_nseg == t->sq_seg && t->sq_nrep <= t->sq_rep);   /* the passes go
                                                    forward through (segment, repeat) but at the loop's one */
-    t->sq_cur ^= 1u;
-    t->sq_seg = t->sq_nseg;
-    t->sq_rep = t->sq_nrep;
-    sd_seq_next_pass(t);
-    return one;
+        t->sq_cur ^= 1u;
+        t->sq_seg = t->sq_nseg;
+        t->sq_rep = t->sq_nrep;
+        sd_seq_next_pass(t);
+        if (one) { t->sq_steps = 1; return 1; }
+        if (++t->sq_steps <= ln) return 0;
+    }
+    sd_seq_start(t);                            /* (its LENGTH played: from A's first step) */
+    t->sq_steps = 1;
+    return 1;
 }
 
 SD_HOT static uint32_t sd_seq_peek(const SdSeqT *t)  /* the step after this one */
@@ -2371,8 +2387,8 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
         const SdStep *st;
         uint32_t one, next;
         t->seq_pos_q8 -= t->seq_step_q8;
-        if (t->sq_pos == 0xFFu) { t->sq_pos = 0; one = 0; }
-        else if (t->sq_pos == 0xFEu) { t->sq_pos = 0; one = 1; }   /* (in at the master's one: step 1) */
+        if (t->sq_pos == 0xFFu) { t->sq_pos = 0; t->sq_steps = 1; one = 0; }
+        else if (t->sq_pos == 0xFEu) { t->sq_pos = 0; t->sq_steps = 1; one = 1; }   /* (in at the master's one: step 1) */
         else one = sd_seq_advance(t);
         if (one && lead) { e->a_one = 1; e->a_rem = t->seq_pos_q8; }   /* the master's one: what waits comes in */
         if (!t->sq_n[t->sq_cur]) {              /* every step skipped: silence */
@@ -3367,7 +3383,10 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
         else if (ev.vel) sd_voice_on(e, ev.note, ev.vel, SD_SRC_HAND);
         else sd_hand_off(e, ev.note);
     }
-    if (e->mode != e->mode_on) {                /* a new mode: release everything, switch once it is quiet */
+    if (e->mode != e->mode_on) {                /* a new mode: release everything, switch once it is quiet (2026-11-17,
+                                                   the user: no switch while playing: the steps kept the voices on, so
+                                                   it never got quiet; now no new note till then, and the release at
+                                                   most SD_MODE_REL's 15 ms) */
         for (i = 0; i < SD_VOICES; i++) e->voice[i].gate = 0;
         if (sd_engine_silent(e) && e->mode < SD_MODES) { e->mode_on = e->mode; sd_map_banks(e); }
     }
@@ -3375,7 +3394,9 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
     sd_arp_tick(e);
     for (i = 0; i < SD_VOICES; i++) {
         SdVoice *v = &e->voice[i];
-        sd_env_tick(&v->env1, v->gate, e->envp[0], e->envp[1], e->envp[2], e->envp[3]);   /* (the matrix's, a tick on) */
+        sd_env_tick(&v->env1, v->gate, e->envp[0], e->envp[1], e->envp[2],
+                    e->mode != e->mode_on && e->envp[3] > SD_MODE_REL ? SD_MODE_REL : e->envp[3]);   /* (the matrix's, a
+                                                   tick on; a mode waiting: a short release) */
         sd_env_tick(&v->env2, v->gate, e->envp[4], e->envp[5], e->envp[6], e->envp[7]);
         sd_env_tick(&v->env3, v->gate, e->envp[8], e->envp[9], e->envp[10], e->envp[11]);
         v->amp = v->amp_next;
@@ -4470,11 +4491,16 @@ SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32
             xm = sd_hb_down(s->hxm, w);
             if (lq) xl = sd_hb_down(s->hx, w);
             yo[2u * i] = yo[2u * i + 1u] = 0;
-            if (lp) sd_lp_step(s, &L, xl, &pp->lt, (uint32_t)pp->li0 + i, pp->lt.rst && !i, pp->llvl,
-                               &yo[2u * i], &yo[2u * i + 1u]);
-            if (!i) sd_lp_fset(s, pp->lff);     /* (its FILTER: worked out here, as its knob changes) */
-            yo[2u * i] = yo[2u * i + 1u] = sd_lp_flt(yo[2u * i], s->lfm, s->lfa, s->lfs);   /* (mono: its FILTER) */
-            pin[i] = sd_td_clip(xm) + sd_lp_send((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3, pp->lrs);
+            pin[i] = sd_td_clip(xm);
+            if (lq) {                           /* the looper, armed or playing only (2026-11-17: `lp` stood here, so
+                                                   it recorded in every job, into the delay's second half while the
+                                                   delay had its whole line: the looper unarmed no longer borrows it) */
+                sd_lp_step(s, &L, xl, &pp->lt, (uint32_t)pp->li0 + i, pp->lt.rst && !i, pp->llvl,
+                           &yo[2u * i], &yo[2u * i + 1u]);
+                if (!i) sd_lp_fset(s, pp->lff); /* (its FILTER: worked out here, as its knob changes) */
+                yo[2u * i] = yo[2u * i + 1u] = sd_lp_flt(yo[2u * i], s->lfm, s->lfa, s->lfs);   /* (mono: its FILTER) */
+                pin[i] += sd_lp_send((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3, pp->lrs);
+            }
         }
         sd_plate_blk(s, pm, pp, pp->G != 0, pin);
         for (i = 0; i < n; i++) {               /* the looper's out to its ring (x 1/2: 16 bits) */

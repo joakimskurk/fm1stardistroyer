@@ -212,7 +212,7 @@ static void fl_plain_window_init(void)
 
 /* (the flash goes off after this: a second core's job runs from it, so wait until it is idle, fm1_cpu1_stop.h) */
 static inline uint32_t irq_save(void) { __asm__ volatile("cli" ::: "memory"); fm1_flash_cpu1_gate(); return 0; }
-static inline void irq_restore(uint32_t f) { (void)f; __asm__ volatile("csync\n\tsti" ::: "memory"); }
+static inline void irq_restore(uint32_t f) { (void)f; fm1_flash_cpu1_ungate(); __asm__ volatile("csync\n\tsti" ::: "memory"); }
 
 static int fl_erase4k(uint32_t off, uint32_t *took_us)
 {

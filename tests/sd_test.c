@@ -2924,11 +2924,17 @@ static void test_seq(void)
     n = seq_trace(&e1, &p, 20, tr, at);
     CHECK(n == 20u && seq_is(tr, "0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 0 1 2 3"), "default order");
     CHECK(at[1] - at[0] == 5512u || at[1] - at[0] == 5536u, "a 16th at 120 BPM is %u frames", at[1] - at[0]);
-    /* orders and repeats: A x2, B reversed, C ping-pong, D skipped */
+    /* orders and repeats: A x2, B reversed, C ping-pong, D skipped; the loop keeps to the LENGTH, 16 steps, then
+       step 1 again (2026-11-17: the repeats and the ping-pong made it 18, and B and ORBIT drifted off its one) */
     p.seg_rep[0] = 2; p.seg_order[1] = SD_SO_REV; p.seg_order[2] = SD_SO_PP; p.seg_skip = 1u << 3;
     n = seq_trace(&e1, &p, 22, tr, 0);
-    CHECK(seq_is(tr, "0 1 2 3 0 1 2 3 7 6 5 4 8 9 10 11 10 9 0 1 2 3"), "segments: got %u %u %u %u %u %u %u %u %u %u %u %u",
+    CHECK(seq_is(tr, "0 1 2 3 0 1 2 3 7 6 5 4 8 9 10 11 0 1 2 3 0 1"), "segments: got %u %u %u %u %u %u %u %u %u %u %u %u",
           tr[0], tr[1], tr[2], tr[3], tr[8], tr[9], tr[10], tr[11], tr[12], tr[13], tr[16], tr[18]);
+    sd_pattern_default(&p);                     /* A x4 fills the LENGTH: A again, B to D not reached */
+    p.seg_rep[0] = 4;
+    n = seq_trace(&e1, &p, 20, tr, 0);
+    CHECK(seq_is(tr, "0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3"), "A x4 in 16: got %u %u %u %u .. %u %u %u %u",
+          tr[0], tr[1], tr[2], tr[3], tr[16], tr[17], tr[18], tr[19]);
     /* RND: each pass a shuffle of its steps */
     sd_pattern_default(&p);
     p.seg_count = 1; p.seg_order[0] = SD_SO_RND;

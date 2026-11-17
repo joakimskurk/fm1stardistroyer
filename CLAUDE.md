@@ -2,7 +2,10 @@
 
 - Bare-metal FM-1 firmware on Dinghy 0.5. The plans are in docs/sd/; the current step is the first one in the Sound
   Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3, S4 and L1, the lab, are done; HW: the user has an FM-1 since 2026-11-16
-  and played it: the CPU read 90 to 100 %, the work now; then W1, the console page; the install always needs the user's go-ahead). The sequencer: docs/sd/ Sequencer Plan (the
+  and played it: the CPU read 90 to 100 %, the work now; then W1, the console page; the install always needs the user's go-ahead).
+  Since 2026-11-18 the FM-1 runs on ONE core by default (the room); the plate on the second core crashes a real FM-1
+  at its first job after SPACE rests (Sound Plan 6.8): a build of its own, `DINGHY_DEFS=-DSD_TWO_CORES=1`, and the
+  diagnosis over USB (`build/fm1_diag -w 250 -o build/diag.txt`, tools/fm1_diag.c) to hunt it on the device. The sequencer: docs/sd/ Sequencer Plan (the
   reference, v0.3); `firmware/src/sd_seq.h`. The plans hold the design and what each step decided, not a log: the
   history is git's.
 - After every change: `tests/run_sd.sh` (and `tests/run_host.sh tests/scripts/c1.txt`, `q1.txt`, `q2.txt` and `q3.txt` when the app changes). It
@@ -21,7 +24,7 @@
   (unpinned, a few lines of UI moved it 2-4 points), and like with like (`STRICT_PROF` itself reads ~0.8 lower).
 - `./build.sh` stops before the package when a check fails (its line says `FAIL`): never read only its `ok`
   lines, and never measure a `.fwsc` older than the source. CI builds the SMK-37's three models first (`BOARD=smk37 MODEL=pro|elite|mke
-  sh build.sh`), whose RAM is tighter (164 B left on 2026-11-17: the next thing in .bss goes in the pool, or a field smaller): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
+  sh build.sh`), whose RAM is tighter (3.2 KB left on 2026-11-17, core 2's stack moved to the pool; the pool has 2.9 KB: the next thing in .bss goes in the pool, or a field smaller): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
   fails the ROM check: clamp in another range, or shift after the clamp.
 - `tests/run_sd.sh` runs the tests twice, the second time under ASan/UBSan: a signed overflow there is a bug on
   the FM-1 too (it found MIX's), so keep it clean.

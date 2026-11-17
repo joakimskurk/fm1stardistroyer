@@ -139,8 +139,8 @@
  *              -100..100 %); GLO: the macros' changes (MUTATE MOVE BREAK MACRO 4, -99..99). B10 (D#5): SETUP,
  *              K1 LENGTH K2 RATE (1 2 4 loops) K3 DEST 1 K4 DEST 2; GLO there: GLIDE for lane 1, lane 2, the macros.
  *              EDIT on / off. Every value a change from where the player is (0 none); saved with the pattern. The
- *              step picked (a key, SELECT, ALGORITHM, a knob) is held while it plays (eng.orb_hold, the hint's lamp);
- *              its key again or leaving ORBIT: on in time
+ *              step picked (SELECT, ALGORITHM, a knob, GLO + a key) is held while it is edited (eng.orb_hold, the
+ *              hint's lamp): 2 s after the last edit, GLO + its key again, or leaving ORBIT, on in time
  *   MIDI in    notes from USB or the TRS jack, any channel: they play as the keys do, on every page (ARP takes them
  *              while on), and REC writes them as the keys', at their velocity (midi_note); CC 1 the matrix's WHEEL,
  *              channel pressure its AFTER. A clock (24 a quarter) leads the tempo while it comes (SYNC AUTO; GLO +
@@ -154,16 +154,24 @@
  * Dinghy's rule is under half (docs/RULES.md). On the host it reads 0: there tools/sd_render.c measures. */
 #define APP_NAME "STAR DISTROYER"
 static void app_idle(void);
+#if !defined(DINGHY_HOST)
+static void sd_diag_service(void);
+#define APP_SYSEX_HOOK sd_diag_service          /* a read-only status over USB (below; tools/fm1_diag.c) */
+#endif
 #define LCD_IDLE app_idle                       /* while the screen's DMA runs: MIDI in (platform.c) */
 #define CV_MAX (240u * 120u)                    /* the splash in two halves; the nav panel (57.6 KB of the pool) */
-#if !defined(DINGHY_HOST) && !defined(SD_ONE_CORE)
-#define FM1_CPU1 1                              /* the second core (hal/fm1_cpu1.h): SPACE's plate runs there, and
-                                                   half of each sub-block beside the first (a test build:
-                                                   DINGHY_DEFS=-DSD_ONE_CORE ./build.sh, one core: the room) */
+#if !defined(DINGHY_HOST) && defined(SD_TWO_CORES) && SD_TWO_CORES
+#define FM1_CPU1 1                              /* the second core (hal/fm1_cpu1.h): SPACE's plate runs there. A build
+                                                   of its own since 2026-11-18 (DINGHY_DEFS=-DSD_TWO_CORES=1 ./build.sh):
+                                                   on the user's FM-1 the plate's first job after SPACE had rested (the
+                                                   first key after a quiet spell) crashed it, the second core's bus read
+                                                   in sd_plate_blk taking the first with it, once the audio's code ran
+                                                   from RAM (Sound Plan 6.8). One core, the default: the room */
 #endif
 #include "platform.c"
-#if !defined(DINGHY_HOST)
-#define SD_RAM_AUDIO 1                          /* the audio's hot code from RAM (sd_engine.h, app.ld's .ram_audio) */
+#if !defined(DINGHY_HOST) && !defined(SD_RAM_AUDIO)
+#define SD_RAM_AUDIO 1                          /* the audio's hot code from RAM (sd_engine.h, app.ld's .ram_audio; a
+                                                   test build from the flash: DINGHY_DEFS=-DSD_RAM_AUDIO=0) */
 #endif
 #include "sd_engine.h"
 #include "sd_logo.h"
@@ -239,14 +247,28 @@ SD_HOT static void sd_c1_plate(uint32_t b)
 }
 /* the second core's half of each sub-block (sd_engine.h's sd_c1_share: banks 3 and 4, REACTOR's resonators 3 and
  * 4, DISTROY's right channel) beside the first core's; the engine's own buffers, so no pointer is read from RAM. Busy
- * with the plate, or retired: the first core does it */
+ * with the plate, or retired: the first core does it. OFF (SD_C1_HALVES 0) since 2026-11-17: on the user's FM-1 the
+ * second core faulted inside it (its stack limit and a bus write, in sd_bank_run, 12 s up) and the FM-1 crashed; the
+ * day before, the plate alone on it (no halves) ran clean. A job each sub-block (1378 a second, not 172) and far more
+ * of the shared RAM read: where a core that misreads now and then (fm1_cpu1.h) meets a pointer. On, the gate reads
+ * a few points lower; off, the first core renders every bank, the same sound */
+#ifndef SD_C1_HALVES
+#define SD_C1_HALVES 0
+#endif
+#if SD_C1_HALVES
 SD_HOT static void sd_c1_half(uint32_t arg) { SD_FAR(sd_c1_share)(&eng, arg); }
 SD_HOT static int sd_c1_hpost(void *e, uint32_t arg) { (void)e; return fm1_cpu1_run(sd_c1_half, arg); }
 SD_HOT static int sd_c1_hjoin(void *e) { (void)e; return fm1_cpu1_wait() ? -1 : 0; }
+#endif
 SD_HOT static int sd_c1_post(void *e, uint32_t b)
 {
     (void)e;
+#if defined(SD_C1_NOPLATE) && SD_C1_NOPLATE     /* (a test build: the second core started, given no plate; the room
+                                                   here. DINGHY_DEFS=-DSD_C1_NOPLATE=1, 2026-11-17's bisection) */
+    (void)b;
+#else
     if (fm1_cpu1_run(sd_c1_plate, b)) return 1;
+#endif
     eng.sp_room = 1;
     return 0;
 }
@@ -555,6 +577,14 @@ static UserOrbits uorb __attribute__((section(".pool")));
 #endif
 static SdOrbit orbp;                            /* ORBIT as the knobs left it (SEQ A's pattern's) */
 static uint32_t orb_cur, orb_setup;             /* the step the keys picked; SETUP (B10, D#5) */
+#define ORB_HOLD_MS 2000u
+static uint32_t orb_hold_at;                    /* the last edit that held ORBIT's step (2026-11-17, the user: held
+                                                   only while it is edited; after it, the page shows ORBIT in time) */
+static void orb_hold_step(uint32_t s)           /* the step edited: held, heard, till ORB_HOLD_MS after the last edit */
+{
+    eng.orb_hold = (uint8_t)(s + 1u);
+    orb_hold_at = fm1_ms;
+}
 static void orb_push(void) { sd_engine_orbit(&eng, &orbp); }
 static void orb_load(uint32_t i)                /* pattern i's ORBIT (none saved: off, 4 steps) */
 {
@@ -1189,6 +1219,20 @@ static uint32_t dl_lim(void)                    /* the delay's longest: half its
 {
     return eng.lp_borrow && lp_arm ? SD_SP_LIM2 : SD_SP_LIM;
 }
+static uint32_t div_fit(uint32_t d, uint32_t was, uint32_t lim)   /* a division turned up to d from was: at most the
+                                                   longest that fits its line at this tempo, or where it was (2026-11-17,
+                                                   the user: "the divisions jump, 1/4, then back to 1/4": past the line
+                                                   the engine plays it halved, sd_space_sync_q8; now the knob stops) */
+{
+    uint32_t f;
+    while (d > was) {
+        sd_space_sync_q8(eng.tempo_q8, d, &f, lim);
+        if (!f) break;
+        d--;
+    }
+    if (d == was) msg(lim == SD_SP_LIM2 ? "THE LONGEST THAT FITS: 0.5 S" : "THE LONGEST THAT FITS HERE");
+    return d;
+}
 static uint32_t sp_fold(char *played) { return time_fold(sd_sp_div(pat.s_time), pat.s_time, dl_lim(), played); }
 static uint32_t lp_fold(char *played) { return time_fold(sd_lp_div(lp_len), lp_len, lp_lim(), played); }
 static char *put_glide(char *p)                 /* GLIDE: OFF, a division, or ms */
@@ -1295,6 +1339,16 @@ static uint32_t seq_next_step(uint32_t k)       /* the next step in the pattern 
         if (seqp.step[s].type != SD_ST_SKIP) return s;
     }
     return k;
+}
+static const SdStep *seq_heard(const SdPattern *p, uint32_t i)   /* the step whose note is heard at step i: a TIE's
+                                                   note, back round the loop's end as it plays (2026-11-17, the user:
+                                                   B showed A's notes: a TIE kept the note field B's empty pattern had,
+                                                   the default's, and was drawn and named by it); else step i */
+{
+    uint32_t n = p->len < 1u ? 1u : p->len > SD_PSTEPS ? SD_PSTEPS : p->len, k;
+    i %= n;
+    for (k = 0; k < n && p->step[i].type == SD_ST_TIE; k++) i = (i + n - 1u) % n;
+    return &p->step[i];
 }
 static uint32_t rec_at = 0xFFu, rec_n;         /* REC: the step the held keys write, its notes so far */
 static uint32_t rec_tie_at = 0xFFu;             /* REC, playing: the last step a held key wrote (its NOTE or a TIE) */
@@ -1464,7 +1518,7 @@ static void clear_all(void)
     lp_on = 0; lp_rev = 0; lp_arm = 0; lp_speed = 0; lp_filt = 32768u; lp_rsend = 65535u; lp_dsend = 0;
     sp_frz = 0; sp_pitch = 0;
     clr_all_at = 0;
-    msg("ALL CLEAR: STEPS, MOVEMENT, TOOLS");
+    msg("ALL CLEAR, THE SOUND KEPT");
 }
 
 /* SELECT: which one, where a page has them in a row (the user: "where something is chosen horizontally: steps,
@@ -1500,7 +1554,7 @@ static uint32_t select_turn(int32_t e)
         return 0;
     case PAGE_ORB:
         orb_cur = step_lim(orb_cur, e, SD_ORB_LEN(&orbp));
-        if (!orb_setup) eng.orb_hold = (uint8_t)(orb_cur + 1u);   /* (the step picked: heard) */
+        if (!orb_setup) orb_hold_step(orb_cur);   /* (the step picked: heard) */
         return 0;
     case 1:
         if (!r_stages) return 0;
@@ -1514,9 +1568,9 @@ static uint32_t select_turn(int32_t e)
     }
 }
 
-/* The keys on SEQ and TURING, REC off: the white keys the steps of the bank (ALGORITHM's step's), the black keys
- * RND UNDO CLR and, on the last one, SEG (segments: the white keys cut and join, the black keys A-F and EVEN; SEG
- * again: back). The key LEDs show it (keys_lit). */
+/* The keys on SEQ, REC off, with GLO (2026-11-17; without it they play): the black keys B1 RND, B2 UNDO, B3 CLR,
+ * B4 MORE, B10 SEG (SEGMENTS: the white keys pick the part, B10 again: back), B11 KEYS (REC); SELECT picks the step.
+ * The key LEDs show it (keys_lit). */
 #define BK_MORE 3                               /* B4 (C#4): on SEQ the step's second layer, RATCHET and PROB */
 #define BK_SEG 9                                /* the black key before the last (D#5, B10): SEG; ORBIT's SETUP */
 #define BK_KEYS 10                              /* the last black key (F#5, B11): on SEQ the keys play into the steps
@@ -1526,6 +1580,15 @@ static void rec_toggle(void)                    /* REC (or B11 on SEQ): recordin
     seq_rec = !seq_rec;
     rec_at = 0xFFu;
     if (seq_rec && seq_trk && set.mode == SD_MODE_MONO) msg("B RECORDS, PLAYS IN DUO/POLY");
+}
+static uint32_t seq_tool_keys(void)             /* the black keys with a job on SEQ (with GLO): B1 B2 B3 B4 B10 B11 */
+{
+    uint32_t k, m = 0;
+    for (k = 0; k < 27u; k++) {
+        int32_t bk = key_black(k);
+        if (bk == 0 || bk == 1 || bk == 2 || bk == BK_MORE || bk == BK_SEG || bk == BK_KEYS) m |= 1u << k;
+    }
+    return m;
 }
 static void seq_keys(uint32_t down)
 {
@@ -1590,7 +1653,7 @@ static void orb_knobs(void)
     int32_t e;
     if ((e = enc_take(ENC_ALGORITHM)) != 0) {
         orb_cur = step_lim(orb_cur, e, SD_ORB_LEN(&orbp));
-        if (!orb_setup) eng.orb_hold = (uint8_t)(orb_cur + 1u);   /* (the step picked: heard) */
+        if (!orb_setup) orb_hold_step(orb_cur);   /* (the step picked: heard) */
     }
     for (k = 0; k < 4u; k++) {
         if ((e = enc_take(KN[k])) == 0) continue;
@@ -1606,16 +1669,16 @@ static void orb_knobs(void)
             if (orb_cur >= SD_ORB_LEN(&orbp)) orb_cur = SD_ORB_LEN(&orbp) - 1u;
         } else if (l2) {                        /* the step's macros: -99..99 */
             int32_t v = orbp.mac[k][s] + enc_far(e, 198u);
-            eng.orb_hold = (uint8_t)(s + 1u);   /* (the step edited: heard) */
+            orb_hold_step(s);                   /* (the step edited: heard) */
             orbp.mac[k][s] = (int8_t)(v < -99 ? -99 : v > 99 ? 99 : v);
         } else if (k < 2u) {                    /* XPOSE A, B: -24..24 */
             int8_t *x = k ? &orbp.xb[s] : &orbp.xa[s];
-            eng.orb_hold = (uint8_t)(s + 1u);
+            orb_hold_step(s);
             int32_t v = *x + e;
             *x = (int8_t)(v < -24 ? -24 : v > 24 ? 24 : v);
         } else {                                /* the lanes: -100..100 % */
             int32_t v = orbp.lane[k - 2u][s] + enc_far(e, 200u);
-            eng.orb_hold = (uint8_t)(s + 1u);
+            orb_hold_step(s);
             orbp.lane[k - 2u][s] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v);
         }
     }
@@ -2243,8 +2306,8 @@ static void knobs_of(void)
             *put_glide(t) = 0; kt(0, "GLIDE", t);
             *put_len(t) = 0; kt(1, "LENGTH", t);
             kn[1].hot = lp_fold(0) != 0u;       /* (red: longer than its memory) */
-            p = t; *p++ = v < 0 ? '-' : '+';
-            p = put_u(p, (uint32_t)a >> 8); *p++ = '.'; p = put_u(p, (((uint32_t)a & 255u) * 10u) >> 8); *p = 0;
+            p = t; if (v) *p++ = v < 0 ? '-' : '+';   /* (semitones) */
+            *put_u(p, ((uint32_t)a + 128u) >> 8) = 0;
             kb(2, "SPEED", t, v * 99 / 3072);
             ku(3, "L-LEVEL", q99(lp_lvl));
         }
@@ -2342,9 +2405,10 @@ static void knobs_of(void)
                         p = put_u(t, l); *put(p, l == 1u ? " STEP" : " STEPS") = 0; kt(3, "LENGTH", t);
                     }
                 }
-            } else {
-                *put_note(t, st->note) = 0; kt(0, "NOTE", t);
-                *put_u(t, st->vel) = 0; kx(1, "VEL", t, st->vel * 99u / 127u);
+            } else {                            /* (a TIE: the note it holds, seq_heard) */
+                const SdStep *hs = st->type == SD_ST_TIE ? seq_heard(&seqp, seq_cur) : st;
+                *put_note(t, hs->note) = 0; kt(0, "NOTE", t);
+                *put_u(t, hs->vel) = 0; kx(1, "VEL", t, hs->vel * 99u / 127u);
                 p = put_u(t, st->gate); *p++ = '%'; *p = 0; kx(2, "GATE", t, st->gate * 99u / 100u);
                 kt(3, "TYPE", STYPE_NAME[st->type % SD_STYPES]);
             }
@@ -2992,9 +3056,11 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
     cv_rect(8 + (int32_t)seq_bank * 51, 6, 48, 1, C_RED);   /* the bank on the keys */
     for (k = 0; k < 16u; k++) {
         const SdStep *st = &seqp.step[seq_bank * 16u + k];
+        uint32_t nt;
         if (seq_bank * 16u + k >= seqp.len || st->type >= SD_ST_REST) continue;
-        if (st->note < lo) lo = st->note;
-        if (st->note > hi) hi = st->note;
+        nt = seq_heard(&seqp, seq_bank * 16u + k)->note;   /* (a TIE: the note it holds) */
+        if (nt < lo) lo = nt;
+        if (nt > hi) hi = nt;
     }
     if (hi < lo) lo = hi = 45;
     if (hi - lo < 12u) { lo = lo > 6u ? lo - 6u : 0u; hi = lo + 12u; }
@@ -3013,7 +3079,10 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
             cv_line(x - 2, 10, x - 2, base, seq_segmode ? C_ICE : C_GRID);
             cv_text(x, 8, &FONT_S, s, seq_segmode && seg == seq_dseg ? C_RED : C_ICE_D);
         }
-        h = 4 + (int32_t)((st->note < lo ? 0u : st->note - lo) * (seq_segmode ? 24u : 40u) / (hi - lo));
+        {
+            uint32_t nt = seq_heard(&seqp, i)->note;   /* (a TIE as high as the note it holds) */
+            h = 4 + (int32_t)((nt < lo ? 0u : nt - lo) * (seq_segmode ? 24u : 40u) / (hi - lo));
+        }
         switch (st->type) {
         case SD_ST_REST: cv_rect(x + 5, base - 2, 2, 2, C_ICE_D); break;
         case SD_ST_SKIP: cv_line(x + 2, base - 6, x + 9, base - 1, C_RED_D); cv_line(x + 9, base - 6, x + 2, base - 1, C_RED_D); break;
@@ -3055,23 +3124,21 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
     }
     /* the line under: what the keys do now */
     if (seq_rec) { p = put(s, "ENV: A TIE   LFO: A REST"); lc = C_RED; }
-    else if (shift()) {                         /* three pairs, a little more than a space apart (30 characters do
-                                                   not fit) */
-        static const char *const G[2] = {"KEYS XPOSE", "OCT OCTAVE"};
-        int32_t gx = 6, g;
-        for (g = 0; g < 2; g++) gx = cv_text(gx, 86, &FONT_S, G[g], C_RED) + 11;
+    else if (shift()) {                         /* GLO: the black keys' jobs, left to right as on the keys, red (the
+                                                   second layer; the other keys transpose: their lights) */
+        static const uint8_t BK[6] = {0, 1, 2, BK_MORE, BK_SEG, BK_KEYS};
+        static const char *const NM[6] = {"RND", "UNDO", "CLR", "MORE", "SEG", "KEYS"};
+        int32_t gx = 6;
+        for (k = 0; k < 6u; k++) gx = key_chip(gx + (k == 4u ? 4 : 0), 86, BK[k], NM[k], C_RED) + 2;   /* (230 px) */
         return;
     }
     else if (lock) { p = put(s, "B NEEDS DUO OR POLY: SEL"); lc = C_RED; }
     else if (seq_clr_at) {                      /* CLR asked: its key blinking, the answer's two */
         cv_text(key_chip(6, 86, 2u, "CLR", C_RED), 86, &FONT_S, " / OCT+: CLEAR  OCT- NO", C_RED);
         return;
-    } else {                                    /* the black keys' jobs, left to right as on the keys */
-        static const uint8_t BK[6] = {0, 1, 2, BK_MORE, BK_SEG, BK_KEYS};
-        static const char *const NM[6] = {"RND", "UNDO", "CLR", "MORE", "SEG", "KEYS"};
-        int32_t gx = 6;
-        for (k = 0; k < 6u; k++) gx = key_chip(gx + (k == 4u ? 4 : 0), 86, BK[k], NM[k], C_ICE) + 2;   /* (230 px) */
-        return;
+    } else {                                    /* the keys play (2026-11-17); with GLO the black keys' jobs */
+        p = put(s, "KEYS PLAY  GLO: KEY TOOLS");
+        lc = C_ICE_D;
     }
     *p = 0;
     cv_text(6, 86, &FONT_S, s, lc);
@@ -3237,12 +3304,17 @@ static void draw_hint(void)
     case PAGE_ORB:
         if (orb_setup) { hint_key(BK_SEG, "BACK"); hint_two("GLO", "GLIDE"); break; }
         p = put(a, "STEP "); *put_u(p, orb_cur % SD_ORB_STEPS + 1u) = 0;
-        hint_lamp(a, eng.orb_hold != 0, 0);     /* (lit: the step held, heard while edited; its key again lets it
-                                                   go) */
-        hint_key_r(BK_SEG, "SETUP");
+        hint_lamp(a, eng.orb_hold != 0, 0);     /* (lit: the step held, heard while edited; GLO + its key again lets
+                                                   it go) */
+        if (shift()) hint_key_r(BK_SEG, "SETUP");
+        else { hint_two("GLO+", 0); hint_x -= 6; hint_key(BK_SEG, "SETUP"); }   /* (the keys play: GLO its tools) */
         break;
     default:
-        if (seq_rec) { hint("REC", eng.seq_run ? "LIVE" : "STEP"); hint_key_r(BK_KEYS, "KEYS"); break; }   /* (B11: back) */
+        if (seq_rec) {                          /* (GLO + B11: back; B11 alone records its note) */
+            hint("REC", eng.seq_run ? "LIVE" : "STEP");
+            if (shift()) hint_key_r(BK_KEYS, "KEYS");
+            break;
+        }
         if (seq_segmode) {                      /* SEGMENTS: how many parts (ALGORITHM), the way back */
             uint8_t bd[SD_SEGS + 1u];
             p = put_u(a, sd_seg_bounds(&seqp, bd)); *put(p, " PARTS") = 0;
@@ -3369,8 +3441,9 @@ static void keys_lit(uint32_t held, uint32_t base)
 {
     uint32_t full = 0, glow = 0, k, i;
     for (k = 0; k < 11u; k++) bk_led[k] = 0;
-    if (page == PAGE_ORB && !seq_rec) {       /* ORBIT: its steps on the first white keys (picked full, the one
-                                                   playing flips), SETUP B10 (D#5) */
+    if (page == PAGE_ORB && !seq_rec && (shift() || orb_setup)) {   /* ORBIT, GLO: its steps on the first white keys
+                                                   (picked full, the one playing flips), SETUP B10 (D#5); else as
+                                                   played */
         uint32_t len = SD_ORB_LEN(&orbp), play = eng.seq_run && orbp.on ? eng.orb_shown : 0xFFu;
         for (k = 0; k < 27u; k++) {
             int32_t w = key_white(k), bk = key_black(k);
@@ -3381,50 +3454,42 @@ static void keys_lit(uint32_t held, uint32_t base)
             if ((uint32_t)w == play) on = !on;
             if (on) full |= 1u << k; else glow |= 1u << k;
         }
-    } else if (seq_page() && !seq_rec && shift()) {   /* the notes a key may take the track to (IN KEY the key's), on
-                                                   the keys as printed: OCT's octave left out (it is the playing's) */
+    } else if (seq_page() && !seq_rec && shift() && !seq_segmode) {   /* GLO: the black keys' tools (as below), and
+                                                   on the other keys the notes a key may take the track to (IN KEY the
+                                                   key's), as printed: OCT's octave left out (it is the playing's) */
         int32_t xn = eng.t[seq_trk].xpose_next, xc = eng.t[seq_trk].xpose, z = (int32_t)key_none() - (int32_t)KEY0;
+        uint32_t tools = seq_tool_keys(), tl;
         for (k = 0; k < 27u; k++) if (key_has(KEY0 + k)) glow |= 1u << k;
         if (z + xc >= 0 && z + xc < 27) full |= 1u << (z + xc);
         if (z + xn >= 0 && z + xn < 27 && (xn == xc || (fm1_ms / 200u) & 1u)) full |= 1u << (z + xn);
-    } else if (seq_page() && !seq_rec) {
+        full &= ~tools; glow &= ~tools;
+        for (k = 0; k < 27u; k++) {
+            int32_t bk = key_black(k);
+            if (!(tools >> k & 1u)) continue;
+            tl = bk == BK_MORE ? (seq_more ? 2u : 1u) : bk == 1 ? (seq_has_undo ? 1u : 0u) :
+                 bk == 2 ? (seq_clr_at && (fm1_ms / 200u) & 1u ? 2u : 1u) : 1u;   /* (MORE full while on, UNDO lit
+                                                   while there is something to take back, CLR blinking while it asks) */
+            if (tl == 2u) full |= 1u << k; else if (tl) glow |= 1u << k;
+            bk_led[bk] = (uint8_t)tl;
+        }
+    } else if (seq_page() && !seq_rec && seq_segmode) {   /* SEGMENTS: the white keys the steps, the part picked
+                                                   full; B10 (D#5) the way back; the other black keys rest */
         uint8_t bd[SD_SEGS + 1u];
-        uint32_t sc = sd_seg_bounds(&seqp, bd);
+        uint32_t sc = sd_seg_bounds(&seqp, bd), g = seq_dseg < sc ? seq_dseg : sc - 1u;
         for (k = 0; k < 27u; k++) {
             int32_t w = key_white(k), bk = key_black(k);
             if (w >= 0) {
                 i = seq_bank * 16u + (uint32_t)w;
                 if (i >= seqp.len) continue;
-                if (seq_segmode) {
-                    uint32_t g = seq_dseg < sc ? seq_dseg : sc - 1u;
-                    if (i >= bd[g] && i < bd[g + 1u]) full |= 1u << k; else glow |= 1u << k;
-                } else {
-                    uint32_t on = seqp.step[i].type < SD_ST_REST;
-                    if (eng.seq_run && i == eng.t[seq_trk].seq_shown) on = !on;   /* the playhead */
-                    if (on) full |= 1u << k; else glow |= 1u << k;
-                }
+                if (i >= bd[g] && i < bd[g + 1u]) full |= 1u << k; else glow |= 1u << k;
             } else if (bk == BK_SEG) {
-                if (seq_segmode) full |= 1u << k; else glow |= 1u << k;
-            } else if (bk == BK_KEYS) {
-                if (!seq_segmode) glow |= 1u << k;   /* B11: the keys into the steps */
-            } else if (seq_segmode) {
-                /* (the black keys rest there) */
-            } else if (bk == BK_MORE) {
-                if (seq_more) full |= 1u << k; else glow |= 1u << k;   /* B4: MORE, full while on */
-            } else if (bk == 0) {
-                glow |= 1u << k;                /* B1 RND */
-            } else if (bk == 1) {
-                if (seq_has_undo) glow |= 1u << k;   /* B2 UNDO: lit while there is something to take back */
-            } else if (bk == 2) {
-                if (seq_clr_at && (fm1_ms / 200u) & 1u) full |= 1u << k; else glow |= 1u << k;   /* B3 CLR: blinking
-                                                   while it asks (again, or OCT+) */
+                full |= 1u << k;
             }
-            if (bk >= 0) bk_led[bk] = (uint8_t)(full >> k & 1u ? 2u : glow >> k & 1u ? 1u : 0u);   /* (here every black
-                                                   key's light is a job's) */
+            if (bk >= 0) bk_led[bk] = (uint8_t)(full >> k & 1u ? 2u : glow >> k & 1u ? 1u : 0u);
         }
     } else {
         full = held;
-        if (seq_page() && seq_rec) {            /* playing into the steps: B11 lit, the way back */
+        if (seq_page() && seq_rec && shift()) { /* playing into the steps, GLO: B11 lit, the way back */
             for (k = 0; k < 27u; k++) if (key_black(k) == BK_KEYS) full |= 1u << k;
             bk_led[BK_KEYS] = 2u;
         }
@@ -3514,6 +3579,88 @@ static void midi_in(void)
     }
     if (clk_cue && fm1_ms - clk_cue_t > 250u) { clk_cue = 0; eng.seq_run = 1; eng.clk_start++; }   /* (no pulse) */
 }
+#if !defined(DINGHY_HOST)
+/* ---- the diagnosis over USB (2026-11-17, the user: "can you read what happens in the FM-1 while it is connected?").
+ * F0 7D 53 44 01 F7 ("SD", 7D the non-commercial ID: never the installer's 00 59) asks; the reply is
+ * F0 7D 53 44 02 <n> <n words, 8 nibbles each, high first> F7. It only reads: nothing written, no flash. The words
+ * (tools/fm1_diag.c names them): its version 1; the build; uptime ms; the CPU (0.1 %); mode | PLAY << 8 | page << 16;
+ * core 2: on | gave_up << 8 | cut at the flash gate << 16; its bar (magic, barred); the mailbox (request, complete,
+ * rejected, misread, jobs); its fault (count, DBG, EMU, PC, RETS); its stack used; its jobs' load (longest, all,
+ * how many: ticks); the zero word's misreads (count, last value); the P33 timeouts; the battery; the last crash
+ * (fm1_crash, 16 words: kept through the restart); core 2's record at it (fm1_c1_last, 11 words); the RAM code
+ * against its copy in the flash (_rt_start.._rt_end vs _rt_load: the words that differ, the first and last such
+ * address, which KB of the 32 has one: 2026-11-17, does something write over it?) */
+static void sd_diag_service(void)
+{
+    uint8_t out[7u + 72u * 8u];                 /* (on the stack: the SMK-37 has no RAM to spare; sent before
+                                                   it returns) */
+    const uint8_t *p;
+    uint32_t n, v[72], k = 0, i, j, h = 2166136261u;
+    const char *nm = APP_NAME " " APP_VER;
+    if (!ota_frame_get(&p, &n)) return;
+    if (n != 4u || p[0] != 0x7Du || p[1] != 0x53u || p[2] != 0x44u || p[3] != 0x01u) return;   /* (not ours: on) */
+    ota_frame_done();
+    while (*nm) h = (h ^ (uint8_t)*nm++) * 16777619u;
+    v[k++] = 1u;
+    v[k++] = h;
+    v[k++] = fm1_ms;
+    v[k++] = cpu_permille;
+    v[k++] = eng.mode_on | (uint32_t)eng.seq_run << 8 | page << 16;
+#if FM1_CPU1
+    v[k++] = fm1_cpu1_on | (uint32_t)fm1_cpu1_gave_up << 8 | (uint32_t)fm1_flash_cpu1_cut << 16;
+    v[k++] = fm1_cpu1_bar.magic;
+    v[k++] = fm1_cpu1_bar.barred;
+    v[k++] = fm1_cpu1_mb.request;
+    v[k++] = fm1_cpu1_mb.complete;
+    v[k++] = fm1_cpu1_mb.rejected;
+    v[k++] = fm1_cpu1_mb.misread;
+    v[k++] = fm1_cpu1_mb.jobs;
+    v[k++] = fm1_cpu1_fault.count;
+    v[k++] = fm1_cpu1_fault.dbg;
+    v[k++] = fm1_cpu1_fault.emu;
+    v[k++] = fm1_cpu1_fault.pc;
+    v[k++] = fm1_cpu1_fault.rets;
+    v[k++] = fm1_cpu1_stack_used();
+    v[k++] = sd_c1_load[0];
+    v[k++] = sd_c1_load[1];
+    v[k++] = sd_c1_load[2];
+    v[k++] = fm1_cpu1_probe.bad;
+    v[k++] = fm1_cpu1_probe.last;
+#else
+    for (i = 0; i < 19u; i++) v[k++] = 0;       /* (one core: none of the second's) */
+#endif
+    v[k++] = fm1_p33_timeouts;
+    v[k++] = batt;
+    for (i = 0; i < 16u; i++) v[k++] = ((const uint32_t *)(const void *)&fm1_crash)[i];
+#if FM1_CPU1
+    for (i = 0; i < 11u; i++) v[k++] = ((const uint32_t *)(const void *)&fm1_c1_last)[i];
+#else
+    for (i = 0; i < 11u; i++) v[k++] = 0;
+#endif
+    {                                           /* the RAM code as loaded (it is never written after the boot) */
+        extern uint32_t _rt_start[], _rt_end[], _rt_load[];
+        const volatile uint32_t *r = _rt_start, *f = _rt_load;
+        uint32_t nw = (uint32_t)(_rt_end - _rt_start), bad = 0, first = 0, last = 0, kb = 0, a;
+        for (i = 0; i < nw; i++)
+            if (r[i] != f[i]) {
+                a = (uint32_t)(uintptr_t)&r[i];
+                if (!bad) first = a;
+                last = a;
+                bad++;
+                kb |= 1u << ((a - 0x01C00000u) >> 10 & 31u);
+            }
+        v[k++] = bad;
+        v[k++] = first;
+        v[k++] = last;
+        v[k++] = kb;
+    }
+    out[0] = 0xF0u; out[1] = 0x7Du; out[2] = 0x53u; out[3] = 0x44u; out[4] = 0x02u; out[5] = (uint8_t)k;
+    for (i = 0; i < k; i++)
+        for (j = 0; j < 8u; j++) out[6u + 8u * i + j] = (uint8_t)(v[i] >> (28u - 4u * j) & 15u);
+    out[6u + 8u * k] = 0xF7u;
+    (void)ota_wire_send(out, 7u + 8u * k);
+}
+#endif
 static void app_idle(void)
 {
     if (idle_ok) midi_in();
@@ -3545,8 +3692,10 @@ static void app_main(void)
     eng.pl_post = sd_c1_post;                   /* (before SPACE has its memory: no block ever runs here) */
     eng.pl_join = sd_c1_join;
 #if FM1_CPU1
+#if SD_C1_HALVES
     eng.c1_post = sd_c1_hpost;                 /* (the first core's half of each sub-block: beside it) */
     eng.c1_join = sd_c1_hjoin;
+#endif
     eng.sp_room = !fm1_cpu1_on;                 /* (one core: the room from the start) */
 #else
     eng.sp_room = 1;
@@ -3671,10 +3820,11 @@ static void app_main(void)
         down = keys & ~prev;
         up = prev & ~keys;
         prev = keys;
-        if (seq_page() && seq_rec) {            /* the keys playing into the steps: B11 (F#5) is the way back, no note */
+        if (seq_page() && seq_rec && shift()) { /* the keys playing into the steps: GLO + B11 (F#5) is the way back, no
+                                                   note (B11 alone records its note) */
             uint32_t fk = 0;
             for (k = 0; k < 27u; k++) if (key_black(k) == BK_KEYS) fk = 1u << k;
-            if (down & fk) rec_toggle();
+            if (down & fk) { rec_toggle(); if (fm1_in.buttons >> BTN_GLO & 1u) gl_used = 1; }
             down &= ~fk; keys &= ~fk;
         }
         if (page != 1u) r_stages = 0;           /* (STAGES: REACTOR's only) */
@@ -3703,21 +3853,28 @@ static void app_main(void)
             }
             down &= ~fk; keys &= ~fk;
         }
-        sq = seq_page() && !seq_rec;            /* the keys are the steps there */
-        oq = page == PAGE_ORB && !seq_rec;      /* ORBIT's steps there */
-        if (sq && shift()) {                    /* GLO held there: a key transposes the track, at its next one: IN KEY
-                                                   its root to the key pressed, in the key (the keys lit), CHROM from C4;
-                                                   the keys as printed, whatever OCT's octave (a transpose past them:
-                                                   GLO + K4 XPOSE) */
+        sq = seq_page() && !seq_rec && (shift() || seq_segmode);   /* SEQ: the keys play (2026-11-17, the user: SELECT
+                                                   picks the step, so the keys try a line before REC); GLO there the
+                                                   black keys' tools and the transpose; SEGMENTS its keys */
+        oq = page == PAGE_ORB && !seq_rec && (shift() || orb_setup);   /* ORBIT: the same, GLO its steps and SETUP */
+        if (sq && seq_segmode) {
+            seq_keys(down);
+        } else if (sq) {                        /* GLO: B1 RND, B2 UNDO, B3 CLR, B4 MORE, B10 SEG, B11 KEYS (REC); any
+                                                   other key transposes the track, at its next one: IN KEY its root to
+                                                   the key pressed, in the key (the keys lit), CHROM from C4; the keys
+                                                   as printed, whatever OCT's octave (B5..B9 hold every black note; a
+                                                   transpose past them: GLO + K4 XPOSE) */
+            uint32_t tools = seq_tool_keys();
+            if (down && (fm1_in.buttons >> BTN_GLO & 1u)) gl_used = 1;   /* (GLO held: no tap) */
+            seq_keys(down & tools);
             for (k = 0; k < 27u; k++)
-                if (down >> k & 1u) {
+                if ((down & ~tools) >> k & 1u) {
                     int32_t x = (int32_t)(KEY0 + k) - (int32_t)key_none();
                     if (!key_has(KEY0 + k)) { msg("NOT IN THE KEY"); continue; }
                     eng.t[seq_trk].xpose_next = (int8_t)(x < -24 ? -24 : x > 24 ? 24 : x);
                 }
-        } else if (sq) {
-            seq_keys(down);
-        } else if (oq) {                        /* ORBIT: the white keys its steps, B10 (D#5) SETUP */
+        } else if (oq) {                        /* ORBIT, GLO: the white keys its steps, B10 (D#5) SETUP */
+            if (down && (fm1_in.buttons >> BTN_GLO & 1u)) gl_used = 1;
             for (k = 0; k < 27u; k++)
                 if (down >> k & 1u) {
                     int32_t w = key_white(k), bk = key_black(k);
@@ -3725,11 +3882,11 @@ static void app_main(void)
                     else if (w >= 0 && (uint32_t)w < SD_ORB_LEN(&orbp)) {   /* the step: picked and heard (held);
                                                    the held one again: let go, ORBIT on in time */
                         orb_cur = (uint32_t)w;
-                        eng.orb_hold = (uint8_t)(!orb_setup && eng.orb_hold != w + 1 ? w + 1 : 0);
+                        if (!orb_setup && eng.orb_hold != w + 1) orb_hold_step((uint32_t)w); else eng.orb_hold = 0;
                     }
                 }
         }
-        if (down && !sq && !oq && !seq_rec && !eng.arp_on && eng.seq_run && !eng.quota[SD_SRC_HAND])
+        if (down && !sq && !oq && !seq_rec && !seq_page() && !eng.arp_on && eng.seq_run && !eng.quota[SD_SRC_HAND])
             msg(set.mode == SD_MODE_MONO ? "MONO: THE SEQ HAS THE VOICE" : "NO FREE VOICE: SEQ PLAYS");
         for (k = 0; k < 27u; k++) {
             if (down >> k & 1u && !sq && !oq) {
@@ -3752,13 +3909,19 @@ static void app_main(void)
                                                    as the steps go on, a TIE each (the note as long as it is held) */
             uint32_t at = eng.t[seq_trk].seq_shown;
             if (at < SD_PSTEPS && at < seqp.len && at != rec_tie_at && seqp.step[at].type != SD_ST_SKIP) {
+                if (rec_at < SD_PSTEPS) {       /* (the held note's own: a TIE turned into a NOTE later plays it) */
+                    seqp.step[at].note = seqp.step[rec_at].note;
+                    seqp.step[at].vel = seqp.step[rec_at].vel;
+                }
                 seqp.step[at].type = SD_ST_TIE;
                 rec_tie_at = at;
                 seq_push();
             }
         }
-        if (eng.orb_hold && (page != PAGE_ORB || orb_setup || eng.orb_hold > SD_ORB_LEN(&orbp)))
-            eng.orb_hold = 0;                   /* (ORBIT left, its SETUP, the step past LENGTH: on in time) */
+        if (eng.orb_hold && (page != PAGE_ORB || orb_setup || eng.orb_hold > SD_ORB_LEN(&orbp) ||
+                             fm1_ms - orb_hold_at >= ORB_HOLD_MS))
+            eng.orb_hold = 0;                   /* (ORBIT left, its SETUP, the step past LENGTH, or no edit for 2 s:
+                                                   on in time) */
         if (aud_c && (eng.seq_run || seq_rec || !seq_page() || (aud_key < 27u && (up >> aud_key & 1u)) ||
                       (aud_off && (int32_t)(fm1_ms - aud_off) >= 0))) aud_stop();   /* (the step heard: done) */
         b = fm1_input_edges(&rel);
@@ -4189,25 +4352,29 @@ static void app_main(void)
                     }
                     if ((e = enc_take(ENC_KNOB2)) != 0) {   /* LENGTH: as TIME, a division a detent synced */
                         if (pat.s_mode & SD_SP_SYNC) {
-                            int32_t d = (int32_t)sd_lp_div(lp_len) + e;
+                            int32_t was = (int32_t)sd_lp_div(lp_len), d = was + e;
                             d = d < 0 ? 0 : d > (int32_t)SD_LP_NDIV - 1 ? (int32_t)SD_LP_NDIV - 1 : d;
+                            if (d > was) d = (int32_t)div_fit((uint32_t)d, (uint32_t)was, lp_lim());
                             lp_len = (uint16_t)((uint32_t)d * 65536u / SD_LP_NDIV + 100u);
                         } else {
                             int32_t t = (int32_t)lp_len + enc_far(e, 256u) * 256;
                             lp_len = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
                         }
                     }
-                    if ((e = enc_take(ENC_KNOB3)) != 0) {   /* SPEED: an eighth of a semitone a detent */
-                        int32_t v = lp_speed + enc_far(e, 192u) * 32;
-                        lp_speed = (int16_t)(v < -3072 ? -3072 : v > 3072 ? 3072 : v);
+                    if ((e = enc_take(ENC_KNOB3)) != 0) {   /* SPEED: a semitone a detent (2026-11-17, the user: "in
+                                                   semitones, not cents"), -12 .. +12 */
+                        int32_t s = (lp_speed + (lp_speed < 0 ? -128 : 128)) / 256 + e;
+                        s = s < -12 ? -12 : s > 12 ? 12 : s;
+                        lp_speed = (int16_t)(s * 256);
                     }
                     if ((e = enc_take(ENC_KNOB4)) != 0) lp_lvl = (uint16_t)knob_q(lp_lvl, e);   /* L-LEVEL: its level
                                                    only (EDIT arms it) */
                 } else {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {   /* TIME: a division a detent synced, ~4 ms free */
                         if (pat.s_mode & SD_SP_SYNC) {
-                            int32_t d = (int32_t)sd_sp_div(pat.s_time) + e;
+                            int32_t was = (int32_t)sd_sp_div(pat.s_time), d = was + e;
                             d = d < 0 ? 0 : d > (int32_t)SD_SP_NDIV - 1 ? (int32_t)SD_SP_NDIV - 1 : d;
+                            if (d > was) d = (int32_t)div_fit((uint32_t)d, (uint32_t)was, dl_lim());
                             pat.s_time = (uint16_t)((uint32_t)d * 65536u / SD_SP_NDIV + 100u);
                         } else {
                             int32_t t = (int32_t)pat.s_time + enc_far(e, 256u) * 256;
@@ -4330,7 +4497,8 @@ static void app_main(void)
         }
 
         voices_guard();
-        eng.rec_trk = seq_rec ? (uint8_t)seq_trk : 0xFFu;   /* REC: the keys may take the recorded track's voice */
+        eng.rec_trk = seq_rec || seq_page() ? (uint8_t)seq_trk : 0xFFu;   /* REC, or SEQ's page: the keys may take the
+                                                   track's voice (you hear what you record, or try a line over it) */
         midi_in();
         batt_poll();                            /* (the battery, once a second) */
         eng.xkey = (uint8_t)!set.xchrom;        /* the transposes IN KEY (SETUP's XPOSE) */
