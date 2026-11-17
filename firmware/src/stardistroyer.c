@@ -13,8 +13,8 @@
  *                  LFO   LFO 1 -> LFO 2 -> RADAR -> MOD    ARP  ARP -> LOOPER   SEQ  SEQ A -> SEQ B -> ORBIT
  *                  (ARP's two are the player's, kept apart from the patch)
  *   K1..K4     the four values in the row under the top line, left to right as the knobs
- *   GLO        held, their second layer (the names turn red); a tap latches it, a tap again lets it go (GLO lit
- *              while it holds). On SEQ the keys transpose the track, at its one: IN KEY (the default: the root to
+ *   GLO        held, their second layer (the names turn red); a tap latches it, a tap again (or a page button)
+ *              lets it go (GLO lit while it holds). On SEQ the keys transpose the track, at its one: IN KEY (the default: the root to
  *              the key pressed, in the master's key, its notes lit; the other track's notes pulled into it) or CHROM
  *              (from C4, as written), SETUP's XPOSE; GLO + OCT an octave more or less (-24..24)
  *   ALGORITHM  the page's choice, said on the hint line (GLO + ALGORITHM: the second)
@@ -26,7 +26,7 @@
  *              now
  *   SELECT     which one, where a page has them in a row (select_turn): SEQ's step (SEGMENTS: the part), ORBIT's
  *              step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place; elsewhere nothing (the tempo
- *              is SETUP's K1)      SCL the voices: MONO -> DUO -> POLY (lit: DUO or POLY)
+ *              is SETUP's K1)      SEL the voices: MONO -> DUO -> POLY (lit: DUO or POLY)
  *   OCT- OCT+  the keys' octave, on every page, REC or not; a question (PRESETS' list, SAVE, CLR): OCT+ yes, OCT- no;
  *              on SEQ, GLO + OCT the track's transpose an octave (as GLO + a key); on LOOPER, GLO + OCT the loop's
  *              octave
@@ -42,7 +42,7 @@
  *   the voices MONO 1, DUO 2, POLY 4, the same sound in each (sd_engine.h's sd_voice_banks, vg), shared by quota (sd_plan): a playing track its widest chord, A first, then B,
  *              then ARP one, the keys the rest; no source turns off or takes another's note. ARP and SEQ B are refused
  *              where they do not fit (MONO with SEQ A playing: no ARP, no keys but REC's), and switched off when PLAY,
- *              SCL or a chord takes their room; a message says why. The status line shows the mode and who holds
+ *              SEL or a chord takes their room; a message says why. The status line shows the mode and who holds
  *              them (MONO A: A B the tracks, R ARP, - the keys), always (the CPU is on SETUP)
  *   the screen  from the top: the patch (its name, the master's key, the battery's three bars, its place), the button's pages (EDIT's switch a
  *              lamp), K1..K4 (each on a printed scale, its pointer; grey while the engine is off), the picture (104
@@ -86,11 +86,12 @@
  *              (on the second core; 0, or not frozen: the plate as ever)
  *   TIME       the delay: TIME FDBK TONE D-LEVEL; ALGORITHM its MODE (FREE SYNC FREE PP SYNC PP)
  *   LOOPER     the looper (the player's, not the patch's; always recording what SPACE hears before the reverb):
- *              GLIDE LENGTH SPEED L-LEVEL; EDIT arms it or not (L-LEVEL kept). ALGORITHM: LOOP (it stops and plays
+ *              GLIDE LENGTH SPEED L-LEVEL (GLO: FILTER, a lowpass left, a highpass right, none in the middle;
+ *              R-SEND, D-SEND); EDIT arms it or not, at any L-LEVEL (0: it records, silent). ALGORITHM: LOOP (it stops and plays
  *              its last LENGTH round, at its SPEED, +-12 semitones; into the reverb as the synth goes; the delay
  *              goes on); GLO + ALGORITHM: REVERSE (it plays it backwards); GLO + OCT: SPEED to the next octave down
- *              or up, over GLIDE (OFF: at once), the loop landing on its own grid. L-LEVEL above 0 arms it (0 at the
- *              start): it borrows the delay line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the
+ *              or up, over GLIDE (OFF: at once), the loop landing on its own grid. Armed, it borrows the delay
+ *              line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the
  *              delay then 0.5 s. An engine off (EDIT), ARP or RADAR off, the LOOPER disarmed: the hint line says
  *              OFF: EDIT TURNS IT ON (not SEQ's pages: a part is written while it is off).
  *              The loop follows PLAY: STOP parks it (it fades out and waits, kept: LOOP WAITS FOR PLAY), PLAY plays
@@ -476,11 +477,47 @@ static void splash_draw(uint32_t now)           /* a frame, now ms in */
     }
 }
 
-/* ---- the patch: the Q page's four knobs, endless, 0..99 (a detent a step) */
+/* ---- K1..K4 on the FM-1: a fast turn goes further. Slow, a step a detent; faster, more a detent, till a fast
+ * spin (60 detents a second and up) crosses a value's whole range in about ENC_FAR_DET detents. enc_take keeps each
+ * knob's pace (the detents' interval, smoothed; still for ENC_FAR_REST ms or turned back: a step a detent again) and
+ * leaves the last take's in enc_fr; enc_far(e, n) scales a take for a value n detents long. knob_q and the long
+ * values take it; a list, a note, a semitone's transpose or a step stays a detent each, and so do SELECT, ALGORITHM and
+ * PRESETS. In a browser (DINGHY_HOST) the knobs keep their own feel: a detent a step */
+#define ENC_FAR_DET 24u
+#define ENC_FAR_REST 100u
+static uint8_t enc_fr;                          /* the last take's pace: 0 (slow, or not K1..K4) .. 64 (a fast spin) */
+#if !defined(DINGHY_HOST)
+static uint32_t kn_at[4];                       /* K1..K4: the last take's time, ms */
+static uint8_t kn_iv[4];                        /* the detents' interval, smoothed, ms (0: from rest) */
+static int8_t kn_dir[4];
+static void enc_pace(uint32_t e, int32_t v)
+{
+    uint32_t k = e - (uint32_t)ENC_KNOB1, n = (uint32_t)(v < 0 ? -v : v), i, s;
+    enc_fr = 0;
+    if (k >= 4u) return;
+    i = (fm1_ms - kn_at[k]) / n;
+    kn_at[k] = fm1_ms;
+    if (i > ENC_FAR_REST || (v < 0) != (kn_dir[k] < 0)) kn_iv[k] = 0;   /* from rest, or back: fine again */
+    else {
+        if (!i) i = 1;
+        kn_iv[k] = (uint8_t)(kn_iv[k] ? (kn_iv[k] * 3u + i + 2u) >> 2 : i);
+        s = 1000u / kn_iv[k];                   /* detents a second: 12 and under none, 60 and up all */
+        enc_fr = (uint8_t)(s <= 12u ? 0u : s >= 60u ? 64u : (s - 12u) * 4u / 3u);
+    }
+    kn_dir[k] = (int8_t)(v < 0 ? -1 : 1);
+}
+#endif
+static int32_t enc_far(int32_t e, uint32_t n)
+{
+    uint32_t top = n > ENC_FAR_DET ? n * 64u / ENC_FAR_DET : 64u;
+    return e * (int32_t)((64u + (top - 64u) * enc_fr / 64u + 32u) / 64u);
+}
+
+/* ---- the patch: the Q page's four knobs, endless, 0..99 (a detent a step, slow) */
 static uint32_t q99(uint32_t v) { return (v * 99u + 32767u) / 65535u; }
 static uint16_t knob_q(uint16_t v, int32_t e)
 {
-    int32_t n = (int32_t)q99(v) + e;
+    int32_t n = (int32_t)q99(v) + enc_far(e, 99u);
     n = n < 0 ? 0 : n > 99 ? 99 : n;
     return (uint16_t)((uint32_t)n * 65535u / 99u);
 }
@@ -705,7 +742,7 @@ static uint32_t idle_ok;
 static uint32_t led_at;                         /* the key and button lights: when last set */
 
 /* GLO: the second layer, held, or latched by a tap (down and up within GL_TAP_MS, nothing else done meanwhile: a
-   button, a key, a knob); a tap again lets it go. Held, it is the second layer while it is down, latched or not. (SCL,
+   button, a key, a knob); a tap again lets it go. Held, it is the second layer while it is down, latched or not. (SEL,
    BTN_SEL: the voices, MONO DUO POLY) */
 #define GL_TAP_MS 400u
 static uint8_t gl_latch, gl_used;
@@ -713,9 +750,13 @@ static uint32_t gl_at;
 static uint32_t shift(void) { return gl_latch || (fm1_in.buttons >> BTN_GLO & 1u); }
 static uint32_t dlist_at, dlist_enc = 0xFFu;    /* the knobs' list (draw_dlist): when it opened, the encoder it is on */
 static int32_t enc_take(uint32_t e)             /* an encoder's detents: one turned while GLO is down makes it no tap;
-                                                   another than the list's closes the list */
+                                                   another than the list's closes the list; the pace (enc_far) */
 {
     int32_t v = fm1_enc_take(e);
+    if (!v) return 0;
+#if !defined(DINGHY_HOST)
+    enc_pace(e, v);
+#endif
     if (v && (fm1_in.buttons >> BTN_GLO & 1u)) gl_used = 1;
     if (v && dlist_at && e != dlist_enc) dlist_at = 0;
     return v;
@@ -725,8 +766,12 @@ static int8_t sp_pitch;                         /* its PITCH (GLO + K2 there), -
 /* TIME's looper, the player's (not saved with the patch): LOOP (ALGORITHM on TIME), LENGTH (as TIME: ms, or a
    division with SYNC), its speed (semitones x 256), its level */
 static uint8_t lp_on, lp_rev;                   /* (lp_rev: REVERSE, GLO + ALGORITHM on TIME) */
-static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl;   /* (1/8, or 334 ms free; L-LEVEL 0:
-                                                   the looper not armed, the delay its whole line) */
+static uint8_t lp_arm;                          /* armed (EDIT on LOOPER): it records, whatever L-LEVEL (2026-11-17,
+                                                   the user: a loop taken at the bottom, then faded in) */
+static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl = 52300u;   /* (1/8, or 334 ms free;
+                                                   L-LEVEL 79: only its level now, EDIT arms it) */
+static uint16_t lp_filt = 32768u, lp_rsend = 65535u, lp_dsend;   /* GLO on LOOPER: FILTER (none in the middle),
+                                                   R-SEND (whole: as it always went into the reverb), D-SEND (none) */
 static int16_t lp_speed;
 static uint16_t lp_glide;                       /* GLIDE: OFF (a new SPEED at once), else how long it takes */
 static const char *msg_txt;                     /* a message in the hint's place, 2 s */
@@ -736,7 +781,7 @@ static void msg(const char *t) { msg_txt = t; msg_at = fm1_ms ? fm1_ms : 1u; }
 /* ---- the voices (rules for what can play together: never more than is possible, a short message when not). The
  * engine gives each source its quota (sd_plan: a playing track its widest chord, A first, then B, then ARP one, the
  * hand the rest) and no source takes another's voice. Here what is switched on is kept inside the voices: ARP and SEQ
- * B are refused when there is no room (a message says why), and switched off when PLAY, SCL or a new chord takes
+ * B are refused when there is no room (a message says why), and switched off when PLAY, SEL or a new chord takes
  * their room; a chord is recorded only as wide as the room left. */
 static uint32_t voices_n(void) { return set.mode == SD_MODE_POLY ? 4u : set.mode == SD_MODE_DUO ? 2u : 1u; }
 static uint32_t trk_need(uint32_t k)            /* the voices track k takes when it plays */
@@ -951,7 +996,9 @@ static void rst_level(SdReactorStage *st, int32_t e)   /* the stage's level, its
  * K4). While it turns, over the knobs and the picture as PRESETS' list is: the one picked in the middle, three either
  * side, each where it comes from and its name, the place in the whole list on the right. It plays as it turns
  * (nothing to load); 1.5 s untouched, another knob, a button or another page: gone */
-enum { DL_MOD = 1, DL_TUR, DL_ORB1, DL_ORB2, DL_SRC, DL_GEN, DL_RST, DL_ALG, DL_BAND, DL_LFO, DL_COL };
+enum { DL_MOD = 1, DL_TUR, DL_ORB1, DL_ORB2, DL_SRC, DL_GEN, DL_RST, DL_ALG, DL_BAND, DL_LFO, DL_COL };   /* (DL_BAND: no
+                                                   longer opened, 2026-11-17: DISTROY's band moves its frame in the
+                                                   picture; its place kept, the table below in step) */
 /* NAV's algorithms (SD_ALGO's order): how many oscillators are heard, and the routing, 1..4 left to right
    (S: into the next, P: into the nearest heard one to the right, C: heard) */
 static const char *const ALG_HEARD[8] = {"1 HEARD", "1 HEARD", "1 HEARD", "2 HEARD", "2 HEARD", "2 HEARD", "3 HEARD",
@@ -992,7 +1039,7 @@ static uint32_t mslot(void)                     /* the slot this page edits: MOD
 {
     return dmod < SD_MODS ? dmod : dmod < DMOD_TUR ? lfo_slot(dmod - SD_MODS) : SD_MODS;
 }
-static uint32_t dl_n(void) { return dlist_kind == DL_COL ? SD_ACCENTS : dlist_kind == DL_SRC ? SD_MSRCS : dlist_kind == DL_GEN ? SD_GENS : dlist_kind == DL_RST ? RST_N : dlist_kind == DL_ALG ? SD_ALGOS : dlist_kind == DL_BAND ? 5u : SD_MDSTS + (dlist_kind == DL_TUR); }
+static uint32_t dl_n(void) { return dlist_kind == DL_COL ? SD_ACCENTS : dlist_kind == DL_SRC ? SD_MSRCS : dlist_kind == DL_GEN ? SD_GENS : dlist_kind == DL_RST ? RST_N : dlist_kind == DL_ALG ? SD_ALGOS : SD_MDSTS + (dlist_kind == DL_TUR); }
 static uint32_t dl_rank(void)                   /* the one picked: its place in the list */
 {
     uint32_t d;
@@ -1001,7 +1048,6 @@ static uint32_t dl_rank(void)                   /* the one picked: its place in 
     case DL_GEN: return gen < SD_GENS ? gen : 0u;
     case DL_RST: { int32_t m = rst_match(&pat.stage[rst_cur % 6u]); return m < 0 ? 0u : (uint32_t)m; }
     case DL_ALG: { uint32_t a = algo_of(&pat); return a < SD_ALGOS ? a : 0u; }
-    case DL_BAND: return dband < 5u ? dband : 0u;
     case DL_COL: return set.accent % SD_ACCENTS;
     case DL_TUR: d = pat.tur_dst; break;
     case DL_ORB1: d = orbp.dst[0]; break;
@@ -1018,12 +1064,6 @@ static const char *dl_item(uint32_t r, char *nm)   /* the r-th in the list: wher
                                                    the colour itself) */
     else if (dlist_kind == DL_SRC) { p = put(p, SRC_PARAM[SRC_ORDER[r]]); g = SRC_GRP[SRC_ORDER[r]]; }
     else if (dlist_kind == DL_ALG) { p = put(p, SD_ALGO[r % SD_ALGOS]); *p++ = ' '; p = put(p, ALG_ROUTE[r % 8u]); g = ALG_HEARD[r % 8u]; }
-    else if (dlist_kind == DL_BAND) {           /* DISTROY's: the four bands (their type), then its loop */
-        static const char *const BG[5] = {"BAND 1", "BAND 2", "BAND 3", "BAND 4", "DISTROY"};
-        if (r < 4u) { p = put(p, BAND_NAME[r]); *p++ = ' '; *p++ = ' '; p = put(p, SHAPE_NAME[pat.d_type[r] % SD_DSHAPES]); }
-        else p = put(p, "THE LOOP");
-        g = BG[r % 5u];
-    }
     else if (dlist_kind == DL_RST) {            /* a stage's: the vowels, the chords (their steps) */
         uint32_t k;
         if (r < SD_RVOWELS) { p = put(p, SD_RVOWEL_NAME[r]); g = "VOWEL"; }
@@ -1079,7 +1119,6 @@ static void draw_dlist(void)                    /* over the knobs and the pictur
     else if (dlist_kind == DL_GEN) { p = put(s, "GEN ON BANK "); *p++ = (char)('A' + ebank); }
     else if (dlist_kind == DL_RST) p = put_u(put(s, "REACTOR STAGE "), rst_cur % 6u + 1u);
     else if (dlist_kind == DL_ALG) { p = put(s, "ALGORITHM, BANK "); *p++ = (char)('A' + ebank); }
-    else if (dlist_kind == DL_BAND) p = put(s, "DISTROY: A BAND OR THE LOOP");
     else if (dlist_kind == DL_COL) p = put(s, "THE SCREEN'S COLOUR");
     else p = put(put(s, dlist_kind == DL_TUR ? "RADAR" : dlist_kind == DL_ORB1 ? "ORBIT LANE 1" : "ORBIT LANE 2"), " DEST");
     *p = 0;
@@ -1148,7 +1187,7 @@ static uint32_t lp_lim(void)                    /* the looper's longest, frames 
 }
 static uint32_t dl_lim(void)                    /* the delay's longest: half its line while the looper has the rest */
 {
-    return eng.lp_borrow && lp_lvl ? SD_SP_LIM2 : SD_SP_LIM;
+    return eng.lp_borrow && lp_arm ? SD_SP_LIM2 : SD_SP_LIM;
 }
 static uint32_t sp_fold(char *played) { return time_fold(sd_sp_div(pat.s_time), pat.s_time, dl_lim(), played); }
 static uint32_t lp_fold(char *played) { return time_fold(sd_lp_div(lp_len), lp_len, lp_lim(), played); }
@@ -1391,7 +1430,10 @@ static void aud_step(uint32_t s, uint32_t key)  /* key: the key that holds it, o
 
 /* SETUP's CLEAR ALL (ALGORITHM, then OCT+): a start from scratch. SEQ A and B every step a rest (each its LENGTH,
  * DIV, segments as new; the key and the scale kept), ORBIT off and empty, the transposes back to 0 at the one; the
- * sound as it is. Saved patterns stay as saved (SAVE writes this one) */
+ * movement (2026-11-17, the user: "MOD destinations, RADAR and so on" stayed): the eight MOD slots empty (the LFOs'
+ * routes with them), RADAR off as new, the macros at 0 (the patch as made), COURSE off; the player's tools: ARP off,
+ * the looper's LOOP and REVERSE off, disarmed, its SPEED 0, FREEZE off. The sound itself (the banks, the envelopes,
+ * the filter, the FX's settings) stays. Saved patterns and patches stay as saved (SAVE writes these) */
 static uint32_t clr_all_at;                     /* asked: when (3 s to answer) */
 static void clear_all(void)
 {
@@ -1413,8 +1455,16 @@ static void clear_all(void)
     seq_segmode = 0;
     seq_more = 0;
     seq_clr_at = 0;
+    for (k = 0; k < SD_MODS; k++) { pat.mod[k].src = pat.mod[k].dst = 0; pat.mod[k].amt = 0; }
+    pat.tur_set = 0; pat.tur_ld = 0; pat.tur_dst = 0; pat.tur_amt = 0;
+    for (k = 0; k < 4u; k++) pat.mac[k] = 0;
+    pat.course = 0;
+    sd_engine_patch(&eng, &pat);
+    eng.arp_on = 0;
+    lp_on = 0; lp_rev = 0; lp_arm = 0; lp_speed = 0; lp_filt = 32768u; lp_rsend = 65535u; lp_dsend = 0;
+    sp_frz = 0; sp_pitch = 0;
     clr_all_at = 0;
-    msg("ALL CLEAR: SEQ A, B, ORBIT");
+    msg("ALL CLEAR: STEPS, MOVEMENT, TOOLS");
 }
 
 /* SELECT: which one, where a page has them in a row (the user: "where something is chosen horizontally: steps,
@@ -1458,7 +1508,7 @@ static uint32_t select_turn(int32_t e)
         pat.r_pos = (uint16_t)(rst_cur * 256u);
         dlist_at = 0;
         return 1;
-    case 2: dband = step_mod(dband, e, 5u); dlist_open(DL_BAND); dlist_enc = ENC_SELECT; return 0;
+    case 2: dband = step_mod(dband, e, 5u); dlist_at = 0; return 0;   /* (the band's frame moves: no list) */
     case 4: if (dmod < SD_MODS) { dmod = step_mod(dmod, e, SD_MODS); dslot = dmod; } return 0;
     default: return 0;
     }
@@ -1555,7 +1605,7 @@ static void orb_knobs(void)
             else { orbp.dst[k - 2u] = (uint8_t)dst_step(orbp.dst[k - 2u], e, 0); dlist_open(k == 2u ? DL_ORB1 : DL_ORB2); }
             if (orb_cur >= SD_ORB_LEN(&orbp)) orb_cur = SD_ORB_LEN(&orbp) - 1u;
         } else if (l2) {                        /* the step's macros: -99..99 */
-            int32_t v = orbp.mac[k][s] + e;
+            int32_t v = orbp.mac[k][s] + enc_far(e, 198u);
             eng.orb_hold = (uint8_t)(s + 1u);   /* (the step edited: heard) */
             orbp.mac[k][s] = (int8_t)(v < -99 ? -99 : v > 99 ? 99 : v);
         } else if (k < 2u) {                    /* XPOSE A, B: -24..24 */
@@ -1564,7 +1614,7 @@ static void orb_knobs(void)
             int32_t v = *x + e;
             *x = (int8_t)(v < -24 ? -24 : v > 24 ? 24 : v);
         } else {                                /* the lanes: -100..100 % */
-            int32_t v = orbp.lane[k - 2u][s] + e;
+            int32_t v = orbp.lane[k - 2u][s] + enc_far(e, 200u);
             eng.orb_hold = (uint8_t)(s + 1u);
             orbp.lane[k - 2u][s] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v);
         }
@@ -1678,12 +1728,12 @@ static void seq_knobs(void)
             aud_step(seq_cur, 0xFFu);           /* (stopped: the new note heard) */
         }
         if ((e = enc_take(ENC_KNOB2)) != 0) {
-            int32_t v = (int32_t)st->vel + e;
+            int32_t v = (int32_t)st->vel + enc_far(e, 127u);
             st->vel = (uint8_t)(v < 1 ? 1 : v > 127 ? 127 : v);
             changed = 1;
         }
         if ((e = enc_take(ENC_KNOB3)) != 0) {
-            int32_t g = (int32_t)st->gate + e;
+            int32_t g = (int32_t)st->gate + enc_far(e, 100u);
             st->gate = (uint8_t)(g < 1 ? 1 : g > 100 ? 100 : g);
             changed = 1;
         }
@@ -1889,7 +1939,7 @@ static uint32_t sw_of(const char **what)        /* this page's switch, and its n
     if (b) return fx_on(b) ? SW_ON : SW_OFF;
     if (page == 0u) { *what = "EDIT COURSE"; return pat.course == SD_COURSE_LOOP ? SW_LOOP : pat.course ? SW_ON : SW_OFF; }
     if (page == PAGE_ARP) return eng.arp_on ? SW_ON : SW_OFF;
-    if (page == PAGE_LOOP) return lp_lvl ? SW_ON : SW_OFF;   /* (armed: L-LEVEL above 0) */
+    if (page == PAGE_LOOP) return lp_arm ? SW_ON : SW_OFF;   /* (armed: EDIT) */
     if (page == PAGE_ORB) return !orbp.on ? SW_OFF : eng.seq_run && !eng.orb_live ? SW_WAIT : SW_ON;
     if (page == PAGE_SEQ)
         return seq_trk && set.mode == SD_MODE_MONO ? SW_LOCK : eng.t[seq_trk].mute ? SW_OFF :
@@ -1938,7 +1988,7 @@ static uint32_t edit_toggle(void)               /* EDIT: what this page shows, o
         if (orbp.on && eng.a_wait) msg(set.master ? "ORBIT IN AT B'S ONE" : "ORBIT IN AT A'S ONE");
     }
     else if (page == PAGE_SEQ) {
-        if (seq_trk && set.mode == SD_MODE_MONO) msg("B NEEDS DUO OR POLY: SCL");
+        if (seq_trk && set.mode == SD_MODE_MONO) msg("B NEEDS DUO OR POLY: SEL");
         else if (seq_trk && eng.t[1].mute && eng.t[1].width && eng.seq_run &&
                  (trk_need(0) < voices_n() ? trk_need(0) : voices_n()) >= voices_n()) msg("NO VOICE LEFT FOR SEQ B");
         else {
@@ -2070,7 +2120,7 @@ static void seq_l2_knobs(void)                  /* SEQ with GLO held */
 }
 static uint32_t has_l2(void)                    /* GLO gives this page a second layer */
 {
-    return page != 5u && page != 4u && page != PAGE_ARP && page != PAGE_TIME && page != PAGE_LOOP &&
+    return page != 5u && page != 4u && page != PAGE_ARP && page != PAGE_TIME &&
            !(page == PAGE_SEQ && seq_segmode);   /* (TIME, LOOPER: GLO only with a button or ALGORITHM there) */
 }
 static void knobs_of(void)
@@ -2178,7 +2228,16 @@ static void knobs_of(void)
         kn[0].hot = sp_fold(0) != 0u;           /* (red: longer than the line, it plays shorter: the hint says) */
         ku(1, "FDBK", q99(pat.s_fb)); ku(2, "TONE", q99(pat.s_dtone)); ku(3, "D-LEVEL", q99(pat.s_dlevel));
         break;
-    case PAGE_LOOP:                             /* LOOPER: GLIDE LENGTH SPEED L-LEVEL */
+    case PAGE_LOOP:                             /* LOOPER: GLIDE LENGTH SPEED L-LEVEL; GLO: FILTER R-SEND D-SEND */
+        if (l2) {
+            int32_t f = (int32_t)lp_filt - 32768;
+            if (f > -1024 && f < 1024) kt(0, "FILTER", "OFF");
+            else { p = put(t, f < 0 ? "LP " : "HP "); *put_u(p, (uint32_t)(f < 0 ? -f : f) * 99u / 32768u) = 0; kb(0, "FILTER", t, f * 99 / 32768); }
+            ku(1, "R-SEND", q99(lp_rsend));
+            ku(2, "D-SEND", q99(lp_dsend));
+            k0(3);
+            break;
+        }
         {
             int32_t v = lp_speed, a = v < 0 ? -v : v;
             *put_glide(t) = 0; kt(0, "GLIDE", t);
@@ -2607,38 +2666,130 @@ static void pic_time(void)                      /* TIME: the echoes falling by F
     }
 }
 
-static void pic_loop(void)                      /* LOOPER: its length on a scale of what it holds, LOOP and REV */
+/* LOOPER (2026-11-17, the user: "how a loop is taken must show more: now it feels random and off the grid, though it
+ * locks"): a tape running past its head on the right, what it records drawn as it comes (each column the loudest of
+ * its samples, read from the looper's memory a frame's new ones at a time), the grid it locks to over it (while the
+ * tracks play, synced: the master's bars bright, the beats dim), the LENGTH LOOP takes framed with its ends on that
+ * grid (the last whole one; the one coming dim). LOOP: the tape stops, the loop it holds red, its head running
+ * through. Free or stopped: no grid, LOOP takes the last LENGTH where it is pressed, a second a mark */
+#define LP_COLS 228u
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
+static uint8_t lp_col[LP_COLS];                 /* each column's loudest, 0..54 (the strip's half height x 2) */
+#else
+static uint8_t lp_col[LP_COLS] __attribute__((section(".pool")));   /* (in the pool: the RAM's .bss is full) */
+#endif
+static uint32_t lp_cw, lp_cspc, lp_cn;          /* where the columns reach in the memory; samples a column; the ring */
+static uint32_t lp_frz_grid;                    /* LOOP: the grid's time when the tape stopped (its lines stay) */
+static uint32_t lp_col_peak(const SdLpMem *L, uint32_t k, uint32_t n)   /* the loudest of n samples from k */
 {
-    enum { X0 = 6, W = 228, Y0 = 2, H = 98 };
-    char pd[16], *p;
-    uint32_t q = pat.s_mode & SD_SP_SYNC ? sd_space_sync_q8(eng.tempo_q8, sd_lp_div(lp_len), 0, lp_lim())
-                                         : sd_sp_ms(lp_len) * 11290u, lms, n = sd_lp_total(&eng), cs;
-    uint32_t sec;
-    int32_t ew;
-    if (q > lp_lim()) q = lp_lim();
-    lms = q / 11290u;
-    cs = (n > SD_LP_XF + 64u ? n - SD_LP_XF - 32u : 0u) / 220u;   /* (centiseconds: what it holds) */
-    if (!cs) cs = 1u;
-    cv_line(X0, Y0 + 80, X0 + W - 1, Y0 + 80, C_ICE_D);   /* the scale: what it holds, end to end, a second a mark */
-    cv_line(X0 + W - 1, Y0 + 74, X0 + W - 1, Y0 + 84, C_ICE_D);
-    p = put_u(pd, cs / 100u); *p++ = '.'; *p++ = (char)('0' + cs / 10u % 10u); *p++ = ' '; *p++ = 'S'; *p = 0;
-    ew = text_w(&FONT_S, pd);
-    cv_text(X0 + W - ew, Y0 + 84, &FONT_S, pd, C_ICE_D);
-    for (sec = 1u; sec * 100u < cs; sec++) {
-        int32_t x = X0 + (int32_t)(sec * 100u * (uint32_t)W / cs);
-        cv_line(x, Y0 + 77, x, Y0 + 83, C_ICE_D);
-        *put_u(pd, sec) = 0;
-        if (x + 4 <= X0 + W - ew - 12) cv_text(x - 4, Y0 + 84, &FONT_S, pd, C_ICE_D);   /* (clear of the end's) */
+    uint32_t i, m = 0, st = n > 64u ? n / 64u : 1u;   /* (64 a column at most: a long LENGTH stays light) */
+    for (i = 0; i < n; i += st) {
+        int32_t v = sd_lp_get(L, (k + i) % L->n);
+        uint32_t a = (uint32_t)(v < 0 ? -v : v);
+        if (a > m) m = a;
     }
-    cv_box(X0, Y0 + 56, (int32_t)((lms / 10u < cs ? lms / 10u : cs) * (uint32_t)W / cs) + 1, 24, !lp_lvl ? C_GRID : lp_on ? C_RED : C_ICE_D);
+    m = m * 54u / 16384u;                       /* (Q14: full scale the strip's height) */
+    return m > 54u ? 54u : m;
+}
+static void pic_loop(void)
+{
+    enum { X0 = 6, W = 228, SY = 20, SH = 56, SM = SY + SH / 2 };
+    SdLpMem L;
+    char pd[16], *p;
+    uint32_t n = sd_lp_total(&eng), w = eng.sp.lw, ln = (uint32_t)eng.sp.llen >> 8, span, spc, i, k;
+    uint32_t sync = (pat.s_mode & SD_SP_SYNC) && eng.seq_run && eng.seq_len_q8, looping = eng.sp.pon && lp_on;
+    uint32_t bar = 16u * eng.seq_len_q8 / 512u, beat = 4u * eng.seq_len_q8 / 512u;   /* (half-rate samples) */
+    uint32_t now = (looping ? lp_frz_grid : eng.grid_q8) / 512u;   /* the grid's time at the head, half-rate */
+    L.a = eng.lpa; L.na = eng.lpa ? eng.lpa_n : 0u; L.b = eng.lpb; L.n = L.na + (eng.lpb ? eng.lpb_n : 0u);
+    if (!looping) lp_frz_grid = eng.grid_q8;
+    if (n < SD_LP_XF + 64u || L.n != n) {       /* no memory: what it would hold */
+        cv_text(X0, SY + 12, &FONT_S, "NO LOOPER MEMORY", C_ICE_D);
+        return;
+    }
+    if (ln < 64u) ln = 64u;
+    span = 2u * ln;                             /* the tape: two LENGTHs, a bar at least while synced; inside what it
+                                                   holds */
+    if (sync && span < bar) span = bar;
+    if (span > n - SD_LP_XF - 64u) span = n - SD_LP_XF - 64u;
+    spc = span / LP_COLS ? span / LP_COLS : 1u;
+    if (w >= n) w = 0;
+    if (spc != lp_cspc || L.n != lp_cn || (w + n - lp_cw) % n > span) {   /* a new scale, or far behind: anew */
+        lp_cspc = spc; lp_cn = L.n;
+        lp_cw = (w + n - LP_COLS * spc % n) % n;
+        for (i = 0; i < LP_COLS; i++) lp_col[i] = lp_arm ? (uint8_t)lp_col_peak(&L, (lp_cw + i * spc) % n, spc) : 0u;
+        lp_cw = (lp_cw + LP_COLS * spc) % n;
+    }
+    for (k = 0; k < 16u && (w + n - lp_cw) % n >= spc && (w + n - lp_cw) % n < n / 2u; k++) {   /* the new ones */
+        for (i = 0; i + 1u < LP_COLS; i++) lp_col[i] = lp_col[i + 1u];
+        lp_col[LP_COLS - 1u] = lp_arm ? (uint8_t)lp_col_peak(&L, lp_cw, spc) : 0u;
+        lp_cw = (lp_cw + spc) % n;
+    }
+    {   /* the window LOOP takes (or holds): its ends on the tape, columns back from the head */
+        int32_t xe, xs, xn = -1, q;
+        if (looping) {                          /* the loop it holds: ending at lbase, as long as it was taken */
+            uint32_t pl = eng.sp.pln >> 8 ? eng.sp.pln >> 8 : ln, back = (lp_cw + n - eng.sp.lbase % n) % n;
+            xe = X0 + W - 1 - (int32_t)(back / spc);
+            xs = xe - (int32_t)(pl / spc);
+        } else if (sync) {                      /* the last whole one on its grid (the loop's lines, a bar at most) */
+            uint32_t g = ln < bar ? ln : bar, since = g ? now % g : 0u;
+            xe = X0 + W - 1 - (int32_t)(since / spc);
+            xs = xe - (int32_t)(ln / spc);
+            xn = xe;                            /* (the one coming: from there to the head) */
+        } else {                                /* free: the last LENGTH, where it is pressed */
+            xe = X0 + W - 1;
+            xs = xe - (int32_t)(ln / spc);
+        }
+        for (i = 0; i < LP_COLS; i++) {         /* the tape: what it recorded, the window bright */
+            int32_t x = X0 + (int32_t)i, a = lp_col[i] / 2;
+            uint16_t c = x >= xs && x <= xe ? (looping ? C_RED : lp_arm ? C_ICE : C_ICE_D) : xn >= 0 && x > xn ? C_ICE_D : C_GRID;
+            if (a) cv_line(x, SM - a, x, SM + a, c);
+            else cv_pset(x, SM, c);
+        }
+        if (sync) {                             /* the grid it locks to: the bars bright, the beats dim */
+            for (q = 0; q < 64; q++) {
+                uint32_t t = now - now % beat - (uint32_t)q * beat;   /* (half-rate samples, back from the head) */
+                int32_t x = X0 + W - 1 - (int32_t)((now - t) / spc);
+                if (x < X0 || (uint32_t)q * beat > now + bar * 64u) break;
+                cv_line(x, SY - 2, x, SY + 3, t % bar == 0u ? C_ICE : C_ICE_D);
+                cv_line(x, SY + SH - 3, x, SY + SH + 2, t % bar == 0u ? C_ICE : C_ICE_D);
+                if (t % bar == 0u) cv_line(x, SY + 4, x, SY + SH - 4, C_GRID);
+            }
+        }
+        if (xs < X0) xs = X0;
+        cv_frame(xs, SY - 1, xe - xs + 1 > 4 ? xe - xs + 1 : 4, SH + 2, looping ? C_RED : lp_arm ? C_ICE : C_GRID);
+        if (looping) {                          /* its head, through the loop */
+            int32_t xh = xs + (int32_t)((uint32_t)(xe - xs) * eng.lp_at / 4096u);
+            cv_rect(xh, SY - 3, 2, SH + 6, C_GLINT);
+        } else if (lp_arm) {                    /* the record head, on the right */
+            cv_rect(X0 + W - 2, SY - 3, 2, SH + 6, C_RED);
+        }
+    }
+    /* under it: the scale (bars while synced, else seconds back from the head), the tags */
+    cv_line(X0, SY + SH + 6, X0 + W - 1, SY + SH + 6, C_ICE_D);
+    p = put(pd, sync ? "BARS" : "S");
+    *p = 0;
+    if (!sync) {
+        uint32_t cs = span * 100u / 22050u, sec;   /* (centiseconds the tape holds) */
+        for (sec = 1u; sec * 100u <= cs; sec++) {
+            int32_t x = X0 + W - 1 - (int32_t)(sec * 22050u / spc);
+            if (x < X0) break;
+            cv_line(x, SY + SH + 3, x, SY + SH + 9, C_ICE_D);
+            *put_u(pd, sec) = 0;
+            cv_text(x - 4, SY + SH + 10, &FONT_S, pd, C_ICE_D);
+        }
+    }
+    p = put_len(pd); *p = 0;
+    cv_text(X0, SY + SH + 10, &FONT_S, pd, C_ICE_D);   /* (LENGTH, as its knob says it) */
+    if (!lp_lvl && lp_arm) cv_text(X0 + 60, SY + SH + 10, &FONT_S, "L-LEVEL 0", C_RED);   /* (it records, silent) */
     if (lp_on) {
-        cv_box(X0 + W - 44, 0, 44, 16, lp_lvl ? C_RED : C_ICE_D);
+        cv_box(X0 + W - 44, 0, 44, 16, lp_arm ? C_RED : C_ICE_D);
         cv_text(X0 + W - 40, 1, &FONT_S, "LOOP", C_BG);
     }
     if (lp_rev) {                               /* REVERSE: its tag, left of LOOP's */
         cv_box(X0 + W - 84, 0, 36, 16, lp_on ? C_RED : C_ICE_D);
         cv_text(X0 + W - 80, 1, &FONT_S, "REV", C_BG);
     }
+    if (lp_arm && !looping) { cv_box(X0, 0, 36, 16, C_RED); cv_text(X0 + 4, 1, &FONT_S, "REC", C_BG); }
 }
 
 static void pic_env(void)                       /* ENV 1 (the level) and ENV 2 (the FM's amount), GLO brings 2 up */
@@ -2707,20 +2858,23 @@ static void pic_tur(void)                       /* the loop as a scope: a place 
     static int16_t pv[16];
     static uint8_t wk[16];                      /* (each place's step, its low byte: an age up to 255 is enough) */
     static uint32_t seen, have, plen;
-    uint32_t c = eng.tur_count, reg = eng.tur_reg, i, n, len = SD_TUR_LEN(&pat), on = SD_TUR_ON(&pat), cur, tn;
+    uint32_t c = eng.tur_count, reg = eng.tur_reg, plc = eng.tur_place, i, n, len = SD_TUR_LEN(&pat), on = SD_TUR_ON(&pat),
+             cur, tn;
     int32_t x, y, x0, y0, v;
     char s[16], *p;
-    if (eng.tur_count != c) { c = eng.tur_count; reg = eng.tur_reg; }   /* (a step meanwhile: the newer pair) */
+    if (eng.tur_count != c) { c = eng.tur_count; reg = eng.tur_reg; plc = eng.tur_place; }   /* (a step meanwhile: the
+                                                   newer three) */
+    if (plc >= len) plc = 0;                    /* (LENGTH shorter: the engine's next step puts it right) */
     if (len != plen) { have = 0; plen = len; }  /* (another LENGTH: the places anew) */
     n = c - seen > 8u ? 8u : c - seen;          /* (the register holds the 8 values before: older ones are gone) */
     for (i = n; i > 0u; i--) {                  /* the steps since the last frame, each into its place */
-        uint32_t k = c - (i - 1u), at = k % len;
+        uint32_t k = c - (i - 1u), at = (plc + 8u * len - (i - 1u)) % len;   /* (its place in the loop: the 1 at 12) */
         pv[at] = (int16_t)sd_tur_dac(reg >> (i - 1u));
         wk[at] = (uint8_t)k;
         have |= 1u << at;
     }
     seen = c;
-    cur = c % len;
+    cur = plc;
     tn = len * M;
     for (i = 0; i < 48u; i++) {                 /* the rings: the edge, 0 (dotted), the middle's dot */
         int32_t xa, ya, xb, yb;
@@ -2731,6 +2885,8 @@ static void pic_tur(void)                       /* the loop as a scope: a place 
     cv_line(CX - RO + 6, CY, CX + RO - 6, CY, C_GRID);   /* the crosshair */
     cv_line(CX, CY - RO + 6, CX, CY + RO - 6, C_GRID);
     cv_rect(CX - 1, CY - 1, 3, 3, C_ICE_D);
+    cv_rect(CX - 1, CY - RO, 3, 7, on ? C_ICE : C_ICE_D);   /* the loop's 1, at 12 o'clock: a mark and its number */
+    cv_text(CX + 4, CY - RO + 1, &FONT_S, "1", on ? C_ICE : C_ICE_D);
     if (on) {                                   /* the sweep: here, and the two before it fading */
         const uint16_t SW[3] = {C_FILL, C_RED_D, C_RED};
         for (i = 0; i < 3u && i < len; i++) {
@@ -2906,7 +3062,7 @@ static void pic_seq(void)                       /* SEQ, TURING: the pattern, the
         for (g = 0; g < 2; g++) gx = cv_text(gx, 86, &FONT_S, G[g], C_RED) + 11;
         return;
     }
-    else if (lock) { p = put(s, "B NEEDS DUO OR POLY: SCL"); lc = C_RED; }
+    else if (lock) { p = put(s, "B NEEDS DUO OR POLY: SEL"); lc = C_RED; }
     else if (seq_clr_at) {                      /* CLR asked: its key blinking, the answer's two */
         cv_text(key_chip(6, 86, 2u, "CLR", C_RED), 86, &FONT_S, " / OCT+: CLEAR  OCT- NO", C_RED);
         return;
@@ -2998,7 +3154,7 @@ static void hint_two(const char *l, const char *v) { hint_x = HINT_R; hint(l, v)
 static uint32_t page_off(void)                  /* an engine off, ARP, TURING, the LOOPER disarmed: its knobs set it,
                                                    silent (not SEQ's pages: a part is written while it is off) */
 {
-    return (page_fx() && !fx_on(page_fx())) || (page == PAGE_LOOP && !lp_lvl) || (page == PAGE_ARP && !eng.arp_on) ||
+    return (page_fx() && !fx_on(page_fx())) || (page == PAGE_LOOP && !lp_arm) || (page == PAGE_ARP && !eng.arp_on) ||
            (page == 4u && dmod == DMOD_TUR && !SD_TUR_ON(&pat));
 }
 static void hint_key(uint32_t bk, const char *v)   /* a black key's job on the hint line: its indicator, its name */
@@ -3632,10 +3788,10 @@ static void app_main(void)
         if (b & (1u << BTN_PLAY)) {
             {
                 eng.seq_run = (uint8_t)!eng.seq_run;
-                if (eng.lp_on && eng.lp_lvl) msg(eng.seq_run ? "LOOP BACK ON THE ONE" : "LOOP WAITS FOR PLAY");
+                if (eng.lp_on && lp_arm) msg(eng.seq_run ? "LOOP BACK ON THE ONE" : "LOOP WAITS FOR PLAY");
             }
         }
-        if (b & (1u << BTN_SEL)) {              /* SCL: the voices, MONO DUO POLY; MONO holds SEQ B */
+        if (b & (1u << BTN_SEL)) {              /* SEL: the voices, MONO DUO POLY; MONO holds SEQ B */
             set.mode = (uint8_t)((set.mode + 1u) % SD_MODES);
             eng.mode = set.mode;
             if (set.mode == SD_MODE_MONO && !eng.t[1].mute && trk_has_notes(1)) msg("MONO: SEQ B WAITS");
@@ -3693,16 +3849,19 @@ static void app_main(void)
             }
             if (b & (1u << BTN_ARP)) page = page == PAGE_ARP ? PAGE_LOOP : page == PAGE_LOOP ? PAGE_ARP : arp_last;
             if (page != was) { seq_segmode = 0; seq_more = 0; }
+            if (b & (1u << BTN_HOME | 1u << BTN_FX | 1u << BTN_ENV | 1u << BTN_LFO | 1u << BTN_ARP | 1u << BTN_SEQ))
+                gl_latch = 0;                   /* a page button: a latched GLO let go (2026-11-17, the user: the new
+                                                   page starts on its first layer; held, it is still held) */
             if (page == 1u || page == 2u || page == 3u || page == PAGE_TIME) fx_last = page;
             if (page == PAGE_ARP || page == PAGE_LOOP) arp_last = page;
             if (page == PAGE_ENV || page == PAGE_FILT) env_last = page;
             if (page == PAGE_SEQ) seq_last = seq_trk; else if (page == PAGE_ORB) seq_last = 2u;
         }
         if (b & (1u << BTN_EDIT)) {             /* EDIT: what this page shows, on / off */
-            if (page == PAGE_LOOP) {     /* EDIT on LOOPER: armed (L-LEVEL as it was, or 79) or not */
-                static uint16_t lp_was = 52300u;
-                if (lp_lvl) { lp_was = lp_lvl; lp_lvl = 0; } else lp_lvl = lp_was ? lp_was : 52300u;
-                msg(lp_lvl ? (eng.lp_borrow ? "LOOPER ON: DELAY 0.5 S" : "LOOPER ON") : (eng.lp_borrow ? "LOOPER OFF: DELAY 1 S" : "LOOPER OFF"));
+            if (page == PAGE_LOOP) {     /* EDIT on LOOPER: armed or not, L-LEVEL as it is (at 0 it records, silent:
+                                                   then faded in) */
+                lp_arm = (uint8_t)!lp_arm;
+                msg(lp_arm ? (eng.lp_borrow ? "LOOPER ON: DELAY 0.5 S" : "LOOPER ON") : (eng.lp_borrow ? "LOOPER OFF: DELAY 1 S" : "LOOPER OFF"));
             } else if (edit_toggle()) sd_engine_patch(&eng, &pat);
         }
         if (seq_page() && !seq_rec && shift() && b & (1u << BTN_OCT_DOWN | 1u << BTN_OCT_UP)) {   /* GLO + OCT on SEQ:
@@ -3770,7 +3929,8 @@ static void app_main(void)
                     changed = 1;
                     break;
                 case 2:
-                    if (!l2) { dband = step_mod(dband, e, 5u); dlist_open(DL_BAND); }   /* the band, then LOOP: a list */
+                    if (!l2) { dband = step_mod(dband, e, 5u); dlist_at = 0; }   /* the band, then LOOP: its frame
+                                                   moves in the picture (no list, 2026-11-17) */
                     else if (dband < 4u) {      /* GLO: its BODY (where PHAT and SHARP act) */
                         pat.d_body[dband] = knob_q(pat.d_body[dband], e);
                         changed = 1;
@@ -3823,7 +3983,7 @@ static void app_main(void)
                         msg(lp_rev ? "REVERSE: THE LOOP BACKWARDS" : "REVERSE OFF");
                     } else {
                         lp_on = (uint8_t)!lp_on;
-                        msg(lp_on ? (lp_lvl ? "LOOP: THE LAST LENGTH HELD" : "LOOP: THE LOOPER IS OFF (EDIT)") : "LOOP OFF");
+                        msg(lp_on ? (lp_arm ? "LOOP: THE LAST LENGTH HELD" : "LOOP: THE LOOPER IS OFF (EDIT)") : "LOOP OFF");
                     }
                     break;
                 default: break;                 /* ENV, the LFOs: nothing */
@@ -3834,19 +3994,19 @@ static void app_main(void)
                 uint8_t *ev = page == PAGE_FILT ? &pat.e3_a : l2 ? &pat.e2_a : &pat.e1_a;
                 for (k = 0; k < 4u; k++)
                     if ((e = enc_take(KN[k])) != 0) {
-                        int32_t v = (int32_t)ev[k] + e * 2;
+                        int32_t v = (int32_t)ev[k] + enc_far(e, 64u) * 2;
                         ev[k] = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
                         changed = 1;
                     }
             } else if (page == PAGE_FILT) {     /* FILTER: CUTOFF RES ENV KEY */
                 if ((e = enc_take(ENC_KNOB1)) != 0) {   /* a quarter semitone a detent */
-                    int32_t v = (int32_t)pat.f_cut + e * 147;   /* (65535 / 114 / 4) */
+                    int32_t v = (int32_t)pat.f_cut + enc_far(e, 456u) * 147;   /* (65535 / 114 / 4) */
                     pat.f_cut = (uint16_t)(v < 0 ? 0 : v > 65535 ? 65535 : v);
                     changed = 1;
                 }
                 if ((e = enc_take(ENC_KNOB2)) != 0) pat.f_res = knob_q(pat.f_res, e), changed = 1;
                 if ((e = enc_take(ENC_KNOB3)) != 0) {   /* -99 .. +99 % */
-                    int32_t v = amt99(pat.f_env) + e;
+                    int32_t v = amt99(pat.f_env) + enc_far(e, 198u);
                     v = v < -99 ? -99 : v > 99 ? 99 : v;
                     pat.f_env = (int16_t)(v * 32767 / 99);
                     changed = 1;
@@ -3887,7 +4047,7 @@ static void app_main(void)
                 uint8_t v;
                 if ((e = enc_take(ENC_KNOB1)) != 0 && eng.clk_on) msg("TEMPO: THE MIDI CLOCK'S");
                 else if (e) {                   /* the tempo, 40..240 BPM */
-                    int32_t t = (int32_t)set.bpm + e;
+                    int32_t t = (int32_t)set.bpm + enc_far(e, 200u);
                     set.bpm = (uint8_t)(t < 40 ? 40 : t > 240 ? 240 : t);
                     eng.bpm = set.bpm;
                     dirty = 1;
@@ -3907,7 +4067,7 @@ static void app_main(void)
                     if ((e = enc_take(KN[k])) != 0) pat.mac[k] = knob_q(pat.mac[k], e), changed = 1;
             } else if (page == 4u && dmod == DMOD_TUR) {   /* TURING: CHANGE LENGTH DEST AMOUNT */
                 if ((e = enc_take(ENC_KNOB1)) != 0) {
-                    pat.tur_set = (uint8_t)((pat.tur_set & 0x80u) | step_lim(SD_TUR_CHANGE(&pat), e, 101u));
+                    pat.tur_set = (uint8_t)((pat.tur_set & 0x80u) | step_lim(SD_TUR_CHANGE(&pat), enc_far(e, 101u), 101u));
                     dlist_at = 0;
                     changed = 1;
                 }
@@ -3922,7 +4082,7 @@ static void app_main(void)
                     changed = 1;
                 }
                 if ((e = enc_take(ENC_KNOB4)) != 0) {   /* a percent a detent */
-                    int32_t v = (int32_t)pat.tur_amt + e;
+                    int32_t v = (int32_t)pat.tur_amt + enc_far(e, 200u);
                     dlist_at = 0;
                     pat.tur_amt = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v);
                     changed = 1;
@@ -3932,7 +4092,7 @@ static void app_main(void)
                 if ((e = enc_take(ENC_KNOB1)) != 0) m->src = (uint8_t)src_step(m->src, e), dlist_open(DL_SRC), changed = 1;
                 if ((e = enc_take(ENC_KNOB2)) != 0) m->dst = (uint8_t)dst_step(m->dst, e, 0), dlist_open(DL_MOD), changed = 1;
                 if ((e = enc_take(ENC_KNOB3)) != 0) {   /* a percent a detent */
-                    int32_t v = amt99(m->amt) + e;
+                    int32_t v = amt99(m->amt) + enc_far(e, 198u);
                     dlist_at = 0;
                     v = v < -99 ? -99 : v > 99 ? 99 : v;
                     m->amt = (int16_t)(v * 32767 / 99);
@@ -3975,7 +4135,7 @@ static void app_main(void)
                 if ((e = enc_take(ENC_KNOB4)) != 0) {   /* AMOUNT: a percent a detent */
                     if (s == SD_MODS) msg("K3 FIRST: WHERE IT GOES");
                     else {
-                        int32_t v = amt99(pat.mod[s].amt) + e;
+                        int32_t v = amt99(pat.mod[s].amt) + enc_far(e, 198u);
                         dlist_at = 0;
                         v = v < -99 ? -99 : v > 99 ? 99 : v;
                         pat.mod[s].amt = (int16_t)(v * 32767 / 99);
@@ -3985,7 +4145,7 @@ static void app_main(void)
             } else if (page == 3u) {            /* SPACE: the plate (GLO: SHIMMER) */
                 if (l2) {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {
-                        int32_t sh = (int32_t)SD_SP_SHIM(&pat) + e;
+                        int32_t sh = (int32_t)SD_SP_SHIM(&pat) + enc_far(e, 64u);
                         sh = sh < 0 ? 0 : sh > 63 ? 63 : sh;
                         pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)sh << 2);
                         changed = 1;
@@ -4003,6 +4163,17 @@ static void app_main(void)
                     if ((e = enc_take(ENC_KNOB3)) != 0) pat.s_rtone = knob_q(pat.s_rtone, e), changed = 1;
                     if ((e = enc_take(ENC_KNOB4)) != 0) pat.s_rlevel = knob_q(pat.s_rlevel, e), changed = 1;
                 }
+            } else if (page == PAGE_LOOP && l2) {   /* LOOPER, GLO: FILTER (left a lowpass, right a highpass, none in
+                                                   the middle: it stops there), R-SEND, D-SEND */
+                if ((e = enc_take(ENC_KNOB1)) != 0) {
+                    int32_t v = (int32_t)lp_filt + enc_far(e, 64u) * 1024, was = (int32_t)lp_filt - 32768;
+                    v = v < 0 ? 0 : v > 65535 ? 65535 : v;
+                    if ((v - 32768 > -1024 && v - 32768 < 1024) || (was < 0) != (v - 32768 < 0)) v = was ? 32768 : v;
+                    lp_filt = (uint16_t)v;
+                }
+                if ((e = enc_take(ENC_KNOB2)) != 0) lp_rsend = (uint16_t)knob_q(lp_rsend, e);
+                if ((e = enc_take(ENC_KNOB3)) != 0) lp_dsend = (uint16_t)knob_q(lp_dsend, e);
+                (void)enc_take(ENC_KNOB4);
             } else if (page == PAGE_TIME || page == PAGE_LOOP) {   /* TIME: the delay; LOOPER: the looper */
                 if (page == PAGE_LOOP) {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {   /* GLIDE: OFF, then a division a detent synced,
@@ -4012,7 +4183,7 @@ static void app_main(void)
                             d = d < 0 ? 0 : d > (int32_t)SD_LP_NGLIDE - 1 ? (int32_t)SD_LP_NGLIDE - 1 : d;
                             lp_glide = (uint16_t)((uint32_t)d * 65536u / SD_LP_NGLIDE + (d ? 100u : 0u));
                         } else {
-                            int32_t t = (int32_t)lp_glide + e * 256;
+                            int32_t t = (int32_t)lp_glide + enc_far(e, 256u) * 256;
                             lp_glide = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
                         }
                     }
@@ -4022,21 +4193,16 @@ static void app_main(void)
                             d = d < 0 ? 0 : d > (int32_t)SD_LP_NDIV - 1 ? (int32_t)SD_LP_NDIV - 1 : d;
                             lp_len = (uint16_t)((uint32_t)d * 65536u / SD_LP_NDIV + 100u);
                         } else {
-                            int32_t t = (int32_t)lp_len + e * 256;
+                            int32_t t = (int32_t)lp_len + enc_far(e, 256u) * 256;
                             lp_len = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
                         }
                     }
                     if ((e = enc_take(ENC_KNOB3)) != 0) {   /* SPEED: an eighth of a semitone a detent */
-                        int32_t v = lp_speed + e * 32;
+                        int32_t v = lp_speed + enc_far(e, 192u) * 32;
                         lp_speed = (int16_t)(v < -3072 ? -3072 : v > 3072 ? 3072 : v);
                     }
-                    if ((e = enc_take(ENC_KNOB4)) != 0) {   /* L-LEVEL: above 0 the looper armed (borrowing:
-                                                   the delay's line's second half, the delay 0.5 s) */
-                        uint16_t was = lp_lvl;
-                        lp_lvl = (uint16_t)knob_q(lp_lvl, e);
-                        if (eng.lp_borrow && !was != !lp_lvl)
-                            msg(lp_lvl ? "LOOPER ON: DELAY 0.5 S" : "LOOPER OFF: DELAY 1 S");
-                    }
+                    if ((e = enc_take(ENC_KNOB4)) != 0) lp_lvl = (uint16_t)knob_q(lp_lvl, e);   /* L-LEVEL: its level
+                                                   only (EDIT arms it) */
                 } else {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {   /* TIME: a division a detent synced, ~4 ms free */
                         if (pat.s_mode & SD_SP_SYNC) {
@@ -4044,7 +4210,7 @@ static void app_main(void)
                             d = d < 0 ? 0 : d > (int32_t)SD_SP_NDIV - 1 ? (int32_t)SD_SP_NDIV - 1 : d;
                             pat.s_time = (uint16_t)((uint32_t)d * 65536u / SD_SP_NDIV + 100u);
                         } else {
-                            int32_t t = (int32_t)pat.s_time + e * 256;
+                            int32_t t = (int32_t)pat.s_time + enc_far(e, 256u) * 256;
                             pat.s_time = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
                         }
                         changed = 1;
@@ -4070,22 +4236,22 @@ static void app_main(void)
                         uint32_t si = k2 < 3u ? k2 : 2u;
                         int32_t lo = si ? pat.d_split[si - 1u] + 256 : SD_R_LO * 256 + 256;
                         int32_t hi = si < 2u ? pat.d_split[si + 1u] - 256 : SD_R_HI * 256 - 256;
-                        int32_t v = (int32_t)pat.d_split[si] + e * 64;   /* a quarter semitone a detent */
+                        int32_t v = (int32_t)pat.d_split[si] + enc_far(e, (SD_R_HI - SD_R_LO) * 4u) * 64;   /* a quarter semitone a detent */
                         pat.d_split[si] = (uint16_t)(v < lo ? lo : v > hi ? hi : v);
                         changed = 1;
                     }
                     if ((e = enc_take(ENC_KNOB1)) != 0) {   /* BIAS: -50 .. +50 */
-                        int32_t v = pat.d_bias[k2] + e * 655;
+                        int32_t v = pat.d_bias[k2] + enc_far(e, 100u) * 655;
                         pat.d_bias[k2] = (int16_t)(v < -32767 ? -32767 : v > 32767 ? 32767 : v);
                         changed = 1;
                     }
                     if ((e = enc_take(ENC_KNOB2)) != 0) {
-                        int32_t v = pat.d_pan[k2] + e * 656;
+                        int32_t v = pat.d_pan[k2] + enc_far(e, 100u) * 656;
                         pat.d_pan[k2] = (int16_t)(v < -32767 ? -32767 : v > 32767 ? 32767 : v);
                         changed = 1;
                     }
                     if ((e = enc_take(ENC_KNOB3)) != 0) {   /* DYNAMIC: PHAT -99 .. 0 .. +99 SHARP */
-                        int32_t v = pat.d_shape[k2] + e * 331;
+                        int32_t v = pat.d_shape[k2] + enc_far(e, 198u) * 331;
                         pat.d_shape[k2] = (int16_t)(v < -32767 ? -32767 : v > 32767 ? 32767 : v);
                         changed = 1;
                     }
@@ -4104,7 +4270,7 @@ static void app_main(void)
                 if (l2) {
                     for (k = 0; k < 4u; k++)
                         if ((e = enc_take(KN[k])) != 0) {
-                            st->pitch[k] = (uint16_t)rst_clamp((int32_t)st->pitch[k] + e * 256);
+                            st->pitch[k] = (uint16_t)rst_clamp((int32_t)st->pitch[k] + enc_far(e, SD_R_HI - SD_R_LO) * 256);
                             dlist_at = 0;
                             changed = 1;
                         }
@@ -4115,14 +4281,14 @@ static void app_main(void)
                         dlist_open(DL_RST);
                         changed = 1;
                     }
-                    if ((e = enc_take(ENC_KNOB2)) != 0) rst_pitch(st, e), dlist_at = 0, changed = 1;
-                    if ((e = enc_take(ENC_KNOB3)) != 0) rst_width(st, e), dlist_at = 0, changed = 1;
-                    if ((e = enc_take(ENC_KNOB4)) != 0) rst_level(st, e), dlist_at = 0, changed = 1;
+                    if ((e = enc_take(ENC_KNOB2)) != 0) rst_pitch(st, enc_far(e, SD_R_HI - SD_R_LO)), dlist_at = 0, changed = 1;
+                    if ((e = enc_take(ENC_KNOB3)) != 0) rst_width(st, enc_far(e, SD_R_HI - SD_R_LO)), dlist_at = 0, changed = 1;
+                    if ((e = enc_take(ENC_KNOB4)) != 0) rst_level(st, enc_far(e, 99u)), dlist_at = 0, changed = 1;
                 }
             } else if (page == 1u) {            /* the Reactor */
                 if (l2) {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {
-                        int32_t f = pat.r_freq + e * 256;
+                        int32_t f = pat.r_freq + enc_far(e, 96u) * 256;
                         pat.r_freq = (int16_t)(f < -48 * 256 ? -48 * 256 : f > 48 * 256 ? 48 * 256 : f);
                         changed = 1;
                     }
@@ -4135,7 +4301,7 @@ static void app_main(void)
                     if ((e = enc_take(ENC_KNOB4)) != 0) pat.r_mix = knob_q(pat.r_mix, e), changed = 1;
                 } else {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {   /* POS: a tenth of a stage a detent */
-                        int32_t q = (int32_t)pat.r_pos + e * 26;
+                        int32_t q = (int32_t)pat.r_pos + enc_far(e, 60u) * 26;
                         pat.r_pos = (uint16_t)(q < 0 ? 0 : q > 1535 ? 1535 : q);
                         changed = 1;
                     }
@@ -4174,7 +4340,9 @@ static void app_main(void)
         eng.lp_len = lp_len;                    /* LOOPER's (EDIT there arms it or not: L-LEVEL) */
         eng.lp_speed = lp_speed;
         eng.lp_glide = lp_glide;
-        eng.lp_lvl = lp_lvl;
+        eng.lp_lvl = lp_arm ? lp_lvl : 0;       /* (disarmed: none, so the engine's own rule, a level arms, holds) */
+        eng.lp_arm = lp_arm;
+        eng.lp_filt = lp_filt; eng.lp_rsend = lp_rsend; eng.lp_dsend = lp_dsend;
         eng.lp_on = lp_on;
         eng.lp_rev = lp_rev;
 #if !defined(DINGHY_HOST) && defined(SD_RAM2) && SD_RAM2
@@ -4212,7 +4380,7 @@ static void app_main(void)
             fm1_led_key(BTN_OCT_DOWN, oct < 0);
             fm1_led_key(BTN_OCT_UP, oct > 0);
             fm1_led_key(BTN_PLAY, eng.seq_run && eng.t[0].seq_shown % 4u == 0u);   /* blinks on the beat */
-            fm1_led_key(BTN_SEL, eng.mode_on != SD_MODE_MONO);   /* SCL lit: DUO or POLY */
+            fm1_led_key(BTN_SEL, eng.mode_on != SD_MODE_MONO);   /* SEL lit: DUO or POLY */
             fm1_led_key(BTN_GLO, shift());      /* GLO lit: the second layer (held or latched) */
             fm1_led_key(BTN_HOME, page == 0u || page == 5u);   /* a page's button lit: you are there */
             fm1_led_key(BTN_FX, (page >= 1u && page <= 3u) || page == PAGE_TIME);

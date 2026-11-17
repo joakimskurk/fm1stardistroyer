@@ -1733,6 +1733,59 @@ static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, 
         sd_space_run(&e1, in, lb_out + 2u * b * SD_SUB, SD_SUB, 0);
     }
 }
+/* The looper's wishes (2026-11-17): armed by the player (lp_arm) it records at L-LEVEL 0 and the loop fades in after;
+ * its FILTER (a lowpass shut, a highpass high) takes a 440 Hz loop down; R-SEND and D-SEND take it into the reverb
+ * and the delay (more there than without). A 440 Hz sine 0 .. 0.6 s, LOOP at 0.6, L-LEVEL up at 0.8 */
+static double lw_rms(uint8_t arm, uint16_t lvl0, uint16_t filt, uint16_t rs, uint16_t ds, uint16_t rlvl, uint16_t dlvl,
+                     double t0, double t1, double off_at)
+{
+    static int32_t in[2u * SD_SUB], o[2u * (2u * SD_FS + SD_SUB)];
+    SdPatch p = space_patch(SD_SPMS(120u), 0, 0, dlvl, rlvl, 30000);
+    uint32_t i, b, frames = 2u * SD_FS;
+    double ph = 0, e = 0;
+    memset(&tsm, 0, sizeof tsm);
+    memset(tl_mem, 0, sizeof tl_mem);
+    sd_engine_init(&e1);
+    e1.sm = &tsm;
+    sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
+    e1.lp_len = SD_SPMS(300u);
+    e1.bpm = 120;
+    sd_seq_retime(&e1);
+    e1.patch = p;
+    e1.lp_arm = arm; e1.lp_filt = filt; e1.lp_rsend = rs; e1.lp_dsend = ds;
+    for (b = 0; b * SD_SUB < frames; b++) {
+        double t = (double)b * SD_SUB / SD_FS;
+        e1.lp_lvl = t >= 0.8 ? 65535 : lvl0;
+        e1.lp_on = t >= 0.6 && t < off_at;
+        sd_space_params(&e1);
+        for (i = 0; i < SD_SUB; i++) {
+            int32_t x = t < 0.6 ? (int32_t)lround(12000 * sin(ph)) : 0;
+            ph += 2 * M_PI * 440 / SD_FS;
+            in[2u * i] = in[2u * i + 1u] = x;
+            o[2u * (b * SD_SUB + i)] = o[2u * (b * SD_SUB + i) + 1u] = 0;
+        }
+        sd_space_run(&e1, in, o + 2u * b * SD_SUB, SD_SUB, 0);
+    }
+    for (i = (uint32_t)(t0 * SD_FS); i < (uint32_t)(t1 * SD_FS); i++) e += (double)o[2u * i] * o[2u * i];
+    return sqrt(e / ((t1 - t0) * SD_FS)) + 1e-9;
+}
+static void test_looper_wishes(void)
+{
+    double armed0 = lw_rms(1, 0, 32768, 65535, 0, 0, 0, 0.9, 1.4, 9), quiet = lw_rms(1, 0, 32768, 65535, 0, 0, 0, 0.65, 0.78, 9);
+    double none = lw_rms(0, 0, 32768, 65535, 0, 0, 0, 0.9, 1.4, 9), off = lw_rms(1, 52000, 32768, 65535, 0, 0, 0, 0.9, 1.4, 9);
+    double lp = lw_rms(1, 52000, 0, 65535, 0, 0, 0, 0.9, 1.4, 9), hp = lw_rms(1, 52000, 65535, 65535, 0, 0, 0, 0.9, 1.4, 9);
+    double r1 = lw_rms(1, 52000, 32768, 65535, 0, 40000, 0, 1.45, 1.9, 1.4), r0 = lw_rms(1, 52000, 32768, 0, 0, 40000, 0, 1.45, 1.9, 1.4);   /* (the
+                                                   tail after the loop: its own only if it went in) */
+    double d1 = lw_rms(1, 52000, 32768, 65535, 65535, 0, 50000, 0.9, 1.4, 9), d0 = lw_rms(1, 52000, 32768, 65535, 0, 0, 50000, 0.9, 1.4, 9);
+    CHECK(armed0 > 20 * none && armed0 > 1000, "looper armed at L-LEVEL 0: the loop faded in %.0f, unarmed %.0f", armed0, none);
+    CHECK(quiet < 30, "looper at L-LEVEL 0 while it loops: silent (%.0f)", quiet);
+    CHECK(lp < 0.25 * off && hp < 0.25 * off, "looper FILTER: lowpass shut %.2f, highpass high %.2f of none", lp / off, hp / off);
+    CHECK(r1 > 2 * r0, "looper R-SEND: the reverb's tail after the loop with it %.0f, without %.0f", r1, r0);
+    CHECK(d1 > 1.15 * d0, "looper D-SEND: the delay with it %.0f, without %.0f", d1, d0);
+    printf("looper wishes: armed at L-LEVEL 0 it records (faded in: %.0f, unarmed %.0f, silent while at 0: %.0f); FILTER "
+           "a lowpass shut %.0f dB, a highpass high %.0f dB on a 440 Hz loop; R-SEND %+.1f dB, D-SEND %+.1f dB\n",
+           armed0, none, quiet, 20 * log10(lp / off), 20 * log10(hp / off), 20 * log10(r1 / r0), 20 * log10(d1 / d0));
+}
 /* the looper and the transport (the user: "the loop stops when I stop playback, and starts again in sync"): START
  * at 0.1 s, LOOP at 1.03 s (off any beat: 0.93 s, 2563 ticks, after START), STOP at 2.0 s: it fades out and waits
  * (its memory kept), START again at 2.6 s: its head where it stood against the master's one (-T round the loop, to
@@ -4298,6 +4351,7 @@ int main(void)
     test_feedback();
     test_space();
     test_looper();
+    test_looper_wishes();
     test_mod();
     test_split_through();
     test_seq();

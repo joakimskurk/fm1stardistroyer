@@ -119,10 +119,14 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   into swells, before it loops or while it does. **GLO + OCT- / OCT+** (on LOOPER) takes it to the next octave, and **GLIDE**
   is how long a new speed takes (OFF: at once, or 1/32 … 4 bars): an octave lands on the loop's own grid, gliding
   onto its beats and then crossfading into its place, so back at its pitch it plays exactly where it was. It goes
-  into the reverb as the synth does, and in the fallback into the room. **L-LEVEL** above 0 arms it (0 as the app
-  starts): it then borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
+  into the reverb as the synth does (**R-SEND**, GLO's K2 there: how much), and into the delay if you want
+  (**D-SEND**, GLO's K3), and **FILTER** (GLO's K1) is one knob, a lowpass to the left, a highpass to the right,
+  none in the middle, no resonance. **EDIT** arms it, at any **L-LEVEL**, 0 too: take a loop with it silent and fade
+  it in. The picture is a tape running past its head on the right: what it records drawn as it comes, the grid it
+  locks to over it (the master's bars, the beats), the LENGTH LOOP takes framed with its ends on that grid; LOOP
+  stops the tape and its head runs through the loop, red. Armed, it borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
   rate in 8 bits (mu-law: a light tape), while the delay keeps the first half, 0.5 s (a longer division plays at half,
-  TIME red); back at 0 the delay has its whole second again. Arming or letting go fades the echoes out and in, the
+  TIME red); let go, the delay has its whole second again. Arming or letting go fades the echoes out and in, the
   line cleared. LENGTH synced reaches 4 bars, halved until it fits (what it holds: the end of LOOPER's scale). It is the
   player's, not saved with the patch.
 - **SPACE** is the reverb, a **plate**: four diffusers into a tank of two branches in a figure of eight, its lines
@@ -211,8 +215,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   pattern's scale as they play, and never rewrites the pattern. To **PITCH** it is quantized first: every voice
   lands on a note of SEQ A's scale from its key (CHROM: whole semitones). In MOD it is a SOURCE too, for more
   places (to PITCH there quantized as well).
-- The picture is a scope: the loop's places round it, each step held at its value over its arc (further out
-  higher) and a hard jump to the next, as it sounds, the sweep on the step playing, the newest blip red. Locked (CHANGE 0) the shape stays; with CHANGE it drifts. A gauge beside
+- The picture is a scope: the loop's places round it, its 1 at 12 o'clock (START plays it from there), each step
+  held at its value over its arc (further out higher) and a hard jump to the next, as it sounds, the sweep on the
+  step playing, the newest blip red. Locked (CHANGE 0) the shape stays; with CHANGE it drifts. A gauge beside
   it shows the value now.
 
 </td>
@@ -329,18 +334,18 @@ the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS → NAV → SETUP (TEMPO, with GLO SYNC AUTO or INT; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept; ALGORITHM **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, OCT+ yes, the sound kept; the CPU, a lamp for each core (the second red if it gave up: the reverb then the room's), and the battery's volts) |
+| **HOME** | MACROS → NAV → SETUP (TEMPO, with GLO SYNC AUTO or INT; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept; ALGORITHM **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU, a lamp for each core (the second red if it gave up: the reverb then the room's), and the battery's volts) |
 | **FX** | REACTOR → DISTROY → SPACE → TIME |
 | **ENV** | ENV → FILTER |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD |
 | **ARP** | ARP → LOOPER: the arpeggiator and the looper, the player's tools (not saved in the patch) |
 | **SEQ** | SEQ A → SEQ B → ORBIT |
-| **K1–K4** | the four values in the row on top |
-| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT moves it an octave; on LOOPER, OCT the loop's octave |
-| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP, a list as it turns; on NAV the algorithm, a list too); GLO + ALGORITHM the second |
+| **K1–K4** | the four values in the row on top; on the FM-1 a fast turn goes further (slow, a step a detent; a fast spin crosses a level, an amount or the cutoff in about a turn), a list, a note or a semitone still one a detent |
+| **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again, or a page button, lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT moves it an octave; on LOOPER, OCT the loop's octave |
+| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP: its frame moves in the picture; on NAV the algorithm, a list); GLO + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, ARP, a track, ORBIT, RADAR (a track or ORBIT, while the master plays: in at its one). Off, the hint line says OFF: EDIT TURNS IT ON (not on SEQ and ORBIT, where you write a part while it is off) |
 | **PRESETS** | the patch (on SEQ and ORBIT the pattern; the list says PATCHES or PATTERNS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now |
-| **SELECT** · **SCL** | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
+| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns) |
 | **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
 | **The keys** | play; on SEQ the white keys are the steps and the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC); on ORBIT the first white keys its steps, B10 SETUP; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |

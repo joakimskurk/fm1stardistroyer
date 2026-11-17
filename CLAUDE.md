@@ -15,12 +15,13 @@
   function there that grows can fail the link; a call between it and the flash goes through `SD_FAR`. The audio's
   code that stays in the flash is `SD_HOT` (sd_engine.h): one section, first in the image after memcpy/memset, then
   the tables, then the rest (app.ld), so the flash cache sees it at one place; a new function the control tick or the
-  plate's job calls gets `SD_HOT` too. It has 34 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
+  plate's job calls gets `SD_HOT` too, and a new flash function an interrupt calls goes in app.ld's list after it
+  (the ISR stubs, key scan, USB service are there). It has 34 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
   0xA800, the same cache sets), so what follows never moves with it. Compare CPU readings only at a fixed layout
   (unpinned, a few lines of UI moved it 2-4 points), and like with like (`STRICT_PROF` itself reads ~0.8 lower).
 - `./build.sh` stops before the package when a check fails (its line says `FAIL`): never read only its `ok`
   lines, and never measure a `.fwsc` older than the source. CI builds the SMK-37's three models first (`BOARD=smk37 MODEL=pro|elite|mke
-  sh build.sh`), whose RAM is tighter (884 B left on 2026-11-11): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
+  sh build.sh`), whose RAM is tighter (164 B left on 2026-11-17: the next thing in .bss goes in the pool, or a field smaller): build them too when RAM grows. A constant in 0xFFC00000..0xFFCFFFFF (e.g. `-(1 << 22)`)
   fails the ROM check: clamp in another range, or shift after the clamp.
 - `tests/run_sd.sh` runs the tests twice, the second time under ASan/UBSan: a signed overflow there is a bug on
   the FM-1 too (it found MIX's), so keep it clean.

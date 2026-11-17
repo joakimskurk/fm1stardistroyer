@@ -640,6 +640,17 @@ listening rounds are in the git history.
   change clears 1024 a tick (~80 ms): at once it took the worst interrupt from 52 % to 79 %.
 - *Kept as the user heard them:* the demos made before the divisions were exact (DERELICT, CINEMATIC, the second cue)
   have SPACE on FREE at 1000 ms, as they were saved.
+- *The looper, 2026-11-17 (the user's wishes):* armed by the player (`lp_arm`, EDIT) it records at any L-LEVEL, 0
+  too, so a loop taken silent fades in (it had recorded silence at 0: the job fed it nothing); the engine keeps the
+  old rule too (a level arms it) for the demos, which play as they did, bit for bit. **FILTER** (GLO's K1): one knob,
+  a two-pole Butterworth lowpass to the left (82 Hz shut .. 6.6 kHz), highpass to the right (20 Hz .. 2.6 kHz), none
+  in the middle, at the looper's half rate, worked out by the core that runs it as the knob changes (`sd_lp_fset`;
+  in the chunks' ring only the knob: the SMK-37's RAM had no room for coefficients 24 times). **R-SEND** scales what
+  goes into the reverb (whole, as it always went, by default), **D-SEND** puts the loop into the delay a sub-block
+  late (0.7 ms, a ring of 32: on two cores the loop is heard after the delay is written). `test_looper_wishes`:
+  armed at 0 it records, silent until faded in; the FILTER -29 / -32 dB on a 440 Hz loop; R-SEND +18 dB of tail,
+  D-SEND +4 dB. The picture: a tape past its head, what it records as it comes (each column the loudest of its
+  samples from the memory, a frame's new ones at a time, in the pool), the grid it locks to, the LENGTH framed on it.
 - *To do (the user, 2026-11-17):* while the plate is FROZEN, the room after it in the chain, so the frozen tail goes
   into the room too (now the room only takes what is played over the held tail, beside it). Open: the room on core 0
   then runs on the plate's output each block (its cost to measure), and whether the room stays beside it as well.
