@@ -20,6 +20,9 @@ MEMORY
 SECTIONS
 {
     .text : { KEEP(*(.text.crt0)) *(.text.memcpy) *(.text.memset) . = ALIGN(64); _sd_hot = .; *(.text.sd_hot)
+              *fm1_isr.o(.text*) *(.text.fm1_alnk0_irq) *(.text.fm1_timer5_irq) *(.text.fm1__frame) *(.text.fm1__keys)
+              *(.text.fm1__sr_word) *(.text.fm1__led_lines) *(.text.fm1__p33_xfer) *(.text.fm1__p33_op) *(.text.uac_service)
+              *(.text.sie_rd) *(.text.sie_wr) *(.text.e0_chunk) *(.text.e0_send) *(.text.fm1_cpu1_run)
               _sd_hot_end = .; . = _sd_hot + 0x8800; *(.rodata) *(.rodata.cst*) . = ALIGN(4); *(.rodata*) . = ALIGN(4); *(.text*)
               . = ALIGN(4); _etext = .; } > XIP
                                                 /* (memcpy and memset first: the RAM code calls them directly, and a
@@ -30,7 +33,11 @@ SECTIONS
                                                    53.5 %, everything on 63.6; 36 and 38 KB put the tables on worse
                                                    sets: 55.7 / 66.2, 56.2 / 66.7). Past 34 KB the link fails (the
                                                    location counter would go back): then add 8 KB, the cache's period
-                                                   (128 sets of 64 B), 0xA800 keeps the same sets) */
+                                                   (128 sets of 64 B), 0xA800 keeps the same sets. The interrupts'
+                                                   flash code (the ISR stubs, the key scan, the USB service, core 2's
+                                                   run) sits in it too, after SD_HOT: in .text it moved with every
+                                                   string and UI line, and a UI-only change read 54.9 -> 58.1 %; here
+                                                   55.5 against 54.8 %) */
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4); _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4);
                  _c1_end = .; _ra_start = .;
                  *(.ram_audio*) . = ALIGN(4); _ra_end = .; _rt_end = .; } > RAMTEXT AT > XIP

@@ -8,7 +8,7 @@
  * One engine, one patch at a time (stock patches, loaded with PRESETS), the app's controls only: a knob turns on the
  * page it belongs to and no faster than a hand turns an encoder (a detent at a time, at most ~60 a second), keys
  * among the panel's 27 at velocity 100, the sequencer's two tracks, RADAR, the transpose (GLO + a key), the
- * arpeggiator, the macros, EDIT's switches, the tempo, SCL's modes. The app's voice rules hold (no ARP while SEQ A
+ * arpeggiator, the macros, EDIT's switches, the tempo, SEL's modes. The app's voice rules hold (no ARP while SEQ A
  * plays in MONO, SEQ B only in DUO and POLY, ARP only where a voice is left, keys only where one is free): the tool
  * checks them every block and stops if a gesture could not be played. Patterns are ones the player saved before
  * (PRESETS on SEQ loads them). The output is what the FM-1 plays (and sends over USB): the engine's, through the

@@ -23,7 +23,7 @@ static uint32_t bpm = 112;
 static uint32_t gen = 0xFFFFFFFFu, gen_seed = 1;
 static uint8_t held[27];                        /* keys down: their notes */
 static int oct;                                 /* OCT- / OCT+ */
-static uint32_t mode = SD_MODE_MONO;            /* SCL's */
+static uint32_t mode = SD_MODE_MONO;            /* SEL's */
 static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform.c: (k10 x k10) >> 8, ~1 full) */
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
@@ -256,9 +256,9 @@ static void scl(uint32_t to)
     static const char *const M[3] = {"MONO", "DUO", "POLY"};
     char t[32];
     act();
-    while (mode != to) mode = (mode + 1u) % SD_MODES;   /* (SCL steps MONO DUO POLY: the presses it takes) */
+    while (mode != to) mode = (mode + 1u) % SD_MODES;   /* (SEL steps MONO DUO POLY: the presses it takes) */
     e.mode = (uint8_t)mode;
-    snprintf(t, sizeof t, "SCL: %s", M[mode]);
+    snprintf(t, sizeof t, "SEL: %s", M[mode]);
     say(t);
 }
 static void rules(void)                         /* the app's voice rules, every block */

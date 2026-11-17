@@ -86,6 +86,13 @@ check(((x.web_leds(0) >>> BTN.GLO) & 1) === 1, 'GLO lit while the second layer i
 tap(x, BTN.GLO);                                   // GLO tapped again: let go
 run(x, 200);
 check(differ(held, lcd(x)) > 50, 'a GLO tap latches the second layer, a tap again the first');
+tap(x, BTN.GLO);                                   // latched again, then a page button: let go (2026-11-17)
+run(x, 200);
+tap(x, BTN.ENV);
+run(x, 200);
+check(((x.web_leds(0) >>> BTN.GLO) & 1) === 0, 'a page button lets a latched GLO go');
+tap(x, BTN.FX);                                    // (back to the FX page, as the test goes on from there)
+run(x, 200);
 
 tap(x, BTN.HOME); run(x, 100); tap(x, BTN.HOME); run(x, 100); tap(x, BTN.HOME);   // MACROS, NAV, SETUP
 run(x, 200);
@@ -202,7 +209,7 @@ const to = (ph) => go(((ph - T % 2000) + 2000) % 2000);   // to a place in A's l
 const nav = (x) => lcd(x).slice(240 * 24, 240 * 42);  // the pages' line and the switch
 const flips = () => { const s = []; for (let i = 0; i < 6; i++) { s.push(nav(u)); go(100); }
   return s.slice(1).filter((n, i) => differ(n, s[i]) > 0).length; };
-tap(u, BTN.SEL); run(u, 150);                      // SCL: DUO, B may play
+tap(u, BTN.SEL); run(u, 150);                      // SEL: DUO, B may play
 tap(u, BTN.SEQ); run(u, 150);                      // SEQ A
 tap(u, BTN.PLAY);                                  // A's one now
 go(150); tap(u, BTN.SEQ);                          // SEQ B

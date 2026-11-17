@@ -15,12 +15,12 @@
  *   INTRO    8   VOWEL, DUO: the bass alone (D D Bb C), the Reactor opening; the hook enters on A at bar 5
  *   VERSE    16  the verse melody on A, the bass on B; the Reactor's MODEL to BP12 halfway
  *   PRE      8   Bb Bb C C, a rising line; BREAK and MOVE up
- *   (break)      SCL to POLY, CHORDS
+ *   (break)      SEL to POLY, CHORDS
  *   CHORUS   16  CHORDS, POLY: Dm Bb F C on A (three voices), the hook on B (the fourth); MOVE in the second half
- *   (break)      SCL to MONO, ORBITAL
+ *   (break)      SEL to MONO, ORBITAL
  *   BRIDGE   8   ORBITAL, MONO: an ostinato on D, RADAR's NOTES moving it, MOVE stepping the nav, MUTATE
  *   BUILD    8   GROWL (the same line, still evolving): the lowpass on, closed, then opened all the way, RES up
- *   (break)      SCL to POLY, CHORDS, the last chorus's pattern
+ *   (break)      SEL to POLY, CHORDS, the last chorus's pattern
  *   CHORUS   16  again, BREAK's grit, MOVE; at bar 9 both tracks up a tone (E minor)
  *   OUTRO    8   SEQ B off, the arpeggiator on (HOLD, E G B E) over the chords, the echoes up, MASTER down; PLAY
  *                stops, the arp alone, then off */

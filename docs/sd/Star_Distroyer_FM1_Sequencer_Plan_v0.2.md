@@ -18,7 +18,7 @@ how it behaves; how it got there is in the git history.
    written when the sound is quiet (an erase stalls the audio for tens of ms).
 4. **One grammar for the controls** (as every page): the button's pages on the top line, K1–K4 a row as the knobs
    lie, EDIT ON / OFF, GLO held the second layer (a tap latches it, GLO lit, so one hand holds the FM-1 and the other
-   turns), SCL the voices, OCT+ yes and OCT- no to a question (the list, SAVE, CLR), the hint line saying what
+   turns), SEL the voices, OCT+ yes and OCT- no to a question (the list, SAVE, CLR), the hint line saying what
    ALGORITHM and the keys do, the key LEDs showing what the keys do (a black key with a job lit).
 
 ## 2. The pattern and the steps
@@ -52,7 +52,9 @@ how it behaves; how it got there is in the git history.
   play as they did.
 - *CLEAR ALL* (SETUP's ALGORITHM, then OCT+; 2026-11-16, the user: "to start from scratch"): SEQ A and B every step a
   rest, their LENGTH, DIV and segments new (the key and the scale kept), ORBIT off and empty, the transposes 0 at
-  the one; the sound stays (`clear_all`).
+  the one; since 2026-11-17 (the user: "MOD destinations, RADAR and so on" stayed) the movement too, the MOD slots
+  empty, RADAR off as new, the macros at 0, COURSE off, and the player's tools, ARP, the looper (LOOP, REVERSE,
+  armed, SPEED, its GLO layer) and FREEZE; the sound itself stays (`clear_all`).
 
 ## 3. Segments
 
@@ -83,7 +85,7 @@ how it behaves; how it got there is in the git history.
 - *The voices:* each voice knows its source (the hand, A, B, ARP) and only that source turns it off; `sd_plan` gives
   each a quota each tick (a playing track its widest chord, A first, then B, ARP one, the hand the rest); no source
   takes another's held voice. The app keeps what is on inside it: ARP and B refused with a message where they do not
-  fit (MONO with A playing: no ARP), switched off when PLAY, SCL or a chord takes their room; a chord recorded only as
+  fit (MONO with A playing: no ARP), switched off when PLAY, SEL or a chord takes their room; a chord recorded only as
   wide as the room left; REC lets the keys take the recorded track's voice.
 
 ## 5. Recording and transposing
@@ -162,4 +164,5 @@ engine at level 0, bit for bit; a track OFF; B in MONO; the transpose at the one
 played), `test_more` (the destinations' order, the divisions, KEEP), `test_cue` (in at the master's one), `test_tq`,
 `test_arp_grid`, `test_note_move` (MOVE and LENGTH, the joins kept, no note taken). Host scripts: `q1.txt` (the page, segments, REC), `q2.txt` (SAVE and recall), `q3.txt` (RATCHET and
 PROB), `u1.txt` (every page), `o1.txt` (ORBIT), `b1.txt` (PRESETS' list), `x1.txt` (OCT, GLO), `k1.txt` (the clock),
-`m1.txt` (MIDI recorded), `w1.txt` (SELECT, MORE's MOVE and LENGTH, ROOT, SETUP's TEMPO and CLEAR ALL, RADAR); `web_test` in the browser's player.
+`m1.txt` (MIDI recorded), `w1.txt` (SELECT, MORE's MOVE and LENGTH, ROOT, SETUP's TEMPO and CLEAR ALL, RADAR), `w2.txt` (LOOPER's tape and
+GLO layer, DISTROY's band, RADAR's 1); `web_test` in the browser's player.

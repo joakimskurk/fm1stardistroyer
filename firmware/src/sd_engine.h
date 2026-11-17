@@ -596,6 +596,8 @@ typedef struct {                                /* the plate's settings for a ch
     uint8_t n, G, frz, tick;                    /* its samples; SIZE moving; FREEZE; the tick it is (its low byte) */
     int32_t llvl, rlvl;                         /* the looper's level, Q15; R-LEVEL, Q15 (the job mixes the plate and
                                                    the looper) */
+    uint8_t larm;                               /* the looper armed (it records) */
+    uint16_t lff, lrs;                          /* its FILTER's knob; its send into the reverb (Q16, 65535 whole) */
     SdLpTick lt;                                /* the looper's head over the tick, as core 0 planned it */
     uint8_t li0;                                /* the chunk's first sample, into its tick (a tick split by a block) */
     int8_t pst;                                 /* PITCH, semitones (-12 .. 12): the frozen tail's */
@@ -673,6 +675,15 @@ typedef struct {                                /* SPACE's state */
                                                    hx and hxm: the half-bands' (the job's; core 0's on one core) */
     int32_t llen, llvl;                         /* core 0's: LENGTH as set (half-rate samples x 256), the level */
     uint8_t loop, lrev, lti;                    /* LOOP, REVERSE as set; (one core) the sample into the tick */
+    uint8_t lfm;                                /* the looper's FILTER: 0 none, 1 lowpass, 2 highpass (sd_lp_fset) */
+    uint16_t lff;                               /* core 0's: the FILTER's knob, for the queue (or one core) */
+    uint32_t lf_kn;                             /* the knob its coefficients are for (whichever core runs the looper
+                                                   works them out as it changes: none in the chunks' ring) */
+    int32_t lfa[3], lfs[2];                     /* its coefficients (Q30); its states */
+    int32_t lrs, lds;                           /* its sends: into the reverb (Q16, 65535 whole), the delay (Q15) */
+    int16_t lsend[32];                          /* the loop as heard, for the delay's way in a call on (x 1/2; a call
+                                                   is 32 frames at most) */
+    uint8_t lsw, lsr;                           /* (that ring's write and read)*/
     uint8_t qti;                                /* the samples of this tick queued so far */
     uint32_t lw, lbase;                         /* the job's (core 0's on one core): where it records, LOOP's end */
     SdLpTick lt;                                /* core 0's plan of this tick, for its chunks */
@@ -786,6 +797,8 @@ typedef struct {
     uint32_t tur_pos_q8, tur_rng;
     int32_t tur_out, tur_g;
     volatile uint32_t tur_count;                /* its steps so far (the screen draws its history from them) */
+    volatile uint8_t tur_place;                 /* the step of its loop now, 0 its 1: on the one at START (the
+                                                   screen's 12 o'clock; 2026-11-17, the user: "a set 1") */
 
     uint8_t mode_on, nvoices;
     uint32_t ages;
@@ -850,6 +863,13 @@ typedef struct {
        NULL, none; sd_engine_looper, sd_engine_looper_borrow) */
     volatile uint8_t lp_on, lp_rev;             /* (lp_rev: REVERSE, its loop backwards) */
     volatile uint16_t lp_len, lp_lvl;
+    volatile uint8_t lp_arm;                    /* armed by the player (EDIT on LOOPER): it records at any L-LEVEL, 0
+                                                   too (2026-11-17, the user: taken at the bottom, faded in); without
+                                                   it armed while L-LEVEL is above 0, as before (the demos') */
+    volatile uint16_t lp_at;                    /* (the screen's: LOOP's head in its loop, 0..4095) */
+    volatile uint16_t lp_filt, lp_rsend, lp_dsend;   /* its FILTER (0 a lowpass shut .. 32768 none .. 65535 a highpass
+                                                   high), its send into the reverb (65535 whole, as it always went),
+                                                   into the delay (0 none) */
     volatile int16_t lp_speed;
     int32_t lp_mfree, lp_mtq;                   /* the matrix to the looper's SPEED (semitones x 256): free (on the
                                                    rate as it plays, its glide's after), RADAR's in whole semitones
@@ -1100,6 +1120,10 @@ static void sd_engine_init(SdEngine *e)
     uint32_t i;
     for (i = 0; i < sizeof *e; i++) p[i] = 0;
     for (i = 0; i < SD_BANKS; i++) e->bank[i].sh.last_tr = -1;
+    e->lp_filt = 32768u;                        /* (the looper's FILTER none, into the reverb whole: as it was) */
+    e->lp_rsend = 65535u;
+    e->sp.lf_kn = 0xFFFFFFFFu;                  /* (its coefficients: worked out at the first sight of its knob) */
+    e->sp.lff = 32768u;
     e->bpm = 120;
     e->arp_div = 2; e->arp_oct = 1; e->arp_gate = 50; e->arp_rng = 0xA7Fu;
     e->track = 1;
@@ -1844,6 +1868,8 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
             s->pxd = (int16_t)(32767u / xf ? 32767u / xf : 1u);
         } else s->pnud = R;                     /* a few samples: nudged (16 a tick at most: 0.4 %) */
     }
+    e->lp_at = (uint16_t)(s->pon && s->pln >= 512u ? (((s->pk % s->pln) >> 8) << 12) / (s->pln >> 8) : 0u);   /* (for
+                                                   the screen: the head in its loop, 0..4095; 32-bit: 2^17 x 2^12) */
 }
 
 SD_RAM(plate) static void sd_plate_join(SdEngine *e);
@@ -1858,7 +1884,7 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
            (armed or let go) fades the echoes out over ~23 ms, clears the line and the looper's memory over ~80 ms
            (1024 a tick: at once it took the interrupt from 52 % to 79 %), the delay writing silence meanwhile, and
            fades what goes in again; letting go waits for the looper to be quiet */
-        int want = sd_lp_total(e) > SD_LP_XF + 64u && e->lp_lvl != 0;
+        int want = sd_lp_total(e) > SD_LP_XF + 64u && (e->lp_lvl != 0 || e->lp_arm);
         if (!s->dmax) { s->dmax = SD_SP_DMAX; s->dfade = 32767; }
         if (!e->lp_borrow) { s->larm = (uint8_t)want; s->dmax = SD_SP_DMAX; s->dsw = 0; s->dfade = 32767; }
         else {
@@ -1908,7 +1934,12 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         s->llen = (int32_t)(lq / 2u);           /* (half-rate samples x 256) */
         (void)f;                                /* (the halvings: sd_space_sync_q8's count, not kept) */
         s->llvl = s->larm ? e->lp_lvl >> 1 : 0;   /* (armed: recording, or playing) */
-        s->loop = e->lp_on && s->llvl != 0;
+        s->loop = e->lp_on && s->larm && (s->llvl != 0 || e->lp_arm);   /* (armed by the player: at L-LEVEL 0 too) */
+        {
+            s->lff = e->lp_filt;                /* its FILTER's knob (sd_lp_fset works it out where the looper runs) */
+            s->lrs = e->lp_rsend;
+            s->lds = e->lp_dsend >> 1;
+        }
         s->lrev = e->lp_rev != 0;
         sd_lp_plan(e, s);
     }
@@ -2241,9 +2272,10 @@ SD_HOT static void sd_tur_tick(SdEngine *e, uint32_t start)
     const SdPatch *p = &e->patch;
     uint32_t d = SD_TUR_DIV(p), len = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
     if (!SD_TUR_ON(p)) return;
-    if (start) e->tur_pos_q8 = len;
+    if (start) { e->tur_pos_q8 = len; e->tur_place = 0xFFu; }   /* (the step now is the loop's 1) */
     if (e->tur_pos_q8 >= len) {
         uint32_t n = SD_TUR_LEN(p), b = (e->tur_reg >> (n - 1u)) & 1u;
+        e->tur_place = (uint8_t)(e->tur_place == 0xFFu || e->tur_place + 1u >= n ? 0u : e->tur_place + 1u);
         e->tur_pos_q8 -= len;
         if (e->tur_pos_q8 >= len) e->tur_pos_q8 = 0;   /* (the tempo jumped: no catching up) */
         if (sd_seq_rand(&e->tur_rng) % 100u < SD_TUR_CHANGE(p)) b ^= 1u;
@@ -3424,7 +3456,7 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
     } else {
         e->d.on = 0;
     }
-    if (e->sm && (p->s_dlevel || p->s_rlevel || e->lp_lvl)) {   /* (the looper records while it has a level) */
+    if (e->sm && (p->s_dlevel || p->s_rlevel || e->lp_lvl || e->lp_arm)) {   /* (the looper records while armed) */
         sd_space_params(e);
         e->sp.rest = 0;
         if (sd_engine_silent(e) && (!e->r.on || e->r.rest) && (!e->d.on || e->d.rest)) {   /* nothing comes in:
@@ -4339,6 +4371,40 @@ SD_INLINE uint32_t sd_lp_at(uint32_t k0, int32_t adv, uint32_t i, uint32_t ln)
    crossfade, the fade), i (the sample into the tick), rst (LOOP from here), lvl (Q15): out, at its level (mono: both
    sides the same). REVERSE's head comes round its start in at its end through the same crossfade, one curve either
    way */
+/* the looper's FILTER (2026-11-17, the user: "high/lowpass, one knob, as the filter without res"): a lowpass to the
+ * left (82 Hz shut .. 6.6 kHz), a highpass to the right (20 Hz .. 2.6 kHz), none in the middle; two poles,
+ * Butterworth (no peak); at its half rate, so the table's g an octave up. Worked out by the core that runs the looper,
+ * as its knob changes */
+SD_HOT static void sd_lp_fset(SdSpace *s, uint32_t fv)
+{
+    uint32_t n, st, fr;
+    int32_t g, dd;
+    if (fv == s->lf_kn) return;
+    s->lf_kn = fv;
+    s->lfm = (uint8_t)(fv < 32768u - 768u ? 1u : fv > 32768u + 768u ? 2u : 0u);
+    if (!s->lfm) return;
+    n = s->lfm == 1u ? 40u * 256u + fv * (78u * 256u) / (32768u - 768u)
+                     : 16u * 256u + (fv - 32768u - 768u) * (84u * 256u) / (32767u - 768u);
+    n += 12u * 256u;
+    n = n < SD_R_LO * 256u ? SD_R_LO * 256u : n > SD_R_HI * 256u ? SD_R_HI * 256u : n;
+    st = (n >> 8) - SD_R_LO; fr = n & 255u;
+    if (st >= SD_R_HI - SD_R_LO) { st = SD_R_HI - SD_R_LO - 1u; fr = 255u; }
+    g = (int32_t)SD_RG[st] + (int32_t)((((int64_t)SD_RG[st + 1u] - SD_RG[st]) * fr) >> 8);   /* Q24 */
+    dd = (1 << 24) + (int32_t)(((int64_t)g * (g + 23726566)) >> 24);   /* 1 + g (g + 1.414) */
+    s->lfa[0] = sd_recip30(dd);
+    s->lfa[1] = (int32_t)(((int64_t)g * s->lfa[0]) >> 24);
+    s->lfa[2] = (int32_t)(((int64_t)g * s->lfa[1]) >> 24);
+}
+SD_INLINE int32_t sd_lp_flt(int32_t y, uint32_t m, const int32_t *a, int32_t *st)   /* the looper's FILTER on its mono
+                                                   out (m: none, low, high); none clears its states */
+{
+    int32_t l, b, h;
+    if (!m) { st[0] = st[1] = 0; return y; }
+    sd_svf3(y * 16, &st[0], &st[1], a[0], a[1], a[2], &l, &b, &h);   /* (|y| <= 2 x full scale: x 16 Q19) */
+    return sd_tz(m == 1u ? l : h, 4);
+}
+SD_INLINE int32_t sd_lp_send(int32_t x, int32_t g) { return g >= 65535 ? x : (int32_t)(((int64_t)x * g) >> 16); }   /* (whole: as
+                                                   it was, bit for bit) */
 SD_INLINE void sd_lp_step(SdSpace *s, const SdLpMem *L, int32_t xm, const SdLpTick *t, uint32_t i, int rst, int32_t lvl,
                           int32_t *yl, int32_t *yr)
 {
@@ -4390,7 +4456,7 @@ SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32
     for (k = c; k != end; k++) {
         const SdPlateP *pp = &s->qp[k % SD_PL_CH];
         uint32_t i, n = pp->n <= 16u ? pp->n : 16u, z = SD_PL_ZN - 1u;
-        int lq = lp && (pp->llvl || pp->lt.on);
+        int lq = lp && (pp->llvl || pp->larm || pp->lt.on);   /* (armed at L-LEVEL 0: it records) */
         for (i = 0; i < n; i++) {               /* the frames of sample m (2m, 2m + 1) through the half-bands in; the
                                                    looper; the plate's input: the dry, the echoes, the looper (as the
                                                    synth goes in: mono, x 1/8) */
@@ -4406,7 +4472,9 @@ SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32
             yo[2u * i] = yo[2u * i + 1u] = 0;
             if (lp) sd_lp_step(s, &L, xl, &pp->lt, (uint32_t)pp->li0 + i, pp->lt.rst && !i, pp->llvl,
                                &yo[2u * i], &yo[2u * i + 1u]);
-            pin[i] = sd_td_clip(xm) + ((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3);
+            if (!i) sd_lp_fset(s, pp->lff);     /* (its FILTER: worked out here, as its knob changes) */
+            yo[2u * i] = yo[2u * i + 1u] = sd_lp_flt(yo[2u * i], s->lfm, s->lfa, s->lfs);   /* (mono: its FILTER) */
+            pin[i] = sd_td_clip(xm) + sd_lp_send((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3, pp->lrs);
         }
         sd_plate_blk(s, pm, pp, pp->G != 0, pin);
         for (i = 0; i < n; i++) {               /* the looper's out to its ring (x 1/2: 16 bits) */
@@ -4468,6 +4536,7 @@ SD_INLINE void sd_plate_queue(SdEngine *e, int32_t sc, int32_t sstep)
         pp->sc0 = sc; pp->sst2 = 2 * sstep; pp->G = sstep != 0; pp->frz = s->frz; pp->tick = s->tick; pp->pst = s->pst;
         pp->m0 = m; pp->n = 0;
         pp->llvl = s->llvl; pp->rlvl = s->rlvl;
+        pp->larm = s->larm; pp->lff = s->lff; pp->lrs = (uint16_t)s->lrs;
         if (nt) s->qti = 0;                     /* the looper's tick (a part of it after a block's end: from there) */
         pp->lt = s->lt; pp->li0 = s->qti;
         if (s->lt.rst) s->lt.rst = s->prst = 0; /* (LOOP's start handed over once) */
@@ -4597,7 +4666,13 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
                                                    to change: its echoes out) */
         {
             int32_t wl = xl, wr = xr;
-            if (dg < 32767 && dsw != 1) { wl = (int32_t)(((int64_t)xl * dg) >> 15); wr = (int32_t)(((int64_t)xr * dg) >> 15); }   /* (clearing: silence in;
+            if (s->lds) {                       /* the looper into the delay (its D-SEND), a call late */
+                int32_t q = 0;
+                if (s->lsr != s->lsw) { q = s->lsend[s->lsr & 31u] * 2; s->lsr++; }
+                q = (int32_t)(((int64_t)q * s->lds) >> 15);
+                wl += q; wr += q;
+            } else s->lsr = s->lsw;
+            if (dg < 32767 && dsw != 1) { wl = (int32_t)(((int64_t)wl * dg) >> 15); wr = (int32_t)(((int64_t)wr * dg) >> 15); }   /* (clearing: silence in;
                                                    the line new: what goes in faded in, so its first echo comes in as
                                                    smooth) */
             if (PP) {                           /* (fb is FDBK^2 here: the whole way round) */
@@ -4628,10 +4703,12 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
         if (room) {                             /* one core: the looper here (as on the second, into its ring, heard 6
                                                    samples on through the half-band out), the room on all three */
             int32_t ll = 0, lr = 0;
-            if (lp && (s->llvl || s->lt.on)) {  /* (the looper off: not its half-bands, nor it) */
+            if (lp && (s->llvl || s->larm || s->lt.on)) {   /* (the looper off: not its half-bands, nor it) */
                 if (ph) {
                     int32_t yl, yr;
                     sd_lp_step(s, &L, sd_hb_down(s->hx, s->hxw), &s->lt, s->lti, s->lt.rst, s->llvl, &yl, &yr);
+                    SD_FAR(sd_lp_fset)(s, s->lff);   /* (from the RAM: a call far) */
+                    yl = yr = sd_lp_flt(yl, s->lfm, s->lfa, s->lfs);
                     s->lti++;
                     if (s->lt.rst) s->lt.rst = s->prst = 0;
                     s->yl[s->qn & z] = (int16_t)(sd_td_clip(yl) >> 1);
@@ -4649,7 +4726,7 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
             lo[2u * i] = ll;
             lo[2u * i + 1u] = lr;
             s->ph = (uint8_t)ph;
-            sd_room(s, &mem->u.rm, (xl + xr + el + er + ll + lr) >> 2, &rv[2u * i], &rv[2u * i + 1u]);   /* (the looper in as
+            sd_room(s, &mem->u.rm, (xl + xr + el + er + sd_lp_send(ll + lr, s->lrs)) >> 2, &rv[2u * i], &rv[2u * i + 1u]);   /* (the looper in as
                                                    the synth goes in) */
         } else {
             if (frm) lo[i] = (xl + xr + el + er) >> 2;   /* FROZEN: what comes in, for the room (sd_frz_room) */
@@ -4693,6 +4770,8 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
             lr = lo[2u * i + 1u];
         }
         ph ^= 1u;
+        if (s->lds) { s->lsend[s->lsw & 31u] = (int16_t)(sd_td_clip(ll) >> 1); s->lsw++; }   /* (for the delay's send,
+                                                   a call on: a sub-block, 0.7 ms) */
         al = SD_SOFT(4u, al, 98304, 32767);   /* the tail's return, rounded toward 4 x full scale (it was cut at 2 x:
                                                    a long tail building up crackled, 2026-11-16) */
         ar = SD_SOFT(4u, ar, 98304, 32767);
