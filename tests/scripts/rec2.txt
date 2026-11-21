@@ -1,0 +1,42 @@
+# REC2 (2026-11-20): REC on DRUM while it plays. SEQ (11) four times: DRUM; EDIT (6) on, REC (13), PLAY (12); the fourth's
+# pad (B3, key 6) 16 times, one each 137 ms from 2603 ms: each on the step nearest where it was heard
+1700 btn 11
+1800 btn 11
+1900 btn 11
+2000 btn 11
+2100 btn 6
+2200 btn 13
+2300 btn 12
+2603 keys 0x40
+2633 keys 0
+2740 keys 0x40
+2770 keys 0
+2877 keys 0x40
+2907 keys 0
+3014 keys 0x40
+3044 keys 0
+3151 keys 0x40
+3181 keys 0
+3288 keys 0x40
+3318 keys 0
+3425 keys 0x40
+3455 keys 0
+3562 keys 0x40
+3592 keys 0
+3699 keys 0x40
+3729 keys 0
+3836 keys 0x40
+3866 keys 0
+3973 keys 0x40
+4003 keys 0
+4110 keys 0x40
+4140 keys 0
+4247 keys 0x40
+4277 keys 0
+4384 keys 0x40
+4414 keys 0
+4521 keys 0x40
+4551 keys 0
+4658 keys 0x40
+4688 keys 0
+5500 end

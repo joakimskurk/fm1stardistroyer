@@ -5,7 +5,11 @@
  * Included by sd_engine.h after the patch's types.
  *
  * A one-bank patch (GROWL, AURORA, ...) has its bank in all four and the nav at corner A: in DUO and POLY every
- * voice plays the same bank. */
+ * voice plays the same bank.
+ *
+ * TRIM (2026-11-21): each patch's level evened to the others' (tools/sd_gain.c: the same phrase on each, its loudest
+ * 400 ms at -11 LUFS before the output's limiter; they spread from -31 to -2 before, 30 dB). The patches here are
+ * written as they were before the make-ups (lv 0): sd_patch_levels moves them onto them as they load. */
 #ifndef SD_PATCHES_H
 #define SD_PATCHES_H
 
@@ -86,7 +90,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* GROWL: a chain 1 -> 2 -> 3 -> 4 between triangle and saw, folded a little, low. (Past the saw toward pulse
          * with more fold and FM it was so noisy it was nearly unusable: the chain's aliasing, -14 dB of it off the
          * harmonics on a held D2; now -24) */
-        .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 24000, .warp = 20000, .fold = 8000, .e2_fold = 6000,
+        .trim = 6, .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 24000, .warp = 20000, .fold = 8000, .e2_fold = 6000,
         .e1_a = 5, .e1_d = 70, .e1_s = 80, .e1_r = 40, .e2_a = 0, .e2_d = 48, .e2_s = 40, .e2_r = 40,
         /* the edge: the bottom clean, the top destroyed in time: over 5 kHz folded, its drive a new step each eighth
          * with the voice's fold (no SHARP: that fold spits already) */
@@ -96,7 +100,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_shape = {SD_LS_SH}, .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {5561}, .mac4 = SD_M4_BODY},
     {   /* VOYAGE (§7 VOYAGE): clean additive (A) -> FM bell (B) -> folded growl (C) -> organ (D), COURSE from the gate
          * around the field, the banks spread in stereo. C warps and folds by its own offsets, as a mod slot would */
-        .bank = {BK_GLASS, BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
+        .trim = 5, .bank = {BK_GLASS, BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                                                 SD_OSC(1, 0, 60000, C_), 0, 22000, 12000, 0), BK_ORGAN},
         .xm = 40000, .width = 40000, SD_CORNER_A,
         .course = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0}, .cell_ms = {1500, 1500, 1500},
@@ -112,7 +116,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* DISTROY (§7 STAR DISTROYER, the voice's part): four FM chains at the field's centre, the outer two (GROWL)
          * folded and squashed in the costliest kernel, the middle two (BELL, EPIANO) plain since C1: the CPU's worst
          * case all the same, with the whole chain after it */
-        .bank = {BK_GROWL, BK_BELL_LIGHT, BK_EPIANO_LIGHT, BK_GROWL}, .x = 32768, .y = 32768, .width = 30000,
+        .trim = -3, .bank = {BK_GROWL, BK_BELL_LIGHT, BK_EPIANO_LIGHT, BK_GROWL}, .x = 32768, .y = 32768, .width = 30000,
         .xm = 50000, .warp = 50000, .fold = 30000, .dt = 20000,
         .e1_a = 5, .e1_d = 70, .e1_s = 100, .e1_r = 40, .e2_a = 0, .e2_d = 60, .e2_s = 80, .e2_r = 40,
         /* and the Reactor in its costliest model, BP12, half wet, its stages at random */
@@ -144,7 +148,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_rate = {100, 16484}, .mac4 = SD_M4_BODY},
     {   /* VOWEL (§7): a saw-like voice through six vowels, A E EE AW OO ER, a stage a beat with a glide between; VBP,
          * so RES sets the formants' width and not their loudness */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 14000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
+        .trim = 2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 14000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
         .warp = 26624,
         .e1_a = 5, .e1_d = 60, .e1_s = 110, .e1_r = 50, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RST_VBP(SD_RV_A), SD_RST_VBP(SD_RV_E), SD_RST_VBP(SD_RV_EE), SD_RST_VBP(SD_RV_AW),
@@ -157,7 +161,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_VEL, SD_MD_RRES, 4965}, {SD_MS_AFTER, SD_MD_RDRIVE, 9929}}, .mac4 = SD_M4_AIR},
     {   /* CHORDS (§7, the chord half of VOWEL): a buzzy chain through narrow BP12 filters on chords that follow the
          * key, a stage every half bar, ping-pong */
-        .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 30000, .warp = 40000,
+        .trim = -8, .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 30000, .warp = 40000,
         .e1_a = 5, .e1_d = 80, .e1_s = 100, .e1_r = 60, .e2_a = 0, .e2_d = 60, .e2_s = 60, .e2_r = 50,
         .stage = {SD_RCH(60, 4500u, 0, 4, 7, 12), SD_RCH(60, 4500u, -3, 0, 4, 7), SD_RCH(60, 4500u, 0, 5, 7, 12),
                   SD_RCH(60, 4500u, -2, 2, 5, 9), SD_RCH(60, 4500u, 0, 4, 7, 11), SD_RCH(60, 4500u, 0, 2, 7, 14)},
@@ -168,7 +172,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .s_size = 50000, .s_decay = 40000, .s_rtone = 36000, .s_rlevel = 10000},
     {   /* PLUCKS (§7 PLUCK CHOIR): a short bright pluck pinging four KP combs on chord pitches that follow the key,
          * a chord a beat, each comb panned */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 40000, C_), SD_OSC(3, 0, 20000, C_), SD_OSC(5, 0, 12000, C_), SD_OFF)),
+        .trim = 12, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 40000, C_), SD_OSC(3, 0, 20000, C_), SD_OSC(5, 0, 12000, C_), SD_OFF)),
         SD_CORNER_A, .warp = 20000,
         .e1_a = 0, .e1_d = 25, .e1_s = 0, .e1_r = 20, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RCH(48, SD_RLV_KP, 0, 7, 12, 16), SD_RCH(48, SD_RLV_KP, -3, 4, 9, 12),
@@ -182,7 +186,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         /* C1: each pluck a little elsewhere in the stages */
         .mod = {{SD_MS_VEL, SD_MD_RRES, 6620}, {SD_MS_RAND, SD_MD_RPOS, 6620}}, .mac4 = SD_M4_DROWN},
     {   /* FLANGE: AP1 on a held saw, its four delays high and close, sliding slowly stage to stage: the pitch skates */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 3, 18000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
+        .trim = -2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 3, 18000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
         .warp = 26624,
         .e1_a = 10, .e1_d = 60, .e1_s = 120, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RAP(96, 98, 100, 103), SD_RAP(84, 87, 90, 92), SD_RAP(100, 101, 104, 106), SD_RAP(90, 93, 95, 97),
@@ -190,7 +194,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .r_model = SD_RM_AP1, .r_res = 62000, .r_slew = 52000,
         .r_drive = 16384, .r_mix = 65535, .r_div = 8, .r_cmode = SD_RC_PP, .r_max = 5},
     {   /* PHASER (a 70's phaser sweep): AP2 on the same saw, eight stages of phase gliding low to high */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 3, 18000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
+        .trim = -2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 3, 18000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
         .warp = 26624,
         .e1_a = 10, .e1_d = 60, .e1_s = 120, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RAP(60, 67, 74, 81), SD_RAP(70, 77, 84, 91), SD_RAP(80, 87, 94, 101), SD_RAP(88, 95, 102, 108),
@@ -200,7 +204,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .s_size = 50000, .s_decay = 40000, .s_rtone = 42000, .s_rlevel = 14000},
     {   /* FUSION (Gate D REACTOR): one patch, its stages a phoneme, a chord, a phoneme, a single high ring, a phoneme, a
          * chord; BP12 high, DRIVE into the loops' saturation, ping-pong with a glide between */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 50000, C_), SD_OSC(2, 0, 16000, C_), SD_OSC(1, 7, 20000, C_), SD_OFF)),
+        .trim = -6, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 50000, C_), SD_OSC(2, 0, 16000, C_), SD_OSC(1, 7, 20000, C_), SD_OFF)),
         SD_CORNER_A, .warp = 30000, .dt = 8000,
         .e1_a = 8, .e1_d = 80, .e1_s = 110, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RST_VOWEL(SD_RV_A), SD_RCH(48, 26000u, 0, 7, 12, 16), SD_RST_VOWEL(SD_RV_OO),
@@ -216,7 +220,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_rate = {49252}, .mac4 = SD_M4_BODY},
     {   /* SPLIT (§7 SPLIT DAMAGE): clean lows, crushed mids, gritty biased upper mids, folded highs; LR4, the bands
          * panned apart. (PHAT on the low band comes with D2) */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 46000, C_), SD_OSC(2, 0, 20000, C_), SD_OSC(3, 0, 12000, C_),
+        .trim = -3, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 46000, C_), SD_OSC(2, 0, 20000, C_), SD_OSC(3, 0, 12000, C_),
                                 SD_OSC(1, 0, 14000, S_))), SD_CORNER_A, .warp = 30000, .xm = 20000,
         .e1_a = 5, .e1_d = 80, .e1_s = 100, .e1_r = 50, .e2_a = 0, .e2_d = 70, .e2_s = 60, .e2_r = 50,
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
@@ -235,7 +239,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
      * tempo, the destruction on the top band; warps under the saw (no aliasing noise) */
     {   /* COMET: an FM pluck, 2:1 and 3:1 into two carriers; inside each note the FM and the top band's grit fall
          * away over a beat, the warp steps on eighths */
-        .bank = SD_SAME(SD_BANK(SD_OSC(2, 0, 30000, S_), SD_OSC(1, 0, 50000, C_), SD_OSC(3, 0, 16000, S_),
+        .trim = 3, .bank = SD_SAME(SD_BANK(SD_OSC(2, 0, 30000, S_), SD_OSC(1, 0, 50000, C_), SD_OSC(3, 0, 16000, S_),
                                 SD_OSC(1, 7, 30000, C_))), SD_CORNER_A, .xm = 18000, .warp = 9000, .width = 20000,
         .e1_a = 2, .e1_d = 80, .e1_s = 60, .e1_r = 50, .e2_a = 0, .e2_d = 60, .e2_s = 30, .e2_r = 50,
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
@@ -251,7 +255,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* NEBULA: a pad (four voices: POLY) whose character is the Reactor: four KP combs tuned to the chord's
          * tones and kept on the note's harmonics (KEY+H), bowed by a soft triangle stack; their chord steps once a bar
          * (S&H on POS), the fold grows inside each note; the top band breathes, SOFT, on halves; the room open */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 34000, C_), SD_OSC(2, 5, 16000, C_), SD_OSC(4, -6, 9000, C_),
+        .trim = -9, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 34000, C_), SD_OSC(2, 5, 16000, C_), SD_OSC(4, -6, 9000, C_),
                                 SD_OSC(1, -9, 22000, C_))), SD_CORNER_A, .warp = 12000, .dt = 12000, .width = 46000,
         .e1_a = 70, .e1_d = 100, .e1_s = 110, .e1_r = 96, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         .stage = {SD_RCH(48, 20000u, 0, 7, 12, 16), SD_RCH(48, 20000u, -3, 4, 9, 12),
@@ -273,7 +277,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
          * cluster on harmonics 5 7 9 11, C a chain toward the triangle (its offset counts x 2 on the Q page), D the
          * organ's 1 and 3), X stepping on 16ths and Y on eighths (S&H), so each step lands in another part of the
          * field; inside each note a little fold falls away; only SOFT on the top */
-        .bank = {BK_GLASS, SD_BANK(SD_OSC(5, 0, 26000, C_), SD_OSC(7, 0, 20000, C_), SD_OSC(9, 0, 14000, C_),
+        .trim = 7, .bank = {BK_GLASS, SD_BANK(SD_OSC(5, 0, 26000, C_), SD_OSC(7, 0, 20000, C_), SD_OSC(9, 0, 14000, C_),
                                    SD_OSC(11, 0, 10000, C_)),
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                              SD_OSC(1, 0, 60000, C_), 0, 8000, 0, 0), BK_ORGAN},
@@ -291,7 +295,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mac4 = SD_M4_AIR},
     {   /* ION: a clean round bass (a triangle and its octave) under a destroyed top: the upper split jumps on 16ths,
          * the top band's grit falls inside each note */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
+        .trim = 2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
                                 SD_OSC(1, 0, 14000, S_))), SD_CORNER_A, .warp = 14000, .xm = 26000,
         .e1_a = 1, .e1_d = 70, .e1_s = 90, .e1_r = 30, .e2_a = 0, .e2_d = 55, .e2_s = 40, .e2_r = 30,
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
@@ -308,7 +312,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
          * a field of a bell, a chain, glass and the odd cluster; four BP6 filters on the note's harmonics ring after it,
          * their place a new step each 16th; the mid band crunches (HARD under 5 kHz: no fold-back)
          */
-        .bank = {BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
+        .trim = -6, .bank = {BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                                       SD_OSC(1, 0, 60000, C_), 0, 8000, 0, 0),
                  BK_GLASS, SD_BANK(SD_OSC(5, 0, 26000, C_), SD_OSC(7, 0, 20000, C_), SD_OSC(9, 0, 14000, C_),
                                    SD_OSC(11, 0, 10000, C_))},
@@ -333,7 +337,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* MONOLITH: long notes, dry: a chain toward the triangle whose FM grows inside each note (a RAMP once a
          * note) and whose fold rises across the loop (SEQ STEP); the warp steps on quarters; a little SOFT on the
          * top, a small room. (Drowned in the room and a fast delay with its top gated on eighths it was unusable) */
-        .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 14000, .warp = 15000, .fold = 4000, .width = 24000,
+        .trim = 2, .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 14000, .warp = 15000, .fold = 4000, .width = 24000,
         .e1_a = 30, .e1_d = 90, .e1_s = 112, .e1_r = 60, .e2_a = 30, .e2_d = 80, .e2_s = 90, .e2_r = 60,
         .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
         .d_type = {SD_DS_NONE, SD_DS_SOFT, SD_DS_SOFT, SD_DS_SOFT}, .d_gain = {0, 4000, 8000, 10000},
@@ -347,12 +351,14 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
          * - The source: a plain saw (WARP 25544), slow in (70), a long bow (sustain 118), 8 cents of vibrato at 5.5 Hz.
          * - The body: the Reactor's four BP6s snapped to the note's harmonics (HARM), stages 1-3 a cello's
          *   (~100 200 320 Hz, 1 kHz), 4-6 brighter (~280 420 Hz, 1.05 1.65 kHz); POS on stage 2.
-         * - The tilt: DISTROY unshaped as four levels (-22 -4.8 -0.1 +6.8 dB at 262 750 2380 Hz) and TAME; a small
-         *   room, mono (the duo's and cue 2's strings pan by the part).
+         * - The tilt: DISTROY unshaped as four levels (-22 -4.8 -0.1 +12 dB at 262 750 2380 Hz: the top's +6.8 meant, its
+         *   field at the top of the level law, 4x) and TAME; a small
+         *   room, mono (the duo's and cue 2's strings pan by the part). The four levels 14 dB down since 2026-11-21
+         *   (their sum held DISTROY's safety limiter 10 dB down: a duck on every bow), the level back by TRIM.
          * The earlier STRINGS (matched to a cello's and a violin's scale, KEY moving it from the one to the other) is
          * in the docs' history; sd_strings PARAMS still builds a patch from key-value lines for tuning, and
          * tests/run_sd.sh checks this one renders as tools/cello_v4.txt does. */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OFF, SD_OFF, SD_OFF)),
+        .trim = -14, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OFF, SD_OFF, SD_OFF)),
         .warp = 25544, .e1_a = 70, .e1_d = 100, .e1_s = 118, .e1_r = 62, .e2_a = 20, .e2_d = 20, .e2_s = 127,
         .e2_r = 45,
         SD_CORNER_A,
@@ -363,12 +369,12 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                   {{15739u, 17562u, 21561u, 23602u}, {51933u, 41252u, 56944u, 32768u}},
                   {{15816u, 17664u, 21602u, 23654u}, {51933u, 41252u, 56944u, 32768u}}},
         .r_pos = 256, .r_res = 45360, .r_drive = 16384, .r_mix = 22000, .r_track = SD_RT_HARM, .r_max = 5,
-        .d_split = {15366, 20028, 25146}, .d_level = {2602, 18856, 32392, 65535}, .d_tame = 22000, .d_mix = 65535,
+        .d_split = {15366, 20028, 25146}, .d_level = {519, 3762, 6463, 26028}, .d_tame = 22000, .d_mix = 65535,
         .s_size = 30000, .s_decay = 30000, .s_rlevel = 8000,
         .mod = {[1] = {SD_MS_LFO2, SD_MD_PITCH, 109}}, .lfo_rate = {0, 48429}},
     {   /* HALO (cue 2's pad): NEBULA in a big dark hall and a ping-pong delay of dotted quarters, DROWN on MACRO 4
          * (POLY in the cue) */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 34000, C_), SD_OSC(2, 5, 16000, C_), SD_OSC(4, -6, 9000, C_),
+        .trim = -13, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 34000, C_), SD_OSC(2, 5, 16000, C_), SD_OSC(4, -6, 9000, C_),
                 SD_OSC(1, -9, 22000, C_))),
         .warp = 12000, .dt = 12000, .e1_a = 70, .e1_d = 100, .e1_s = 110, .e1_r = 96, .e2_a = 20, .e2_d = 20,
         .e2_s = 127, .e2_r = 45,
@@ -392,7 +398,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mac4 = SD_M4_DROWN},
     {   /* AURORA (cue 2): the GLASS bank (harmonics 1 2 3 4) slow in and out (85 / 90), wide, in the big hall, its
          * delay on dotted quarters; DROWN on MACRO 4 (POLY in the cue) */
-        .bank = SD_SAME(BK_GLASS),
+        .trim = 1, .bank = SD_SAME(BK_GLASS),
         .e1_a = 85, .e1_d = 80, .e1_s = 120, .e1_r = 90, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A, .width = 65535,
         .s_time = 56000, .s_fb = 38000, .s_dtone = 22000, .s_dlevel = 22937, .s_size = 64000, .s_decay = 57000,
@@ -402,7 +408,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}, {SD_MS_LFO1, SD_MD_FOLD, 2600}},
         .lfo_shape = {SD_LS_SH}, .lfo_mode = {SD_LM_SYNC}, .lfo_rate = {38300}, .mac4 = SD_M4_DROWN},
     {   /* TITAN (cue 2): DISTROY's chords swelling in (55) and out long (80), its top tamed (POLY in the cue) */
-        .bank = {BK_GROWL,
+        .trim = -3, .bank = {BK_GROWL,
                  BK_BELL_LIGHT,
                  BK_EPIANO_LIGHT,
                  BK_GROWL},
@@ -445,7 +451,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_DLOW, SD_MD_DHIGH, -6620}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_ONE}, .lfo_rate = {100, 16484}},
     {   /* UNDERTOW (cue 2's eighths): ION dry: no delay, no room (under a cue they only blur the low end) */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
+        .trim = 2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 22000, C_), SD_OSC(3, 0, 16000, S_),
                 SD_OSC(1, 0, 14000, S_))),
         .xm = 26000, .warp = 14000, .e1_a = 1, .e1_d = 70, .e1_s = 90, .e1_r = 30, .e2_a = 0, .e2_d = 55, .e2_s = 40,
         .e2_r = 30,
@@ -458,7 +464,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_DLOW, SD_MD_DHIGH, -6620}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_ONE}, .lfo_rate = {100, 16484}},
     {   /* IMPACT (cue 2's drums): ORBITAL dry: its hits ring in the Reactor, not in SPACE */
-        .bank = {BK_BELL,
+        .trim = -6, .bank = {BK_BELL,
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                      SD_OSC(1, 0, 60000, C_), 0, 8000, 0, 0),
                  BK_GLASS,
@@ -485,7 +491,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mac4 = SD_M4_DROWN},
     {   /* BRAAM (cue 2's hits, the low one): DISTROY whose destroyed band falls through the spectrum in a hit: LFO2 a
          * SAW once a note (SYNC KEY ONE, half a bar) on D SPLIT and XM; its top tamed: hard, not screaming */
-        .bank = {BK_GROWL,
+        .trim = -3, .bank = {BK_GROWL,
                  BK_BELL_LIGHT,
                  BK_EPIANO_LIGHT,
                  BK_GROWL},
@@ -513,7 +519,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
         .lfo_rate = {100, 30000}},
     {   /* SCREAM (cue 2's hits, the high one): BRAAM falling further (D SPLIT 45 % against 30 %) */
-        .bank = {BK_GROWL,
+        .trim = -3, .bank = {BK_GROWL,
                  BK_BELL_LIGHT,
                  BK_EPIANO_LIGHT,
                  BK_GROWL},
@@ -542,7 +548,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_rate = {100, 30000}},
     {   /* BEACON (cue 2's high line): VOYAGE far back: a slow 10-cent vibrato (5 Hz), its top tamed (VOYAGE's high
          * partials screamed), in the big hall with dotted-quarter delays; DROWN on MACRO 4 */
-        .bank = {BK_GLASS,
+        .trim = 3, .bank = {BK_GLASS,
                  BK_BELL,
                  SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
                      SD_OSC(1, 0, 60000, C_), 0, 22000, 12000, 0),
@@ -558,12 +564,12 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .lfo_shape = {SD_LS_SH, SD_LS_SIN}, .lfo_mode = {SD_LM_SYNC, 0}, .lfo_rate = {16484, 47607},
         .mac4 = SD_M4_DROWN},
     {   /* DEPTH (cue 2's depth): a sine, slow in and out */
-        .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 65535, C_), SD_OFF, SD_OFF, SD_OFF)),
+        .trim = -3, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 65535, C_), SD_OFF, SD_OFF, SD_OFF)),
         .e1_a = 70, .e1_d = 20, .e1_s = 120, .e1_r = 85, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A},
     {   /* SHARDS (cue 2's 32nd arp): the GLASS bank short (no sustain), wide, without detune (up there any reads as
          * out of tune), its top tamed, in the big hall with dotted-eighth delays; DROWN on MACRO 4 */
-        .bank = SD_SAME(BK_GLASS),
+        .trim = 20, .bank = SD_SAME(BK_GLASS),
         .e1_a = 0, .e1_d = 50, .e1_s = 0, .e1_r = 45, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A, .width = 65535,
         .d_split = {12288, 18432, 24576}, .d_level = {32768, 32768, 32768, 32768}, .d_tame = 26000, .d_mix = 65535,
@@ -572,7 +578,7 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
         .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_DROWN},
     {   /* PRISM (cue 2's falling 16ths): SHARDS ringing longer (70 / 60), darker, its delays on dotted quarters:
          * it cascades */
-        .bank = SD_SAME(BK_GLASS),
+        .trim = 21, .bank = SD_SAME(BK_GLASS),
         .e1_a = 0, .e1_d = 70, .e1_s = 0, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
         SD_CORNER_A, .width = 65535,
         .d_split = {12288, 18432, 24576}, .d_level = {32768, 32768, 32768, 32768}, .d_tame = 22000, .d_mix = 65535,

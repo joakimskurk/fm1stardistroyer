@@ -1,0 +1,12 @@
+# SV1 (2026-11-19, the user: patterns take time to save and load; seamless at the next one): PLAY (12), SEQ (11) A;
+# SAVE (9) twice: P01, it plays on (shot 2400: SAVED TO P01, IN THE FLASH AT STOP); PRESETS (encoder 6) +1, EDIT (6):
+# P02 at the one (shot 2900: the hint P02: AT THE ONE, blinking till A's one at 3700). Ends playing: tests/app_save_test.c checks.
+1700 btn 12
+1800 btn 11
+2000 btn 9
+2200 btn 9
+2400 shot
+2600 enc 6 1
+2700 btn 6
+2900 shot
+4000 end

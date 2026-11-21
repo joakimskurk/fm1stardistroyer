@@ -253,6 +253,7 @@ static void lab_build(void)
                  SD_MDSTS - 1);
         lab_path2("mod", k, 0, 0, "amt");
         lab_addk(G_MOD, "", k + 1u, "AMOUNT", mb + (uint32_t)offsetof(SdModSlot, amt), LAB_I16, LAB_PCT, 0, -32767, 32767);
+        lab_addk(G_MOD, "", k + 1u, "OFFSET %", PK(mod_off, k) + k, LAB_I8, LAB_RAW, 0, -100, 100);   /* (2026-11-19) */
     }
     for (k = 0; k < 2u; k++) {
         lab_addk(G_LFO, "LFO ", k + 1u, "SHAPE", PK(lfo_shape, k) + k, LAB_U8, LAB_ENUM, LAB_E_LFO, 0, SD_LSHAPES - 1);
@@ -269,6 +270,12 @@ static void lab_build(void)
     lab_add(G_TURING, "LENGTH + DIV", P(tur_ld), LAB_U8, LAB_HEX, 0, 0, 255);
     lab_add(G_TURING, "DEST", P(tur_dst), LAB_U8, LAB_RAW, 0, 0, 255);
     lab_add(G_TURING, "AMOUNT %", P(tur_amt), LAB_I8, LAB_RAW, 0, -100, 100);
+    lab_add(G_TURING, "OFFSET %", P(tur_off), LAB_I8, LAB_RAW, 0, -100, 100);   /* (2026-11-21) */
+    lab_add(G_MACRO, "TRIM 0.5dB", P(trim), LAB_I8, LAB_RAW, 0, SD_TRIM_LO, SD_TRIM_HI);   /* (2026-11-21) */
+    lab_add(G_MACRO, "LEVELS V", P(lv), LAB_U8, LAB_RAW, 0, 0, 3);
+    lab_add(G_FILTER, "SUB LEVEL", P(sub_lvl), LAB_U16, LAB_99, 0, 0, 65535);   /* (2026-11-21) */
+    lab_add(G_FILTER, "SUB SHAPE %", P(sub_shape), LAB_U8, LAB_RAW, 0, 0, 100);
+    lab_add(G_FILTER, "SUB FOLLOWS", P(sub_src), LAB_U8, LAB_RAW, 0, 0, SD_SUBS - 1);
 }
 #undef F
 #undef P
@@ -320,7 +327,7 @@ WEB_EXPORT(web_enum) const char *web_enum(uint32_t list, uint32_t i)
     static const char *const RCLOCK[] = {"FWD", "BWD", "P-P", "RND"};
     static const char *const XOVER[] = {"CMP", "LR4"};
     static const char *const LFO[] = {"SINE", "TRI", "SAW", "RAMP", "SQUARE", "S&H"};
-    static const char *const M4[] = {"BODY", "AIR", "DROWN"};
+    static const char *const M4[] = {"BODY", "AIR", "DROWN", "CUTOFF"};
     static const char *const FILT[] = {"OFF", "LP12", "LP24"};
     static const char *const ONOFF[] = {"OFF", "ON"};
     static const char *const COURSE_N[] = {"OFF", "ON", "LOOP"};
@@ -333,7 +340,7 @@ WEB_EXPORT(web_enum) const char *web_enum(uint32_t list, uint32_t i)
     case LAB_E_LFO: return i < 6u ? LFO[i] : 0;
     case LAB_E_SRC: return i < SD_MSRCS ? lab_src_full(i) : 0;
     case LAB_E_DST: return i < SD_MDSTS ? lab_dst_full(i) : 0;
-    case LAB_E_M4: return i < 3u ? M4[i] : 0;
+    case LAB_E_M4: return i < SD_M4S ? M4[i] : 0;
     case LAB_E_FILTER: return i < 3u ? FILT[i] : 0;
     case LAB_E_ONOFF: return i < 2u ? ONOFF[i] : 0;
     case LAB_E_STYPE: return i < SD_STYPES ? STYPE_NAME[i] : 0;
@@ -395,9 +402,10 @@ static const uint16_t LAB_SEQ_OFF[] = {         /* the page reads these in this 
     offsetof(SdPattern, step), offsetof(SdPattern, len), offsetof(SdPattern, div), offsetof(SdPattern, swing),
     offsetof(SdPattern, seg_count), offsetof(SdPattern, seg_split), offsetof(SdPattern, seg_rep),
     offsetof(SdPattern, seg_order), offsetof(SdPattern, seg_skip), offsetof(SdPattern, scale), sizeof(SdPattern),
-    offsetof(SdOrbit, on), offsetof(SdOrbit, len), offsetof(SdOrbit, rate), offsetof(SdOrbit, glide),
+    offsetof(SdOrbit, on), offsetof(SdOrbit, len), offsetof(SdOrbit, end), offsetof(SdOrbit, glide),
     offsetof(SdOrbit, dst), offsetof(SdOrbit, xa), offsetof(SdOrbit, xb), offsetof(SdOrbit, lane),
-    offsetof(SdOrbit, mac), sizeof(SdOrbit)};
+    offsetof(SdOrbit, mac), sizeof(SdOrbit), offsetof(SdOrbit, pat), offsetof(SdOrbit, loops), SD_ORB_STEPS,
+    SD_ORB_LOOPS_MAX};
 WEB_EXPORT(web_seq_layout) uint32_t web_seq_layout(uint32_t i)
 {
     return i < sizeof LAB_SEQ_OFF / sizeof LAB_SEQ_OFF[0] ? LAB_SEQ_OFF[i] : 0xFFFFu;
@@ -406,8 +414,14 @@ WEB_EXPORT(web_orb) SdOrbit *web_orb(void) { return &orbp; }
 WEB_EXPORT(web_orb_size) uint32_t web_orb_size(void) { return (uint32_t)sizeof(SdOrbit); }
 WEB_EXPORT(web_orb_apply) void web_orb_apply(void)
 {
-    if (orbp.len > 8u) orbp.len = 8u;
-    if (orbp.rate > 2u) orbp.rate = 2u;
+    uint32_t s;
+    if (orbp.len > SD_ORB_STEPS) orbp.len = SD_ORB_STEPS;
+    if (orbp.end >= SD_OES) orbp.end = 0;
+    for (s = 0; s < SD_ORB_STEPS; s++) {        /* (a pattern the firmware has not saved: as it plays) */
+        if (orbp.loops[s] > SD_ORB_LOOPS_MAX) orbp.loops[s] = SD_ORB_LOOPS_MAX;
+        if (orbp.pat[0][s] > UPATTERNS || (orbp.pat[0][s] && !(useq.used >> (orbp.pat[0][s] - 1u) & 1u))) orbp.pat[0][s] = 0;
+        if (orbp.pat[1][s] > UPATTERNS || (orbp.pat[1][s] && !(useq.used >> (orbp.pat[1][s] - 1u) & 1u))) orbp.pat[1][s] = 0;
+    }
     orb_push();
 }
 enum { LAB_LS_BPM, LAB_LS_MODE, LAB_LS_ARP, LAB_LS_AMODE, LAB_LS_ADIV, LAB_LS_AOCT, LAB_LS_AGATE, LAB_LS_AHOLD,

@@ -137,12 +137,11 @@ static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MO
     if (at(S(129.5))) scl(SD_MODE_POLY);
     if (at(S(131))) press("SEQ", PG_SEQB);      /* (SEQ: B, where it was; then round to A) */
     if (at(S(132.5))) pattern(1, &HOOK, "HOOK");
-    if (at(S(134))) press("SEQ", PG_ORB);
-    if (at(S(135))) press("SEQ", PG_SEQA);
-    if (at(S(136))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
-    if (at(S(137))) press("HOME", PG_MACROS);
-    if (at(S(138))) press("HOME", PG_NAV);
-    if (at(S(139.5))) preset(P_CHORDS);
+    go_to("SEQ", PG_SEQA, S(133.5));            /* (SEQ: ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
+    if (at(S(136.5))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
+    go_to("ENV", PG_NAV, S(137.5));               /* (NAV: ENV's first since 2026-11-21, HOME's second before; from
+                                                   FILTER through SUB since then) */
+    if (at(S(140.25))) preset(P_CHORDS);
     KNOB99(PG_NAV, pat.warp, 42, S(140.5), S(143.5));   /* K2: WARP down a little, warmer */
     pot(__LINE__, 3300, S(140), S(143));
 }
@@ -150,8 +149,7 @@ static void prechorus(double s0)                /* Bb Bb C C twice; BREAK and MO
 static void chorus1(double s0)
 {
     if (at(S(0))) play(1);
-    if (at(S(124))) press("HOME", PG_SETUP);    /* (from NAV: round to MACROS) */
-    if (at(S(125))) press("HOME", PG_MACROS);
+    if (at(S(125))) press("HOME", PG_MACROS);   /* (from NAV) */
     KNOB99(PG_MACROS, pat.mac[1], 35, S(128), S(240));  /* MOVE: the second half wider, moving */
     if (at(S(256))) play(0);
     /* the break: MONO, the ostinato, ORBITAL */
@@ -166,9 +164,10 @@ static void chorus1(double s0)
 static void bridge(double s0)                   /* ORBITAL: TURING's NOTES moves the line; MOVE, MUTATE */
 {
     if (at(S(0))) play(1);
-    lfo_to_turing(S(8));                        /* TURING, set while off: NOTES, 42 %, CHANGE 32; then on */
-    TUR_DEST_BY(-1, S(10.5), S(11.5));
-    TUR_AMOUNT(42, S(12), S(18));
+    go_to("LFO", PG_MOD, S(7));                 /* TURING, set while off: NOTES, 42 % (MOD's: slot 7, ORBITAL's six
+                                                   before it), CHANGE 32; then on */
+    if (at(S(11.5))) tur_route(6, SD_TD_NOTES, 42);
+    go_to("LFO", PG_TURING, S(13));             /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(32, S(18), S(23));
     TUR_LENGTH(8, S(19), S(21));   /* (K2, the other hand: the 8 it was written for; 16 since 2026-11-16) */
     if (at(S(24))) tur_edit();
@@ -183,8 +182,8 @@ static void bridge(double s0)                   /* ORBITAL: TURING's NOTES moves
 static void build(double s0)                    /* GROWL: the lowpass closes, then opens all the way */
 {
     int32_t v;
-    if (at(S(1))) press("ENV", PG_ENV);
-    if (at(S(2.5))) press("ENV", PG_FILTER);
+    go_to("ENV", PG_FILTER, S(0.75));           /* (ENV: NAV, the one it showed last, then FILTER: NAV ENV's first,
+                                                   FILTER its second since 2026-11-21) */
     if (at(S(4))) {                             /* EDIT: the filter on (the app's first time: open, ENV 3 = ENV 1) */
         on_page(PG_FILTER, "EDIT off FILTER");
         act();
@@ -205,15 +204,16 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
     on_ramp_page(PG_FILTER, S(52), S(124));
     if (ramp(__LINE__, pat.f_cut / 147, 56000 / 147, S(52), S(124), &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
     KNOB99(PG_FILTER, pat.f_res, 72, S(80), S(124));
+    go_to("ENV", PG_NAV, S(125));               /* (on to NAV while the filter rests: FILTER, ENV, SUB, NAV since 2026-11-21,
+                                                   too many presses for the break) */
     if (at(S(128))) play(0);
     /* the break (silent: GROWL has no SPACE): POLY, the chords, CHORDS (B still has the hook) */
     if (at(S(129.5))) scl(SD_MODE_DUO);
     if (at(S(131))) scl(SD_MODE_POLY);
     if (at(S(132.5))) press("SEQ", PG_SEQA);
     if (at(S(134))) pattern(0, &CHORDS, "CHORDS (Dm Bb F C)");
-    if (at(S(135))) press("HOME", PG_MACROS);
-    if (at(S(136))) press("HOME", PG_NAV);
-    if (at(S(137))) preset(P_CHORDS);
+    go_to("ENV", PG_NAV, S(135));               /* (NAV: ENV's first since 2026-11-21; the one it showed last) */
+    if (at(S(138))) preset(P_CHORDS);
     KNOB99(PG_NAV, pat.warp, 42, S(138.5), S(141.5));
     pot(__LINE__, 3300, S(138), S(141));
 }
@@ -221,8 +221,7 @@ static void build(double s0)                    /* GROWL: the lowpass closes, th
 static void chorus2(double s0)                  /* again; BREAK's grit, MOVE; at bar 9 up a tone */
 {
     if (at(S(0))) play(1);
-    if (at(S(4))) press("HOME", PG_SETUP);      /* (from NAV: round to MACROS) */
-    if (at(S(5))) press("HOME", PG_MACROS);
+    if (at(S(5))) press("HOME", PG_MACROS);     /* (from NAV) */
     KNOB99(PG_MACROS, pat.mac[2], 35, S(8), S(60));     /* BREAK */
     KNOB99(PG_MACROS, pat.mac[1], 40, S(32), S(100));   /* MOVE */
     if (at(S(118))) press("SEQ", PG_SEQA);
@@ -254,6 +253,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     if (at(S(16))) { act(); e.arp_mode = SD_AM_UPDN; say("K1: MODE UP-DN"); }
     if (at(S(32))) press("FX", PG_REACTOR);
     if (at(S(34))) press("FX", PG_DISTROY);
+    if (at(S(35))) press("FX", PG_TIME);         /* (TIME before SPACE since 2026-11-21) */
     if (at(S(36))) press("FX", PG_SPACE);
     KNOB99(PG_SPACE, pat.s_fb, 62, S(38), S(80));
     KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* GLO + K1: D-LEVEL */

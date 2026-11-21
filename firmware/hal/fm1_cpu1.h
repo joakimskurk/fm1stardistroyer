@@ -76,7 +76,7 @@
 #define FM1_C1_EMU_MSG (*(volatile uint32_t *)0x1EEF2D4u)
 
 enum { FM1_CPU1_MISREAD = 1, FM1_CPU1_LATE = 2, FM1_CPU1_BARRED = 3, FM1_CPU1_FAULT = 4, FM1_CPU1_SILENT = 5,
-       FM1_CPU1_CUT = 6 };
+       FM1_CPU1_CUT = 6, FM1_CPU1_OFF = 7 };    /* (OFF: never started, the app's choice: Star Distroyer's CORES 1) */
 
 static inline uint32_t fm1_cnum(void) { uint32_t v; __asm__ volatile("%0 = cnum" : "=r"(v)); return v; }
 
@@ -117,6 +117,92 @@ static uint8_t fm1_cpu1_gave_up;                /* why it is off (FM1_CPU1_*), 0
 
 /* its faults (fm1_cpu1_fault_c): CPU0 reads count */
 static struct { volatile uint32_t count; uint32_t dbg, emu, pc, rets; } fm1_cpu1_fault;
+
+/* The watch and the record (Star Distroyer's, 2026-11-18: the hunt for the crash at SPACE's first jobs after a rest,
+ * Sound Plan 6.8). The debug unit's write limits (the SDK's csfr.h: eight windows, WR_LIMITn_L..H, each with an enable
+ * bit per writer: C0_ / C1_ / PRP_WR_LIMIT_EN, PRP the DMA) as watches over what a writer must never touch: CPU0's
+ * two stacks and the RAM code for CPU1, CPU0's interrupt stack and the RAM code for a DMA, CPU1's stacks for CPU0 and
+ * a DMA. A write inside traps at the writer's own instruction (DBG_MSG bit 11 CPU1, 13 CPU0, 2 a DMA; the
+ * *_WR_LIMIT_ERR_NUM the window, PRP_WR_LIMIT_ID the DMA). Dinghy has windows 0..2 for CPU0 (its stacks' guard
+ * bands, the top of RAM): those for CPU1 too, the new ones 3..6. Set once CPU1 has reported in (its start through
+ * the ROM is over). And at a fault each core keeps its whole record in .noinit (fm1_dump[core], read over USB after
+ * the restart: the app's diagnosis): its registers, its last branches (ETM), its causes (EMU_MSG, DBG_MSG), its
+ * stack limits, whose bus access was invalid (AXI_RD/WR_INV_ID, the SDK's debug.c: 0x100 CPU0), the other core's PC
+ * (PCRS), the TIMER4 count (which core was first), 16 words of its stack (sp + 184 ..: CPU0's frame in sd_distroy_ch
+ * holds the engine and the channel at sp + 196 and sp + 212, what read wrong in every crash) */
+#define FM1_QDSP(c, off) (*(volatile uint32_t *)(0x1EEF000u + 0x200u * (c) + (off)))   /* a core's own bank */
+#define FM1_C1_WR_LIMIT_EN FM1_X2(0x34Cu)
+#define FM1_PRP_WR_LIMIT_EN FM1_X2(0x350u)
+#define FM1_PRP_WR_ALLOW_EN FM1_X2(0x354u)
+#define FM1_PRP_OUTLIM_ERR_EN FM1_X2(0x358u)
+#define FM1_WATCH_C1 0x5Fu                      /* windows 0 1 2 3 4 6 */
+#define FM1_WATCH_PRP 0x68u                     /* 3 5 6 */
+#define FM1_WATCH_C0 0x20u                      /* 5 */
+#define FM1_DUMP_MAGIC 0x504D5544u              /* "DUMP" */
+typedef struct {
+    uint32_t magic, t;                          /* t: TIMER4's count at the fault (24 MHz since the boot) */
+    uint32_t r[16], reti, rets, psr, usp, ssp, sp;
+    uint32_t etm[4], emu, lim[4];               /* its last branches, EMU_MSG, EMU_SSP_H, _L, EMU_USP_H, _L */
+    uint32_t dbg, axi_rd, axi_wr, err[3], prp_id;   /* DBG_MSG, AXI_RD/WR_INV_ID, C0/C1/PRP_WR_LIMIT_ERR_NUM, PRP's ID */
+    uint32_t other_pc;
+    uint32_t stk[16];                           /* the stack it was on (CPU0: sp, CPU1: usp), from + 184 */
+} fm1_dump_t;
+fm1_dump_t fm1_dump[2] __attribute__((section(".noinit")));   /* (not static: as fm1_crash) */
+static void fm1_dump_take(uint32_t c, const uint32_t *f)
+{
+    fm1_dump_t *d = &fm1_dump[c & 1u];
+    uint32_t i, s = c ? f[22] : f[24];
+    d->t = *(volatile uint32_t *)0x10804u;
+    for (i = 0; i < 16u; i++)
+        d->r[i] = f[i];
+    d->reti = f[16], d->rets = f[25], d->psr = f[20], d->usp = f[22], d->ssp = f[23], d->sp = f[24];
+    for (i = 0; i < 4u; i++) {
+        d->etm[i] = FM1_QDSP(c, 0x1C4u + 4u * i);
+        d->lim[i] = FM1_QDSP(c, 0xD8u + 4u * i);
+    }
+    d->emu = FM1_QDSP(c, 0xD4u);
+    d->dbg = FM1_DBG_MSG;
+    d->axi_rd = FM1_X2(0x370u);
+    d->axi_wr = FM1_X2(0x374u);
+    d->err[0] = FM1_X2(0x360u);
+    d->err[1] = FM1_X2(0x364u);
+    d->err[2] = FM1_X2(0x368u);
+    d->prp_id = FM1_X2(0x36Cu);
+    d->other_pc = FM1_QDSP(c ^ 1u, 0x7Cu);
+    for (i = 0; i < 16u; i++)                   /* (the RAM only: a wild one read is no second fault) */
+        d->stk[i] = s >= 0x01C00000u && s < 0x01C7FF00u ? *(const volatile uint32_t *)(uintptr_t)(s + 184u + 4u * i) : 0u;
+    d->magic = FM1_DUMP_MAGIC;
+}
+/* the watch's windows (CPU0, CPU1 started and answering; interrupts off) */
+static void fm1_cpu1_watch(void)
+{
+    fm1__dbg_unlock();
+    FM1_DBG_MSG_CLR = 0xFFFFFFFFu;
+    FM1_WR_LIMIT_L(3) = (uint32_t)(uintptr_t)_sstack_lo;        /* CPU0's interrupt stack */
+    FM1_WR_LIMIT_H(3) = (uint32_t)(uintptr_t)_sstack_top - 1u;
+    FM1_WR_LIMIT_L(4) = (uint32_t)(uintptr_t)_ustack_lo;        /* CPU0's main stack */
+    FM1_WR_LIMIT_H(4) = (uint32_t)(uintptr_t)_guard1 - 1u;
+    FM1_WR_LIMIT_L(5) = (uint32_t)(uintptr_t)fm1_cpu1_ustack;   /* CPU1's stacks */
+    FM1_WR_LIMIT_H(5) = (uint32_t)(uintptr_t)fm1_cpu1_sstack_top - 1u;
+    FM1_WR_LIMIT_L(6) = (uint32_t)(uintptr_t)_rt_start;         /* the RAM code */
+    FM1_WR_LIMIT_H(6) = (uint32_t)(uintptr_t)_rt_end - 1u;
+    FM1_PRP_WR_ALLOW_EN &= ~FM1_WATCH_PRP;      /* (no DMA let in; a write inside traps, not one outside) */
+    FM1_PRP_OUTLIM_ERR_EN &= ~FM1_WATCH_PRP;
+    FM1_C1_WR_LIMIT_EN |= FM1_WATCH_C1;
+    FM1_PRP_WR_LIMIT_EN |= FM1_WATCH_PRP;
+    FM1_C0_WR_LIMIT_EN |= FM1_WATCH_C0;
+    fm1__dbg_lock();
+}
+/* the watch as it stands (the diagnosis): C0, C1, PRP enables, DBG_EN, CPU1's PC and last branch now */
+static void fm1_cpu1_watch_state(uint32_t *o)
+{
+    o[0] = FM1_C0_WR_LIMIT_EN;
+    o[1] = FM1_C1_WR_LIMIT_EN;
+    o[2] = FM1_PRP_WR_LIMIT_EN;
+    o[3] = FM1_DBG_EN;
+    o[4] = FM1_QDSP(1u, 0x7Cu);
+    o[5] = FM1_QDSP(1u, 0x1C4u);
+}
 
 /* one core until power-off. Not static, as fm1_crash: the compiler must not assume a zero start */
 #define FM1_CPU1_BAR_MAGIC 0x52414231u          /* "1BAR" */
@@ -170,6 +256,7 @@ void __attribute__((noreturn, used)) fm1_cpu1_main(void)
     *(volatile uint32_t *)0x1EEF2E0u = hi;
     *(volatile uint32_t *)0x1EEF2E4u = lo;
     FM1_C1_EMU_CON = (FM1_C1_EMU_CON & ~((1u << 2) | (0x1Fu << 16))) | (1u << 3);
+    FM1_QDSP(1u, 0x1C0u) |= 1u;                 /* its branch trace, for the record at a fault (fm1_dump) */
     done = fm1_cpu1_mb.complete;
     FM1_CPU1_SYNC();
     fm1_cpu1_mb.ready = 1;
@@ -230,6 +317,9 @@ static int fm1_cpu1_start(void)
         fm1_cpu1_gave_up = FM1_CPU1_BARRED;
         return -1;
     }
+    fm1__dbg_unlock();
+    FM1_C0_WR_LIMIT_EN &= ~FM1_WATCH_C0;        /* (the marks: CPU1's stack is CPU0's to write till it runs) */
+    fm1__dbg_lock();
     for (i = 0; i < FM1_CPU1_USTACK_WORDS; i++)
         fm1_cpu1_ustack[i] = FM1_CPU1_MARK;
     fm1_flash_cpu1_idle = 0;
@@ -279,6 +369,7 @@ static int fm1_cpu1_start(void)
         fm1_cpu1_gave_up = FM1_CPU1_SILENT;
         return -1;
     }
+    fm1_cpu1_watch();
     fm1_cpu1_on = 1;
     fm1_cpu1_gave_up = 0;
     return 0;
@@ -356,6 +447,7 @@ static uint32_t fm1_cpu1_stack_used(void)
 static void fm1_cpu1_fault_c(const uint32_t *f)
 {
     if (fm1_cnum()) {
+        fm1_dump_take(1u, f);
         fm1_cpu1_fault.dbg = FM1_DBG_MSG;
         fm1_cpu1_fault.emu = FM1_C1_EMU_MSG;
         fm1_cpu1_fault.pc = f[16];
@@ -366,6 +458,7 @@ static void fm1_cpu1_fault_c(const uint32_t *f)
         for (;;)
             ;
     }
+    fm1_dump_take(0u, f);                       /* (CPU1's PC before it is held) */
     if (fm1_cpu1_on) {
         fm1_cpu1_stop();
         fm1_cpu1_bar_set();

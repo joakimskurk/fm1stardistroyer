@@ -347,8 +347,13 @@ band ─► DYNAMICS: PHAT ↔ SHARP (SHAPE) and its threshold (BODY), a gain fr
 - The follower runs per sample (one-pole on |x|, cheap); the gain curves are read at control rate and ramped.
 - **V1 shapers and their ALT:** SOFT (asymmetric tanh table, ALT = hardness), HARD (clip, ALT = knee), FOLD (closed form
   as §3.4, ALT = spacing), CRUSH (mask bits, ALT = depth). One `switch` per band per sub-block.
-- No oversampling (spec Tier 2 cut). Each band is already band-limited by its crossover, which bounds aliasing in the
-  low bands; the top band aliases most, and TAME is the answer there.
+- **2x in the upper bands** (2026-11-19, the user: "cleaner DISTROY"; the spec's Tier 2 cut taken back where it
+  counts). LOW and LO-MID stay at the rate: their crossover bounds what they make. HI-MID and TOP go up through a
+  19-tap half-band (Q15, symmetric: z[2i] the filter, z[2i+1] the middle tap), are shaped there and come down
+  through it, 9 frames late; NONE, CRUSH and the dry are delayed to match, so the bands sum as before. CRUSH stays
+  at the rate (its grit is the point). Rounded to nearest, never floored (a floor held FB 0.8 in a Nyquist limit
+  cycle). Measured: SOFT at 3 kHz -21 -> -50 dB of fold-back, HARD -21 -> -44, a sweep's above 2 kHz -24 -> -40;
+  DISTROY's loop 57.5 -> 65.8 % (the halves on, strict).
 
 ### 5.3 Feedback
 
@@ -472,7 +477,7 @@ core 1:  LOOPER (records, or plays its LENGTH at its SPEED) ─► + plate's way
 core 0:  dry ───────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- *The pages:* FX goes REACTOR, DISTROY, SPACE, TIME; LOOPER is ARP's second (since 2026-11-15: the player's two
+- *The pages:* FX goes REACTOR, DISTROY, TIME, SPACE (the sound's order since 2026-11-21, the delay into the reverb); LOOPER is ARP's second (since 2026-11-15: the player's two
   together, FX's names room again). SPACE is the reverb: SIZE DECAY TONE R-LEVEL, GLO:
   SHIMMER (as GLO + ALGORITHM), ALGORITHM: FREEZE. TIME is the delay: TIME FDBK TONE D-LEVEL, ALGORITHM (or GLO +
   EDIT) the delay's MODE (FREE SYNC, PP). LOOPER (its own page since 2026-11-14; before, TIME's GLO layer; TIME says LOOPER ON: UP TO 0.5 S while it
@@ -627,8 +632,8 @@ listening rounds are in the git history.
   every store. Ping-pong in pairs (the left's echo into the right whole, the right's back x FDBK²: both sides as loud).
   Synced divisions exact, a division longer than the line halved until it fits, on the beat (`sd_space_sync_q8`). Its
   input loses its DC (a warp toward pulse built a rumble in the feedback).
-- *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2), a build of its own since 2026-11-18
-  (`DINGHY_DEFS=-DSD_TWO_CORES=1`: §6.8); the 4-line room on core 0, the default, and the fallback there. FREEZE
+- *The reverb:* the plate (§5.5.1) on the second core as jobs (§5.5.2), the default again since 2026-11-19 with the
+  core supplies at M-VAVE's (§6.8); the 4-line room on core 0 with SETUP's CORES 1, and the fallback there. FREEZE
   (the player's) and SHIMMER the plate's.
 - *The reverb's low cut* (2026-11-17, the user, having heard the headroom work: "the reverb MUST have a low cut,
   rounding off from about 200 Hz"): a 2-pole highpass at 200 Hz (`SD_RLC_F`, sd_hp2) at the reverb's half rate, on
@@ -661,6 +666,10 @@ listening rounds are in the git history.
 - *The matrix:* `e->base` is the patch, `e->patch` the base with the modulation written on each tick (`sd_mod_tick`),
   `sd_mod_restore` putting back only what it wrote (no slot and the macros at 0: the patch, sample for sample). One
   copy of the patch only when the main loop hands one over (`-fno-builtin` copies a byte at a time).
+- *A slot's OFFSET* (2026-11-19, the user: a destination's extremes not both over and under its value): the source
+  v (-1..1) as (v + o) / (1 + |o|), o -1..1 (`mod_off`, -100..100 %, MOD's K4): +1 from the set value up only, -1
+  down only, the reach on that side kept; 0 as before, bit for bit. `mod_off` is SdPatch's last field, so a save from
+  before is each patch less it: the app reads one so (`test_mod`; checked in fm1-live with an old slot).
 - *Sources:* ENV1..3, LFO1..2, NAV X/Y, VEL, KEY, WHEEL, AFTER, RAND, and the engines as modulators: STEP, SEG, D LOW,
   D TOP, R STAGE, ECHO, TURING (on the screen RADAR since 2026-11-16). *Destinations:* 54, each new one after the
   others in the enum so a saved slot keeps its meaning: DISTROY's DRIVE band by band and each crossover (sorted each
@@ -671,7 +680,8 @@ listening rounds are in the git history.
 - *LFOs:* six shapes, free or synced, KEY, and ONE (one cycle a note, unipolar: a SAW a ramp down inside the note).
 - *The macros:* MUTATE (XM WP FD DT, gentle: past it the saw edges alias), MOVE (the nav and POS stepping on the beat,
   glided ~10 ms), BREAK (DISTROY weighted toward the top band, never its feedback: on a patch without one it opened a
-  1 ms howl), MACRO 4 (BODY, AIR or DROWN).
+  1 ms howl), MACRO 4 (BODY, AIR, DROWN or CUTOFF: 2026-11-19, the user's, every cutoff down together: the FILTER
+  ~70 semitones from where it is set, TAME in, both TONEs and the Reactor's FREQ an octave down).
 - *The output:* a limiter 64 frames ahead to −1.4 dBFS, then a shoulder (linear to 0.85, a cubic to full scale).
 - *The CPU:* no divide a sample (`sd_tz`); one loop variant per model and per crossover; the user chose a lighter
   DISTROY (its middle banks under the squash, unfolded) over -O2, to keep room (-O2 also broke USB-MIDI on the device).
@@ -688,6 +698,24 @@ listening rounds are in the git history.
   classic FM). 29 patches, GROWL first, DISTROY (P03) the boot patch; the code names them by `SD_P_*`.
 - *STRINGS* is the cello found by ear (V4, `tools/cello_v4.txt`; `tests/run_sd.sh` checks the patch renders as the
   file does).
+- *The levels* (2026-11-21, the user: "huge differences in level as some parameters shape the sound, heard as extreme
+  ducking on the master", then "keep the rise in intensity"). `tools/sd_gain.c` measures every knob that shapes the
+  sound on every patch (`tools/sd_loud.h`: K-weighted loudness before the output limiter, and both limiters' work).
+  Found: DISTROY's DRIVE +7 .. +15 dB over its range (up to +22), the Reactor's DRIVE +10, BP6's RES +16, the factory
+  patches spread over 30 dB, and DISTROY's safety limiter (0.75 s back) ducking the whole of it by up to 26 dB.
+  Decided: each DRIVE takes most of its own rise back at control rate and keeps a little (the make-ups, `sd_dmk`
+  `sd_rmk` `sd_qmk`: a band +1 .. +3 dB, all four +5, the Reactor's DRIVE +1.5, ORBITAL's RES +12); FDBK keeps its rise
+  (a loop building up is its sound); the safety limiter back in 0.2 s; each factory patch a TRIM (its loudest 400 ms
+  at -11 LUFS; the percussive three lower, their attacks under the output limiter); STRINGS' DISTROY levels 14 dB
+  down (they held the safety limiter 10 dB down). A patch from before (`lv` 0) is moved onto the make-ups as it loads,
+  sounding as it did (`sd_patch_levels`; every factory patch within 0.3 dB but for its TRIM). `test_gain_staging`
+  holds it.
+- *SUB* (2026-11-21, the user: "a sub osc that can follow A, B or the root, always an octave under"; "a little more
+  fill at the bottom"): one oscillator an octave under the lowest note held on its side (A: the keys, SEQ A, the ARP;
+  B: SEQ B; ROOT: the key's root at or under A's note), at that voice's own envelope, glide and PITCH; clean after the
+  FX, mono, before the limiter; SHAPE a sine to a triangle; LEVEL. Table-free; its sub-block's frames made at the tick,
+  outside the hot section and only while it sounds (the RAM code is full), the render adding them: too little to
+  measure. A page of ENV's (NAV FILTER ENV SUB), ALGORITHM what it follows. `test_sub`.
 - *The stereo* (§3.6): a patch may lean, never hard left or right: the banks round the nav mix's middle, the far side
   6 dB down at most (POLY 2.5).
 - *A MIDI clock:* each input a source of its own; the first leads until it has been quiet for 500 ms (the same clock
@@ -697,8 +725,11 @@ listening rounds are in the git history.
 
 Each is one FM-1 played by one person (`tools/sd_play.h`'s rules: one engine, the app's controls on their pages at a
 hand's speed, the voice rules; a gesture the FM-1 could not make stops the tool). DERELICT and HELIOPAUSE layer four
-such passes at fixed faders (`tools/sd_layer.h`), SINGULARITY is a single one; CINEMATIC is the first cue's
-multitrack, kept as it was (remade as passes it lost what it had). The page plays DERELICT, CINEMATIC and RANGE.
+such passes at fixed faders (`tools/sd_layer.h`), SINGULARITY and ARMADA (the first with the drums) a single one
+each, and the FM-1's own demos (SETUP: DEMO 1, DEMO 2, recorded by `tools/sd_demo_rec.c`); CINEMATIC is the first
+cue's multitrack, kept as it was (remade as passes it lost what it had). The page plays ARMADA, SINGULARITY, DERELICT,
+CINEMATIC and RANGE. ARMADA's lift is ORBIT's +2 with SETUP's XPOSE on CHROM: IN KEY, any shift of a progression on
+six of the minor scale's seven roots lands one chord on the diminished second degree.
 `sd_play.h`'s transposes are chromatic (as RANGE is written); a player keeping the app's IN KEY sets `e.xkey`. A loop
 carries alone with its tracks off (EDIT), PLAY running on (STOP parks it); HELIOPAUSE's wall comes in after a STOP and
 START, so its chords start from step 1 and the loop is back in sync. Its
@@ -728,6 +759,10 @@ interrupt while a note sounds takes most, a rest about 30 %. Where it goes on th
 SPACE ~8 %, DISTROY's left ~8 %, the control tick and its parts ~10 %, REACTOR ~6 %, the voices ~4 %. The second
 core idles ~71 % of its time. RAM 97,148 B of 98,304 (the SMK-37's 97,740), the RAM code 29,280 B of 32,512, the
 image 179 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy's.
+- *The half on again (2026-11-19, `SD_C1_HALVES 1`):* at M-VAVE's supplies (6.8) the user's FM-1 played an hour of
+  SEQ A and B, ARP, the looper and the drums in POLY with it: 62.8 % mean, 64.7 % at worst, the second core on
+  throughout (21 million jobs, no misread, no fault, no restart); SINGULARITY's worst 68 % (the freeze, over 100 % on
+  one core's half). In fm1-live, a misreading second core (`--flaky-core1`) is retired and the FM-1 plays on with one.
 - *The half off (2026-11-17, `SD_C1_HALVES 0` in stardistroyer.c):* on the user's FM-1 the second core faulted
   inside it, 12 s up (its stack limit and a bus write, in `sd_bank_run`), and the FM-1 crashed to one core; the day
   before, with the plate alone on that core, it ran clean. fm1-live never faults there unless its core 2 misreads
@@ -744,6 +779,16 @@ image 179 KB of 582, the pool 334 KB of 344. The loader is byte for byte Dinghy'
   one held) and the audio's code in RAM (from the flash it held, at 120 %). The looper's step ran in every job
   (`lp`, not `lq`: fixed). Still to find; fm1-live, its cores interleaved, never shows it. Meanwhile the FM-1 plays
   on one core, the room in the plate's place: the gate 79.7 %, the looper with its FILTER and sends 86.7 %.
+- *Found: the core supplies (2026-11-18).* With the debug unit's write limits as watches and each core's whole record
+  at a fault (no watch tripped; the record showed the first core's own interrupt stack written over where
+  DISTROY's frames were, its band counter back as 1783, the engine's pointer as an audio value), a sentinel of
+  patterned RAM (untouched: no stray address), the user found that M-VAVE's own firmware raises the core supplies
+  at its start (VDC14 1.60 V, SYSVDD 1.38 V; fc79, charlesvestal/fm1-x0x#21) where the boot loader leaves 1.40 and
+  1.26 V, and that on an FM-1 whose second core misread, VDC14 raised made it clean (fm1-x0x#10). Dinghy never set
+  them. Raised before the second core starts (`fm1_supply_stock`, hal/fm1_sys.h): the user's FM-1 ran two cores
+  18 minutes, 176,627 plate jobs, none refused, no fault, the heaviest playing at 97.3 %; before, every run crashed
+  in 32 to 86 s. Two cores the default again (2026-11-19), the gate 76.7 %; SETUP's CORES (GLO + K2) one from the
+  next start, the supplies then left. The watches and the records stay (they cost nothing).
 - *Headroom (2026-11-17, the user: "never clipping anywhere, even with everything on"):* a census of every ceiling
   (built with SD_CENSUS: tests/sd_test.c's `test_headroom`, 29 patches, as made and everything at full, MONO and POLY)
   found hard cuts in the patches as made: SPACE's return at 2 x full scale (a long tail building up: NEBULA, CHORDS,
@@ -794,8 +839,8 @@ Firmware Hub, or OCT- held at power-on for the USB rescue.
    measures). Then the other patches with PRESETS, POLY with a chord, and the looper armed.
 3. *Hear it:* the loop of DISTROY, VOWEL, PLUCKS, CHORDS and VOYAGE through the line out against
    `build/audio/loop_*.wav`; no clicks at the knobs, none when SPACE's TIME moves or the looper is armed.
-4. *The pages:* every page button through its pages (HOME NAV MACROS; FX REACTOR DISTROY SPACE TIME; ENV ENV FILTER;
-   LFO LFO 1 LFO 2 TURING MOD; ARP; SEQ SEQ A SEQ B ORBIT); EDIT switches ON/OFF, GLO held (or latched by a tap) is the second layer; the key
+4. *The pages:* every page button through its pages (HOME MACROS SETUP; FX REACTOR DISTROY TIME SPACE; ENV NAV FILTER ENV SUB;
+   LFO LFO 1 LFO 2 RADAR MOD; ARP; SEQ SEQ A SEQ B ORBIT); EDIT switches ON/OFF, GLO held (or latched by a tap) is the second layer; the key
    LEDs follow the screen; the macros move the sound live.
 5. *The voices:* `tests/scripts/v4.txt` by hand: ARP refused while SEQ plays in MONO, B locked in MONO, the
    messages; DUO and POLY share the voices without a note cut.
@@ -876,7 +921,11 @@ Patch 8 is also the CPU worst case for Gate A/B.
 
 ## 8. Budget estimate (to be replaced by measurement)
 
-240 MHz / 44.1 kHz ≈ 5440 cycles per sample; the Dinghy rule (under half the interrupt) leaves **~2700**.
+240 MHz / 44.1 kHz ≈ 5440 cycles per sample; the Dinghy rule (under half the interrupt) leaves **~2700**. (Written
+before any measure: the boot loader leaves the CPU at 360 MHz, reported for the FM-1 in November 2026, ~8160 cycles a
+sample; the diagnosis measures it on the device at each boot, `fm1_clock_read`, words 59..66. Nothing writes the
+clock: it is past the chip's rating already, and a lower one was reported to leave units in update mode. The
+chip's timing, §6.8, is what counts.)
 
 | Block | Estimate, cycles / sample | Share of 2700 |
 |---|---|---|

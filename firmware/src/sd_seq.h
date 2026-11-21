@@ -36,13 +36,15 @@ static const uint8_t SD_SDIV_ORDER[SD_SDIVS] = {6, 7, 0, 1, 2, 3, 8, 4, 9, 10, 5
 typedef struct {
     uint8_t note;                               /* MIDI */
     uint8_t vel;                                /* 1..127 */
-    uint8_t gate;                               /* 1..100 % of the step */
+    uint8_t gate;                               /* 1..SD_GATE_MAX % of the step: past 100 the note holds on over a
+                                                   REST that follows (2026-11-18, the user: a little longer) */
     uint8_t type;                               /* SD_ST_* */
     uint8_t ratchet;                            /* 1..3 hits in the step (0 reads as 1) */
     uint8_t prob;                               /* 0..100 %: the chance it plays (the default: 100) */
     int8_t chord[3];                            /* a chord: up to three more notes, semitones
                                                    from note (0: none); they move with it (TURING's NOTES, RND, transpose) */
 } SdStep;
+#define SD_GATE_MAX 200u
 #define SD_RATCHET_MAX 3u
 #define SD_RATCHET_MIN_SAMPLES 2205u            /* 50 ms: hits never closer */
 
@@ -76,22 +78,31 @@ SD_HOT static uint32_t sd_pat_key(const SdPattern *p)
     return n0 >= r ? n0 - r : n0 + 12u - r;
 }
 
-/* ORBIT, a sub-sequencer (a bigger change over time, as a sequence transposed): 2..8 steps, each RATE loops of SEQ A
- * long (1, 2, 4: a step changes at A's
- * one), each a change from where the player is: SEQ A's and B's transpose, two free lanes (each its matrix DEST), the
- * four macros. 0 changes nothing. The lanes and the macros jump at a step's start or glide through it to the next
- * step's value (GLIDE, a lane each: lane 1, lane 2, the macros). The pattern's, saved with it (SEQ A's). */
-#define SD_ORB_STEPS 8u
+/* ORBIT, the song (a sequencer over the sequencer, 2026-11-19: the user, "a song builder"): 1..16 steps, each LOOPS
+ * loops of the master long (1..8: a step changes at its one), each naming the pattern SEQ A and SEQ B play there (0:
+ * as they play, the player's; 1..32 the saved P01..P32, loaded at the one from their step 1) and the drums' beat (a
+ * place D01..D16, the drums on; or off; at the bar's one), and a change from where
+ * the player is: SEQ A's and B's transpose, two free lanes (each its matrix DEST), the four macros (0 changes
+ * nothing). The lanes and the macros jump at a step's start or glide through it to the next step's value (GLIDE, a
+ * lane each: lane 1, lane 2, the macros). At the end: back to step 1, or PLAY stops (END). Saved as a song of its
+ * own (16 places; until 2026-11-19 with SEQ A's pattern, 8 steps, one RATE for all) */
+#define SD_ORB_STEPS 16u
+#define SD_ORB_LOOPS_MAX 8u
 enum { SD_OG_L1 = 1, SD_OG_L2 = 2, SD_OG_MAC = 4 };   /* GLIDE's bits */
+enum { SD_OE_LOOP, SD_OE_STOP, SD_OES };        /* END */
 typedef struct {
-    uint8_t on, len, rate, glide;               /* on; 2..8 (0 reads as 4); 0 1 2: 1, 2, 4 loops of A; SD_OG_* */
+    uint8_t on, len, end, glide;                /* on; 1..16 (0 reads as 4); SD_OE_*; SD_OG_* */
     uint8_t dst[2], pad[2];                     /* the free lanes' destinations (SD_MD_*, 0 none) */
     int8_t xa[SD_ORB_STEPS], xb[SD_ORB_STEPS];  /* XPOSE A, B: -24..24 semitones */
     int8_t lane[2][SD_ORB_STEPS];               /* the free lanes: -100..100 % */
     int8_t mac[4][SD_ORB_STEPS];                /* MUTATE MOVE BREAK MACRO 4: -99..99 */
+    uint8_t pat[2][SD_ORB_STEPS];               /* SEQ A's, B's pattern: 0 as it plays, 1..32 P01..P32 */
+    uint8_t loops[SD_ORB_STEPS];                /* 1..8 loops of the master (0 reads as 1) */
+    uint8_t drm[SD_ORB_STEPS];                  /* the drums' beat: 0 as they play, 1..16 D01..D16 (on), 17 off */
 } SdOrbit;
-#define SD_ORB_LEN(o) ((o)->len ? (o)->len < 2u ? 2u : (o)->len > 8u ? 8u : (uint32_t)(o)->len : 4u)
-#define SD_ORB_LOOPS(o) (1u << ((o)->rate > 2u ? 2u : (o)->rate))
+#define SD_ORB_LEN(o) ((o)->len ? (o)->len > SD_ORB_STEPS ? SD_ORB_STEPS : (uint32_t)(o)->len : 4u)
+#define SD_ORB_LOOPS(o, s) ((o)->loops[(s) % SD_ORB_STEPS] ? (o)->loops[(s) % SD_ORB_STEPS] > SD_ORB_LOOPS_MAX ? \
+                            SD_ORB_LOOPS_MAX : (uint32_t)(o)->loops[(s) % SD_ORB_STEPS] : 1u)
 
 /* the scales as the semitones they hold, a bit each from the key */
 static const uint16_t SD_SCALE_MASK[SD_SCALES] = {0x5AD, 0xAB5, 0x6AD, 0x5AB, 0x4A9, 0x295, 0xFFF};

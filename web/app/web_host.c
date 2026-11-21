@@ -16,6 +16,8 @@
  *   web_midi(st, d1, d2, src)  a MIDI message in, from input src (1..255; 0 as 1): each of the page's MIDI inputs
  *                           is a source of its own, as USB and the jack are on the FM-1, so a clock is taken from
  *                           one at a time (the same clock on two ports leads once, not at twice its tempo)
+ *   web_lat(n)              the page's output latency in frames (the context's base and output latency): REC places a
+ *                           key by what was heard, the engine that far ahead of it
  *   web_pass(), web_avail()  one pass of the main loop (a millisecond), and the frames it left to take: a test runs
  *                           the firmware event for event on the host's time (tests/lab_test.mjs)
  *   web_store(), web_store_size(), web_store_rev()   the flash (settings, blobs, slots: store.h's sizes): the page
@@ -189,6 +191,11 @@ static void platform_poll(void)                 /* one call = one millisecond, a
         ring_w += HALF_FRAMES;
     }
 }
+
+static uint32_t web_lat_out = 1024u;           /* the page's output latency, frames (web_lat; till then a guess) */
+WEB_EXPORT(web_lat) void web_lat(uint32_t n) { web_lat_out = n < 44100u ? n : 44100u; }
+static uint32_t web_ahead(void) { return (ring_w - ring_r) + web_lat_out; }   /* the engine ahead of the speaker:
+                                                   the ring's frames not handed out, then the page's (REC) */
 
 WEB_EXPORT(web_init) void web_init(void)
 {

@@ -56,6 +56,7 @@ static inline int params(const char *path, SdPatch *p)   /* "key value ..." line
             for (k = 0; k < 4; k++) { p->d_level[k] = db_lv(v[k]); p->d_type[k] = SD_DS_NONE; p->d_gain[k] = 0; }
             p->d_mix = 65535; p->d_xover = SD_DX_CMP;
         } else if (!strcmp(key, "tame")) p->d_tame = (uint16_t)v[0];
+        else if (!strcmp(key, "trim")) p->trim = (int8_t)v[0];   /* TRIM, half dB (2026-11-21) */
         else if (!strcmp(key, "room") && n == 3) { p->s_size = (uint16_t)v[0]; p->s_decay = (uint16_t)v[1]; p->s_rlevel = (uint16_t)v[2]; }
         else if (!strcmp(key, "width")) p->width = (uint16_t)v[0];
     }

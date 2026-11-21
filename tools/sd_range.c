@@ -127,8 +127,8 @@ static void s1_nav(double s0)
     /* the bar between (the patch last: a new patch's SPACE takes over the tail): the acid pattern, FILTER, GROWL */
     if (at(S(130))) press("SEQ", PG_SEQA);
     if (at(S(131))) pattern(0, &A2, "ACID (16, SLIDE, ratchet, PROB, swing 56)");
-    if (at(S(137))) press("ENV", PG_ENV);
-    if (at(S(138))) press("ENV", PG_FILTER);
+    go_to("ENV", PG_FILTER, S(136));            /* (ENV: NAV, the one it showed last, then FILTER: NAV ENV's first,
+                                                   FILTER its second since 2026-11-21) */
     if (at(S(141))) preset(SD_P_GROWL);
     pot(__LINE__, 3400, S(139), S(143));   /* (more RES: the lowpass a little quieter) */
 #undef S
@@ -160,9 +160,10 @@ static void s2_filter(double s0)
         on_page(PG_FILTER, "ENV off FILTER");
         if (ramp(__LINE__, (pat.f_env * 99 + 16383) / 32767, 60, S(48), S(64), &v)) { pat.f_env = (int16_t)(v * 32767 / 99); dirty = 1; }
     }
-    lfo_to_turing(S(65));                       /* TURING, set while off: to the CUTOFF, 40 %, CHANGE 25; then on */
-    TUR_DEST_BY(17, S(67.2), S(69.6));          /* (OFF, PITCH, the nav's 7, the envelopes' 8, F CUT: 17 detents) */
-    TUR_AMOUNT(40, S(70), S(75));
+    go_to("LFO", PG_MOD, S(64));                /* TURING, set while off: to the CUTOFF, 40 % (MOD's: slot 4, GROWL's
+                                                   three before it), CHANGE 25; then on */
+    if (at(S(68))) tur_route(3, SD_MD_FCUT, 40);
+    go_to("LFO", PG_TURING, S(70));             /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(25, S(75), S(79));
     TUR_LENGTH(8, S(76), S(77.8));   /* (K2, the other hand: the 8 it was written for; 16 since 2026-11-16) */
     if (at(S(80))) tur_edit();
@@ -215,9 +216,8 @@ static void s3_reactor(double s0)
     if (at(S(128))) play(0);
     /* the bar between: DISTROY, the riff on A, the bass on B */
     if (at(S(130))) pattern(1, &B4, "PULSE (16)");   /* (on SEQ B still) */
-    if (at(S(131))) press("SEQ", PG_ORB);
-    if (at(S(132))) press("SEQ", PG_SEQA);
-    if (at(S(133))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
+    go_to("SEQ", PG_SEQA, S(131));              /* (SEQ: ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
+    if (at(S(134))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
     if (at(S(136))) press("HOME", PG_MACROS);
     if (at(S(141))) preset(SD_P_DISTROY);
     pot(__LINE__, 4092, S(139), S(143));
@@ -269,9 +269,7 @@ static void s5_poly(double s0)
     if (at(S(10))) { e.arp_oct = 2; say("K3: OCTAVES 2"); }
     if (at(S(11))) { e.arp_gate = 40; say("K4: GATE 40"); }
     for (i = 0; i < 4; i++) { if (at(S(12) + i * 0.1)) key(H1[i], 1); if (at(S(14) + i * 0.1)) key(H1[i], 0); }
-    if (at(S(48))) press("SEQ", PG_SEQB);       /* (SEQ: B, where it was; round to A) */
-    if (at(S(49))) press("SEQ", PG_ORB);
-    if (at(S(50))) press("SEQ", PG_SEQA);
+    go_to("SEQ", PG_SEQA, S(47.5));             /* (SEQ: B, where it was; round to A past ORBIT and DRUM) */
     if (at(S(52))) xpose(0, 2);
     if (at(S(56))) press("ARP", PG_ARP);
     for (i = 0; i < 4; i++) { if (at(S(64) + i * 0.1)) key(H2[i], 1); if (at(S(66) + i * 0.1)) key(H2[i], 0); }
@@ -298,10 +296,11 @@ static void s6_turing(double s0)
 #define S(x) (s0 + (x))
     int32_t v;
     if (at(S(0))) play(1);
-    lfo_to_turing(S(1));                        /* TURING, set while off: NOTES, 42 % (+-5 degrees), CHANGE 35; on */
-    TUR_LENGTH(8, S(1.6), S(3.2));   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
-    TUR_DEST_BY(-1, S(3.5), S(4.5));            /* (OFF, NOTES) */
-    TUR_AMOUNT(42, S(5), S(11));
+    go_to("LFO", PG_MOD, S(1));                 /* TURING, set while off: NOTES, 42 % (+-5 degrees; MOD's: slot 7,
+                                                   ORBITAL's six before it), CHANGE 35; on */
+    if (at(S(4.5))) tur_route(6, SD_TD_NOTES, 42);   /* (TURING off till 16: unheard) */
+    go_to("LFO", PG_TURING, S(6));              /* (MOD, LFO 1, LFO 2, RADAR) */
+    TUR_LENGTH(8, S(9), S(10.6));    /* (K2, the other hand: the 8 it was written for; 16 since 2026-11-16) */
     TUR_CHANGE(35, S(11), S(16));
     if (at(S(16))) tur_edit();
     if (at(S(18))) press("HOME", PG_MACROS);
@@ -317,8 +316,7 @@ static void s6_turing(double s0)
     if (ramp(__LINE__, (int32_t)bpm, 112, S(129), S(135), &v)) { bpm = (uint32_t)v; e.bpm = bpm; }   /* (SELECT back) */
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
-    if (at(S(135))) press("FX", PG_DISTROY);    /* (FX: the one it showed last) */
-    if (at(S(136))) press("FX", PG_SPACE);
+    go_to("FX", PG_SPACE, S(135));              /* (FX: the one it showed last, DISTROY; TIME, SPACE) */
     if (at(S(141))) preset(SD_P_BEACON);
 #undef S
 }

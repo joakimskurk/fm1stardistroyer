@@ -1,0 +1,14 @@
+# SG2 (tests/app_song_test.c): PLAY (12); SEQ (11) three times: ORBIT; SAVE (9) twice: S01; SAVE, ALGORITHM (1) +1,
+# SAVE: S02; PLAY stops: the songs into the flash once quiet (shot 2500: SAVED TO S02, IN THE FLASH AT STOP).
+1700 btn 12
+1800 btn 11
+1900 btn 11
+2000 btn 11
+2100 btn 9
+2200 btn 9
+2300 btn 9
+2350 enc 1 1
+2400 btn 9
+2500 shot
+2600 btn 12
+6500 end

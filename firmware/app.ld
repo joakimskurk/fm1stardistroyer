@@ -23,17 +23,18 @@ SECTIONS
               *fm1_isr.o(.text*) *(.text.fm1_alnk0_irq) *(.text.fm1_timer5_irq) *(.text.fm1__frame) *(.text.fm1__keys)
               *(.text.fm1__sr_word) *(.text.fm1__led_lines) *(.text.fm1__p33_xfer) *(.text.fm1__p33_op) *(.text.uac_service)
               *(.text.sie_rd) *(.text.sie_wr) *(.text.e0_chunk) *(.text.e0_send) *(.text.fm1_cpu1_run)
-              _sd_hot_end = .; . = _sd_hot + 0x8800; *(.rodata) *(.rodata.cst*) . = ALIGN(4); *(.rodata*) . = ALIGN(4); *(.text*)
+              _sd_hot_end = .; . = _sd_hot + 0xA800; *(.rodata) *(.rodata.cst*) . = ALIGN(4); *(.rodata*) . = ALIGN(4); *(.text*)
               . = ALIGN(4); _etext = .; } > XIP
                                                 /* (memcpy and memset first: the RAM code calls them directly, and a
                                                    call reaches 4 MB, the flash's first few KB from the RAM; then the
-                                                   audio's flash code at a fixed place, sd_engine.h's SD_HOT, in 34 KB
+                                                   audio's flash code at a fixed place, sd_engine.h's SD_HOT, in 42 KB
                                                    of its own: what follows starts at one address whatever it holds, so
                                                    a change inside it moves nothing else. 34 KB measured best (the gate
                                                    53.5 %, everything on 63.6; 36 and 38 KB put the tables on worse
-                                                   sets: 55.7 / 66.2, 56.2 / 66.7). Past 34 KB the link fails (the
-                                                   location counter would go back): then add 8 KB, the cache's period
-                                                   (128 sets of 64 B), 0xA800 keeps the same sets. The interrupts'
+                                                   sets: 55.7 / 66.2, 56.2 / 66.7); 42 KB since 2026-11-19 (the drums and
+                                                   the second core's half left 2 B in 34: 8 KB more, the cache's period,
+                                                   128 sets of 64 B, keeps the same sets). Past it the link fails (the
+                                                   location counter would go back): then 8 KB more again. The interrupts'
                                                    flash code (the ISR stubs, the key scan, the USB service, core 2's
                                                    run) sits in it too, after SD_HOT: in .text it moved with every
                                                    string and UI line, and a UI-only change read 54.9 -> 58.1 %; here

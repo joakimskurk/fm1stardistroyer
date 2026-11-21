@@ -20,6 +20,7 @@ cc $CFLAGS -o build/sd/sd_tapestry tools/sd_tapestry.c -lm
 cc $CFLAGS -o build/sd/sd_derelict tools/sd_derelict.c -lm
 cc $CFLAGS -o build/sd/sd_heliopause tools/sd_heliopause.c -lm
 cc $CFLAGS -o build/sd/sd_singularity tools/sd_singularity.c -lm
+cc $CFLAGS -o build/sd/sd_armada tools/sd_armada.c -lm
 build/sd/sd_test
 if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: overflow, a shift of a negative, memory
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
@@ -107,4 +108,22 @@ mkdir -p build/audio/singularity                                    # SINGULARIT
 build/sd/sd_singularity build/audio/singularity/star_distroyer_singularity.wav > build/audio/singularity/performance.txt ||
     { tail -5 build/audio/singularity/performance.txt; exit 1; }    # FM-1 at full (A, B, ARP, ORBIT, the looper)
 tail -1 build/audio/singularity/performance.txt
+mkdir -p build/audio/armada                                         # ARMADA: one take with the drums, ~2:19: the
+build/sd/sd_armada build/audio/armada/star_distroyer_armada.wav > build/audio/armada/performance.txt ||
+    { tail -5 build/audio/armada/performance.txt; exit 1; }         # theme three times, ORBIT's lift a whole step
+tail -1 build/audio/armada/performance.txt
+cc $CFLAGS -Itools -o build/sd/sd_demo_rec tools/sd_demo_rec.c -lm  # the FM-1's demo (SETUP): SINGULARITY recorded as
+build/sd/sd_demo_rec build/sd/sd_demo.h build/sd/demo_render.wav > build/sd/demo_rec.txt   # what it does to the
+cmp -s build/sd/sd_demo.h firmware/src/sd_demo.h ||                 # engine; the header the firmware plays must be
+    { echo "FAIL  firmware/src/sd_demo.h is not the performance's recording: run tools/make_demo.sh"; exit 1; }   # it
+cc $CFLAGS -o build/sd/demo_test tests/demo_test.c -lm              # and played back: the render, sample for sample
+build/sd/demo_test build/audio/singularity/star_distroyer_singularity.wav
+cc $CFLAGS -Itools -DDEMO_SRC='"sd_armada.c"' -DDEMO_NAME='"ARMADA"' -DDEMO_PFX='"SD_DEMO2"' -o build/sd/sd_demo2_rec \
+    tools/sd_demo_rec.c -lm                                         # the second (SETUP's ALGORITHM: DEMO 2): ARMADA
+build/sd/sd_demo2_rec build/sd/sd_demo2.h build/sd/demo2_render.wav > build/sd/demo2_rec.txt
+cmp -s build/sd/sd_demo2.h firmware/src/sd_demo2.h ||
+    { echo "FAIL  firmware/src/sd_demo2.h is not the performance's recording: run tools/make_demo.sh"; exit 1; }
+cc $CFLAGS -DDEMO2 -o build/sd/demo2_test tests/demo_test.c -lm
+build/sd/demo2_test build/audio/armada/star_distroyer_armada.wav
+rm -f build/sd/demo_render.wav build/sd/demo2_render.wav            # (the recorders' renders: the disk's)
 build/sd/sd_render bench "${SD_BENCH_S:-60}"

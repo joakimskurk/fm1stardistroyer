@@ -23,9 +23,37 @@ run "SMK-37 app on the host: the default script" env BOARD=smk37 sh tests/run_ho
 run "FM-1 MIDI: USB, the TRS jack, a clock, the channel" sh tests/run_host.sh tests/scripts/midi.txt
 run "FM-1 MIDI recorded: step by step, chords, live, KEEP from the ARP, over the tracks" sh tests/run_host.sh tests/scripts/m1.txt
 run "SMK-37: velocity, a pad, an outer key, the pitch wheel" env BOARD=smk37 sh tests/run_host.sh tests/scripts/smk37.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_key_test" tests/app_key_test.c
+run "the key: SEQ B's RND in A's (the master's) root and scale" "$OUT/app_key_test" "$OUT/app_key_test" tests/scripts/k2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_save_test" tests/app_save_test.c
+run "SAVE while it plays: on, the flash at STOP; PRESETS at the one" "$OUT/app_save_test" "$OUT/app_save_test" tests/scripts/sv1.txt
+run "SAVE while it plays, then STOP: in the flash" "$OUT/app_save_test" "$OUT/app_save_test" tests/scripts/sv2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_song_test" tests/app_song_test.c
+run "the songs: the old ORBITs moved over, a song's pattern played" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg1.txt
+run "the songs: SAVE on ORBIT, in the flash" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum_test" tests/app_drum_test.c
+run "the drums: DRUM's steps, MIX, a beat loaded and saved; the saves before them kept" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr1.txt
+run "the drums: a song's step names a beat" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr2.txt
+run "the drums: a song's step turns them off" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr3.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_rec_test" tests/app_rec_test.c
+run "REC while it plays: SEQ's keys on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec1.txt
+run "REC while it plays: DRUM's pads on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec2.txt
+$CC -fsanitize=address,undefined -fno-sanitize-recover=all -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_fuzz_test" tests/app_fuzz_test.c
+for s in 1 2 3; do
+    run "the button masher (seed $s): 120 s of fast random input under ASan: no hang, no stuck note, every page" \
+        sh -c "HOST_NO_FILES=1 FUZZ_SEED=$s FUZZ_S=120 '$OUT/app_fuzz_test' '$OUT/app_fuzz_test' > /dev/null"
+done
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_demo_test" tests/app_demo_test.c
+run "the demo from SETUP: it plays" "$OUT/app_demo_test" "$OUT/app_demo_test" tests/scripts/dm1.txt
+run "the demo stopped: the player's sound back" "$OUT/app_demo_test" "$OUT/app_demo_test" tests/scripts/dm2.txt
+run "the second demo from SETUP: ARMADA plays, the drums with it" "$OUT/app_demo_test" "$OUT/app_demo_test" tests/scripts/dm3.txt
 
 $CC -DBOARD_SMK37=1 -Ifirmware/hal -o "$OUT/smk_flash_test" tests/smk_flash_test.c
 run "SMK-37 flash map: settings, blobs, owner tag, slots in the store; never the head, BTIF/USRTRIM, USR, key_mac" "$OUT/smk_flash_test"
+$CC -Ifirmware/hal -Ifirmware/src -o "$OUT/store_test" tests/store_test.c
+run "the store's two copies (FM-1): the power cut at every step of a save, old saves, read back" "$OUT/store_test"
+$CC -DBOARD_SMK37=1 -Ifirmware/hal -Ifirmware/src -o "$OUT/store_test_smk" tests/store_test.c
+run "the store's two copies (SMK-37)" "$OUT/store_test_smk"
 $CC -o "$OUT/smk_wheel_test" tests/smk_wheel_test.c
 run "SMK-37 pitch wheel: the bend is back to 0 at rest, however slowly the wheel was moved" "$OUT/smk_wheel_test"
 

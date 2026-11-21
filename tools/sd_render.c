@@ -355,7 +355,7 @@ static int macros(const char *path, uint32_t patch)
     }
     fclose(f);
     printf("macros -> %s (%s: MUTATE, MOVE, BREAK, %s)\n", path, SD_PATCH_NAME[patch % SD_PATCHES],
-           p.mac4 == SD_M4_AIR ? "AIR" : p.mac4 == SD_M4_DROWN ? "DROWN" : "BODY");
+           p.mac4 == SD_M4_AIR ? "AIR" : p.mac4 == SD_M4_DROWN ? "DROWN" : p.mac4 == SD_M4_CUTOFF ? "CUTOFF" : "BODY");
     return 0;
 }
 

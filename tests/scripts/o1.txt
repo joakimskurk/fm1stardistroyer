@@ -1,32 +1,42 @@
-# O1 (2026-11-09): ORBIT, SEQ's third page. PLAY (12), SEQ (11) three times: A, B, ORBIT; EDIT (6) on. Step 2 (SELECT,
-# encoder 0): XPOSE A +5 (K1, encoder 2); step 3: +7. GLO + SETUP (B10, D#5, key 22): DEST 1
-# to XM (K3, encoder 4); back; step 2: lane 1 +40 %, step 3: -30 %; GLO held (7): step 3's MOVE +30 (K2). Shots: 2800
-# SETUP, 3500 the macros (GLO), 4000 the steps playing; 8000 step 4, with nothing in it: only its LED, lit, shows it.
+# O1 (2026-11-09; the song since 2026-11-19): ORBIT, SEQ's third page. PLAY (12), SEQ (11) three times: A, B, ORBIT;
+# EDIT (6) on. GLO held (7): step 2 (SELECT, encoder 0) XPOS A +5 (K1, encoder 2), step 3 +7. GLO + SETUP (B10, D#5,
+# key 22): DEST 1 to XM (K3, encoder 4), END STOP (K2), shot 2800; SETUP again: back. GLO held: step 2's lane 1 +40 %,
+# step 3's -30 %, shot 3300 (the lanes). GLO + MORE (B4, C#4, key 8): step 3's MOVE +30 (K2), shot 3800 (the macros);
+# MORE again: back. Step 3's LOOPS 2 (K4); shots 4500 and 8000: the song as it plays, LENGTH 4, its STOP after step 4.
 1700 btn 12
 1800 btn 11
 1900 btn 11
 2000 btn 11
 2100 btn 6
+2150 btndown 7
 2200 enc 0 1
 2300 enc 2 5
 2400 enc 0 1
 2500 enc 2 7
-2550 btndown 7
-2600 keys 0x400000
-2650 keys 0
-2660 btnup 7
+2550 keys 0x400000
+2600 keys 0
+2650 btnup 7
 2700 enc 4 2
+2750 enc 3 1
 2800 shot
+2850 btndown 7
 2900 keys 0x400000
 2950 keys 0
 3000 enc 0 -1
 3100 enc 4 40
 3200 enc 0 1
-3300 enc 4 -30
-3400 btndown 7
-3450 enc 3 30
-3500 shot
-3600 btnup 7
-4000 shot
+3250 enc 4 -30
+3300 shot
+3350 keys 0x100
+3400 keys 0
+3450 btnup 7
+3500 enc 3 30
+3800 shot
+3850 btndown 7
+3900 keys 0x100
+3950 keys 0
+4000 btnup 7
+4100 enc 5 1
+4500 shot
 8000 shot
 8100 end

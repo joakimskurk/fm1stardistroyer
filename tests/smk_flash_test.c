@@ -39,7 +39,8 @@ int main(void)
     check("no protected sector passes the app's allow-list (erase, page)", leak_app == 0);
     check("no protected sector passes the loader's allow-list", leak_ldr == 0);
     check("the RAM driver's own net (FL_PROTECTED) covers every protected sector", leak_guard == 0);
-    check("the app may write 47 sectors: settings, 8 blobs, the owner tag, 5 of OTA, 8 slots of 4", allowed == 7u + NBLOB + NSLOT * SLOT_SECT);
+    check("the app may write 50 sectors: settings, 8 blobs, the owner tag, 5 of OTA, 8 slots of 4, 3 of copies",
+          allowed == 7u + NBLOB + NSLOT * SLOT_SECT + NCOPY);
     check("straddling ranges refused: 0xBF000+0x2000, 0x9C000+0x2000, 0xA5000+0x2000, 0x3000+0x2000",
           !FL_GUARD(0xBF000u, 0x2000u) && !FL_GUARD(0x9C000u, 0x2000u) && !FL_GUARD(0xA5000u, 0x2000u) &&
           !LDR_RANGE_OK(0xBF000u, 0x2000u) && !LDR_RANGE_OK(0x3000u, 0x2000u) && FL_PROTECTED(0xBF000u, 0x2000u));
