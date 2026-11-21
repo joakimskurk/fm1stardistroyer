@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include "fm1_cc.h"
 #include "fm1_cpu1_stop.h"                  /* a second core held before a reset or an update */
+#include "fm1_time.h"                       /* (the supplies' steps: fm1_delay_us) */
 
 #define FM1_P33_CON (*(volatile uint32_t *)0x13E08u)
 #define FM1_P33_DAT (*(volatile uint32_t *)0x13E0Cu)
@@ -77,6 +78,58 @@ static void fm1_p33_write(uint32_t a, uint8_t d) { fm1__p33_op(0, a, d); }
 static void fm1_p33_or(uint32_t a, uint8_t d) { fm1__p33_op(1, a, d); }
 static void fm1_p33_and(uint32_t a, uint8_t d) { fm1__p33_op(2, a, d); }
 
+/* ------------------------------------------------------ the core's supplies --- */
+/* VDC14 (P3_ANA_CON6 bits 0..2: 1.25 V + 0.05 V a level) and SYSVDD (P3_ANA_CON9 bits 0..3: 0.93 V + 0.03 V a level;
+ * the SDK's asm/p33.h), raised to where M-VAVE's own firmware (V15) runs them from its start: VDC14 7 (1.60 V),
+ * SYSVDD 15 (1.38 V); the SPL leaves 3 (1.40 V) and 11 (1.26 V). Found by fc79 in the stock app's __hw_power_init
+ * (github.com/charlesvestal/fm1-x0x/issues/21); on an FM-1 whose second core misread and faulted, VDC14 raised made
+ * it run clean (fm1-x0x#10). VDC14 first, a level each 100 us, never lowered; interrupts off. (Star Distroyer's,
+ * 2026-11-18: the two-core build, before the second core starts) */
+#define FM1_P3_ANA_CON6 0x06u
+#define FM1_P3_ANA_CON9 0x09u
+static void fm1__supply_up(uint32_t reg, uint32_t mask, uint32_t to)
+{
+    uint8_t v = fm1_p33_read(reg);
+    while ((uint32_t)(v & mask) < to) {
+        v = (uint8_t)((v & ~mask) | ((v & mask) + 1u));
+        fm1_p33_write(reg, v);
+        fm1_delay_us(100u);
+    }
+}
+static uint32_t fm1_supply_read(void)           /* CON6 | CON9 << 8, as they stand */
+{
+    return fm1_p33_read(FM1_P3_ANA_CON6) | (uint32_t)fm1_p33_read(FM1_P3_ANA_CON9) << 8;
+}
+static void fm1_supply_stock(void)
+{
+    fm1__supply_up(FM1_P3_ANA_CON6, 7u, 7u);
+    fm1__supply_up(FM1_P3_ANA_CON9, 15u, 15u);
+}
+/* ---------------------------------------------------------------- clock --- */
+/* The CPU's clock as the boot loader left it (nothing here writes it), 2026-11-19: measured, 256 dependent register
+ * adds a pass (one cycle each), 1024 passes, against TIMER4 (24 MHz), in MHz x 10 (the pass's own branch, 1 of 257
+ * instructions, left in: under 2 % low); and the registers that set it, read only (the AC79 SDK's WL82.h:
+ * JL_CLOCK at 0x10000, SYS_DIV +8, CLK_CON0 +0xC, CLK_CON2 +0x14; JL_ANA at 0x11900, PLL_CON0 +0xA0 .. PLL2_CON1
+ * +0xAC). Call with nothing else running (the boot, before the audio): the first pass fills the flash cache */
+#define FM1_CLKREG(a) (*(volatile uint32_t *)(a))
+__attribute__((noinline)) static uint32_t fm1__adds(uint32_t a, uint32_t b, uint32_t n)
+{
+    while (n--) __asm__ volatile(".rept 256\n\t%0 += %1\n\t.endr" : "+r"(a) : "r"(b));
+    return a;
+}
+static void fm1_clock_read(uint32_t o[8])       /* MHz x 10, SYS_DIV, CLK_CON0, CLK_CON2, PLL_CON0/1, PLL2_CON0/1 */
+{
+    static const uint32_t R[7] = {0x10008u, 0x1000Cu, 0x10014u, 0x119A0u, 0x119A4u, 0x119A8u, 0x119ACu};
+    volatile uint32_t sink;
+    uint32_t t, i;
+    sink = fm1__adds(1u, 3u, 1u);
+    t = fm1_ticks();
+    sink = fm1__adds(1u, 3u, 1024u);
+    t = fm1_ticks() - t;
+    (void)sink;
+    o[0] = t ? 262144u * 240u / t : 0u;         /* (adds a microsecond x 10: 262144 x 24 x 10 / the ticks) */
+    for (i = 0; i < 7u; i++) o[1u + i] = FM1_CLKREG(R[i]);
+}
 /* ------------------------------------------------------------ watchdog --- */
 #define FM1_P3_WDT_CON 0x80u
 #define FM1_P3_VLD_KEEP 0x17u

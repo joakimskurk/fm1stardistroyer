@@ -1,0 +1,9 @@
+# SV2: SV1, then PLAY (12) stops at 4100: the flash written once the sound is quiet (tests/app_save_test.c checks).
+1700 btn 12
+1800 btn 11
+2000 btn 9
+2200 btn 9
+2600 enc 6 1
+2700 btn 6
+4100 btn 12
+8500 end

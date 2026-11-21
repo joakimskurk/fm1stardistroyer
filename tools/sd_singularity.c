@@ -22,7 +22,8 @@
  *   17-26  WALL     DISTROY (saved wet), POLY's four voices full: SEQ A's riff in octaves, SEQ B's bass, the arp in
  *                   16ths at random over two octaves; ORBIT stepping them both through F Db Ab Eb, its lanes on D
  *                   SPLIT and the nav's X, its BREAK and MOVE rising with them; BREAK and BODY up, RADAR on the FOLD,
- *                   the top band CRUSHed; the loop at +12 over it all, then backwards
+ *                   the top band CRUSHed; the loop at +12 over it all, then backwards; the arp out before the freeze
+ *                   (with it the frozen wall was more than the FM-1's CPU has)
  *   27-33  FREEZE   the wall's plate frozen as it stood, the rest off (DISTROY's EDIT with it); the loop falling two
  *                   octaves; BEACON's last C in its echoes; the looper out; FREEZE let go */
 #include <math.h>
@@ -105,7 +106,7 @@ static void patterns(void)
     notes(&BASS, ba, 16, 2, 45, 0);
     BASS.step[7].ratchet = 2; BASS.step[13].prob = 70;
     memset(&ORB, 0, sizeof ORB);                /* ORBIT, saved with the riff: four steps, a bar each */
-    ORB.len = 4; ORB.rate = 0; ORB.glide = SD_OG_L1 | SD_OG_L2 | SD_OG_MAC;
+    ORB.len = 4; ORB.glide = SD_OG_L1 | SD_OG_L2 | SD_OG_MAC;
     ORB.dst[0] = SD_MD_DSPLIT; ORB.dst[1] = SD_MD_X;
     for (k = 0; k < 4u; k++) {
         ORB.xa[k] = XA[k]; ORB.xb[k] = XA[k];
@@ -119,10 +120,12 @@ static void patterns(void)
     U03 = SD_PATCH[SD_P_DISTROY]; wet(&U03, 44, 84, 96, 40, 55);
     U04 = SD_PATCH[SD_P_BEACON];
     U04.s_mode = SD_SP_PP; U04.s_time = 65535u;
+    U01.trim = U02.trim = U03.trim = U04.trim = 0;   /* (saved before the factory's TRIMs, 2026-11-21: each at its
+                                                   own level, as the player mixed it) */
 }
 
 /* ---- gestures */
-static void fx_to(int to, double s0)            /* FX, a sixteenth apart, till the page 'to': REACTOR DISTROY SPACE TIME,
+static void fx_to(int to, double s0)            /* FX, a sixteenth apart, till the page 'to': REACTOR DISTROY TIME SPACE,
                                                    as the app's button goes (from another page first the one it
                                                    showed last) */
 {
@@ -215,9 +218,10 @@ static int score(void)
     KNOB99(PG_LFO1, pat.lfo_rate[0], 42, BAR(9) + 3, BAR(9) + 9);    /* K2: RATE ~0.5 Hz (the wobble's) */
     if (at(BAR(9) + 10)) press("LFO", PG_LFO2);
     KNOB99(PG_LFO2, pat.lfo_rate[1], 20, BAR(9) + 11, BAR(9) + 15);  /* K2: RATE ~0.1 Hz (the vowels') */
-    if (at(BAR(10))) press("LFO", PG_RADAR);  /* RADAR's NOTES on A: 30 %, CHANGE 20 */
-    TUR_DEST_BY(-1, BAR(10) + 0.5, BAR(10) + 1.5);
-    TUR_AMOUNT(30, BAR(10) + 2, BAR(10) + 8);
+    go_to("LFO", PG_MOD, BAR(10));              /* RADAR's NOTES on A: 30 % (MOD's: slot 5, 3 and 4 the LFOs' next
+                                                   bar), CHANGE 20 */
+    if (at(BAR(10) + 2.5)) tur_route(4, SD_TD_NOTES, 30);   /* (RADAR off till + 13: unheard) */
+    go_to("LFO", PG_RADAR, BAR(10) + 4);       /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(20, BAR(10) + 8, BAR(10) + 12);
     TUR_LENGTH(8, BAR(10) + 12.1, BAR(10) + 12.9);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(10) + 13)) tur_edit();
@@ -226,7 +230,7 @@ static int score(void)
     if (at(BAR(11) + 4)) mod_slot(3, SD_MS_LFO1, SD_MD_LSPEED, 2);    /* the loop's wobble */
     fx_to(PG_SPACE, BAR(11) + 8);
     if (at(BAR(12))) freeze_toggle();           /* the glass let go */
-    fx_to(PG_TIME, BAR(12) + 2);
+    go_every("FX", PG_TIME, BAR(12) + 0.75, 0.75);   /* (SPACE, REACTOR, DISTROY, TIME since 2026-11-21: quick) */
     KNOB99(PG_TIME, pat.s_fb, 70, BAR(12) + 3, BAR(12) + 10);        /* K2: FDBK */
     KNOB99(PG_TIME, pat.s_dlevel, 56, BAR(12) + 11, BAR(13) + 2);    /* K4: D-LEVEL */
     arp_to(PG_LOOP, BAR(13) + 3);                     /* LOOPER */
@@ -236,8 +240,8 @@ static int score(void)
     if (at(BAR(14) + 4)) loop_octave(1);        /* ... and on to +12 */
     home_to(PG_MACROS, BAR(15));
     KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(17));         /* MOVE */
-    /* the wall: A and B off (PLAY running on: the loop carries it), DISTROY, A's riff (its ORBIT with it), B's bass;
-       B and ORBIT on in bar 18 (in at A's one, bar 19), the arp; A on at the one */
+    /* the wall: A and B off (PLAY running on: the loop carries it), DISTROY, A's riff, B's bass (each in at A's one,
+       bar 18); B on in bar 18, ORBIT's song loaded and on (in at A's one, bar 19), the arp; A on at the one */
     seq_to(PG_SEQA, BAR(17));
     if (at(BAR(17) + 1)) track_on(0, 0);
     seq_to(PG_SEQB, BAR(17) + 2);
@@ -246,13 +250,14 @@ static int score(void)
     if (at(BAR(17) + 5)) preset_user(&U03, "U03 DISTROY WET");
     seq_to(PG_SEQB, BAR(17) + 6);               /* (SEQ: B, the one it showed last; then round to A) */
     if (at(BAR(17) + 7)) pattern(1, &BASS, "WALL B (F, 16ths)");
-    seq_to(PG_SEQA, BAR(17) + 8);
-    if (at(BAR(17) + 10)) { pattern(0, &RIFF, "WALL A (F, octaves) and its ORBIT"); orbit_load(&ORB); }
+    seq_to(PG_SEQA, BAR(17) + 8);               /* (SEQ B, ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
+    if (at(BAR(17) + 11)) pattern(0, &RIFF, "WALL A (F, octaves)");
     seq_to(PG_SEQB, BAR(17) + 14);
     if (at(BAR(18) + 1)) track_on(1, 1);
     seq_to(PG_ORB, BAR(18) + 2);
-    if (at(BAR(18) + 3)) orbit_edit(1);
-    go_every("ARP", PG_ARP, BAR(18) + 3.66, 0.66);   /* (ARP: LOOPER, the one it showed last; ARP again, quick) */
+    if (at(BAR(18) + 2.6)) orbit_load(&ORB);
+    if (at(BAR(18) + 3.2)) orbit_edit(1);
+    go_every("ARP", PG_ARP, BAR(18) + 3.8, 0.6);   /* (ARP: LOOPER, the one it showed last; ARP again, quick) */
     arp_on(BAR(18) + 5, SD_AM_RND, 2, 2, 35);
     seq_to(PG_SEQA, BAR(18) + 12);
     pot(__LINE__, 4092, BAR(18), BAR(19));
@@ -261,14 +266,14 @@ static int score(void)
     hand(H2, 3, BAR(19) + 3, BAR(19) + 5);
     KNOB99(PG_MACROS, pat.mac[2], 58, BAR(19) + 6, BAR(21));         /* BREAK */
     KNOB99(PG_MACROS, pat.mac[3], 55, BAR(21) + 1, BAR(22) + 8);     /* MACRO 4: BODY */
-    lfo_to_radar(BAR(22) + 9);                 /* RADAR on the FOLD: 40 %, CHANGE 40 (LFO: MOD first, the one it
-                                                   showed last) */
-    TUR_DEST_BY(4, BAR(22) + 12.5, BAR(22) + 14.5);
-    TUR_AMOUNT(40, BAR(22) + 15, BAR(23) + 4);
+    go_to("LFO", PG_MOD, BAR(22) + 9);          /* RADAR on the FOLD: 40 % (MOD's: slot 7, DISTROY's six before it),
+                                                   CHANGE 40 (LFO: MOD, the one it showed last) */
+    if (at(BAR(22) + 11)) tur_route(6, SD_MD_FOLD, 40);   /* (RADAR off till 23 + 9: unheard) */
+    go_to("LFO", PG_RADAR, BAR(22) + 13);      /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(40, BAR(23) + 4, BAR(23) + 8);
     TUR_LENGTH(8, BAR(23) + 8.1, BAR(23) + 8.9);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(23) + 9)) tur_edit();
-    fx_to(PG_DISTROY, BAR(23) + 11);
+    go_every("FX", PG_DISTROY, BAR(23) + 10.25, 0.75);   /* (TIME, SPACE, REACTOR, DISTROY since 2026-11-21: quick) */
     if (at(BAR(23) + 14)) { act(); say("ALGORITHM: band 4 (the top)"); }
     if (at(BAR(24))) {                          /* GLO + ALGORITHM: the top band's shaper to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
@@ -282,6 +287,8 @@ static int score(void)
     arp_to(PG_LOOP, BAR(25) + 10);                    /* LOOPER */
     if (at(BAR(25) + 13)) reverse_toggle();     /* the loop at +12 backwards */
     /* FREEZE: the wall held, the rest off; the loop down two octaves; BEACON's last C */
+    arp_off(BAR(26) + 4);                       /* (the arp first: the frozen wall with it was more than the FM-1 has, 2026-11-19:
+                                                   the room beside the plate and four voices, 101 % in fm1-live's strict mode) */
     fx_to(PG_SPACE, BAR(26) + 10);
     if (at(BAR(27))) freeze_toggle();
     seq_to(PG_SEQA, BAR(27) + 1);                     /* A, B and ORBIT off, PLAY running on under the loop */
@@ -290,7 +297,6 @@ static int score(void)
     if (at(BAR(27) + 4)) track_on(1, 0);
     seq_to(PG_ORB, BAR(27) + 5);
     if (at(BAR(27) + 6)) orbit_edit(0);
-    arp_off(BAR(27) + 7);
     go_every("FX", PG_DISTROY, BAR(27) + 8.6, 0.6);   /* (FX: SPACE, the one it showed last, round to DISTROY: quick) */
     if (at(BAR(27) + 11.6)) {                   /* EDIT: DISTROY off, its loop with it (BREAK up keeps it ringing) */
         on_page(PG_DISTROY, "DISTROY's EDIT off its page");

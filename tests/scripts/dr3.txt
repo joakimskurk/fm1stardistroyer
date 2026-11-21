@@ -1,0 +1,10 @@
+# DR3 (2026-11-19): as DR2 (tests/scripts/dr2.txt), on into the song's step 2 (from 9.3 s; OFF: the drums off there at its one, not a bar later; PLAY on)
+1700 btn 11
+1800 btn 11
+1900 btn 11
+2100 enc 4 3
+2200 enc 0 1
+2300 enc 4 20
+2400 shot
+4500 btn 12
+9700 end

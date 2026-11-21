@@ -31,6 +31,7 @@
 #define SD_CENSUS 1                            /* the ceilings counted (test_headroom); the sound the same */
 #include "sd_engine.h"
 #include "sd_gen.h"
+#include "../tools/sd_loud.h"
 
 static int fails;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -64,6 +65,171 @@ static void run(SdEngine *e, int32_t *out, uint32_t frames, uint32_t chunk)
         sd_engine_render(e, out + 2u * done, n);
         done += n;
     }
+}
+
+/* The drums (sd_drums.h, 2026-11-19): the default kit's beat sounds on the grid, the same in any chunks; every value
+ * at its ends, the accents, the levels and the pans at theirs, the matrix's moves on the macros and the level square
+ * at full both ways: no overflow (UBSan's run), never past full scale; VOLUME ducks the synth under the kick */
+static int16_t dr_ob[2][2u * SD_DR_BATCH * SD_SUB];   /* (the batches' sound: the app's memory on the FM-1) */
+static void dr_setup(SdEngine *e, const SdPatch *p)
+{
+    sd_engine_init(e);
+    e->dr.ob = dr_ob[e == &e2];
+    if (p) sd_engine_patch(e, p);
+    e->dr.on = 1;
+    e->seq_run = 1;
+}
+static void test_drums(void)
+{
+    static const uint32_t CH[] = {1, 7, 33, 256};
+    uint32_t c, i, d, k, side;
+    int32_t pk = 0;
+    double en = 0;
+    dr_setup(&e1, 0);
+    run(&e1, a, N, 256);
+    for (i = 0; i < 2u * N; i++) { int32_t v = a[i] < 0 ? -a[i] : a[i]; if (v > pk) pk = v; en += (double)a[i] * a[i]; }
+    CHECK(pk > 8000 && pk <= 32767, "the drums: the default beat's peak %d (want 8000 .. 32767)", pk);
+    CHECK(e1.dr.kenv >= 0 && e1.dr.senv >= 0, "the drums: KICK, SNARE as sources %d %d", e1.dr.kenv, e1.dr.senv);
+    for (c = 0; c < sizeof CH / sizeof CH[0]; c++) {   /* (the steps on sub-blocks: any chunks the same) */
+        dr_setup(&e2, 0);
+        run(&e2, b, N, CH[c]);
+        for (i = 0; i < 2u * N && a[i] == b[i]; i++) {}
+        CHECK(i == 2u * N, "the drums in chunks of %u: frame %u differs", CH[c], i / 2u);
+    }
+    for (side = 0; side < 2u; side++) {         /* every value at its top, then its bottom; accents, the matrix full */
+        SdPatch p = SD_PATCH[0];
+        p.mod[0].src = SD_MS_LFO1; p.mod[0].dst = SD_MD_KBOOM; p.mod[0].amt = 32767;
+        p.mod[1].src = SD_MS_LFO1; p.mod[1].dst = SD_MD_SNSIZE; p.mod[1].amt = -32767;
+        p.mod[2].src = SD_MS_LFO1; p.mod[2].dst = SD_MD_HAIR; p.mod[2].amt = 32767;
+        p.mod[3].src = SD_MS_LFO1; p.mod[3].dst = SD_MD_CCROWD; p.mod[3].amt = -32767;
+        p.mod[4].src = SD_MS_LFO1; p.mod[4].dst = SD_MD_DRLVL; p.mod[4].amt = 32767;
+        p.lfo_shape[0] = SD_LS_SQR; p.lfo_rate[0] = 30000;
+        dr_setup(&e1, &p);
+        for (d = 0; d < SD_DRS; d++) {
+            for (k = 0; k < 8u; k++) e1.dr.kit.d[d].v[k] = side ? SD_DR_MIN[d][k] : SD_DR_MAX[d][k];
+            e1.dr.kit.d[d].level = 100;
+            e1.dr.kit.d[d].pan = (int8_t)(d & 1u ? -60 : 60);
+            for (k = 0; k < SD_DR_STEPS; k++) sd_dr_step_set(&e1.dr.pat, d, k, k & 1u ? SD_DS_ACC : SD_DS_ON);
+        }
+        e1.dr.kit.accent = 100;
+        run(&e1, a, N, 256);
+        for (pk = 0, i = 0; i < 2u * N; i++) { int32_t v = a[i] < 0 ? -a[i] : a[i]; if (v > pk) pk = v; }
+        CHECK(pk <= 32767 && pk > 1000, "the drums at their %s: the peak %d", side ? "bottoms" : "tops", pk);
+    }
+    {                                           /* VOLUME: KICK at -100 % ducks a held note under each kick */
+        SdPatch p = SD_PATCH[0];
+        double du = 0, nd = 0;
+        uint32_t n = SD_FS * 2u;
+        p.fx_off = 0xFFu;
+        for (side = 0; side < 2u; side++) {
+            if (side) { p.mod[0].src = SD_MS_KICK; p.mod[0].dst = SD_MD_VOL; p.mod[0].amt = -32767; }
+            dr_setup(side ? &e2 : &e1, &p);
+            for (d = 0; d < SD_DRS; d++) for (k = 0; k < SD_DR_STEPS; k++)
+                sd_dr_step_set(side ? &e2.dr.pat : &e1.dr.pat, d, k, d == SD_DR_KICK && (k & 3u) == 0u ? SD_DS_ON : SD_DS_OFF);
+            (side ? &e2 : &e1)->dr.kit.d[SD_DR_KICK].level = 0;   /* (the kick unheard: the synth alone) */
+            sd_engine_note(side ? &e2 : &e1, 57, 110);
+            run(side ? &e2 : &e1, side ? b : a, n, 256);
+        }
+        for (i = SD_FS; i < n; i++) { nd += (double)a[2u * i] * a[2u * i]; du += (double)b[2u * i] * b[2u * i]; }
+        CHECK(nd > 1e9 && du < nd * 0.7, "VOLUME: the duck %.2f of the synth's energy (want under 0.7)", nd > 0 ? du / nd : 0.0);
+    }
+    {                                           /* DUCK (MIX's, 2026-11-19): the same without a slot; 0 leaves it be */
+        SdPatch p = SD_PATCH[0];
+        double du = 0, nd = 0;
+        uint32_t n = SD_FS * 2u;
+        p.fx_off = 0xFFu;
+        for (side = 0; side < 2u; side++) {
+            SdEngine *e = side ? &e2 : &e1;
+            dr_setup(e, &p);
+            for (d = 0; d < SD_DRS; d++) for (k = 0; k < SD_DR_STEPS; k++)
+                sd_dr_step_set(&e->dr.pat, d, k, d == SD_DR_KICK && (k & 3u) == 0u ? SD_DS_ON : SD_DS_OFF);
+            e->dr.kit.d[SD_DR_KICK].level = 0;
+            e->dr.kit.duck = side ? 100u : 0u;
+            sd_engine_note(e, 57, 110);
+            run(e, side ? b : a, n, 256);
+        }
+        for (i = SD_FS; i < n; i++) { nd += (double)a[2u * i] * a[2u * i]; du += (double)b[2u * i] * b[2u * i]; }
+        CHECK(nd > 1e9 && du < nd * 0.7, "DUCK: %.2f of the synth's energy (want under 0.7)", nd > 0 ? du / nd : 0.0);
+    }
+    {                                           /* DUCK's depth and length (2026-11-20, the user: "not deep enough";
+                                                   it had followed the kick's envelope, -12 dB at 100 %): 50 % about
+                                                   -12 dB at each kick, under -6 dB a fifth of the time */
+        uint32_t t, lo = 32768, under = 0, n = 0;
+        dr_setup(&e1, 0);
+        for (d = 0; d < SD_DRS; d++) for (k = 0; k < SD_DR_STEPS; k++)
+            sd_dr_step_set(&e1.dr.pat, d, k, d == SD_DR_KICK && (k & 3u) == 0u ? SD_DS_ON : SD_DS_OFF);
+        e1.dr.kit.duck = 50u;
+        for (t = 0; t < 2u * SD_FS / SD_SUB; t++) {
+            sd_engine_render(&e1, a, SD_SUB);
+            if (t < SD_FS / SD_SUB) continue;
+            if ((uint32_t)e1.vol_g1 < lo) lo = (uint32_t)e1.vol_g1;
+            under += e1.vol_g1 < 16423;         /* (-6 dB) */
+            n++;
+        }
+        CHECK(lo > 7000u && lo < 9500u, "DUCK 50 %%: down to %u of 32768 at a kick (want about -12 dB, 8192)", lo);
+        CHECK(under * 100u > n * 15u, "DUCK 50 %%: under -6 dB %u %% of the time (want over 15 %%: a pump)", under * 100u / (n ? n : 1u));
+    }
+    {                                           /* the fourth's engines (2026-11-20): each sounds, inside full scale,
+                                                   at its values as chosen and at both ends (UBSan's run) */
+        uint32_t pc;
+        for (pc = 0; pc < SD_PCS; pc++)
+            for (side = 0; side < 3u; side++) {
+                dr_setup(&e1, 0);
+                e1.dr.perc = (uint8_t)pc;
+                for (k = 0; k < 8u; k++)
+                    e1.dr.kit.d[SD_DR_CLAP].v[k] = side == 2u ? SD_PC_DEF[pc][k] : side ? SD_PC_MIN[pc][k] : SD_PC_MAX[pc][k];
+                e1.dr.kit.d[SD_DR_CLAP].level = 100;
+                for (d = 0; d < SD_DRS; d++) for (k = 0; k < SD_DR_STEPS; k++)
+                    sd_dr_step_set(&e1.dr.pat, d, k, d == SD_DR_CLAP && (k & 3u) == 0u ? (k & 4u ? SD_DS_ACC : SD_DS_ON) : SD_DS_OFF);
+                e1.dr.mod[5] = side == 1u ? -32767 : 32767;   /* (PERC TUNE at both ends too) */
+                run(&e1, a, SD_FS, 256);
+                for (pk = 0, i = 0; i < 2u * SD_FS; i++) { int32_t v = a[i] < 0 ? -a[i] : a[i]; if (v > pk) pk = v; }
+                CHECK(pk > 300 && pk <= 32767, "the drums' %s at its %s: the peak %d", SD_PC_NAME[pc],
+                      side == 2u ? "values" : side ? "bottoms" : "tops", pk);
+            }
+    }
+    {                                           /* MORE (2026-11-20): ROLL x4 four hits in its step, PROB 25 % about a
+                                                   quarter of them, MUTE none */
+        uint32_t hits[3] = {0, 0, 0}, blk, n = SD_FS * 8u / 256u, t;
+        for (t = 0; t < 3u; t++) {
+            dr_setup(&e1, 0);
+            for (d = 0; d < SD_DRS; d++) for (k = 0; k < SD_DR_STEPS; k++)
+                sd_dr_step_set(&e1.dr.pat, d, k, d == SD_DR_HAT && (t == 1u || k == 0u) ? SD_DS_ON : SD_DS_OFF);
+            if (t == 0u) sd_dr_more_set(&e1.dr.more, SD_DR_HAT, 0, 3, 0);
+            if (t == 1u) for (k = 0; k < SD_DR_STEPS; k++) sd_dr_more_set(&e1.dr.more, SD_DR_HAT, k, 0, 3);
+            if (t == 2u) e1.dr.mute = 1u << SD_DR_HAT;
+            for (blk = 0; blk < n; blk++) {
+                sd_engine_render(&e1, a, 256);
+                for (k = 0; k < SD_DR_BATCH; k++) hits[t] += e1.dr.hj[k] >> SD_DR_HAT & 1u;
+            }
+        }
+        {
+            uint32_t bars = SD_FS * 8u / (16u * (e1.seq_len_q8 >> 8));
+            CHECK(hits[0] >= 4u * (bars ? bars : 1u) - 4u && hits[0] <= 4u * (bars + 1u), "ROLL x4: %u hits in %u bars (want 4 a bar)", hits[0], bars);
+            CHECK(hits[1] * 8u > 16u * bars && hits[1] * 8u < 16u * bars * 4u, "PROB 25 %%: %u of %u steps", hits[1], 16u * bars);
+            CHECK(hits[2] == 0u, "MUTE: %u hits", hits[2]);
+        }
+    }
+    {                                           /* FILTER (HOME's K4, 2026-11-19): closed, MACRO 4's CUTOFF at full,
+                                                   sample for sample; open, the patch */
+        SdPatch p = SD_PATCH[0];
+        uint32_t n = SD_FS, same = 1, moved = 0;
+        for (side = 0; side < 2u; side++) {
+            SdEngine *e = side ? &e2 : &e1;
+            SdPatch q = p;
+            if (!side) { q.mac4 = SD_M4_CUTOFF; q.mac[3] = 65535u; }
+            sd_engine_init(e);
+            sd_engine_patch(e, &q);
+            e->filt = side ? 65535u : 0u;
+            sd_engine_note(e, 57, 110);
+            run(e, side ? b : a, n, 256);
+        }
+        for (i = 0; i < 2u * n; i++) same &= a[i] == b[i];
+        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 110); run(&e1, a, n, 256);
+        for (i = 0; i < 2u * n; i++) moved |= a[i] != b[i];
+        CHECK(same && moved, "FILTER: closed as MACRO 4's CUTOFF at full (%u), and not the patch open (%u)", same, moved);
+    }
+    (void)en;
 }
 
 static void test_silence(void)
@@ -1313,9 +1479,13 @@ static void test_feedback(void)
         CHECK(mx <= 2, "FB 0.8 leaves %d after 1.5 s (a limit cycle?)", (int)mx);   /* 2: the crossover's last
                                                    bit through the DC blocker's floor, -84 dB; DISTROY rests there */
     }
-    {   /* everything at max: +36 dB in every band, FB 0.9, noise in: it screams, bounded */
+    {   /* everything at max: +36 dB in every band, FB 0.9, noise in: it screams, bounded (since the make-ups,
+           2026-11-21, DRIVE alone no longer gets there: LEVEL at 4x too, the patch as the engine takes it, lv 1) */
         SdPatch p = distroy_patch(SD_DS_NONE, 65535, 0, 0);
         int32_t mx = 0;
+        uint32_t k;
+        for (k = 0; k < 4u; k++) p.d_level[k] = 65535;
+        p.lv = 1;
         p.d_xover = SD_DX_CMP;
         p.d_fb = 65535;
         p.d_ftime = 0;
@@ -1326,14 +1496,18 @@ static void test_feedback(void)
         CHECK(mx < 2 * 32768, "feedback at max reaches %d", (int)mx);
         CHECK(d3_e.d.lg < 32768, "the limiter never acted at max");
     }
-    {   /* the limiter alone: +36 dB NONE on a sine of 0.25 holds near 1.5 x full scale */
-        SdPatch p = distroy_patch(SD_DS_NONE, 65535, 0, 0);
+    {   /* the limiter alone: a sine of 0.25 clipped HARD at +36 dB, LEVEL at 4x (4 x full scale into it), holds near
+           1.5 x full scale (+36 dB NONE did it before the make-ups) */
+        SdPatch p = distroy_patch(SD_DS_HARD, 65535, 0, 0);
         int32_t mx = 0;
+        uint32_t k;
+        for (k = 0; k < 4u; k++) p.d_level[k] = 65535;
+        p.lv = 1;
         p.d_xover = SD_DX_CMP;
         d3_hz = 300;
         d3_feed(&p, src_sine, SD_FS, a);
         for (i = SD_FS / 2u; i < SD_FS; i++) mx = abs(a[2u * i]) > mx ? abs(a[2u * i]) : mx;
-        printf("limiter: +36 dB on 0.25 full scale holds at %.2f x full scale\n", mx / 32768.0);
+        printf("limiter: 0.25 full scale clipped HARD at +36 dB, LEVEL 4x, holds at %.2f x full scale\n", mx / 32768.0);
         CHECK(mx < 1.6 * 32768 && mx > 1.3 * 32768, "the limiter holds at %.2f x full scale", mx / 32768.0);
     }
     {   /* TAME: off at 0; at max 10 kHz goes, 100 Hz stays; at its least 10 kHz stays */
@@ -2657,6 +2831,27 @@ static void test_mod(void)
     CHECK(lo < 32768u - 15000u && lo > 32768u - 17500u && hi > 32768u + 15000u && hi < 32768u + 17500u,
           "LFO1 -> XM swings %u .. %u", lo, hi);
     CHECK(e1.base.xm == 32768u, "the matrix wrote the base: %u", e1.base.xm);
+    {   /* OFFSET (2026-11-19): +100 % from the set value up only, its top as before; -100 % down only; 50 % a third
+           below, all above */
+        static const int8_t OFF[3] = {100, -100, 50};
+        uint32_t i;
+        for (i = 0; i < 3u; i++) {
+            uint32_t l2 = 65535, h2 = 0;
+            p.mod_off[0] = OFF[i];
+            mod_init(&e1, &p);
+            sd_engine_note(&e1, 60, 100);
+            for (t = 0; t < 3000u; t++) {
+                mod_run(&e1, &p, 1);
+                if (e1.patch.xm < l2) l2 = e1.patch.xm;
+                if (e1.patch.xm > h2) h2 = e1.patch.xm;
+            }
+            printf("mod: LFO1 -> XM +25 %%, OFFSET %+d %%: XM %u .. %u\n", OFF[i], l2, h2);
+            if (OFF[i] == 100) CHECK(l2 >= 32768u - 200u && h2 > 32768u + 15000u && h2 < 32768u + 17500u, "OFFSET +100: %u .. %u", l2, h2);
+            if (OFF[i] == -100) CHECK(h2 <= 32768u + 200u && l2 < 32768u - 15000u && l2 > 32768u - 17500u, "OFFSET -100: %u .. %u", l2, h2);
+            if (OFF[i] == 50) CHECK(l2 < 32768u - 4000u && l2 > 32768u - 7000u && h2 > 32768u + 15000u, "OFFSET +50: %u .. %u", l2, h2);
+        }
+        p.mod_off[0] = 0;
+    }
     {   /* the looper's SPEED: LFO1 at +3 % free (+-0.36 semitones: the wobble, a slot sending all the
            while); RADAR at +50 % in whole semitones (+-6) */
         int32_t mlo = 1 << 30, mhi = -(1 << 30), qn = 0, qbad = 0, qlo = 1 << 30, qhi = -(1 << 30);
@@ -2780,6 +2975,24 @@ static void test_mod(void)
             sd_mod_restore(&e1);
             CHECK(!memcmp(&e1.patch, &e1.base, sizeof e1.patch), "MACRO 4 kind %u: the restore misses a field", kind);
         }
+    }
+    {   /* MACRO 4 CUTOFF (2026-11-19, the user): every cutoff down together; at 0 the FILTER open and not run */
+        uint32_t m;
+        for (m = 0; m < 2u; m++) {
+            p = SD_PATCH[SD_P_DISTROY];
+            p.f_type = SD_FT_LP12; p.f_cut = SD_FCUT_OPEN;
+            p.mac4 = SD_M4_CUTOFF; p.mac[3] = m ? 65535 : 0;
+            mod_init(&e1, &p);
+            sd_engine_note(&e1, 60, 100);
+            mod_run(&e1, &p, 4);
+            if (!m) CHECK(e1.patch.f_cut == SD_FCUT_OPEN && !e1.f_live, "CUTOFF at 0: the filter at %u, run %u", e1.patch.f_cut, e1.f_live);
+            else CHECK(e1.patch.f_cut + 39000u < SD_FCUT_OPEN && e1.f_live && e1.patch.d_tame > e1.base.d_tame &&
+                       e1.patch.s_rtone < e1.base.s_rtone && e1.patch.s_dtone < e1.base.s_dtone,
+                       "CUTOFF at full: FILTER %u, TAME %u (%u), TONEs %u %u", e1.patch.f_cut, e1.patch.d_tame,
+                       e1.base.d_tame, e1.patch.s_rtone, e1.patch.s_dtone);
+        }
+        printf("mod: MACRO 4 CUTOFF at full: the FILTER 12 kHz -> MIDI %u, TAME in, both TONEs down; at 0 open, not run\n",
+               16u + (uint32_t)e1.patch.f_cut * 114u / 65536u);
     }
     /* every destination by every LFO shape at +-100 %, and every macro of every kind at full, on every patch: in
        range (the sanitizers watch), and never past 4 x full scale */
@@ -2971,6 +3184,23 @@ static void test_seq(void)
     p.step[0].type = SD_ST_NOTE; p.step[0].note = 45;
     seq_trace(&e1, &p, 6, tr, 0);
     CHECK(e1.voice[0].gate && e1.voice[0].note == 45, "TIE: the note is not held (gate %u)", e1.voice[0].gate);
+    /* GATE past 100 %: 150 holds on half way into a REST that follows, then lets go; 50 is off as the REST starts */
+    {
+        static int32_t o[2u * 2048u];
+        uint32_t g;
+        for (g = 50u; g <= 150u; g += 100u) {
+            sd_pattern_default(&p);
+            for (k = 0; k < 16u; k++) p.step[k].type = SD_ST_REST;
+            p.step[0].type = SD_ST_NOTE; p.step[0].note = 45; p.step[0].gate = (uint8_t)g; p.step[0].ratchet = 1;
+            seq_trace(&e1, &p, 2, tr, 0);       /* (step 2, the REST, just started) */
+            run(&e1, o, 1024, 32);              /* ~19 % into it */
+            CHECK(!!e1.voice[0].gate == (g > 100u), "GATE %u %%: at a fifth of the REST after it the gate is %u", g,
+                  e1.voice[0].gate);
+            run(&e1, o, 2048, 32);
+            run(&e1, o, 1024, 32);              /* ~93 % into it: past the half it held for */
+            CHECK(!e1.voice[0].gate, "GATE %u %%: still on near the REST's end", g);
+        }
+    }
     sd_pattern_default(&p);
     for (k = 0; k < 16u; k++) { p.step[k].type = SD_ST_SLIDE; p.step[k].note = (uint8_t)(45 + (k & 1u) * 12u); }
     p.step[0].type = SD_ST_NOTE;
@@ -3875,6 +4105,137 @@ static uint32_t cue_note(const SdEngine *e, uint32_t lo, uint32_t hi)   /* a voi
         if (e->voice[i].gate && e->voice[i].note >= lo && e->voice[i].note <= hi) return e->voice[i].note;
     return 0;
 }
+/* a pattern PRESETS loads while it plays (pat_wait, orb_wait): the old one heard to the master's one, then the new
+ * from its step 1, A's ORBIT with it; the other track (B) at the master's one too, from its step 1; an edit (no wait)
+ * at the next step */
+static void test_pat_one(void)
+{
+    static SdEngine e6;
+    static int32_t o[2u * SD_SUB];
+    SdPattern pa, pb;
+    SdOrbit ob;
+    uint32_t i, f, a_was, m, a_n[4], b_at_one = 0, b_step = 0xFF, early = 0;
+    sd_pattern_default(&pa); sd_pattern_default(&pb);
+    for (i = 0; i < SD_PSTEPS; i++) {
+        pa.step[i].type = pb.step[i].type = SD_ST_NOTE;
+        pa.step[i].note = 72; pb.step[i].note = 36; pa.step[i].gate = pb.step[i].gate = 50;
+    }
+    pa.len = 4; pb.len = 3; pa.seg_count = pb.seg_count = 1;
+    sd_engine_init(&e6); sd_engine_patch(&e6, &T_GLASS);
+    e6.mode = SD_MODE_DUO;
+    run_ms(&e6, 5);
+    sd_engine_pattern_to(&e6, 0, &pa); sd_engine_pattern_to(&e6, 1, &pb);
+    e6.seqb = 1; e6.bpm = 120; e6.seq_run = 1;
+    run_ms(&e6, 500 + 125 + 60);                /* a loop on, A on its step 2 */
+    CHECK(e6.t[0].seq_shown == 1u, "pattern at the one: A not on step 2 (%u)", e6.t[0].seq_shown);
+    for (i = 0; i < SD_PSTEPS; i++) { pa.step[i].note = 74; pb.step[i].note = 38; }
+    pa.step[0].note = 76;
+    memset(&ob, 0, sizeof ob);
+    ob.on = 1; ob.len = 2; ob.xa[0] = 5; ob.xa[1] = 7;
+    e6.t[0].pat_wait = 1; e6.t[1].pat_wait = 1; e6.orb_wait = 1;
+    sd_engine_orbit(&e6, &ob);
+    sd_engine_pattern_to(&e6, 0, &pa); sd_engine_pattern_to(&e6, 1, &pb);
+    m = 0; a_was = e6.t[0].seq_shown;
+    for (f = 0; f < 2u * SD_FS && m < 4u; f += SD_SUB) {   /* A's notes at steps 3, 4, 1, 2 */
+        uint32_t bn;
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e6, o, SD_SUB);
+        bn = cue_note(&e6, 30, 40);
+        if (e6.t[0].seq_shown != a_was) {
+            a_was = e6.t[0].seq_shown;
+            a_n[m++] = cue_note(&e6, 60, 90);
+            if (!a_was && !b_at_one) { b_at_one = bn; b_step = e6.t[1].seq_shown; }
+        }
+        if (bn == 38u && !b_at_one) early = 1;
+    }
+    CHECK(m == 4u && a_n[0] == 72u && a_n[1] == 72u && a_n[2] == 81u && a_n[3] == 79u,
+          "a pattern loaded while it plays: the old to the one, then the new and its ORBIT (A: %u %u %u %u, want 72 72 "
+          "81 79)", a_n[0], a_n[1], a_n[2], a_n[3]);
+    CHECK(!early && b_at_one == 38u && b_step == 0u && !e6.t[0].pat_wait && !e6.t[1].pat_wait && !e6.orb_wait,
+          "B's pattern loaded while it plays: at A's one from its step 1 (early %u, B %u on step %u)", early, b_at_one,
+          b_step);
+    for (i = 0; i < SD_PSTEPS; i++) pa.step[i].note = 62;   /* an edit: at the next step */
+    sd_engine_pattern_to(&e6, 0, &pa);
+    a_was = e6.t[0].seq_shown;
+    for (f = 0; f < SD_FS && e6.t[0].seq_shown == a_was; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e6, o, SD_SUB); }
+    CHECK(cue_note(&e6, 60, 90) == 62u + 5u, "an edit: at the next step, ORBIT still on its step 1 (%u)", cue_note(&e6, 60, 90));
+    printf("pattern at the one: A 72 72 | 81 79 (the new and its ORBIT from the one), B from its step 1 there\n");
+}
+
+/* ORBIT as the song: each step's patterns (the saved ones, e->pats) at the master's one from their step 1, a step's
+ * LOOPS, 0 leaving a track as it plays; END STOP stops PLAY at the end; an edit stays till the song moves on */
+static void test_song(void)
+{
+    static SdEngine e7;
+    static int32_t o[2u * SD_SUB];
+    static SdPattern bank[32];
+    SdPattern pa, pb;
+    SdOrbit ob;
+    uint32_t i, f, a_was = 0xFF, n = 0, an[12], bn[12], stopped_at = 0;
+    for (i = 0; i < 3u; i++) {
+        sd_pattern_default(&bank[i]);
+        bank[i].len = 4; bank[i].seg_count = 1;
+    }
+    for (i = 0; i < SD_PSTEPS; i++) {
+        bank[0].step[i].type = bank[1].step[i].type = bank[2].step[i].type = SD_ST_NOTE;
+        bank[0].step[i].note = 60; bank[1].step[i].note = 64; bank[2].step[i].note = 40;
+        bank[0].step[i].gate = bank[1].step[i].gate = bank[2].step[i].gate = 50;
+    }
+    pa = bank[0]; pb = bank[2];
+    for (i = 0; i < SD_PSTEPS; i++) { pa.step[i].note = 72; pb.step[i].note = 36; }
+    pb.len = 3;
+    memset(&ob, 0, sizeof ob);
+    ob.on = 1; ob.len = 3;
+    ob.pat[0][0] = 1;                           /* step 1: A P01, B as it plays, a loop */
+    ob.pat[0][1] = 2; ob.pat[1][1] = 3; ob.loops[1] = 2;   /* step 2: A P02, B P03, two loops */
+    /* step 3: both as they play, a loop */
+    sd_engine_init(&e7); sd_engine_patch(&e7, &T_GLASS);
+    e7.mode = SD_MODE_DUO;
+    e7.pats = bank; e7.pats_used = 7u;
+    run_ms(&e7, 5);
+    sd_engine_pattern_to(&e7, 0, &pa); sd_engine_pattern_to(&e7, 1, &pb);
+    sd_engine_orbit(&e7, &ob);
+    e7.seqb = 1; e7.bpm = 120; e7.seq_run = 1;
+    for (f = 0; f < 12u * SD_FS && n < 9u; f += SD_SUB) {   /* each of A's loops: A's note and B's at A's step 1 */
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e7, o, SD_SUB);
+        if (e7.t[0].seq_shown != a_was) {
+            a_was = e7.t[0].seq_shown;
+            if (!a_was) { an[n] = cue_note(&e7, 55, 90); bn[n] = cue_note(&e7, 30, 45); n++; }
+        }
+        if (n == 6u && e7.t[0].seq_shown == 2u && e7.t[0].pat.step[0].note != 62) {   /* an edit, in the song's
+                                                   step 2: it stays through its second loop and step 3 (as it plays),
+                                                   till step 1 loads P01 again */
+            SdPattern ed = bank[1];
+            for (i = 0; i < SD_PSTEPS; i++) ed.step[i].note = 62;
+            sd_engine_pattern_to(&e7, 0, &ed);
+        }
+    }
+    CHECK(n == 9u && an[0] == 60u && an[1] == 64u && an[2] == 64u && an[3] == 64u && an[4] == 60u && an[5] == 64u &&
+          an[6] == 62u && an[7] == 62u && an[8] == 60u,
+          "the song, A: %u %u %u %u | %u %u %u %u | %u (want 60 64 64 64 | 60 64 62 62 | 60)", an[0], an[1], an[2], an[3],
+          an[4], an[5], an[6], an[7], an[8]);
+    CHECK(bn[0] == 36u && bn[1] == 40u && bn[2] == 40u && bn[3] == 40u && bn[4] == 40u,
+          "the song, B: %u %u %u %u %u (want 36 40 40 40 40)", bn[0], bn[1], bn[2], bn[3], bn[4]);
+    CHECK(e7.t[0].song_n == 1u && e7.t[1].song_n == 3u && e7.t[0].song_seq >= 4u, "the song's loads: A P%02u (%u), B P%02u",
+          e7.t[0].song_n, e7.t[0].song_seq, e7.t[1].song_n);
+    ob.end = SD_OE_STOP;                        /* END STOP: four loops (1 + 2 + 1), then PLAY stops */
+    e7.seq_run = 0; run_ms(&e7, 50);
+    sd_engine_orbit(&e7, &ob);
+    e7.seq_run = 1;
+    for (f = 0; f < 6u * SD_FS && !stopped_at; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e7, o, SD_SUB);
+        if (!e7.seq_run) stopped_at = f;
+    }
+    run_ms(&e7, 50);
+    CHECK(stopped_at > 19u * SD_FS / 10u && stopped_at < 2u * SD_FS + SD_FS / 20u && !cue_note(&e7, 30, 90),
+          "END STOP: PLAY stopped at %u ms (4 loops of 500 ms each: 2000 ms), a note left %u",
+          (uint32_t)((uint64_t)stopped_at * 1000u / SD_FS), cue_note(&e7, 30, 90));
+    printf("song: A P01 | P02 x2 | as it plays, B from P03 at A's one; an edit stays till the song moves on; END STOP "
+           "at %u ms\n", (uint32_t)((uint64_t)stopped_at * 1000u / SD_FS));
+}
+
 static void test_cue(void)
 {
     static SdEngine e4;
@@ -4079,6 +4440,72 @@ static void test_arp_grid(void)
            worst, first_now, first_wait, a_hits, a_steps);
 }
 
+/* ARP with A's steps through tempo changes (2026-11-19, the user: ARP out of time till STOP and START): the grid
+ * counted samples, so a tempo that moved left it off A's steps for good; now the master sets it at each pair. 1/16
+ * both, TEMPO 120 -> 97 at 7.3 s -> 133 at 15.1 s -> 104.5 (a MIDI clock's drift, as it were) at 22.9 s: A's steps
+ * from a second after each change, ARP's note in the same sub-block */
+static void test_arp_tempo(void)
+{
+    static SdEngine ea;
+    static int32_t o[2u * SD_SUB];
+    static const uint32_t AT[3] = {7300u, 15100u, 22900u}, BPM[3] = {97u, 133u, 104u};
+    uint32_t f, k, was = 0, wasa = 0, hits = 0, steps = 0, after = 0xFFFFFFFFu;
+    SdPattern p;
+    sd_engine_init(&ea); sd_engine_patch(&ea, &T_GLASS);
+    ea.mode = SD_MODE_POLY; ea.bpm = 120;
+    sd_pattern_default(&p); sd_engine_pattern(&ea, &p);
+    ea.arp_div = 2; ea.arp_on = 1; ea.arp_gate = 50;
+    run_ms(&ea, 20);
+    ea.seq_run = 1;
+    for (k = 0; k < 3u; k++) sd_engine_note(&ea, 60 + 4 * k, 100);
+    for (f = 0; f < 30u * SD_FS; f += SD_SUB) {
+        uint32_t on, ms = (uint32_t)((uint64_t)f * 1000u / SD_FS);
+        for (k = 0; k < 3u; k++)
+            if (ms == AT[k] || (ms > AT[k] && (uint32_t)((uint64_t)(f - SD_SUB) * 1000u / SD_FS) < AT[k])) {
+                ea.bpm = (uint16_t)BPM[k];
+                after = f + SD_FS;
+            }
+        memset(o, 0, sizeof o);
+        sd_engine_render(&ea, o, SD_SUB);
+        on = ea.arp_playing && !was;
+        if (ea.t[0].seq_count != wasa) {        /* A's step: ARP's note in the same sub-block */
+            wasa = ea.t[0].seq_count;
+            if (after != 0xFFFFFFFFu && f >= after) { steps++; hits += on; }
+        }
+        was = ea.arp_playing;
+    }
+    CHECK(steps > 100u && hits * 20u >= steps * 19u, "ARP off A's steps after a tempo change: %u of %u with them", hits, steps);
+    printf("arp tempo: through 120 -> 97 -> 133 -> 104 BPM, %u of A's %u steps with ARP's note\n", hits, steps);
+}
+
+/* MIDI clock out (the app sends clko_*): 24 a quarter while the FM-1 keeps the tempo, a START with the master's
+ * one (its pulse the first), none while a clock comes in */
+static void test_clock_out(void)
+{
+    static SdEngine ec;
+    static int32_t o[2u * SD_SUB];
+    SdPattern p;
+    uint32_t f, n0, s0, n1, bpm;
+    sd_engine_init(&ec); sd_engine_patch(&ec, &T_GLASS);
+    sd_pattern_default(&p); sd_engine_pattern(&ec, &p);
+    for (bpm = 90; bpm <= 150u; bpm += 30u) {
+        ec.bpm = (uint16_t)bpm; ec.seq_run = 0;
+        for (f = 0; f < SD_FS / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&ec, o, SD_SUB); }
+        n0 = ec.clko_n; s0 = ec.clko_starts;
+        ec.seq_run = 1;
+        for (f = 0; f < 4u * SD_FS; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&ec, o, SD_SUB); }
+        n1 = ec.clko_n - n0;
+        CHECK(ec.clko_starts - s0 == 1u, "clock out at %u BPM: %u STARTs for one PLAY", bpm, ec.clko_starts - s0);
+        CHECK(n1 + 1u >= bpm * 24u * 4u / 60u && n1 <= bpm * 24u * 4u / 60u + 2u,
+              "clock out at %u BPM: %u pulses in 4 s, %u due", bpm, n1, bpm * 24u * 4u / 60u);
+        printf("clock out: %u BPM, %u pulses in 4 s (24 a quarter: %u), one START\n", bpm, n1, bpm * 24u * 4u / 60u);
+    }
+    ec.clk_on = 1;                              /* following a clock: none out */
+    n0 = ec.clko_n;
+    for (f = 0; f < SD_FS / 2u; f += SD_SUB) { ec.clk_on = 1; ec.clk_since = 0; memset(o, 0, sizeof o); sd_engine_render(&ec, o, SD_SUB); }
+    CHECK(ec.clko_n == n0, "clock out while a clock comes in: %u pulses", ec.clko_n - n0);
+}
+
 /* REC writes what is heard (never back in another octave): a key under a transpose
  * (GLO's and ORBIT's, -24..+24 in all) goes in so the step plays that key again; CHROM every note, IN KEY every note
  * of A's scale (C minor), on both tracks; no transpose: the key as it is */
@@ -4153,7 +4580,8 @@ static void test_orbit(void)
     for (k = 0; k < 4u; k++) { p.step[k].note = 60; p.step[k].type = SD_ST_NOTE; }
     p0 = p;
     memset(&o, 0, sizeof o);
-    CHECK(!o.on && SD_ORB_LEN(&o) == 4u && SD_ORB_LOOPS(&o) == 1u, "ORBIT's zero: off, 4 steps, a loop each");
+    CHECK(!o.on && SD_ORB_LEN(&o) == 4u && SD_ORB_LOOPS(&o, 0) == 1u && SD_ORB_LOOPS(&o, 15) == 1u,
+          "ORBIT's zero: off, 4 steps, a loop each");
     o.len = 3;                                  /* off: the line as it is */
     o.xa[1] = 5; o.xa[2] = 7;
     orbit_run(&e3, &p, &o, 7, nt, xm, xmm);
@@ -4163,11 +4591,11 @@ static void test_orbit(void)
     CHECK(nt[0] == 60 && nt[1] == 65 && nt[2] == 67 && nt[3] == 60 && nt[4] == 65 && nt[6] == 60,
           "ORBIT XPOSE A: %u %u %u %u %u %u %u", nt[0], nt[1], nt[2], nt[3], nt[4], nt[5], nt[6]);
     CHECK(!memcmp(&e3.t[0].pat, &p0, sizeof p0), "ORBIT rewrote the pattern");
-    o.rate = 1;                                 /* two loops a step */
+    for (k = 0; k < SD_ORB_STEPS; k++) o.loops[k] = 2;   /* two loops a step */
     orbit_run(&e3, &p, &o, 6, nt, xm, xmm);
-    CHECK(nt[0] == 60 && nt[1] == 60 && nt[2] == 65 && nt[3] == 65 && nt[4] == 67, "ORBIT RATE 2: %u %u %u %u %u",
+    CHECK(nt[0] == 60 && nt[1] == 60 && nt[2] == 65 && nt[3] == 65 && nt[4] == 67, "ORBIT LOOPS 2: %u %u %u %u %u",
           nt[0], nt[1], nt[2], nt[3], nt[4]);
-    o.rate = 0;                                 /* a lane to XM, jumping: 0, +50 %, -50 % */
+    memset(o.loops, 0, sizeof o.loops);         /* a lane to XM, jumping: 0, +50 %, -50 % */
     o.xa[1] = o.xa[2] = 0;
     o.dst[0] = SD_MD_XM; o.lane[0][1] = 50; o.lane[0][2] = -50;
     orbit_run(&e3, &p, &o, 4, nt, xm, xmm);
@@ -4180,13 +4608,149 @@ static void test_orbit(void)
     o.mac[0][1] = 99;
     orbit_run(&e3, &p, &o, 4, nt, xm, xmm);
     CHECK(xm[0] == 30000 && xm[1] > 30000 + 5000 && xm[2] == 30000, "ORBIT MUTATE: XM %d %d %d", xm[0], xm[1], xm[2]);
-    printf("orbit: off by default; XPOSE A C F G a loop each, two with RATE 2; a lane jumping and gliding; MUTATE a "
+    printf("orbit: off by default; XPOSE A C F G a loop each, two with LOOPS 2; a lane jumping and gliding; MUTATE a "
            "step's; the pattern untouched\n");
+}
+
+/* SUB (2026-11-21, the user: "a sub osc that follows A, B or the root, always an octave under"): off, the engine as it
+ * was, sample for sample; on, a tone an octave under the note (and none at the note's own octave from it); under a
+ * chord its lowest note; ROOT the key's root under the note; B silent where only A plays; it dies away with the note;
+ * SHAPE TRI adds its third harmonic; clean after the FX */
+static double sub_bin(const int32_t *x, uint32_t n, double hz)   /* a frequency's level in the left channel, dBFS */
+{
+    double c = 2.0 * cos(2.0 * M_PI * hz / SD_FS), s0, s1 = 0, s2 = 0;
+    uint32_t i;
+    for (i = 0; i < n; i++) { s0 = x[2u * i] / 32768.0 + c * s1 - s2; s2 = s1; s1 = s0; }
+    return 10.0 * log10((s1 * s1 + s2 * s2 - c * s1 * s2) * 4.0 / ((double)n * n) + 1e-20);
+}
+static void test_sub(void)
+{
+    static SdEngine e1;
+    static int32_t a[2u * SD_FS], b[2u * SD_FS];
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t i, n = SD_FS / 2u, same = 1;
+    double f60 = 440.0 * pow(2.0, (60 - 69) / 12.0), on, off, low, tri3, sin3, root, bsil, tail;
+    p.lv = 1;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, a, n, 256);
+    p.sub_shape = 100; p.sub_src = SD_SUB_ROOT;  /* (all but LEVEL: still off) */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+    for (i = 0; i < 2u * n; i++) same &= a[i] == b[i];
+    CHECK(same, "SUB at LEVEL 0 changed the sound");
+    off = sub_bin(a + SD_FS / 4u, n / 2u, f60 / 2.0);
+    p.sub_shape = 0; p.sub_src = SD_SUB_A; p.sub_lvl = 65535;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+    on = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0);
+    sin3 = sub_bin(b + SD_FS / 4u, n / 2u, f60 * 1.5);
+    CHECK(on > -16.0 && on - off > 40.0, "SUB on: %.1f dBFS an octave under C4 (off %.1f)", on, off);
+    p.fx_off = SD_FX_SUB;                       /* EDIT off: its settings kept, silent */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+    CHECK(sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0) < off + 3.0, "SUB switched off still sounds");
+    p.fx_off = 0;
+    p.sub_shape = 100;                          /* TRI: its third harmonic up */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+    tri3 = sub_bin(b + SD_FS / 4u, n / 2u, f60 * 1.5);
+    CHECK(tri3 > sin3 + 6.0, "SUB TRI: its third harmonic %.1f dBFS, the sine's %.1f", tri3, sin3);
+    p.sub_shape = 0;
+    e1.mode = SD_MODE_POLY;                     /* a chord: under its lowest note */
+    sd_engine_init(&e1); e1.mode = SD_MODE_POLY; sd_engine_patch(&e1, &p); run_ms(&e1, 30);
+    sd_engine_note(&e1, 67, 100); sd_engine_note(&e1, 60, 100); sd_engine_note(&e1, 64, 100); run(&e1, b, n, 256);
+    low = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0);
+    CHECK(low > on - 6.0 && sub_bin(b + SD_FS / 4u, n / 2u, 440.0 * pow(2.0, (55 - 69) / 12.0)) < low - 20.0,
+          "SUB under a chord: %.1f dBFS under C4, its lowest (G2 too?)", low);
+    p.sub_src = SD_SUB_ROOT;                    /* ROOT: the key's root at or under E4, an octave under */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 64, 100); run(&e1, b, n, 256);
+    {
+        uint32_t rp = sd_pat_key(sd_key_pat(&e1)) % 12u, r = 64u - (64u + 12u - rp) % 12u - 12u;
+        root = sub_bin(b + SD_FS / 4u, n / 2u, 440.0 * pow(2.0, ((int)r - 69) / 12.0));
+        CHECK(root > -16.0, "SUB ROOT: %.1f dBFS at MIDI %u (the key's root under E4, an octave down)", root, r);
+    }
+    p.sub_src = SD_SUB_B;                       /* B: SEQ B's, silent under the hand's A */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+    bsil = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0);
+    CHECK(bsil < off + 3.0, "SUB on B sounds under the hand's (A's) note: %.1f dBFS", bsil);
+    p.sub_src = SD_SUB_A;                       /* the note let go: it dies away with it */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run_ms(&e1, 300);
+    sd_engine_note(&e1, 60, 0); run_ms(&e1, 2000); run(&e1, b, n / 4u, 256);
+    tail = sub_bin(b, n / 4u, f60 / 2.0);
+    CHECK(tail < on - 40.0, "SUB 2 s after its note: %.1f dBFS (on %.1f)", tail, on);
+    printf("sub: off the same sample for sample; on %.1f dBFS an octave under C4, TRI's third %.1f over the sine's, a "
+           "chord's lowest, ROOT, B silent under A, gone with its note\n", on, tri3 - sin3);
+}
+
+/* The gain staging (2026-11-21, the user: "huge differences in level as some parameters shape the sound, heard in the
+ * volume and as extreme ducking on the master", then "keep the rise in intensity"), on tools/sd_loud.h's phrase and
+ * meter (tools/sd_gain.c: every knob on every patch). DISTROY's DRIVE adds a little, never a jump (+7 .. +15 dB before);
+ * the Reactor's DRIVE past 1x and BP6's RES likewise; a patch from before moved onto the make-ups sounds as it did; the
+ * factory patches as loud as each other (their loudest 400 ms at -11 LUFS; the percussive three lower, their attacks
+ * under the limiter), the output limiter and DISTROY's safety idle on them as they are */
+static void test_gain_staging(void)
+{
+    static SdEngine e3;
+    static SdSpaceMem m3;
+    static const uint8_t DP[3] = {SD_P_DISTROY, SD_P_SPLIT, SD_P_COMET};
+    uint32_t i, k;
+    double lo = 99, hi = -99, grx = 0, dlx = 0, dr[3];
+    for (i = 0; i < 3u; i++) {                  /* DISTROY's DRIVE, all four bands, 0 -> 100 % */
+        SdPatch p = SD_PATCH[DP[i]];
+        Meas a, b;
+        sd_patch_levels(&p);
+        for (k = 0; k < 4u; k++) p.d_gain[k] = 0;
+        a = sd_loud(&e3, &m3, &p);
+        for (k = 0; k < 4u; k++) p.d_gain[k] = 65535;
+        b = sd_loud(&e3, &m3, &p);
+        dr[i] = b.lufs - a.lufs;
+        CHECK(dr[i] > 0.5 && dr[i] < 9.0, "gain staging: %s's DRIVE 0 -> 100 %% %+.1f dB (want +0.5 .. +9: more, no jump)",
+              SD_PATCH_NAME[DP[i]], dr[i]);
+    }
+    {                                           /* the Reactor's DRIVE 1x -> 4x (CHORDS, BP12); BP6's RES 0 -> 100 % */
+        SdPatch p = SD_PATCH[SD_P_CHORDS];
+        Meas a, b;
+        sd_patch_levels(&p);
+        p.r_drive = 16384; a = sd_loud(&e3, &m3, &p);
+        p.r_drive = 65535; b = sd_loud(&e3, &m3, &p);
+        CHECK(b.lufs - a.lufs > -1.0 && b.lufs - a.lufs < 4.0, "gain staging: the Reactor's DRIVE 1x -> 4x %+.1f dB "
+              "(want -1 .. +4)", b.lufs - a.lufs);
+        p = SD_PATCH[SD_P_ORBITAL];
+        sd_patch_levels(&p);
+        p.r_res = 0; a = sd_loud(&e3, &m3, &p);
+        p.r_res = 65535; b = sd_loud(&e3, &m3, &p);
+        CHECK(b.lufs - a.lufs > 0.5 && b.lufs - a.lufs < 12.5, "gain staging: ORBITAL's RES 0 -> 100 %% (BP6) %+.1f dB "
+              "(want +0.5 .. +12.5; +16 before: a resonance building up is its sound too)", b.lufs - a.lufs);
+    }
+    {                                           /* a patch from before (lv 0) moved: each band where it sounded */
+        SdPatch p = SD_PATCH[SD_P_DISTROY], q = p;
+        sd_patch_levels(&q);
+        for (k = 0; k < 4u; k++) {
+            double was = sd_law(p.d_level[k]), now = sd_law(q.d_level[k]) * sd_dbq14(sd_dmk(q.d_type[k], q.d_gain[k], k)) / 16384.0;
+            CHECK(fabs(now / was - 1.0) < 0.025, "gain staging: DISTROY's band %u moved to %.3f of its level (want within "
+                  "0.2 dB: the dB steps' grain)", k + 1u, now / was);
+        }
+        CHECK(q.lv == 1u && p.lv == 0u, "gain staging: the factory's patches are from before (lv %u), moved to lv %u", p.lv, q.lv);
+        p = SD_PATCH[SD_P_STRINGS]; sd_patch_levels(&p);
+        q = SD_PATCH[SD_P_ORBITAL]; sd_patch_levels(&q);
+        CHECK(p.lv == 3u && q.lv == 1u, "gain staging: STRINGS keeps RES as it was (lv %u, its stage levels at the top), "
+              "ORBITAL takes the make-up (lv %u)", p.lv, q.lv);
+    }
+    for (i = 0; i < SD_PATCHES; i++) {          /* the factory's, as they are */
+        Meas m = sd_loud(&e3, &m3, &SD_PATCH[i]);
+        int perc = i == SD_P_PLUCKS || i == SD_P_SHARDS || i == SD_P_PRISM;
+        if (!perc) { lo = m.mmax < lo ? m.mmax : lo; hi = m.mmax > hi ? m.mmax : hi; }
+        grx = m.gr_max > grx ? m.gr_max : grx;
+        dlx = m.dlim_max > dlx ? m.dlim_max : dlx;
+        CHECK(perc ? m.mmax > -23.0 && m.mmax < -10.0 : m.mmax > -12.5 && m.mmax < -9.5, "gain staging: %s at %.1f LUFS "
+              "(its loudest 400 ms; want -11 +-1.5, the percussive -23 .. -10)", SD_PATCH_NAME[i], m.mmax);
+        CHECK(m.gr_max < 4.5 && m.dlim_max < 1.0, "gain staging: %s as it is: the output limiter %.1f dB deep, DISTROY's "
+              "safety %.1f", SD_PATCH_NAME[i], m.gr_max, m.dlim_max);
+    }
+    printf("gain staging: DRIVE 0 -> 100 %% %+.1f %+.1f %+.1f dB (DISTROY SPLIT COMET); the factory's %.1f .. %.1f LUFS "
+           "(the percussive three lower), the output limiter at most %.1f dB deep, DISTROY's safety %.1f\n", dr[0], dr[1],
+           dr[2], lo, hi, grx, dlx);
 }
 
 /* The output's limiter (STRINGS' POLY chord at velocity 127 flattened 9 % of its samples, the macros and
  * slots at full up to a fifth of them on 20 patches): the chord now never past its ceiling, a quiet note untouched (the
- * gain open, the output the input 64 frames later) */
+ * gain open, the output the input 64 frames later). Since the make-ups and TRIM (2026-11-21) STRINGS no longer reaches
+ * it: the chord here at TRIM's top (+18 dB) */
 static void test_limiter(void)
 {
     static SdEngine e2;
@@ -4194,7 +4758,11 @@ static void test_limiter(void)
     uint32_t t, i, flat = 0;
     int32_t pk = 0, gmin = 32768, g1;
     sd_engine_init(&e2);
-    sd_engine_patch(&e2, &SD_PATCH[SD_P_STRINGS]);
+    {
+        SdPatch hot = SD_PATCH[SD_P_STRINGS];
+        hot.trim = SD_TRIM_HI;
+        sd_engine_patch(&e2, &hot);
+    }
     e2.mode = SD_MODE_POLY;
     run_ms(&e2, 20);
     sd_engine_note(&e2, 48, 127); sd_engine_note(&e2, 55, 127); sd_engine_note(&e2, 60, 127); sd_engine_note(&e2, 63, 127);
@@ -4202,7 +4770,7 @@ static void test_limiter(void)
         memset(o, 0, sizeof o);
         sd_engine_render(&e2, o, 2048u);
         for (i = 0; i < 2u * 2048u; i++) { int32_t a = abs(o[i]); if (a > pk) pk = a; flat += a >= 32767; }
-        if (e2.lim_g < gmin) gmin = e2.lim_g;
+        if (e2.lim_own < gmin) gmin = e2.lim_own;
     }
     CHECK(pk <= SD_LIM_T + SD_LIM_T / 100 && !flat && gmin < 32768, "the limiter: STRINGS' chord at %d (ceiling %d), %u "
           "samples flat, its gain down to %d", pk, SD_LIM_T, flat, gmin);
@@ -4214,7 +4782,7 @@ static void test_limiter(void)
     for (t = 0, gmin = 32768; t < 20u; t++) {
         memset(o, 0, sizeof o);
         sd_engine_render(&e2, o, 2048u);
-        if (e2.lim_g < gmin) gmin = e2.lim_g;
+        if (e2.lim_own < gmin) gmin = e2.lim_own;
     }
     CHECK(gmin == 32768, "the limiter acted on a quiet note (gain %d)", gmin);
     printf("limiter: STRINGS' POLY chord at velocity 127 peaks %.3f x full scale, none flat (the gain down to %.1f dB); "
@@ -4223,6 +4791,47 @@ static void test_limiter(void)
 
 /* RADAR: a modulation source in the patch. Off by default; CHANGE 0 a locked loop of LENGTH steps;
  * DEST XM moves the patch's XM in steps; NOTES moves SEQ A's notes in the scale and never rewrites the pattern */
+/* DISTROY at the rate (d.lite, 2026-11-21: the FM-1 with one core left): every patch with DISTROY that sounds, a
+ * chord held, about as loud as at twice the rate, inside full scale, as late (the onset within four frames, 0.1 ms: a
+ * fixed threshold crossed by a slightly other signal; GROWL 3 dB up by its TRIM crosses it 3 apart), and some not the same signal (those shaping their top bands at the
+ * rate: SOFT HARD FOLD; NONE and CRUSH were at the rate already); lite 0 is the engine as ever */
+static void test_distroy_lite(void)
+{
+    static SdEngine e1, e2;
+    static int32_t a[2u * SD_FS], b[2u * SD_FS];
+    uint32_t pi, i, n = SD_FS, tested = 0, differ = 0;
+    for (pi = 0; pi < SD_PATCHES; pi++) {
+        SdPatch p = SD_PATCH[pi];
+        double ea = 0, eb = 0, dd = 0;
+        int32_t pk = 0;
+        uint32_t fa = 0, fb = 0;
+        if (p.fx_off & SD_FX_DISTROY || !p.d_mix) continue;
+        sd_engine_init(&e1); sd_engine_init(&e2);
+        sd_engine_patch(&e1, &p); sd_engine_patch(&e2, &p);
+        e2.d.lite = 1;
+        sd_engine_note(&e1, 45, 120); sd_engine_note(&e2, 45, 120);
+        sd_engine_note(&e1, 57, 100); sd_engine_note(&e2, 57, 100);
+        run(&e1, a, n, 256);
+        run(&e2, b, n, 256);
+        for (i = 0; i < 2u * n; i++) {
+            int32_t v = b[i] < 0 ? -b[i] : b[i];
+            if (v > pk) pk = v;
+            if (!fa && (a[i] > 300 || a[i] < -300)) fa = i / 2u + 1u;
+            if (!fb && (b[i] > 300 || b[i] < -300)) fb = i / 2u + 1u;
+            if (i >= n / 2u) { ea += (double)a[i] * a[i]; eb += (double)b[i] * b[i]; dd += (double)(a[i] - b[i]) * (a[i] - b[i]); }
+        }
+        CHECK(pk <= 32767, "DISTROY lite, %s: peak %d past full scale", SD_PATCH_NAME[pi], pk);
+        if (ea < 1e9) continue;                 /* (a patch quiet on this chord: nothing to compare) */
+        CHECK(eb > ea * 0.5 && eb < ea * 2.0, "DISTROY lite, %s: %.2f of the energy at x2 (want 0.5 .. 2)",
+              SD_PATCH_NAME[pi], eb / ea);
+        CHECK(fa + 4u >= fb && fb + 4u >= fa, "DISTROY lite, %s: the onset at frame %u, at x2 %u (not as late)",
+              SD_PATCH_NAME[pi], fb, fa);
+        differ += dd > 0;
+        tested++;
+    }
+    CHECK(tested >= 5u && differ >= 3u, "DISTROY lite: %u patches compared, %u of them changed", tested, differ);
+}
+
 static void test_radar(void)
 {
     static SdEngine e1;
@@ -4254,7 +4863,7 @@ static void test_radar(void)
         CHECK(same && varied, "CHANGE 0: not a loop of 5 (same %u, varied %u)", same, varied);
     }
     CHECK(xmax > 32768u + 3000u && xmin < 32768u - 3000u, "DEST XM at 50 %%: XM moved only %u .. %u", xmin, xmax);
-    /* CHANGE 100: each pass the inverse, so a loop of twice LENGTH */
+    /* CHANGE 100: locked as at 0 (2026-11-21; it was the inverse each pass, a loop of twice LENGTH) */
     pt.tur_set = 0x80u | 100u;
     sd_engine_init(&e1);
     sd_engine_patch(&e1, &pt);
@@ -4264,11 +4873,13 @@ static void test_radar(void)
         if (e1.tur_count != last) { last = e1.tur_count; vals[k++] = e1.tur_out; }
     }
     {
-        uint32_t same = 1, half = 1;
-        for (k = 13; k < 40u; k++) same &= vals[k] == vals[k - 10u];
-        for (k = 13; k < 40u; k++) half &= vals[k] == vals[k - 5u];
-        CHECK(same && !half, "CHANGE 100: not a loop of 10 (same %u, of 5 %u)", same, half);
+        uint32_t same = 1;
+        for (k = 8; k < 40u; k++) same &= vals[k] == vals[k - 5u];
+        CHECK(same, "CHANGE 100: not locked, a loop of 5");
     }
+    /* CHANGE 60 and 40: the same chance (the middle the most) */
+    pt.tur_set = 0x80u | 60u;
+    CHECK(SD_TUR_FLIP(&pt) == 40u && (pt.tur_set = 0x80u | 40u, SD_TUR_FLIP(&pt) == 40u), "SEARCH 60 and 40: not both 40 %%");
     /* off: nothing moves */
     pt.tur_set = 25u;
     sd_engine_init(&e1);
@@ -4323,6 +4934,9 @@ int main(void)
     test_alias();
     test_nowhere();
     test_radar();
+    test_distroy_lite();
+    test_gain_staging();
+    test_sub();
     test_limiter();
     test_orbit();
     test_xkey();
@@ -4331,6 +4945,8 @@ int main(void)
     test_headroom();
     test_more();
     test_cue();
+    test_pat_one();
+    test_song();
     test_tq();
     test_plate();
     test_plate_jobs();
@@ -4338,6 +4954,8 @@ int main(void)
     test_freeze_room();
     test_c1_halves();
     test_arp_grid();
+    test_arp_tempo();
+    test_clock_out();
     test_pingpong();
     test_clock();
     test_gen();
@@ -4371,6 +4989,7 @@ int main(void)
     test_chunking();
     test_timing();
     test_clicks();
+    test_drums();
     printf(fails ? "sd_test: %d FAILED\n" : "sd_test: all passed\n", fails);
     return fails ? 1 : 0;
 }

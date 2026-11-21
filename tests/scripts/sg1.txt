@@ -1,0 +1,6 @@
+# SG1 (2026-11-19, tests/app_song_test.c): the old ORBITs read as songs at the start; PLAY (12): S01 plays, its step 1
+# loads P03 into SEQ A; SEQ (11): SEQ A's page shows it (shot 2600). Ends playing.
+1700 btn 12
+2400 btn 11
+2600 shot
+3000 end

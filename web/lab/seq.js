@@ -7,8 +7,8 @@ import { controls, h, knob, seg, toggle, pick, stepper, noteText } from './ui.js
 
 // web_seq_layout's order (LAB_SEQ_OFF)
 const NAMES = ['stepSize', 'note', 'vel', 'gate', 'type', 'ratchet', 'prob', 'chord', 'step', 'len', 'div', 'swing',
-  'segCount', 'segSplit', 'segRep', 'segOrder', 'segSkip', 'scale', 'patSize', 'oOn', 'oLen', 'oRate', 'oGlide', 'oDst',
-  'oXa', 'oXb', 'oLane', 'oMac', 'orbSize'];
+  'segCount', 'segSplit', 'segRep', 'segOrder', 'segSkip', 'scale', 'patSize', 'oOn', 'oLen', 'oEnd', 'oGlide', 'oDst',
+  'oXa', 'oXb', 'oLane', 'oMac', 'orbSize', 'oPat', 'oLoops', 'orbSteps', 'orbLoopsMax'];
 export const LS = { BPM: 0, MODE: 1, ARP: 2, AMODE: 3, ADIV: 4, AOCT: 5, AGATE: 6, AHOLD: 7, ON_A: 8, ON_B: 9, MASTER: 10, CHROM: 11,
   LOOP: 12, REV: 13, LLEN: 14, LLVL: 15, LSPEED: 16, LGLIDE: 17, FREEZE: 18 };   // (web_lab.h: LAB_LS_*)
 export const OP = { LEN: 1, CUT: 2, EVEN: 3, SEGLEN: 4, RND: 5, CLEAR: 6 };
@@ -193,30 +193,62 @@ export function buildSeq(Q) {
   });
   body.append(Q.row('tw', tracks, insp));
 
-  // ---- ORBIT: its settings, then its lanes, a bar a step
-  const ob = Q.mod('orb', 'ORBIT · SEQ A\'S');
+  // ---- ORBIT, the song: its settings, then a row a step's value, a cell a step (its patterns, LOOPS, the lanes)
+  const ob = Q.mod('orb', 'ORBIT · THE SONG');
   const orb = () => Q.seq().orb;
+  const NS = L.orbSteps || 16;
   const of = (key, name, lo, hi, fmt, dec, at = 0) => src(name, lo, hi, () => (dec ? dec(orb()[L[key] + at]) : orb()[L[key] + at]),
     (v) => putO((b) => { b[L[key] + at] = v; }), fmt);
-  const olen = () => { const v = orb()[L.oLen]; return v ? Math.max(2, Math.min(8, v)) : 4; };
+  const olen = () => { const v = orb()[L.oLen]; return v ? Math.max(1, Math.min(NS, v)) : 4; };
   const gl = (bit, name) => src(name, 0, 1, () => (orb()[L.oGlide] >> bit) & 1, (v) => putO((b) => { b[L.oGlide] = v ? b[L.oGlide] | (1 << bit) : b[L.oGlide] & ~(1 << bit); }));
   const dn = E(8);
   ob.append(Q.row('', toggle(null, 'ON', { src: of('oOn', 'ORBIT', 0, 1), title: 'ORBIT on: it comes in at the one' }),
-    stepper(null, 'STEPS', { src: of('oLen', 'ORBIT STEPS', 2, 8, String, (v) => (v ? Math.max(2, Math.min(8, v)) : 4)) }),
-    seg(null, 'A STEP LASTS', { src: of('oRate', 'ORBIT RATE', 0, 2, String, (v) => Math.min(2, v)), names: ['1 LOOP', '2 LOOPS', '4 LOOPS'], values: [0, 1, 2] }),
+    stepper(null, 'STEPS', { src: of('oLen', 'ORBIT STEPS', 1, NS, String, (v) => (v ? Math.max(1, Math.min(NS, v)) : 4)) }),
+    seg(null, 'AT THE END', { src: of('oEnd', 'ORBIT END', 0, 1, String, (v) => Math.min(1, v)), names: ['LOOP', 'STOP'], values: [0, 1] }),
     Q.lbl('GLIDE'), toggle(null, 'LANE 1', { src: gl(0, 'GLIDE LANE 1') }), toggle(null, 'LANE 2', { src: gl(1, 'GLIDE LANE 2') }),
     toggle(null, 'MACROS', { src: gl(2, 'GLIDE MACROS') }),
     pick(null, 'LANE 1 TO', { src: of('oDst', 'LANE 1 DEST', 0, dn.length - 1), names: Q.dord.map((d) => dn[d]), values: Q.dord }),
     pick(null, 'LANE 2 TO', { src: of('oDst', 'LANE 2 DEST', 0, dn.length - 1, String, undefined, 1), names: Q.dord.map((d) => dn[d]), values: Q.dord })));
   const lanes = h('div', 'lanes');
+  // the song's own rows: SEQ A's and B's pattern (0: as it plays; the firmware keeps only the saved ones), LOOPS
+  const NUMS = [['SEQ A', 'oPat', 0, 0, 32, (v) => (v ? `P${String(v).padStart(2, '0')}` : '--')],
+    ['SEQ B', 'oPat', NS, 0, 32, (v) => (v ? `P${String(v).padStart(2, '0')}` : '--')],
+    ['LOOPS', 'oLoops', 0, 1, L.orbLoopsMax || 8, (v) => `×${v}`]];
+  for (const [name, key, at, lo, hi, fmt] of NUMS) {
+    const r = h('div', 'lane');
+    r.append(h('span', 'lbl', name));
+    const cells = [];
+    for (let s = 0; s < NS; s++) {
+      const c = h('div', 'bar num', '<output></output>');
+      c.title = `${name}, ORBIT step ${s + 1}: scroll or drag (${lo} .. ${hi}); double-click: ${lo ? lo : 'as it plays'}`;
+      const get = () => Math.max(lo, Math.min(hi, orb()[L[key] + at + s]));
+      const put = (v) => putO((b) => { b[L[key] + at + s] = Math.max(lo, Math.min(hi, Math.round(v))); });
+      let drag = null;
+      c.addEventListener('pointerdown', (e) => { e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (_) { /* (gone) */ } drag = { y: e.clientY, v: get() }; });
+      c.addEventListener('pointermove', (e) => { if (drag) put(drag.v + (drag.y - e.clientY) / 8); });
+      c.addEventListener('pointerup', () => { drag = null; });
+      c.addEventListener('wheel', (e) => { e.preventDefault(); put(get() + Math.sign(-e.deltaY || e.deltaX)); }, { passive: false });
+      c.addEventListener('dblclick', () => put(lo));
+      r.append(c);
+      cells.push({ c, get });
+    }
+    lanes.append(r);
+    controls.push({
+      update() {
+        const n = olen();
+        cells.forEach((b, s) => { b.c.querySelector('output').textContent = fmt(b.get()); b.c.classList.toggle('out', s >= n); });
+      },
+    });
+  }
   const LANES = [['XPOS A', 'oXa', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`], ['XPOS B', 'oXb', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`],
-    ['LANE 1', 'oLane', 0, 100, (v) => `${v > 0 ? '+' : ''}${v}%`], ['LANE 2', 'oLane', 8, 100, (v) => `${v > 0 ? '+' : ''}${v}%`],
-    ['MUTATE', 'oMac', 0, 99, String], ['MOVE', 'oMac', 8, 99, String], ['BREAK', 'oMac', 16, 99, String], ['MACRO 4', 'oMac', 24, 99, String]];
+    ['LANE 1', 'oLane', 0, 100, (v) => `${v > 0 ? '+' : ''}${v}%`], ['LANE 2', 'oLane', NS, 100, (v) => `${v > 0 ? '+' : ''}${v}%`],
+    ['MUTATE', 'oMac', 0, 99, String], ['MOVE', 'oMac', NS, 99, String], ['BREAK', 'oMac', 2 * NS, 99, String],
+    ['MACRO 4', 'oMac', 3 * NS, 99, String]];
   for (const [name, key, at, hi, fmt] of LANES) {
     const r = h('div', 'lane');
     r.append(h('span', 'lbl', name));
     const bars = [];
-    for (let s = 0; s < 8; s++) {
+    for (let s = 0; s < NS; s++) {
       const c = h('div', 'bar', '<i></i><output></output>');
       c.title = `${name}, ORBIT step ${s + 1}: drag or scroll (−${hi} .. +${hi}); double-click: 0`;
       const get = () => s8(orb()[L[key] + at + s]);

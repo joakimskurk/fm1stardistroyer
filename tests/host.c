@@ -139,7 +139,12 @@ static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2)
     mq_r++;
     return src;
 }
-static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { printf("%6u ms  MIDI out %02X %u %u\n", fm1_ms, st, d1, d2); }
+static uint32_t midi_clocks_out;                /* the F8s counted, not printed (24 a quarter) */
+static void midi_send(uint32_t st, uint32_t d1, uint32_t d2)
+{
+    if (st == 0xF8u) { midi_clocks_out++; return; }
+    printf("%6u ms  MIDI out %02X %u %u (%u clocks so far)\n", fm1_ms, st, d1, d2, midi_clocks_out);
+}
 
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
@@ -224,6 +229,12 @@ static const char *host_out = "build/host/dinghy";
 static int16_t *wav;
 static uint32_t wav_n;
 
+static int host_no_files(void)                  /* HOST_NO_FILES=1: no screens, no sound file (a long run: tests/app_fuzz_test.c) */
+{
+    static int v = -1;
+    if (v < 0) v = getenv("HOST_NO_FILES") != NULL;
+    return v;
+}
 static void write_ppm_as(const char *name)
 {
     FILE *f;
@@ -241,6 +252,7 @@ static void write_ppm_as(const char *name)
 static void write_ppm(uint32_t t)
 {
     char name[512];
+    if (host_no_files()) return;
     snprintf(name, sizeof name, "%s-%u.ppm", host_out, t);
     write_ppm_as(name);
     printf("%6u ms  screen -> %s\n", t, name);
@@ -251,6 +263,7 @@ static void write_wav(void)
     char name[512];
     FILE *f;
     uint32_t bytes = wav_n * 4u, v[] = {16, 0x00020001u, FS, FS * 4u, 0x00100004u};
+    if (host_no_files()) return;
     snprintf(name, sizeof name, "%s.wav", host_out);
     if (!(f = fopen(name, "wb"))) { perror(name); exit(1); }
     fwrite("RIFF", 1, 4, f); bytes += 36; fwrite(&bytes, 4, 1, f); bytes -= 36;
@@ -283,11 +296,20 @@ static void perf_report(void)
                (unsigned long long)(perf_insns / perf_frames), (unsigned long long)perf_frames);
 }
 
+#ifdef HOST_POLL_HOOK
+static void HOST_POLL_HOOK(void);               /* (a test's own look each millisecond: tests/app_fuzz_test.c) */
+#endif
+#ifdef HOST_BLOCK_HOOK
+static void HOST_BLOCK_HOOK(const int32_t *blk, uint32_t frames);   /* (and at each block of sound) */
+#endif
 static void platform_poll(void)                 /* one call = one millisecond */
 {
     static uint32_t step, shot, owed, frame;
     static int32_t blk[2u * HALF_FRAMES];
     fm1_ms++;
+#ifdef HOST_POLL_HOOK
+    HOST_POLL_HOOK();
+#endif
 #if BOARD_SMK37
     fm1_in.frames++;                            /* (the SMK scans ~625 frames a second; enough for "settled") */
 #endif
@@ -345,6 +367,10 @@ static void platform_poll(void)                 /* one call = one millisecond */
             if (read(perf_fd, &c, sizeof c) == sizeof c && fm1_ms > 1000u) { perf_insns += (uint64_t)c; perf_frames += HALF_FRAMES; }
         }
 #endif
+#ifdef HOST_BLOCK_HOOK
+        HOST_BLOCK_HOOK(blk, HALF_FRAMES);
+#endif
+        if (host_no_files()) continue;
         wav = realloc(wav, (wav_n + HALF_FRAMES) * 4u);
         for (i = 0; i < 2u * HALF_FRAMES; i++) {
             int32_t v = blk[i];                 /* (USB audio at the MASTER knob all the way up) */

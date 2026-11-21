@@ -1,0 +1,39 @@
+# REC1 (2026-11-20): REC while it plays, SEQ A. PLAY (12), SEQ (11), REC (13); 16 keys (C4 up, keys 7..18), one each 137 ms
+# from 2003 ms, round the 16 steps twice (16ths at 120 BPM: 125 ms): each goes to the step nearest where it was heard,
+# the engine's place less rec_ahead (the host: 472 frames); one past the middle into the next step as it begins
+1700 btn 12
+1800 btn 11
+1900 btn 13
+2003 keys 0x80
+2033 keys 0
+2140 keys 0x100
+2170 keys 0
+2277 keys 0x200
+2307 keys 0
+2414 keys 0x400
+2444 keys 0
+2551 keys 0x800
+2581 keys 0
+2688 keys 0x1000
+2718 keys 0
+2825 keys 0x2000
+2855 keys 0
+2962 keys 0x4000
+2992 keys 0
+3099 keys 0x8000
+3129 keys 0
+3236 keys 0x10000
+3266 keys 0
+3373 keys 0x20000
+3403 keys 0
+3510 keys 0x40000
+3540 keys 0
+3647 keys 0x80
+3677 keys 0
+3784 keys 0x100
+3814 keys 0
+3921 keys 0x200
+3951 keys 0
+4058 keys 0x400
+4088 keys 0
+5000 end

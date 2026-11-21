@@ -154,6 +154,7 @@ class StarDistroyer extends AudioWorkletProcessor {
       }
     } else if (m.type === 'key') x.web_key(m.k, m.down ? 1 : 0);
     else if (m.type === 'btn') x.web_btn(m.id, m.down ? 1 : 0);
+    else if (m.type === 'lat') { if (x.web_lat) x.web_lat(Math.max(0, Math.round(m.s * FS))); }   // (REC: by what was heard)
     else if (m.type === 'enc') x.web_enc(m.id, m.n);
     else if (m.type === 'midi') x.web_midi(m.d[0], m.d[1] || 0, m.d[2] || 0, m.src || 1);
   }

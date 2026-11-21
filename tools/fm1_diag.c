@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 joakimskurk */
 /* Star Distroyer's diagnosis over USB, on a Mac: reads what the FM-1 is doing while it plays, and what it kept from its
- * last crash. Read only: it sends the FM-1 one question, F0 7D 53 44 01 F7 (the app's sd_diag_service answers), and
- * nothing else, never the installer's messages; the FM-1 writes nothing for it, and no flash.
+ * last crash. Read only: it sends the FM-1 two questions, F0 7D 53 44 01 F7 and (the second page: the write watch
+ * and each core's record at its last fault, two cores only) F0 7D 53 44 03 F7 (the app's sd_diag_service answers), and nothing
+ * else, never the installer's messages; the FM-1 writes nothing for it, and no flash.
  *   cc -O2 -o build/fm1_diag tools/fm1_diag.c -framework CoreMIDI -framework CoreFoundation
  *   build/fm1_diag                       one reading, every field named
  *   build/fm1_diag -w [ms] [-o log.txt]  a reading every ms (default 250), a line each (and into the log); when the
@@ -32,8 +33,27 @@ static const char *const NAME[] = {
     "core 2 at it: RETS", "core 2 at it: gave up", "core 2 at it: rejected", "core 2 at it: misread",
     "core 2 at it: zero word misreads", "core 2 at it: zero word last",
     "RAM code: words unlike the flash", "RAM code: first unlike", "RAM code: last unlike",
-    "RAM code: the KB with one (bits)"};
+    "RAM code: the KB with one (bits)", "supplies at the boot", "supplies as set",
+    "clock: measured (MHz x 10)", "clock: SYS_DIV", "clock: CLK_CON0", "clock: CLK_CON2", "clock: PLL_CON0",
+    "clock: PLL_CON1", "clock: PLL2_CON0", "clock: PLL2_CON1",
+    "CPU: worst since the start (0.1 %)", "CPU: gaps since the start (interrupts past their time)",
+    "core 2 wait: worst of the last second (0.1 %)", "core 2 wait: worst since the start (0.1 %)"};
 #define NNAME ((int)(sizeof NAME / sizeof NAME[0]))
+/* the second page: the watch, then each core's record (hal/fm1_cpu1.h's fm1_dump_t, 57 words) */
+static const char *const NAME2[] = {"page", "watch: CPU0's windows", "watch: core 2's windows", "watch: DMA's windows",
+                                    "watch: DBG_EN", "core 2 now: PC", "core 2 now: last branch"};
+static const char *const DUMP[] = {
+    "magic", "TIMER4 at it", "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13",
+    "r14", "r15", "PC (reti)", "rets", "psr", "usp", "ssp", "sp", "branch 0", "branch 1", "branch 2", "branch 3",
+    "EMU", "limit SSP high", "limit SSP low", "limit USP high", "limit USP low", "DBG", "AXI read invalid: whose",
+    "AXI write invalid: whose", "CPU0's window hit", "core 2's window hit", "a DMA's window hit", "the DMA's ID",
+    "the other core's PC"};
+#define NDUMP 57
+static const char *const DBGB[22] = {"watchdog", "DMA read MMU", "DMA write in a watch", "DMA write MMU",
+    "AXI read invalid", "AXI write invalid", "core 2 read MMU", "CPU0 read MMU", "core 2 write MMU", "CPU0 write MMU",
+    "core 2 PC limit", "core 2 write in a watch", "CPU0 PC limit", "CPU0 write in a watch", "dmc", "dbg",
+    "core 2 fetch bus invalid", "core 2 read bus invalid", "core 2 write bus invalid", "CPU0 fetch bus invalid",
+    "CPU0 read bus invalid", "CPU0 write bus invalid"};
 enum { W_UP = 2, W_CPU = 3, W_MODE = 4, W_C1 = 5, W_REJ = 10, W_MIS = 11, W_JOBS = 12, W_C1F = 13, W_STACK = 18,
        W_PBAD = 22, W_PLAST = 23, W_CRASH = 26, W_C1L = 42 };
 
@@ -41,7 +61,7 @@ static uint8_t rx[4096];
 static size_t rxn;
 static int in_sx;
 static uint32_t w[128];
-static volatile int nw, got;
+static volatile int nw, got, want = 2;
 
 static void on_read(const MIDIPacketList *pl, void *ref, void *src)
 {
@@ -57,7 +77,7 @@ static void on_read(const MIDIPacketList *pl, void *ref, void *src)
             if (rxn < sizeof rx) rx[rxn++] = b;
             if (b != 0xF7) continue;
             in_sx = 0;
-            if (rxn >= 7 && rx[1] == 0x7D && rx[2] == 0x53 && rx[3] == 0x44 && rx[4] == 0x02) {
+            if (rxn >= 7 && rx[1] == 0x7D && rx[2] == 0x53 && rx[3] == 0x44 && rx[4] == want) {
                 int k = rx[5], a, d;
                 if (k > 128 || rxn < (size_t)(7 + 8 * k)) continue;
                 for (a = 0; a < k; a++) {
@@ -89,9 +109,11 @@ static MIDISysexSendRequest req;
 static volatile int sent;
 static void on_sent(MIDISysexSendRequest *r) { (void)r; sent = 1; }
 
-static int reading(MIDIEndpointRef dst, int ms)   /* ask once; 1 when the answer came in ms */
+static int reading_p(MIDIEndpointRef dst, int ms, int page)   /* ask once; 1 when the answer came in ms */
 {
     int t;
+    ask[4] = (uint8_t)(2 * page - 1);           /* 01 03 */
+    want = 2 * page;
     got = 0;
     sent = 0;
     memset(&req, 0, sizeof req);
@@ -104,6 +126,7 @@ static int reading(MIDIEndpointRef dst, int ms)   /* ask once; 1 when the answer
     __sync_synchronize();
     return got;
 }
+static int reading(MIDIEndpointRef dst, int ms) { return reading_p(dst, ms, 1); }
 
 static int find(MIDIEndpointRef *src, MIDIEndpointRef *dst)   /* the FM-1's ports: 1 when both are there */
 {
@@ -117,7 +140,48 @@ static int find(MIDIEndpointRef *src, MIDIEndpointRef *dst)   /* the FM-1's port
 static void full(FILE *f)
 {
     int i;
-    for (i = 0; i < nw && i < NNAME; i++) fprintf(f, "  %-38s %08X  (%u)\n", NAME[i], w[i], w[i]);
+    for (i = 0; i < nw && i < NNAME; i++) {
+        fprintf(f, "  %-38s %08X  (%u)", NAME[i], w[i], w[i]);
+        if (i >= 57 && i <= 58 && w[i])         /* (P3_ANA_CON6 | CON9 << 8: VDC14 bits 0..2, SYSVDD bits 0..3) */
+            fprintf(f, "  VDC14 %u (%.2f V), SYSVDD %u (%.2f V)", w[i] & 7u, 1.25 + 0.05 * (w[i] & 7u),
+                    w[i] >> 8 & 15u, 0.93 + 0.03 * (w[i] >> 8 & 15u));
+        if (i == 59 && w[i]) fprintf(f, "  = %.1f MHz", w[i] / 10.0);
+        fputc('\n', f);
+    }
+}
+static void bits(FILE *f, const char *what, uint32_t v)   /* a cause register's bits by name */
+{
+    int b;
+    if (!v) return;
+    fprintf(f, "      %s:", what);
+    for (b = 0; b < 32; b++) {
+        if (!(v >> b & 1u)) continue;
+        if (!strcmp(what, "DBG")) fprintf(f, " [%s]", b < 22 ? DBGB[b] : "?");
+        else fprintf(f, " [%s]", b == 0 ? "misaligned" : b == 1 ? "illegal" : b == 2 ? "div 0" : b == 3 ? "stack limit"
+                                 : b == 8 ? "watchpoint" : b >= 16 && b <= 20 ? "fpu" : "?");
+    }
+    fputc('\n', f);
+}
+static void full2(FILE *f)                      /* the second page (call after reading_p(.., 2)) */
+{
+    int i, c;
+    for (i = 0; i < 7 && i < nw; i++) fprintf(f, "  %-38s %08X  (%u)\n", NAME2[i], w[i], w[i]);
+    for (c = 0; c < 2; c++) {
+        const uint32_t *d = &w[7 + NDUMP * c];
+        if (7 + NDUMP * (c + 1) > nw) break;
+        fprintf(f, "  --- %s's record at its last fault%s\n", c ? "core 2" : "CPU0",
+                d[0] == 0x504D5544u ? "" : " (none: no magic)");
+        if (d[0] != 0x504D5544u) continue;
+        for (i = 1; i < 41; i++) {
+            fprintf(f, "  %-38s %08X  (%u)", DUMP[i], d[i], d[i]);
+            if (i == 1) fprintf(f, "  = %.3f s", d[i] / 24e6);
+            fputc('\n', f);
+            if (i == 28) bits(f, "EMU", d[i]);
+            if (i == 33) bits(f, "DBG", d[i]);
+        }
+        for (i = 0; i < 16; i++) fprintf(f, "  stack sp+%-3d                          %08X  (%u)\n", 184 + 4 * i,
+                                         d[41 + i], d[41 + i]);
+    }
 }
 
 int main(int argc, char **argv)
@@ -147,7 +211,13 @@ int main(int argc, char **argv)
         if (!reading(dst, 1500)) { fprintf(stderr, "fm1_diag: no answer (an older firmware, or USB MIDI not through)\n"); return 1; }
         printf("Star Distroyer, the FM-1 now:\n");
         full(stdout);
-        if (lg) { full(lg); fclose(lg); }
+        if (lg) full(lg);
+        if (reading_p(dst, 1500, 2)) {
+            printf("The second page (the watch, the records):\n");
+            full2(stdout);
+            if (lg) full2(lg);
+        }
+        if (lg) fclose(lg);
         return 0;
     }
     printf("time      up s   CPU   mode play  core2 on/gave/cut  jobs      rejected  zero-word misreads  core2 faults  RAM code unlike (KB bits)\n");
@@ -174,6 +244,14 @@ int main(int argc, char **argv)
                 printf("%s  RESTARTED. The crash it kept:\n", ts);
                 full(stdout);
                 if (lg) { fprintf(lg, "%s  RESTARTED. The crash it kept:\n", ts); full(lg); }
+                if (reading_p(dst, 1500, 2)) {
+                    printf("The second page (the watch, the records):\n");
+                    full2(stdout);
+                    if (lg) { fprintf(lg, "The second page (the watch, the records):\n"); full2(lg); }
+                }
+                last_up = up;
+                if (!reading(dst, 1500)) continue;   /* (the first page again for the line below) */
+                up = w[W_UP], c1 = w[W_C1];
             }
             last_up = up;
             snprintf(line, sizeof line, "%s  %6.1f  %4.1f%%  %u    %u     %u/%u/%u            %-9u %-9u %-8u (last %08X)  %-12u  %u (%08X)\n", ts,

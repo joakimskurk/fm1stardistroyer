@@ -9,7 +9,10 @@
  *   in the ISR:   p = fm1_audio_pending();  fm1_audio_ack_aux(p);
  *                 if (p & FM1_AUDIO_HALF) { fill fm1_audio_free_half();
  *                                           fm1_audio_ack_half(); }
- *   fm1_audio_stop()      DMA off (crash screen, UBOOT): no looping buzz
+ *   fm1_audio_unmute()    the output let out: PC6, which init leaves low. A cold codec still settles for a while
+ *                         after it powers up, and let out at once it popped loudly at every power-on (2026-11-21,
+ *                         the user's FM-1): the app calls this once the zeros have run ~1 s (platform.c)
+ *   fm1_audio_stop()      PC6 low, DMA off (crash screen, UBOOT): no looping buzz, no click
  */
 #pragma once
 #include <stdint.h>
@@ -65,14 +68,13 @@ FM1_INLINE void fm1_audio_init(int32_t *buf, uint32_t half_words, void (*isr)(vo
     FM1_ALNK_CON1 |= 1u << 12;
     FM1_ALNK_CON1 |= 1u << 14;
     FM1_ALNK_ADR3 = (uint32_t)(uintptr_t)buf;
-    fm1__pc_out(6, 1);
     FM1_ALNK_CON1 &= ~(1u << 15);
     FM1_ALNK_CON2 = 0x0Fu;
     fm1_irq_attach(FM1_IRQ_ALNK0, isr, prio);
-    FM1_ALNK_CON0 |= 0x800u;
+    FM1_ALNK_CON0 |= 0x800u;                   /* (zeros from here; PC6 stays low: fm1_audio_unmute) */
     fm1_delay_ms(5);
-    fm1__pc_out(6, 1);
 }
+FM1_INLINE void fm1_audio_unmute(void) { fm1__pc_out(6, 1); }
 
 FM1_INLINE uint8_t fm1_audio_pending(void) { return FM1_ALNK_CON2; }
 FM1_INLINE void fm1_audio_ack_aux(uint8_t p)   /* the other three pendings */
@@ -86,4 +88,4 @@ FM1_INLINE void fm1_audio_ack_aux(uint8_t p)   /* the other three pendings */
 }
 FM1_INLINE uint32_t fm1_audio_free_half(void) { return ((FM1_ALNK_CON0 >> 15) & 1u) ^ 1u; }   /* 0 / 1 */
 FM1_INLINE void fm1_audio_ack_half(void) { FM1_ALNK_CON2 |= 0x08u; }
-FM1_INLINE void fm1_audio_stop(void) { FM1_ALNK_CON0 &= ~0x800u; }
+FM1_INLINE void fm1_audio_stop(void) { fm1__pc_out(6, 0); FM1_ALNK_CON0 &= ~0x800u; }

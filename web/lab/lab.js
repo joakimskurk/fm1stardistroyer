@@ -270,7 +270,7 @@ function build() {
         edit(list);
       },
     };
-    b.append(row('', toggle(null, 'ON', { src: turOn }), knob('.tur_set', 'CHANGE', { bits: [0, 7], hi: 100, fmt: (v) => `${v} %` }),
+    b.append(row('', toggle(null, 'ON', { src: turOn }), knob('.tur_set', 'SEARCH', { bits: [0, 7], hi: 100, fmt: (v) => (v <= 0 || v >= 100 ? 'LOCK' : `${v > 50 ? 100 - v : v} %`) }),
       knob('.tur_amt', 'AMOUNT', { fmt: (v) => `${v > 0 ? '+' : ''}${v} %` }),
       stepper('.tur_ld', 'LENGTH', { bits: [0, 5], lo: 2, hi: 16, dec: (v) => (v ? Math.max(2, Math.min(16, v)) : 16), fmt: String })),
     row('', pick('.tur_dst', 'DEST', { names: [...dord.map((d) => dn[d]), 'SEQ A NOTES'], values: [...dord, 128] })),   // (the FM-1's list's order)

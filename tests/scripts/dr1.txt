@@ -1,0 +1,45 @@
+# DR1 (2026-11-19): DRUM, SEQ's fourth page. SEQ (11) four times: A, B, ORBIT, DRUM; shot 2300 (the beat, off). EDIT
+# (6) on, PLAY (12): shot 3400 (it plays). GLO held (7): G3 (key 2, step 2) twice: ON, ACCENT; C4 (key 7, step 5): its
+# ON an ACCENT; D#5 (key 22, B10; B4 until 2026-11-20): MIX, shot 3950 (GLO: the pans); GLO let go: shot 4100 (the
+# levels); K1 -10 (the kick's level); GLO + B10 again: back. ALGORITHM +1: SNARE, K4 SIZE +20, shot 4700. PRESETS +2 (D03 FOUR), shot 4900;
+# EDIT loads it (at the bar's one: shot 5100), shot 6500 (FOUR plays). SAVE (9), ALGORITHM +6 (D09), shot 6800, SAVE:
+# written; PLAY stops, into the flash (quiet, or 3 s on).
+1700 btn 11
+1800 btn 11
+1900 btn 11
+2000 btn 11
+2300 shot
+2400 btn 6
+2500 btn 12
+3400 shot
+3500 btndown 7
+3550 keys 0x4
+3600 keys 0
+3650 keys 0x4
+3700 keys 0
+3750 keys 0x80
+3800 keys 0
+3850 keys 0x400000
+3900 keys 0
+3950 shot
+4000 btnup 7
+4100 shot
+4200 enc 2 -10
+4300 btndown 7
+4350 keys 0x400000
+4400 keys 0
+4450 btnup 7
+4500 enc 1 1
+4600 enc 5 20
+4700 shot
+4800 enc 6 2
+4900 shot
+5000 btn 6
+5100 shot
+6500 shot
+6600 btn 9
+6700 enc 1 6
+6800 shot
+6900 btn 9
+7000 btn 12
+11000 end

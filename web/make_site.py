@@ -50,10 +50,15 @@ PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", H
           ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf": "orbitron.ttf",
           ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
 SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "radar", "orbit",
-           "arp")
-# the demos: each one FM-1 played by one person (tools/sd_play.h's rules); SINGULARITY a single take, DERELICT four
-# such passes layered
+           "arp", "drum", "setup", "time", "sub", "lfo2", "looper", "seqb")   # (every page: CONTROLS' "The pages", 2026-11-21)
+# the demos: each one FM-1 played by one person (tools/sd_play.h's rules); ARMADA and SINGULARITY a single take each,
+# DERELICT four such passes layered
 DEMOS = [
+    {"id": "armada", "wav": "build/audio/armada/star_distroyer_armada.wav", "title": "ARMADA",
+     "about": "One take on one FM-1 with its drums, nothing layered: D minor at 96 BPM, one theme told three times. "
+              "AURORA's chords frozen under SHIMMER; DRIVE's ostinato held by the looper under everything after it; "
+              "the drums coming in, RADAR playing their ZAP; STRINGS with the theme, VOYAGE's counter-line over the "
+              "arp; TITAN with the theme in octaves, ORBIT stepping both tracks, then lifting it all a whole step."},
     {"id": "singularity", "wav": "build/audio/singularity/star_distroyer_singularity.wav", "title": "SINGULARITY",
      "about": "One take on one FM-1, nothing layered: F minor at 72 BPM, POLY throughout. AURORA's glass looped, "
               "played backwards and frozen; VOWEL's voices over it, RADAR moving their notes; then DISTROY's wall, "

@@ -1,14 +1,15 @@
-# P1 (2026-11-10): SPACE's plate. FX three times (2): SPACE (SIZE DECAY TONE R-LEVEL), its hint ALGO FREEZE OFF; ALGORITHM (1) a detent:
+# P1 (2026-11-10): SPACE's plate. FX four times (2; three before TIME came before SPACE, 2026-11-21): SPACE (SIZE DECAY TONE R-LEVEL), its hint ALGO FREEZE OFF; ALGORITHM (1) a detent:
 # FREEZE on, the tail flat and tagged; GLO held (7): K1 SHIMMER, K1 (encoder 2) +32 there: 50 % (2026-11-15: on K1
 # only, not GLO + ALGORITHM); GLO let go, ALGORITHM: FREEZE off.
 # Shots: 2100 (SPACE), 2600 (FREEZE: the message), 4700 (FREEZE: the tag, the hint ON), 5100 (GLO: SHIMMER 50 %),
-# 5700 (FREEZE off). Then FX: TIME (2026-11-11; 2026-11-14 the delay alone): the delay, ALGO MODE (6000); ALGORITHM:
+# 5700 (FREEZE off). Then FX three times, round to TIME (2026-11-11; 2026-11-14 the delay alone): the delay, ALGO MODE (6000); ALGORITHM:
 # the MODE's next, its message (6200). ARP twice: LOOPER (2026-11-14 its own page, 2026-11-15 ARP's second): off, OFF: EDIT TURNS IT ON (6500); EDIT
 # arms it: LOOPER ON: DELAY 0.5 S (6700); K3 +24: SPEED +3.0, K1 +13: GLIDE 1 BAR; GLO held: GLO + ALGORITHM REVERSE on,
 # GLO + OCT-: SPEED 0, its message (7050); GLO let go: the REV tag (7200); ALGORITHM: LOOP on, both tags (7500).
 1700 btn 2
 1800 btn 2
 1900 btn 2
+2000 btn 2
 2100 shot
 2300 enc 1 1
 2600 shot
@@ -20,6 +21,8 @@
 5300 enc 1 1
 5700 shot
 5800 btn 2
+5850 btn 2
+5900 btn 2
 6000 shot
 6100 enc 1 1
 6200 shot

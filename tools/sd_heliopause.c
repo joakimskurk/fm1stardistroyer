@@ -151,7 +151,7 @@ static void patterns(void)
 }
 
 /* ---- gestures */
-static void fx_to(int to, double s0)            /* FX, a sixteenth apart, till the page 'to': REACTOR DISTROY SPACE TIME,
+static void fx_to(int to, double s0)            /* FX, a sixteenth apart, till the page 'to': REACTOR DISTROY TIME SPACE,
                                                    as the app's button goes (from another page first the one it
                                                    showed last) */
 {
@@ -279,8 +279,7 @@ static void low_setup(void)
 static int low_score(void)
 {
     int32_t v;
-    if (at(0.2)) press("ENV", PG_ENV);
-    if (at(1.4)) press("ENV", PG_FILTER);
+    if (at(1.4)) press("ENV", PG_FILTER);         /* (NAV, then FILTER: ENV's second since 2026-11-21) */
     if (at(2.6)) {                              /* EDIT: the filter on (the app's first time: open, ENV 3 = ENV 1) */
         on_page(PG_FILTER, "EDIT off FILTER");
         act();
@@ -296,9 +295,9 @@ static int low_score(void)
     on_ramp_page(PG_FILTER, 5, BAR(5) + 8);
     if (ramp(__LINE__, pat.f_cut / 147, 33000 / 147, 5, BAR(5) + 8, &v)) { pat.f_cut = (uint16_t)(v * 147); dirty = 1; }
     /* RADAR, set while it drones: to the CUTOFF (17 detents), 30 %, CHANGE 25 */
-    lfo_to_radar(BAR(6));
-    TUR_DEST_BY(17, BAR(6) + 2.2, BAR(6) + 4.6);
-    TUR_AMOUNT(30, BAR(6) + 5, BAR(6) + 10);
+    go_to("LFO", PG_MOD, BAR(6));               /* (MOD's: slot 4, GROWL's three before it) */
+    if (at(BAR(6) + 5)) tur_route(3, SD_MD_FCUT, 30);
+    go_to("LFO", PG_RADAR, BAR(6) + 6.5);      /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(25, BAR(6) + 10, BAR(6) + 14);
     TUR_LENGTH(8, BAR(6) + 14.4, BAR(6) + 15.6);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(8) + 8)) key(40, 0);
@@ -393,9 +392,9 @@ static int motion_score(void)
     if (at(BAR(13) + 4)) press("HOME", PG_MACROS);
     if (at(BAR(13) + 6)) preset(SD_P_ORBITAL);
     pot(__LINE__, 2600, BAR(13) + 6, BAR(14));
-    lfo_to_radar(BAR(13) + 8);                 /* NOTES, 36 %, CHANGE 30 */
-    TUR_DEST_BY(-1, BAR(13) + 10.5, BAR(13) + 11.5);
-    TUR_AMOUNT(36, BAR(13) + 12, BAR(14) + 2);
+    go_to("LFO", PG_MOD, BAR(13) + 8);          /* NOTES, 36 % (MOD's: slot 7, ORBITAL's six before it), CHANGE 30 */
+    if (at(BAR(13) + 12)) tur_route(6, SD_TD_NOTES, 36);
+    go_to("LFO", PG_RADAR, BAR(13) + 13.5);    /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(30, BAR(14) + 2, BAR(14) + 6);
     TUR_LENGTH(8, BAR(14) + 6.3, BAR(14) + 7.5);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(14) + 8)) tur_edit();

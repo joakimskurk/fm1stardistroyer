@@ -236,8 +236,9 @@ const { x, out } = await play(sc);
   wk.message({ type: 'key', k: 7, down: true });
   quanta(150);
   const before = posted.length;
-  wk.message({ type: 'btn', id: 8, down: true }); quanta(4);   // HOME: from MACROS (the boot's) to NAV
-  wk.message({ type: 'btn', id: 8, down: false }); quanta(40);
+  wk.message({ type: 'btn', id: 4, down: true }); quanta(4);   // ENV: from MACROS (the boot's) to NAV (ENV's first
+                                                                // since 2026-11-21; HOME's second before)
+  wk.message({ type: 'btn', id: 4, down: false }); quanta(40);
   wk.message({ type: 'enc', id: 2, n: 6 });     // K1 on the Q page: XM
   quanta(60);
   const pat = posted.slice(before).filter((m) => m.type === 'frame' && m.pat).at(-1);
@@ -270,7 +271,8 @@ const { x, out } = await play(sc);
   const L = init.layout, at = (n) => L[['stepSize', 'note', 'vel', 'gate', 'type', 'ratchet', 'prob', 'chord', 'step', 'len',
     'div', 'swing', 'segCount', 'segSplit'].indexOf(n)];
   const x = wk.x, seqOf = (k) => new Uint8Array(x.memory.buffer, x.web_seq(k), x.web_seq_size()).slice();
-  check(L && L.length === 29 && init.seq && init.seq.a.length === x.web_seq_size(), 'the worklet gave the page no sequencer');
+  check(L && L.length === 33 && L[31] === 16 && init.seq && init.seq.a.length === x.web_seq_size() &&
+        init.seq.orb.length === L[28], 'the worklet gave the page no sequencer (or not ORBIT\'s 16 steps)');
   const a = init.seq.a.slice(), o = at('step') + 3 * at('stepSize');
   a[o + at('note')] = 64; a[o + at('type')] = 0;
   wk.message({ type: 'lab-seq-set', k: 0, bytes: a });

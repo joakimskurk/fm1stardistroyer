@@ -11,13 +11,13 @@ const VER = new URL(import.meta.url).search;    // (the page's stamp on this fil
 if (ship) {
   const BTN = { OCT_DOWN: 0, OCT_UP: 1, FX: 2, SEL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13 };
   // the buttons: the FM-1's name, its id, what it does here (the note under it)
-  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SEL', 3, 'VOICES'], ['ENV', 4, 'ENV · FILTER'], ['LFO', 5, 'LFO · RADAR'],
+  const ROW1 = [['FX', 2, 'FX CHAIN'], ['SEL', 3, 'VOICES'], ['ENV', 4, 'FILTER · ENV'], ['LFO', 5, 'LFO · RADAR'],
                 ['EDIT', 6, 'ON · OFF'], ['GLO', 7, '2ND LAYER']];
   const ROW2 = [['HOME', 8, 'NAV · MACROS'], ['SAVE', 9, 'STORE'], ['ARP', 10, 'ARP · LOOPER'], ['SEQ', 11, 'SEQ · ORBIT'],
                 ['PLAY', 12, 'RUN', 'red'], ['REC', 13, 'RECORD', 'red']];
   const ABOUT = { 0: 'OCT−: an octave down; NO to a question (on SEQ, GLO + OCT−: the step bank)', 1: 'OCT+: an octave up; YES to a question (on SEQ, GLO + OCT+: the step bank)',
-    2: 'FX: REACTOR, DISTROY, SPACE, TIME (back to the one it showed last)', 3: 'SEL: MONO, DUO, POLY',
-    4: 'ENV: the envelopes, the filter (back to the one it showed last)', 5: 'LFO: LFO 1, LFO 2, RADAR, the matrix (back to the one it showed last)', 6: 'EDIT: what the page shows, on or off',
+    2: 'FX: REACTOR, DISTROY, TIME, SPACE (back to the one it showed last)', 3: 'SEL: MONO, DUO, POLY',
+    4: 'ENV: NAV, FILTER, ENV, SUB (back to the one it showed last)', 5: 'LFO: LFO 1, LFO 2, RADAR, the matrix (back to the one it showed last)', 6: 'EDIT: what the page shows, on or off',
     7: 'GLO held: the second layer. A tap latches it (lit), another lets it go (or Shift)', 8: 'HOME: the macros, NAV, SETUP (the tempo, sync, transposes, the master, CLEAR ALL)', 9: 'SAVE: the patch (on SEQ: the pattern) to a place of your own',
     10: 'ARP: the arpeggiator, the looper (back to the one it showed last)', 11: 'SEQ: SEQ A, SEQ B, ORBIT (back to the one it showed last)', 12: 'PLAY: the sequencer (Space)', 13: 'REC: record steps (on ARP: keep what it played)' };
   // the encoders: name, id, note
@@ -315,6 +315,8 @@ if (ship) {
       } else if (m.type === 'ready') {
         storeSize = m.storeSize;
         running = true;
+        const lat = () => send({ type: 'lat', s: (ac.baseLatency || 0) + (ac.outputLatency || 0) });   // REC places a key
+        lat(); setTimeout(lat, 1000); setTimeout(lat, 5000);                                          // by what was heard
         ship.classList.add('on');
         lamp('l-pwr', 1);
         say('Running. Play the keys (or A–\' on the computer\'s keyboard, W E T Y U O P the black ones; Z X the octave, Space PLAY, Shift GLO).');

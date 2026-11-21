@@ -10,6 +10,18 @@
 #define SD_PLAY_H
 
 #define BLOCK 256u                              /* the firmware's interrupt: knobs reach the engine once a block */
+#define SD_PLAY_SETTLE 40u                      /* the renders before the score (not heard) */
+#ifdef SD_PLAY_REC                              /* recorded for the FM-1's demo (tools/sd_demo_rec.c): before each
+                                                   render, what the score did to the engine; what the player says */
+static void rec_render(int end);
+static void rec_say(const char *what);
+#define SD_PLAY_RENDER_HOOK(end) rec_render(end)
+#else
+#define SD_PLAY_RENDER_HOOK(end) ((void)0)
+#endif
+#ifndef SD_PLAY_NOTE
+#define SD_PLAY_NOTE sd_engine_note             /* (the recorder logs each key) */
+#endif
 #define MAXRATE 60.0                            /* detents a second a hand turns at most */
 
 static SdEngine e;
@@ -28,16 +40,20 @@ static int32_t master = 4092;                   /* the MASTER pot, Q12 (platform
 
 /* ---- the pages (only the page shown takes K1..K4, ALGORITHM, EDIT) */
 enum { PG_NAV, PG_MACROS, PG_REACTOR, PG_DISTROY, PG_SPACE, PG_ENV, PG_FILTER, PG_ARP, PG_LFO1, PG_LFO2, PG_RADAR,
-       PG_MOD, PG_TIME, PG_LOOP, PG_SETUP, PG_SEQA, PG_SEQB, PG_ORB };   /* (SEQ last: page >= PG_SEQA is SEQ, ORBIT its
-                                                   third) */
+       PG_MOD, PG_TIME, PG_LOOP, PG_SETUP, PG_SUB, PG_SEQA, PG_SEQB, PG_ORB, PG_DRUM };   /* (SEQ last: page >= PG_SEQA is SEQ,
+                                                   ORBIT its third, DRUM its fourth) */
 static const char *const PG_NAME[] = {"NAV", "MACROS", "REACTOR", "DISTROY", "SPACE", "ENV", "FILTER", "ARP", "LFO 1",
-                                      "LFO 2", "RADAR", "MOD", "TIME", "LOOPER", "SETUP", "SEQ A", "SEQ B", "ORBIT"};
+                                      "LFO 2", "RADAR", "MOD", "TIME", "LOOPER", "SETUP", "SUB", "SEQ A", "SEQ B", "ORBIT",
+                                      "DRUM"};
 static int page = PG_NAV;
-static int fx_last = PG_REACTOR, env_last = PG_ENV, lfo_last = PG_LFO1, arp_last = PG_ARP, seq_last = PG_SEQA;   /* each
+static int fx_last = PG_REACTOR, env_last = PG_NAV, lfo_last = PG_LFO1, arp_last = PG_ARP, seq_last = PG_SEQA;   /* each
                                                    page button: the page it showed last, where it comes back to from another */
 
 static void say(const char *what)
 {
+#ifdef SD_PLAY_REC
+    rec_say(what);
+#endif
     printf("%7.2f s  bar %5.2f  %-8s %s\n", frame / (double)SD_FS, q / 16.0, PG_NAME[page], what);
 }
 static void fail(const char *why)
@@ -52,13 +68,18 @@ static int at(double s) { return pq < s && q >= s; }   /* the clock crossed s (s
    (HOME: MACROS) */
 static int button_page(const char *b)
 {
-    if (!strcmp(b, "HOME")) return page == PG_MACROS ? PG_NAV : page == PG_NAV ? PG_SETUP : PG_MACROS;
-    if (!strcmp(b, "FX")) return page == PG_REACTOR ? PG_DISTROY : page == PG_DISTROY ? PG_SPACE : page == PG_SPACE ? PG_TIME :
-                                 page == PG_TIME ? PG_REACTOR : fx_last;
-    if (!strcmp(b, "ENV")) return page == PG_ENV ? PG_FILTER : page == PG_FILTER ? PG_ENV : env_last;
+    if (!strcmp(b, "HOME")) return page == PG_MACROS ? PG_SETUP : PG_MACROS;   /* (MACROS, SETUP; NAV is ENV's since
+                                                   2026-11-21) */
+    if (!strcmp(b, "FX")) return page == PG_REACTOR ? PG_DISTROY : page == PG_DISTROY ? PG_TIME : page == PG_TIME ? PG_SPACE :
+                                 page == PG_SPACE ? PG_REACTOR : fx_last;   /* (TIME before SPACE since 2026-11-21) */
+    if (!strcmp(b, "ENV")) return page == PG_NAV ? PG_FILTER : page == PG_FILTER ? PG_ENV : page == PG_ENV ? PG_SUB :
+                                  page == PG_SUB ? PG_NAV : env_last;   /* (SUB ENV's fourth, FILTER before ENV, since
+                                                   2026-11-21) */
     if (!strcmp(b, "LFO")) return page == PG_LFO1 ? PG_LFO2 : page == PG_LFO2 ? PG_RADAR : page == PG_RADAR ? PG_MOD :
-                                  page == PG_MOD ? PG_LFO1 : lfo_last;
-    if (!strcmp(b, "SEQ")) return page == PG_SEQA ? PG_SEQB : page == PG_SEQB ? PG_ORB : page == PG_ORB ? PG_SEQA : seq_last;
+                                  page == PG_MOD ? PG_LFO1 : lfo_last;   /* (RADAR its own tab again since the user found it
+                                                   gone as MOD's ninth, 2026-11-19) */
+    if (!strcmp(b, "SEQ")) return page == PG_SEQA ? PG_SEQB : page == PG_SEQB ? PG_ORB : page == PG_ORB ? PG_DRUM :
+                                  page == PG_DRUM ? PG_SEQA : seq_last;
     if (!strcmp(b, "ARP")) return page == PG_ARP ? PG_LOOP : page == PG_LOOP ? PG_ARP : arp_last;
     return page;
 }
@@ -66,7 +87,7 @@ static void remember(void)                      /* the page buttons' memory, as 
 {
     if (page == PG_REACTOR || page == PG_DISTROY || page == PG_SPACE || page == PG_TIME) fx_last = page;
     if (page == PG_ARP || page == PG_LOOP) arp_last = page;
-    if (page == PG_ENV || page == PG_FILTER) env_last = page;
+    if (page == PG_NAV || page == PG_ENV || page == PG_FILTER || page == PG_SUB) env_last = page;
     if (page == PG_LFO1 || page == PG_LFO2 || page == PG_RADAR || page == PG_MOD) lfo_last = page;
     if (page >= PG_SEQA) seq_last = page;
 }
@@ -142,6 +163,10 @@ static uint16_t u99(int32_t d) { d = d < 0 ? 0 : d > 99 ? 99 : d; return (uint16
 #define KNOB99(pg, field, to, s0, s1) do { int32_t v_; on_ramp_page(pg, s0, s1); \
     if (ramp(__LINE__, (int32_t)d99(field), to, s0, s1, &v_)) { field = u99(v_); dirty = 1; } } while (0)
 static void on_ramp_page(int pg, double s0, double s1) { if (q >= s0 && pq <= s1) on_page(pg, "a knob of another page"); }
+#define HOME_FILTER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_MACROS, s0, s1); \
+    if (ramp(__LINE__, (int32_t)d99(65535u - e.filt), to, s0, s1, &v_)) e.filt = (uint16_t)(65535u - u99(v_)); } while (0)
+                                                /* (MACROS' K4 FILTER, the player's: 99 open, every cutoff down
+                                                   together below it; as the app turns home_filt) */
 
 /* ---- the patch, the patterns */
 static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned to a stock patch, then EDIT to load it
@@ -151,6 +176,7 @@ static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned t
     if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
     act();
     pat = SD_PATCH[i];
+    sd_patch_levels(&pat);                      /* (as the app's patch_load: onto the make-ups) */
     gen = 0xFFFFFFFFu;
     dirty = 1;
     snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_PATCH_NAME[i]);
@@ -162,6 +188,7 @@ static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past th
     if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
     act();
     pat = *p;
+    sd_patch_levels(&pat);
     gen = 0xFFFFFFFFu;
     dirty = 1;
     snprintf(t, sizeof t, "PRESETS: %s", name);
@@ -192,11 +219,13 @@ static void line(SdPattern *p, const int16_t *n, uint32_t len, uint32_t gate)
     }
 }
 static SdPattern pa_cur;                        /* track A's pattern as the player left it */
-static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS on SEQ: a saved pattern (and EDIT) */
+static void pattern(int trk, const SdPattern *p, const char *name)   /* PRESETS on SEQ: a saved pattern (and EDIT);
+                                                   while it plays, in at the one from its step 1 (2026-11-19) */
 {
     char t[48];
     on_page(trk ? PG_SEQB : PG_SEQA, "a pattern loaded off its track's page");
     act();
+    if (e.seq_run) e.t[trk].pat_wait = 1;
     sd_engine_pattern_to(&e, (uint32_t)trk, p);
     if (!trk) pa_cur = *p;
     snprintf(t, sizeof t, "PRESETS: pattern %s", name);
@@ -225,10 +254,10 @@ static void key(uint32_t note, int down)
     if (down) {
         if (e.seq_run && !e.arp_on && !e.quota[SD_SRC_HAND]) fail("a key with no voice free");
         held[k] = (uint8_t)note;
-        sd_engine_note(&e, note, 100);
+        SD_PLAY_NOTE(&e, note, 100);
     } else {
         held[k] = 0;
-        sd_engine_note(&e, note, 0);
+        SD_PLAY_NOTE(&e, note, 0);
     }
     snprintf(t, sizeof t, "key %u %s", note, down ? "down" : "up");
     say(t);
@@ -271,49 +300,38 @@ static void rules(void)                         /* the app's voice rules, every 
         (e.t[0].mute ? 0u : e.t[0].width) >= n) fail("SEQ B with no voice left");
 }
 
-/* RADAR (LFO's third page): its knobs, as the app turns them; EDIT on / off (the first time on: to XM, 30 %,
-   CHANGE 25, unless they are set). DEST turns round its list as the app's does (dst_step): the destinations in the
-   chain's order (SD_MD_ORDER), NOTES after the last; n detents from where it is (OFF, then -1: NOTES). (Until
-   2026-11-11 it turned in the enum's order, which the 22 destinations of 2026-11-10 moved: RANGE's RADAR went to
-   L1 RATE, not the CUTOFF it was written for) */
+/* RADAR (LFO's third page, RADAR on the screen, CHANGE its K1 SEARCH): its knobs, as the app turns them; EDIT on /
+   off (the first time on, sent nowhere yet: a free MOD slot to XM, 30 %, CHANGE 25 unless set). Where it goes is MOD's since 2026-11-21 (a
+   slot, SOURCE RADAR: tur_route); its own DEST and AMOUNT knobs are gone */
 #define TUR_CHANGE(to, s0, s1) do { int32_t v_; on_ramp_page(PG_RADAR, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_TUR_CHANGE(&pat), to, s0, s1, &v_)) { \
         pat.tur_set = (uint8_t)((pat.tur_set & 0x80u) | (uint32_t)v_); dirty = 1; } } while (0)
 #define TUR_LENGTH(to, s0, s1) do { int32_t v_; on_ramp_page(PG_RADAR, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_TUR_LEN(&pat), to, s0, s1, &v_)) { \
         pat.tur_ld = (uint8_t)((pat.tur_ld & 0xE0u) | (uint32_t)v_); dirty = 1; } } while (0)
-#define TUR_AMOUNT(to, s0, s1) do { int32_t v_; on_ramp_page(PG_RADAR, s0, s1); \
-    if (ramp(__LINE__, (int32_t)pat.tur_amt, to, s0, s1, &v_)) { pat.tur_amt = (int8_t)v_; dirty = 1; } } while (0)
-#define TUR_DEST_BY(n, s0, s1) tur_dest_by(__LINE__, n, s0, s1)
-static void tur_dest_by(int line, int32_t n, double s0, double s1)
+static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct);
+static void tur_route(uint32_t k, uint8_t dst, int32_t pct)   /* RADAR's route, on MOD: slot k + 1 from RADAR (its
+                                                   DEST list: the matrix's, ACCENTS, ROLLS, NOTES) */
 {
-    RampSt *r;
-    int32_t v;
-    uint32_t i;
-    on_ramp_page(PG_RADAR, s0, s1);
-    if (q < s0 || pq > s1) return;
-    r = ramp_state(line);
-    if (!ramp(line, r->done, n, s0, s1, &v)) return;
-    if (pat.tur_dst == SD_TD_NOTES) i = SD_MDSTS;
-    else for (i = 0; i < SD_MDSTS - 1u && SD_MD_ORDER[i] != pat.tur_dst; i++) ;   /* (its place in the list) */
-    i = (uint32_t)(((int32_t)i + (v - r->done) % (int32_t)(SD_MDSTS + 1u) + (int32_t)(SD_MDSTS + 1u)) % (int32_t)(SD_MDSTS + 1u));
-    pat.tur_dst = (uint8_t)(i == SD_MDSTS ? SD_TD_NOTES : SD_MD_ORDER[i]);
-    r->done = v;
-    dirty = 1;
+    mod_slot(k, SD_MS_TUR, dst, pct);
 }
 static void tur_edit(void)
 {
     char t[48];
     on_page(PG_RADAR, "RADAR's EDIT off its page");
     act();
-    pat.tur_set ^= 0x80u;
-    if (SD_TUR_ON(&pat) && !pat.tur_dst) {
-        pat.tur_dst = SD_MD_XM;
-        if (!pat.tur_amt) pat.tur_amt = 30;
-        if (!(pat.tur_set & 127u)) pat.tur_set |= 25u;
+    {
+        uint32_t i, to = pat.tur_dst != 0u;
+        pat.tur_set ^= 0x80u;
+        for (i = 0; i < SD_MODS; i++) if (pat.mod[i].src == SD_MS_TUR && pat.mod[i].dst) to = 1;
+        if (SD_TUR_ON(&pat) && !to) {
+            if (!(pat.tur_set & 127u)) pat.tur_set |= 25u;
+            for (i = 0; i < SD_MODS && pat.mod[i].src; i++) ;
+            if (i < SD_MODS) { pat.mod[i] = (SdModSlot){SD_MS_TUR, SD_MD_XM, (int16_t)(30 * 32767 / 99)}; pat.mod_off[i] = 0; }
+        }
     }
     dirty = 1;
-    snprintf(t, sizeof t, "EDIT: RADAR %s (CHANGE %u, AMOUNT %+d)", SD_TUR_ON(&pat) ? "ON" : "OFF", SD_TUR_CHANGE(&pat), pat.tur_amt);
+    snprintf(t, sizeof t, "EDIT: RADAR %s (CHANGE %u)", SD_TUR_ON(&pat) ? "ON" : "OFF", SD_TUR_CHANGE(&pat));
     say(t);
 }
 static void lfo_to_radar(double s0)            /* LFO till RADAR, a sixteenth apart (from another page the one it
@@ -323,10 +341,19 @@ static void lfo_to_radar(double s0)            /* LFO till RADAR, a sixteenth ap
 }
 
 /* the edit switches, as EDIT on their pages */
-/* ORBIT (SEQ's third page, 2026-11-09): saved with SEQ A's pattern (orbit_load, as the pattern loads), EDIT on there:
-   in at the master's one while it plays */
+/* ORBIT (SEQ's third page): a saved song, PRESETS there (orbit_load; off till EDIT), EDIT on there: in at the
+   master's one while it plays (till 2026-11-19 it came with SEQ A's pattern) */
 static SdOrbit orb;
-static void orbit_load(const SdOrbit *o) { orb = *o; orb.on = 0; sd_engine_orbit(&e, &orb); }
+static void orbit_load(const SdOrbit *o)
+{
+    on_page(PG_ORB, "a song loaded off ORBIT's page");
+    act();
+    orb = *o;
+    orb.on = 0;
+    if (e.seq_run) e.orb_wait = 1;
+    sd_engine_orbit(&e, &orb);
+    say("PRESETS: the song");
+}
 static void orbit_edit(int on)
 {
     on_page(PG_ORB, "ORBIT's EDIT off its page");
@@ -344,6 +371,66 @@ static void track_on(int trk, int on)
     snprintf(t, sizeof t, "EDIT: SEQ %c %s", 'A' + trk, on ? "ON" : "OFF");
     say(t);
 }
+
+/* The drums (SEQ's fourth page, DRUM; 2026-11-21 in the performances): the kit, the fourth drum's ENGINE and DUCK as
+   the player left them before the take (the app keeps them: drums_ready, the preparation); while it plays a beat from
+   PRESETS there (in at the bar's one), EDIT (in at the master's one), the four MUTE keys (F#4 G#4 A#4 C#5, no GLO, on
+   DRUM), GLO + ALGORITHM the fourth's ENGINE (its values as chosen: SD_PC_DEF), MIX (GLO + B10): K1..K4 the levels.
+   Their batch (the app's, e.dr.ob) only once a performance has drums: the others sound as they did */
+static int16_t dr_ob[2u * SD_DR_BATCH * SD_SUB];
+static void drums_ready(const SdDrumKit *k, uint32_t perc)
+{
+    e.dr.ob = dr_ob;
+    e.dr.kit = *k;
+    e.dr.perc = (uint8_t)(perc % SD_PCS);
+    say("(the drums: the kit, the fourth's engine and DUCK as saved)");
+}
+static void drum_beat(const SdDrumPat *p, const SdDrumMore *m, const char *name)   /* PRESETS on DRUM, a saved beat
+                                                   (and EDIT): while it plays, in at the bar's one */
+{
+    char t[48];
+    on_page(PG_DRUM, "a beat loaded off DRUM");
+    act();
+    e.dr.pat_seq++;
+    e.dr.pat_in = *p;
+    if (m) e.dr.more_in = *m; else memset(&e.dr.more_in, 0, sizeof e.dr.more_in);
+    e.dr.pat_wait = (uint8_t)(e.seq_run != 0);
+    e.dr.pat_seq++;
+    snprintf(t, sizeof t, "PRESETS: beat %s", name);
+    say(t);
+}
+static void drums_edit(int on)
+{
+    on_page(PG_DRUM, "the drums' EDIT off DRUM");
+    act();
+    e.dr.on = (uint8_t)on;
+    say(on ? (e.seq_run ? "EDIT: DRUMS ON (in at the master's one)" : "EDIT: DRUMS ON") : "EDIT: DRUMS OFF");
+}
+static void drum_mute(uint32_t d, int mute)    /* a MUTE key on DRUM */
+{
+    static const char *const N[SD_DRS] = {"KICK", "SNARE", "HAT", "4TH"};
+    char t[40];
+    on_page(PG_DRUM, "a drum's MUTE off DRUM");
+    act();
+    e.dr.mute = (uint8_t)(mute ? e.dr.mute | 1u << d : e.dr.mute & ~(1u << d));
+    snprintf(t, sizeof t, "MUTE key: %s %s", N[d % SD_DRS], mute ? "OFF" : "ON");
+    say(t);
+}
+static void drum_engine(uint32_t pc)            /* GLO + ALGORITHM on DRUM: the fourth's ENGINE, its values as chosen */
+{
+    static const char *const N[SD_PCS] = {"CLAP", "TOM", "RIM", "COW", "ZAP"};
+    uint32_t k;
+    char t[40];
+    on_page(PG_DRUM, "the fourth's ENGINE off DRUM");
+    act();
+    e.dr.perc = (uint8_t)(pc % SD_PCS);
+    for (k = 0; k < 8u; k++) e.dr.kit.d[SD_DR_CLAP].v[k] = SD_PC_DEF[e.dr.perc][k];
+    snprintf(t, sizeof t, "GLO + ALGORITHM: PERC %s", N[e.dr.perc]);
+    say(t);
+}
+#define DR_LEVEL(d, to, s0, s1) do { int32_t v_; on_ramp_page(PG_DRUM, s0, s1); \
+    if (ramp(__LINE__, (int32_t)e.dr.kit.d[d].level, to, s0, s1, &v_)) e.dr.kit.d[d].level = (uint8_t)v_; } while (0)   /* (MIX's
+                                                   K1..K4, a percent a detent) */
 
 /* The looper (2026-11-11; its own page, LOOPER, since 2026-11-14; ARP's second since 2026-11-15), the player's as the app's: LOOP
    (ALGORITHM), REVERSE (GLO + ALGORITHM), GLIDE (K1, OFF or a division a detent), LENGTH (K2, a division a detent),
@@ -476,7 +563,11 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
     last_act = 0;
     push();
     looper_push();
-    for (i = 0; i < 40u; i++) { memset(buf, 0, sizeof buf); sd_engine_render(&e, buf, BLOCK); }   /* (settles) */
+    for (i = 0; i < SD_PLAY_SETTLE; i++) {      /* (settles) */
+        SD_PLAY_RENDER_HOOK(0);
+        memset(buf, 0, sizeof buf);
+        sd_engine_render(&e, buf, BLOCK);
+    }
     for (;;) {
         double step = BLOCK * bpm * 4.0 / (60.0 * SD_FS);
         int end;
@@ -486,6 +577,7 @@ static int play_run(const char *path, const char *name, void (*setup)(void), int
         end = score();
         push();
         looper_push();
+        SD_PLAY_RENDER_HOOK(end);
         memset(buf, 0, sizeof buf);             /* (the engine adds into its buffer) */
         sd_engine_render(&e, buf, BLOCK);
         rules();

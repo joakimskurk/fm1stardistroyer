@@ -1,0 +1,12 @@
+# DR2 (2026-11-19): ORBIT's DRUMS (tests/app_drum_test.c). SEQ (11) three times: ORBIT (S01, moved from its old size:
+# 2 steps, on). Step 1: K3 (encoder 4) +3: D03; SELECT (0) +1, step 2: K3 +20: OFF (past the places that hold
+# a beat). PLAY (12), once the step edited is no longer held (2 s): step 1 loads D03, the drums on; ends in it (S01's steps: 2 loops of 2.4 s at 100 BPM)
+1700 btn 11
+1800 btn 11
+1900 btn 11
+2100 enc 4 3
+2200 enc 0 1
+2300 enc 4 20
+2400 shot
+4500 btn 12
+5700 end

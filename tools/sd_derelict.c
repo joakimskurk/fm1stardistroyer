@@ -245,9 +245,10 @@ static int pulse_score(void)
     pot(__LINE__, 2700, SEC(3) - 1, SEC(3));    /* MASTER: the glints under the high line */
     pot(__LINE__, 4092, SEC(4) - 1, SEC(4));
     load(4, &PU[4], "THEME II (16ths)");
-    lfo_to_radar(SEC(4) + 2);                  /* RADAR, set while off: NOTES, 33 % (+-4 degrees), CHANGE 30 */
-    TUR_DEST_BY(-1, SEC(4) + 4.5, SEC(4) + 5.5);
-    TUR_AMOUNT(33, SEC(4) + 6, SEC(4) + 12);
+    go_to("LFO", PG_MOD, SEC(4) + 1);           /* RADAR, set while off: NOTES, 33 % (+-4 degrees; MOD's: slot 5,
+                                                   PULSAR's four before it), CHANGE 30 */
+    if (at(SEC(4) + 5.5)) tur_route(4, SD_TD_NOTES, 33);
+    go_to("LFO", PG_RADAR, SEC(4) + 7);        /* (MOD, LFO 1, LFO 2, RADAR) */
     TUR_CHANGE(30, SEC(4) + 12, SEC(4) + 16);
     TUR_LENGTH(8, SEC(4) + 16.2, SEC(4) + 17.4);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(SEC(4) + 18)) press("SEQ", PG_SEQA);
@@ -301,8 +302,7 @@ static int low_score(void)
     load(3, &LO[3], "LOW (eighths)");
     load(4, &LO[4], "LOW (eighths)");
     load(5, &LO[5], "LOW (16ths)");
-    if (at(SEC(5) + 2)) press("HOME", PG_MACROS);
-    if (at(SEC(5) + 3)) press("HOME", PG_NAV);
+    go_to("ENV", PG_NAV, SEC(5) + 2);           /* (NAV: ENV's since 2026-11-21, HOME's second before) */
     KNOB99(PG_NAV, pat.warp, wp + 24, SEC(5) + 4, SEC(6) - 10);   /* K2: WARP toward the saw */
     if (at(SEC(6) - 1.5)) play(0);
     if (at(SEC(6) - 0.6)) preset(SD_P_BRAAM);

@@ -204,59 +204,10 @@ static void ota_commit(const uint8_t *parm)
 }
 #include "recovery.c"
 
-/* ---- storage: [magic][length][crc32] then the bytes. A save erases (~50 ms a sector with the interrupts off:
- * the sound drops out), so save when nothing plays, not on every knob step. Each sector wears out after ~100,000 */
-static uint32_t crc32(const uint8_t *p, uint32_t n)
-{
-    uint32_t c = 0xFFFFFFFFu, k;
-    while (n--) {
-        c ^= *p++;
-        for (k = 0; k < 8u; k++)
-            c = c & 1u ? (c >> 1) ^ 0xEDB88320u : c >> 1;
-    }
-    return ~c;
-}
-static int area_load(uint32_t at, uint32_t max, uint32_t magic, void *p, uint32_t n)   /* reads straight into p */
-{
-    uint32_t h[3];
-    if (!flash_ok || n > max || st_read(at, h, sizeof h) || h[0] != magic || h[1] != n || st_read(at + sizeof h, p, n))
-        return -1;
-    return crc32(p, n) == h[2] ? 0 : -1;
-}
-static int area_save(uint32_t at, uint32_t sectors, uint32_t magic, const void *p, uint32_t n)   /* p in RAM */
-{
-    uint32_t h[3] = {magic, n, 0}, k, took;
-    int rc;
-    if (!flash_ok || n > sectors * 0x1000u - sizeof h)
-        return -1;
-    h[2] = crc32(p, n);
-    for (k = 0; k < sectors; k++) {
-        fm1_wdt_feed();                         /* (~50 ms an erase) */
-        if ((rc = fl_erase4k(at + k * 0x1000u, &took)) != 0)
-            return rc;
-    }
-    if ((rc = fl_write(at + sizeof h, p, n)) != 0)
-        return rc;
-    return fl_write(at, (const uint8_t *)h, sizeof h);   /* the header last: a cut save stays invalid */
-}
-/* one sector each, up to SECTOR_MAX bytes; 0: done. A load that fails leaves p as it was (a copy first) */
-static int sector_load(uint32_t at, void *p, uint32_t n)
-{
-    static uint8_t buf[SECTOR_MAX];
-    if (n > sizeof buf || area_load(at, SECTOR_MAX, STORE_MAGIC, buf, n))
-        return -1;
-    memcpy(p, buf, n);
-    return 0;
-}
-static int settings_load(void *p, uint32_t n) { return sector_load(SETTINGS_AT, p, n); }
-static int settings_save(const void *p, uint32_t n) { return area_save(SETTINGS_AT, 1u, STORE_MAGIC, p, n); }
-static int blob_load(uint32_t i, void *p, uint32_t n) { return i < NBLOB ? sector_load(BLOBS_AT + i * 0x1000u, p, n) : -1; }
-static int blob_save(uint32_t i, const void *p, uint32_t n) { return i < NBLOB ? area_save(BLOBS_AT + i * 0x1000u, 1u, STORE_MAGIC, p, n) : -1; }
-/* slot i: SLOT_SECT sectors, up to SLOT_MAX bytes. slot_load reads straight into p (no buffer that big): on -1 p holds
- * rubbish, start afresh */
-#define SLOT_MAGIC 0x544F4C53u                  /* "SLOT" */
-static int slot_load(uint32_t i, void *p, uint32_t n) { return i < NSLOT ? area_load(SLOTS_AT + i * SLOT_SECT * 0x1000u, SLOT_MAX, SLOT_MAGIC ^ STORE_MAGIC, p, n) : -1; }
-static int slot_save(uint32_t i, const void *p, uint32_t n) { return i < NSLOT ? area_save(SLOTS_AT + i * SLOT_SECT * 0x1000u, SLOT_SECT, SLOT_MAGIC ^ STORE_MAGIC, p, n) : -1; }
+/* ---- storage (store_io.h): each save in two copies, a cut one leaves the other. A save erases (~50 ms a sector with
+ * the interrupts off: the sound drops out), so save when nothing plays, not on every knob step. Each sector wears out
+ * after ~100,000 */
+#include "store_io.h"
 #if BOARD_SMK37
 /* the store's owner (the kit's convention, store.h): our tag, load as ever; anything else (the stock settings,
  * another port's data) is cleared once and the tag written, before the audio starts */
@@ -283,6 +234,10 @@ static void smk_owner_check(void)
     for (i = 0; i < NSLOT; i++) {               /* (each slot's head; another firmware's samples go) */
         fm1_wdt_feed();
         fl_erase4k(SLOTS_AT + i * SLOT_SECT * 0x1000u, &took);
+    }
+    for (i = 0; i < NCOPY; i++) {               /* (the second copies after the slots, store.h) */
+        fm1_wdt_feed();
+        fl_erase4k(COPIES_AT + i * 0x1000u, &took);
     }
     fl_erase4k(OWNER_AT, &took);
     fl_write(OWNER_AT, want, 16);
@@ -318,6 +273,15 @@ static void midi_send(uint32_t st, uint32_t d1, uint32_t d2)   /* USB out, from 
 /* ---- the timer: 10 kHz key scan, milliseconds, USB at 2 kHz. It outranks the audio ISR; nested in a
  * render it only scans, counts and feeds the USB audio stream (as sloopDX main.c) */
 static volatile uint8_t in_audio;
+static uint32_t fm1_clk[8];                     /* the clock at the boot: measured (MHz x 10), its registers
+                                                   (hal/fm1_sys.h's fm1_clock_read; the diagnosis sends them) */
+#if FM1_CPU1
+static uint32_t fm1_supply_was, fm1_supply_now;   /* the core's supplies (CON6 | CON9 << 8) as the boot found and left
+                                                   them (hal/fm1_sys.h; the app's diagnosis reads them) */
+#endif
+#ifndef APP_CORES
+#define APP_CORES() 2                           /* (the app's choice of cores, read at the boot: 1 or 2) */
+#endif
 void fm1_timer5_irq(void)
 {
     static uint32_t sub, owed, last, acc;
@@ -425,6 +389,14 @@ static void platform_poll(void)
     }
     if (fm1_ms >= 30000u && bootguard.pending)
         bootguard_clear(&bootguard);            /* 30 s up: this firmware boots */
+    {                                           /* the output let out once the codec has settled on zeros (hal/fm1_audio.h:
+                                                   at once it popped at every power-on; the splash is silent) */
+        static uint8_t open;
+        if (!open && fm1_ms >= 1000u) {
+            fm1_audio_unmute();
+            open = 1;
+        }
+    }
     if ((a = fm1_adc_read(FM1_ADC_MASTER)) >= 0) {
         uint32_t k10;
         knob_avg += (a * 16 - knob_avg) / 8;
@@ -528,14 +500,26 @@ void fm1_cstart(void)
     smk_trim_read();                            /* (after fm1_input_init: it sets the defaults first) */
     smk_owner_check();
 #endif
+    fm1_clock_read(fm1_clk);                    /* (before the second core and the audio: nothing else runs) */
 #if FM1_CPU1
-    {                                           /* the second core, before the audio and the timers (its start that
-                                                   works); barred (it failed since power-on) it stays held */
-        const char *v = APP_NAME " " APP_VER;
-        uint32_t h = 2166136261u;
-        while (*v) h = (h ^ (uint8_t)*v++) * 16777619u;
-        fm1_cpu1_bar_build(h);                  /* (a new build: two cores again) */
-        fm1_cpu1_start();
+    fm1_supply_was = fm1_supply_now = fm1_supply_read();
+    if (APP_CORES() < 2) {                      /* (the app's choice, one: the supplies as they are, none started) */
+        fm1_cpu1_gave_up = FM1_CPU1_OFF;
+    } else {                                    /* two: the core's supplies to the stock firmware's first
+                                                   (hal/fm1_sys.h: at the SPL's a second core corrupted the first's
+                                                   stack on the user's FM-1, 2026-11-18), the second core then, before
+                                                   the audio and the timers (its start that works); barred (it failed
+                                                   since power-on) it stays held */
+        fm1_supply_stock();
+        fm1_delay_ms(2u);
+        fm1_supply_now = fm1_supply_read();
+        {
+            const char *v = APP_NAME " " APP_VER;
+            uint32_t h = 2166136261u;
+            while (*v) h = (h ^ (uint8_t)*v++) * 16777619u;
+            fm1_cpu1_bar_build(h);              /* (a new build: two cores again) */
+            fm1_cpu1_start();
+        }
     }
 #endif
     fm1_audio_init(abuf, HALF_WORDS, isr_alnk0, 3);   /* (abuf is zero: .bss) */
