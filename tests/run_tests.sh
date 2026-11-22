@@ -50,6 +50,12 @@ run "the drums: a song's step turns them off" "$OUT/app_drum_test" "$OUT/app_dru
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_rec_test" tests/app_rec_test.c
 run "REC while it plays: SEQ's keys on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec1.txt
 run "REC while it plays: DRUM's pads on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_dub_test" tests/app_dub_test.c
+run "SEQ's DUB: a key joins the step's chord, nothing taken" "$OUT/app_dub_test" "$OUT/app_dub_test" tests/scripts/dub1.txt
+$CC -DDINGHY_HOST -DDUB_UNDO -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_dub_undo_test" tests/app_dub_test.c
+run "SEQ's TOOLS: UNDO takes a DUB back" "$OUT/app_dub_undo_test" "$OUT/app_dub_undo_test" tests/scripts/dub2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_frz_test" tests/app_frz_test.c
+run "the freeze log: the inputs, 16 records, the newest first" "$OUT/app_frz_test" "$OUT/app_frz_test" tests/scripts/frz1.txt
 $CC -fsanitize=address,undefined -fno-sanitize-recover=all -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_fuzz_test" tests/app_fuzz_test.c
 for s in 1 2 3; do
     run "the button masher (seed $s): 120 s of fast random input under ASan: no hang, no stuck note, every page" \

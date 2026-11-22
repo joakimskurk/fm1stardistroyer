@@ -164,11 +164,13 @@ tap(w, BTN.OCT_UP); run(w, 150);
 const su = stat(w);
 tap(w, BTN.OCT_DOWN); run(w, 150);
 check(differ(so, su) > 0 && differ(so, stat(w)) === 0, `OCT on SEQ moves the octave (+1 and back: ${differ(so, su)} pixels)`);
-w.web_btn(BTN.GLO, 1); run(w, 300);                 // GLO held: K4 XPOSE in the row, then GLO + OCT+ an octave
+w.web_enc(ENC.ALGORITHM, 2); run(w, 200);          // TRACK (since 2026-11-22: SEQ's layers on ALGORITHM): K4 XPOSE
+w.web_btn(BTN.GLO, 1); run(w, 300);                 // GLO held, then GLO + OCT+ an octave
 const b1 = lcd(w);
 tap(w, BTN.OCT_UP); run(w, 150);
 const b2 = lcd(w);
 w.web_btn(BTN.GLO, 0); run(w, 150);
+w.web_enc(ENC.ALGORITHM, -2); run(w, 200);         // (STEP again)
 check(differ(b1, b2) > 0 && differ(so, stat(w)) === 0, `GLO + OCT on SEQ moves the transpose, the octave stays (${differ(b1, b2)} pixels)`);
 ppm(w, 'xpose_oct');
 

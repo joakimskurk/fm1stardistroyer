@@ -1,6 +1,6 @@
 # The README's screens (tools/make_readme_art.sh names them by their times): the splash, then each page while
 # DISTROY's loop plays, the macros up; RADAR on (to XM, 30 %, the first EDIT's MOD slot) on LFO's third page; ORBIT (SEQ's third), the song:
-# SEQ A's line saved P01 (SAVE 9 twice), SEQ B's RND (GLO + G5: TOOLS, then B1) P02, ORBIT on, four steps: P01 two loops; P01 and
+# SEQ A's line saved P01 (SAVE 9 twice), SEQ B's RANDOM (ALGORITHM +4: TOOLS, K1; back to STEP) P02, ORBIT on, four steps: P01 two loops; P01 and
 # P02 +5; P01 and P02 +7, two loops; P01 -2 (SEQ A K1, SEQ B K2, LOOPS K4; GLO: XPOS A K1, XPOS B K2; SELECT the step); then DRUM (SEQ again),
 # EDIT on: the beat in at the one, playing. Then the pages the README had no screen of (2026-11-21, for the site's
 # every page): HOME twice, SETUP; FX round to TIME (SPACE, REACTOR, DISTROY, TIME: the delay on already); ENV round to
@@ -58,12 +58,9 @@
 14000 btn 9
 14100 btn 9
 14200 btn 11
-14300 btndown 7
-14305 keys 0x4000000
-14310 keys 0
-14315 btnup 7
-14350 keys 0x2
-14400 keys 0
+14300 enc 1 4
+14350 enc 2 1
+14400 enc 1 -4
 14500 btn 9
 14550 enc 1 1
 14600 btn 9

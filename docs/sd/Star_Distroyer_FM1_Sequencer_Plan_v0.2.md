@@ -37,9 +37,18 @@ how it behaves; how it got there is in the git history.
   up to three more notes as semitones from its note, moving with it (RND, the transposes, RADAR's NOTES).
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
   index keeps its meaning); ARP's RATE and SEQ's DIV step them fastest to slowest (`SD_SDIV_ORDER`).
+- *The layers* (2026-11-22, the user: "we can't have G5, something smarter", as the other pages were tidied): no key
+  has a job on SEQ. ALGORITHM (a second SELECT till then) picks what the knobs do, a row of buttons on the hint line,
+  the one in use lit: STEP (NOTE VEL GATE TYPE), MORE (RATCHET PROB MOVE LENGTH), TRACK (LENGTH DIV SWING XPOSE, GLO's
+  until then), PARTS (PARTS REPEAT ORDER LENGTH, SELECT the part; SKIP is ORDER's last choice) and TOOLS (RANDOM, a
+  new line each detent, a turn's first kept for UNDO; UNDO, one a turn; CLEAR, asked, OCT+; DUB, REC adds: a key on a
+  step with a note joins its chord as the voices allow, an empty step takes it as its note, a held key's TIE stops at
+  the next note). REC keeps the pattern before the take for UNDO. GLO there is the key: every key transposes, GLO +
+  ALGORITHM the scale, GLO + SELECT the root. The tools' history below (black keys, then TOOLS on GLO + G5 from
+  2026-11-21) is how it was.
 - *The page* (SEQ A, SEQ B): SELECT picks the step (2026-11-17, the user: "the keys are no longer the steps: try a line
   before REC"; they play there, taking the track's voice; GLO + the black keys the tools below, GLO + the others the
-  transpose); until then the white keys were the bank's 16 steps (the bank the edited step's: ALGORITHM or SELECT
+  transpose, till 2026-11-22); until then the white keys were the bank's 16 steps (the bank the edited step's: ALGORITHM or SELECT
   moves it; SELECT, since 2026-11-16 the FM-1's picker wherever a page has things in a row, the user's wish: steps,
   parts; GLO + OCT was the bank until 2026-11-16, now the transpose's octave),
   B4 (C#4, MORE, lit) shows the step's RATCHET and PROB, and (2026-11-16, the user: a note one step late was hard to

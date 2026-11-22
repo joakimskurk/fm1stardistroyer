@@ -1,0 +1,6 @@
+# The freeze log's inputs (tests/app_frz_test.c): SEQ (11), then a key (C4, key 7), then a knob (K1, encoder 2).
+1800 btn 11
+2000 keys 0x80
+2100 keys 0
+2300 enc 2 1
+2600 end

@@ -152,19 +152,20 @@
  *              track's pattern, SEQ A's (B's while A plays), UNDO on SEQ (arp_keep). While the patterns play its
  *              steps fall on their grid from START (a hand under a quarter step late plays at once); stopped, from
  *              the key
- *   SEQ A, B   two tracks on the one sound, each its pattern and LENGTH (a melody and a bass line). The step the
- *              white key picks: NOTE VEL GATE TYPE (NOTE SLIDE TIE REST SKIP); ALGORITHM the next step. GLO: LENGTH
- *              DIV SWING XPOSE; GLO + ALGORITHM the SCALE, GLO + SELECT the ROOT (the key's own, root_own; the
- *              notes as written). Stopped, REC off: the step picked sounds (aud_step). B4 MORE: K1 RATCHET K2 PROB, and the note heard at the
- *              step: K3 MOVE (a step earlier or later: a join stays a join, another note's place never taken) K4
- *              LENGTH (how many steps it holds, its TIEs; sd_note_move, sd_note_resize). GLO + a key (every one but G5)
- *              transposes; GLO + G5 opens TOOLS (seq_tools, 2026-11-21: the tools had taken six notes), where the
- *              black keys, lit, are B1 RND, B2 UNDO, B3 CLR,
- *              B10 SEG, SEGMENTS (the pattern's parts: a white key picks the part its step is in, framed, the rest
- *              dim; ALGORITHM how many, 1..6, even; K1 REPEAT K2 ORDER (FWD REV P-P RND) K3 SKIP K4 LENGTH, its end
- *              moved; the picture says how they play, PLAYS A B<x2 C), B11 the keys into the steps (REC, B11 again:
- *              back). REC: keys held together, a chord; playing, a key held on writes a TIE into each step it is
- *              held over (a new key while one is held: the next note, legato, unless in the same step: a chord)
+ *   SEQ A, B   two tracks on the one sound, each its pattern and LENGTH (a melody and a bass line). ALGORITHM picks
+ *              what the knobs do, a row of buttons on the hint line (2026-11-22, the user: no key has a job on SEQ):
+ *              STEP the step SELECT picks, NOTE VEL GATE TYPE (NOTE SLIDE TIE REST SKIP); MORE its RATCHET PROB, and
+ *              the note heard there: MOVE (a step earlier or later: a join stays a join, another note's place never
+ *              taken) LENGTH (how many steps it holds, its TIEs; sd_note_move, sd_note_resize); TRACK LENGTH DIV SWING
+ *              XPOSE; PARTS the pattern's parts (SELECT the part, framed, the rest dim): PARTS (how many, 1..6, even)
+ *              REPEAT ORDER (FWD REV P-P RND, or SKIP) LENGTH (its end moved), the picture says how they play (PLAYS
+ *              A B<x2 C); TOOLS RANDOM (a new line each detent) UNDO (the pattern before the last RANDOM, CLEAR, REC
+ *              or KEEP, and back) CLEAR (asked: OCT+ yes) DUB (REC adds, takes nothing). Stopped, REC off: the step
+ *              picked sounds (aud_step). The keys play; GLO + a key (every one) transposes, GLO + ALGORITHM the SCALE,
+ *              GLO + SELECT the ROOT (the key's own, root_own; the notes as written). REC: keys held together, a
+ *              chord; playing, a key held on writes a TIE into each step it is held over (a new key while one is
+ *              held: the next note, legato, unless in the same step: a chord); DUB: a key on a step with a note joins
+ *              its chord (as the voices allow), on an empty one it is the note
  *   ORBIT      the song: 1..16 steps on the white keys (GLO), each LOOPS loops of the master; the step the key (or
  *              ALGORITHM) picks: K1 SEQ A, K2 SEQ B (the pattern there), K3 DRUMS (the beat there, D01..D16, or OFF;
  *              -- as they play), K4 LOOPS; GLO: XPOS A, XPOS B, the lanes (each its DEST, -100..100 %: a lane with none
@@ -590,7 +591,14 @@ static volatile uint32_t aud_held;              /* the blocks the brake held bac
  * main loop stopped 8 s): the page, the buttons last pressed, where the main loop and the audio last were (the audio
  * on while the loop stood: it was starved, or stuck), the CPU, the brake's blocks, the second core */
 #define LAST_RUN_MAGIC 0x4C415354u              /* "LAST" */
-typedef struct { uint32_t magic, ms, isr_ms, page, btn, cpu, held, c1, at, stop_ms, play_ms; } LastRun;
+typedef struct {
+    uint32_t magic, ms, isr_ms, page, btn, cpu, held, c1, at, stop_ms, play_ms;
+    uint32_t st;                                /* (2026-11-22, the freeze log) the state: PLAY, REC, GLO latched, the
+                                                   voices, SEQ's track and layer, ARP, the looper armed */
+    uint32_t ev_n;                              /* the inputs since the start (ev_ring holds the last EV_N) */
+    uint32_t pc_n, pc[4];                       /* the main loop stood a second: the PCs the audio interrupted, a
+                                                   quarter second apart (where it is stuck) */
+} LastRun;
 #if defined(DINGHY_HOST)
 static LastRun last_run;
 #else
@@ -612,6 +620,15 @@ SD_HOT static void app_audio(int32_t *out, uint32_t n)
         aud_over_n = 2u;
         aud_held++;
         return;
+    }
+#endif
+#ifndef DINGHY_HOST
+    {                                           /* the main loop stood a second (a freeze coming: the watchdog's in 8):
+                                                   where it is, the PC this interrupt came in on, eight a quarter second
+                                                   apart (the freeze log) */
+        uint32_t stood = fm1_ms - last_run.ms;
+        if (last_run.magic == LAST_RUN_MAGIC && stood >= 1000u && last_run.pc_n < 4u && stood >= 1000u + 250u * last_run.pc_n)
+            last_run.pc[last_run.pc_n++] = fm1_reti();
     }
 #endif
     if (demo_st && !demo_before()) return;      /* (the demo: its events first; silence while it starts and ends) */
@@ -1137,14 +1154,117 @@ static uint32_t dslot;                          /* the MOD slot last picked (RAD
                                                    2026-11-19: the user found it gone; its own tab again, LFO's third) */
 static uint32_t seq_trk;                        /* the track SEQ edits: 0 A, 1 B */
 static SdPattern seqp, seq_undo;                /* the pattern as the keys left it; the one before the last RND, CLR */
-static uint32_t seq_has_undo, seq_cur, seq_bank, seq_segmode, seq_dseg, seq_rec, seq_clr_at;
-static uint32_t seq_tools;                      /* TOOLS open (GLO + G5): the black keys RND UNDO CLR MORE SEG KEYS, the
-                                                   white keys play, G5 closes it (2026-11-21, the user: with GLO to
-                                                   transpose, notes were missing where the black keys had jobs: now
-                                                   GLO + every key but G5 transposes) */
-#define SEQ_TOOLS_KEY 26u                       /* G5, the top key: TOOLS on SEQ */
-static uint32_t seq_more;                       /* STEP's second layer: RATCHET, PROB (B4, C#4: MORE) */
+static uint32_t seq_has_undo, seq_cur, seq_bank, seq_dseg, seq_rec, seq_clr_at;
+/* SEQ's layers (2026-11-22, the user: "we can't have G5, find something smarter", as the other pages were tidied): what
+   the knobs do, picked with ALGORITHM from a row of buttons on the hint line (ALGORITHM had been a second SELECT there).
+   No key has a job on SEQ any more: they play, and with GLO every one of them transposes */
+enum { SL_STEP, SL_MORE, SL_TRACK, SL_PARTS, SL_TOOLS, SL_N };
+static const char *const SL_NAME[SL_N] = {"STEP", "MORE", "TRACK", "PARTS", "TOOLS"};
+static uint32_t seq_layer;                      /* STEP: NOTE VEL GATE TYPE; MORE: RATCHET PROB MOVE LENGTH; TRACK:
+                                                   LENGTH DIV SWING XPOSE; PARTS: PARTS REPEAT ORDER LENGTH (SELECT the
+                                                   part); TOOLS: RANDOM UNDO CLEAR DUB */
+#define seq_segmode (seq_layer == SL_PARTS)     /* (read only: the parts' layer) */
+#define seq_more (seq_layer == SL_MORE)         /* (read only: the step's second layer) */
+static uint8_t seq_dub;                         /* TOOLS' DUB: REC adds to the steps, takes nothing (the player's) */
+static uint32_t seq_roll_at, seq_back_at;       /* TOOLS: the last RANDOM, UNDO (a turn's detents one roll's undo, one
+                                                   UNDO) */
 static uint32_t seq_rng = 0x5D5Du;
+
+/* ---- the freeze log (2026-11-22, the user: "make something that logs every freeze properly"). A freeze is the main
+ * loop stopped: the screen, the keys and the watchdog's feed with it, and 8 s later the watchdog restarts the FM-1.
+ * What it leaves, kept through that restart (.noinit): the last EV_N inputs (ev_ring: each button, key and knob, its
+ * time and page), last_run (where the main loop stood, the page, PLAY, REC, the CPU) and, once the loop has stood a
+ * second, where it is stuck (last_run.pc: app_audio samples the PC it interrupted). The start after it (or after a
+ * crash's screen) writes all of it into the log, LOG_SECT sectors of its own after the store's copies (store.h):
+ * FRZ_RECS records, the oldest written over. SETUP shows them, SELECT the newest first (a photo of the screen is the
+ * report); tools/fm1_diag -l reads them whole over USB. Turned off before the watchdog's 8 s, nothing is kept */
+#define EV_N 24u                                /* (the restart's RAM, NOINIT, has room for so many: 2026-11-22) */
+typedef struct { uint16_t t8; uint8_t kc; int8_t val; } SdEv;   /* t8: fm1_ms / 8 (its low 16 bits: 8 minutes round);
+                                                   kc: the kind << 5 | the button, key or encoder; val: a knob's turn */
+enum { EV_BTN = 1, EV_BTN_UP, EV_KEY, EV_KEY_UP, EV_ENC };
+#if defined(DINGHY_HOST)
+static SdEv ev_ring[EV_N];
+#else
+static SdEv ev_ring[EV_N] __attribute__((section(".noinit")));   /* (last_run.ev_n counts them) */
+#endif
+static void ev_put(uint32_t kind, uint32_t code, int32_t val)
+{
+    SdEv *v = &ev_ring[last_run.ev_n++ % EV_N];
+    v->t8 = (uint16_t)(fm1_ms >> 3); v->kc = (uint8_t)(kind << 5 | (code & 31u));
+    v->val = (int8_t)(val < -128 ? -128 : val > 127 ? 127 : val);
+}
+#define FRZ_MAGIC 0x534C4F47u                   /* "SLOG" */
+#define FRZ_RECS 16u                            /* 512 bytes each, 8 a sector */
+enum { FRZ_FREEZE = 1, FRZ_CRASH = 2 };
+typedef struct {
+    uint32_t magic, seq, kind, crc;             /* (the crc: of what follows) */
+    char ver[16];                               /* the firmware it ran (APP_VER) */
+    LastRun run;                                /* as the start found it */
+    uint32_t crash[16];                         /* a crash: fm1_crash, as its screen showed it */
+    uint32_t ev_n;                              /* the inputs in that run (the last EV_N below, oldest first) */
+    SdEv ev[EV_N];
+} FrzRec;
+_Static_assert(sizeof(FrzRec) <= 512u, "a freeze record: 512 bytes, 8 a sector");
+static uint32_t frz_n, frz_top;                 /* the records kept; the newest's number */
+static uint32_t setup_log;                      /* SETUP's SELECT: 0 the settings; k the freeze log's k-th newest */
+#ifndef DINGHY_HOST
+_Static_assert(FRZ_RECS == LOG_SECT * 8u, "the freeze log: 8 records a sector");
+static uint32_t frz_crc(const FrzRec *r) { return crc32((const uint8_t *)r + 16, sizeof *r - 16u); }
+static int frz_read(uint32_t i, FrzRec *r)      /* place i: 0 if a whole record */
+{
+    if (!flash_ok || st_read(LOG_AT + i * 512u, r, sizeof *r)) return -1;
+    return r->magic == FRZ_MAGIC && r->crc == frz_crc(r) ? 0 : -1;
+}
+static void frz_write(FrzRec *r)                /* at its number's place; a sector erased when its first place comes,
+                                                   or when the place is not blank (another firmware's bytes) */
+{
+    uint32_t i = r->seq % FRZ_RECS, at = LOG_AT + i * 512u, w[16], k, j, blank = 1, took;
+    r->magic = FRZ_MAGIC;
+    r->crc = frz_crc(r);
+    if (!flash_ok) return;
+    for (k = 0; k < 512u && blank; k += sizeof w)
+        if (st_read(at + k, w, sizeof w)) blank = 0;
+        else for (j = 0; j < 16u; j++) blank &= w[j] == 0xFFFFFFFFu;
+    if (i % 8u == 0u || !blank) fl_erase4k(LOG_AT + (i / 8u) * 0x1000u, &took);
+    fl_write(at, (const uint8_t *)r, sizeof *r);
+}
+#else
+static FrzRec frz_host[FRZ_RECS];               /* (on a computer, in a browser: in RAM, for the tests) */
+static int frz_read(uint32_t i, FrzRec *r) { *r = frz_host[i % FRZ_RECS]; return r->magic == FRZ_MAGIC ? 0 : -1; }
+static void frz_write(FrzRec *r) { r->magic = FRZ_MAGIC; frz_host[r->seq % FRZ_RECS] = *r; }
+#endif
+static void frz_scan(void)                      /* the start: how many, the newest's number */
+{
+    FrzRec r;
+    uint32_t i;
+    frz_n = frz_top = 0;
+    for (i = 0; i < FRZ_RECS; i++)
+        if (!frz_read(i, &r)) { if (!frz_n || (int32_t)(r.seq - frz_top) > 0) frz_top = r.seq; frz_n++; }
+}
+static int frz_get(uint32_t k, FrzRec *r)       /* the k-th newest (0: the newest) */
+{
+    return k < frz_n && !frz_read((frz_top - k) % FRZ_RECS, r) && r->seq == frz_top - k ? 0 : -1;
+}
+static void frz_add(uint32_t kind, const LastRun *run, const uint32_t *crash)   /* what the last run left, the
+                                                   inputs oldest first */
+{
+    FrzRec r;
+    uint32_t i, n = run->magic == LAST_RUN_MAGIC ? run->ev_n : 0u;
+    const char *v = APP_VER;
+    uint8_t *z = (uint8_t *)&r;
+    for (i = 0; i < sizeof r; i++) z[i] = 0;
+    r.seq = frz_n ? frz_top + 1u : 0u;
+    r.kind = kind;
+    for (i = 0; i < 15u && v[i]; i++) r.ver[i] = v[i];
+    r.run = *run;
+    if (crash) for (i = 0; i < 16u; i++) r.crash[i] = crash[i];
+    r.ev_n = n;
+    if (n) for (i = 0; i < EV_N; i++) r.ev[i] = ev_ring[(n + i) % EV_N];   /* (fewer than EV_N: blanks first) */
+    if (n && n < EV_N) for (i = 0; i < EV_N - n; i++) r.ev[i].kc = 0;
+    frz_write(&r);
+    frz_top = r.seq;
+    if (frz_n < FRZ_RECS) frz_n++;
+}
 static const char *const STYPE_NAME[SD_STYPES] = {"NOTE", "SLIDE", "TIE", "REST", "SKIP"};
 static const char *const SORDER_NAME[SD_SORDERS] = {"FWD", "REV", "P-P", "RND"};
 static const char *const SORDER_GLYPH[SD_SORDERS] = {"", "<", "<>", "?"};
@@ -1305,6 +1425,7 @@ static int32_t enc_take(uint32_t e)             /* an encoder's detents: one tur
 {
     int32_t v = fm1_enc_take(e);
     if (!v) return 0;
+    ev_put(EV_ENC, e, v);                       /* (the freeze log) */
 #if !defined(DINGHY_HOST)
     enc_pace(e, v);
 #endif
@@ -1998,7 +2119,6 @@ static void seq_track(uint32_t k)               /* SEQ edits track k */
     seq_trk = k;
     seq_cur = seq_bank = 0;
     seq_has_undo = 0;
-    seq_more = 0;
 }
 static uint32_t trk_has_notes(uint32_t k)       /* a track's pattern plays a note somewhere */
 {
@@ -2034,11 +2154,24 @@ static uint32_t rec_joins(void)                 /* a key now joins the held one'
     return rec_at != 0xFFu && (!eng.seq_run || eng.t[seq_trk].seq_shown == rec_at);
 }
 static uint32_t midi_held[4], midi_hn;          /* MIDI in: the notes held, how many (REC: a chord, the next step) */
+static void seq_chord(uint32_t note);
 static void seq_write_v(uint32_t note, uint32_t type, uint32_t vel)   /* REC: a key (at its velocity), TIE or REST
                                                    into the step */
 {
     uint32_t at = eng.seq_run ? eng.t[seq_trk].seq_shown : seq_cur;
     SdStep *s = &seqp.step[at < SD_PSTEPS ? at : 0u];
+    if (type == SD_ST_NOTE && seq_dub && s->type != SD_ST_REST && s->type != SD_ST_SKIP) {   /* DUB (TOOLS' K4): a
+                                                   step with a note keeps it, the key joins its chord (as the voices
+                                                   allow, seq_chord); its GATE stays, no TIE after it; a held note's
+                                                   TIE takes nothing */
+        rec_at = at < SD_PSTEPS ? at : 0u;
+        rec_tie_at = 0xFEu;
+        if (s->type == SD_ST_TIE) { rec_n = 4u; msg("DUB: A HELD NOTE THERE"); return; }
+        rec_n = 1u + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
+        if (rec_n >= 4u) msg("DUB: THE STEP HOLDS FOUR");
+        else seq_chord(note);
+        return;
+    }
     if (type == SD_ST_NOTE) {
         s->note = (uint8_t)note; s->vel = (uint8_t)(vel < 1u ? 1u : vel > 127u ? 127u : vel);
         s->chord[0] = s->chord[1] = s->chord[2] = 0;
@@ -2231,8 +2364,7 @@ static void clear_all(void)
     orb_push();
     seq_cur = seq_bank = 0;
     seq_has_undo = 0;
-    seq_segmode = 0;
-    seq_more = 0;
+    seq_layer = SL_STEP;
     seq_clr_at = 0;
     for (k = 0; k < SD_MODS; k++) { pat.mod[k].src = pat.mod[k].dst = 0; pat.mod[k].amt = 0; pat.mod_off[k] = 0; }
     pat.tur_set = 0; pat.tur_ld = 0; pat.tur_dst = 0; pat.tur_amt = 0; pat.tur_off = 0;
@@ -2267,7 +2399,7 @@ static uint32_t select_turn(int32_t e)
     }
     switch (page) {
     case PAGE_SEQ:
-        if (shift() && !seq_segmode) {          /* GLO + SELECT: the key's ROOT (as GLO + ALGORITHM its scale): IN KEY
+        if (shift()) {                          /* GLO + SELECT: the key's ROOT (as GLO + ALGORITHM its scale): IN KEY
                                                    the master's only, set on its page; the notes as written */
             if (!set.xchrom && key_trk() != seq_trk) { msg(key_trk() ? "THE KEY IS SEQ B'S" : "THE KEY IS SEQ A'S"); return 0; }
             seqp.root = (uint8_t)(SD_ROOT_SET | step_mod(sd_pat_key(&seqp) % 12u, e, 12u));
@@ -2302,84 +2434,46 @@ static uint32_t select_turn(int32_t e)
         dlist_at = 0;
         return 1;
     case 2: dband = step_mod(dband, e, 5u); dlist_at = 0; return 0;   /* (the band's frame moves: no list) */
+    case PAGE_SETUP:                            /* the freeze log: the newest first, back to the settings at 0 */
+        if (!frz_n) { msg("NO FREEZE IN THE LOG"); return 0; }
+        setup_log = step_lim(setup_log, e, frz_n + 1u);
+        return 0;
     case 4: if (dmod < SD_MODS) { dmod = step_mod(dmod, e, SD_MODS); dslot = dmod; } return 0;
     default: return 0;
     }
 }
 
-/* The keys on SEQ, REC off, with GLO (2026-11-17; without it they play): the black keys B1 RND, B2 UNDO, B3 CLR,
- * B4 MORE, B10 SEG (SEGMENTS: the white keys pick the part, B10 again: back), B11 KEYS (REC); SELECT picks the step.
- * The key LEDs show it (keys_lit). */
-#define BK_MORE 3                               /* B4 (C#4): on SEQ the step's second layer, RATCHET and PROB */
-#define BK_SEG 9                                /* the black key before the last (D#5, B10): SEG; ORBIT's SETUP */
-#define BK_KEYS 10                              /* the last black key (F#5, B11): on SEQ the keys play into the steps
-                                                   (REC) and back */
-static void rec_toggle(void)                    /* REC (or B11 on SEQ): recording into the track SEQ edits, on or off */
+#define BK_MORE 3                               /* B4 (C#4): ORBIT's MACRO, DRUM's MORE */
+#define BK_SEG 9                                /* the black key before the last (D#5, B10): ORBIT's SETUP, REACTOR's
+                                                   STAGES, DRUM's MIX */
+static void rec_toggle(void)                    /* REC: recording into the track SEQ edits, on or off (UNDO: the pattern
+                                                   before the take) */
 {
     seq_rec = !seq_rec;
     rec_at = 0xFFu;
     rec_pend_n = 0;
+    if (seq_rec) seq_keep_undo();
     if (seq_rec && seq_trk && set.mode == SD_MODE_MONO) msg("B RECORDS, PLAYS IN DUO/POLY");
 }
-static uint32_t seq_tool_keys(void)             /* the black keys with a job on SEQ (with GLO): B1 B2 B3 B4 B10 B11 */
-{
-    uint32_t k, m = 0;
-    for (k = 0; k < 27u; k++) {
-        int32_t bk = key_black(k);
-        if (bk == 0 || bk == 1 || bk == 2 || bk == BK_MORE || bk == BK_SEG || bk == BK_KEYS) m |= 1u << k;
-    }
-    return m;
-}
-static void seq_keys(uint32_t down)
-{
-    uint32_t k;
-    for (k = 0; k < 27u; k++) {
-        int32_t w, bk;
-        if (!(down >> k & 1u)) continue;
-        w = key_white(k);
-        bk = key_black(k);
-        if (bk == BK_KEYS && !seq_segmode) {
-            rec_toggle();                       /* the keys play into the steps now (B11 again: back) */
-        } else if (bk == BK_SEG) {
-            seq_segmode = !seq_segmode;
-            if (seq_segmode) seq_dseg = sd_seg_of(&seqp, seq_cur);   /* (the part of the step that was picked) */
-            seq_more = 0;
-        } else if (bk == BK_MORE && !seq_segmode) {
-            seq_more = !seq_more;               /* MORE: the step's RATCHET and PROB (it stays while steps are picked) */
-        } else if (w >= 0) {
-            uint32_t i = seq_bank * 16u + (uint32_t)w;
-            if (i >= seqp.len) continue;
-            if (seq_segmode) seq_dseg = sd_seg_of(&seqp, i);   /* SEGMENTS: the part its step is in, picked */
-            seq_cur = i;
-            if (!seq_segmode) aud_step(i, k);   /* (stopped: heard while the key is held) */
-        } else if (seq_segmode) {
-            /* (SEGMENTS: the black keys rest, but D#5, the way back) */
-        } else if (bk == 0) {                   /* RND: a new line in the scale, now; IN KEY on the track that is not
+static void seq_roll(void)                      /* RANDOM: a new line in the scale, now; IN KEY on the track that is not
                                                    the master in the master's key, root and scale, as it plays there
                                                    (2026-11-19, the user: B did not follow A's: it took its own, never
                                                    set) */
-            seq_keep_undo();
-            if (!set.xchrom && key_trk() != seq_trk) {
-                const SdPattern *kp = key_pat();
-                seqp.root = (uint8_t)(SD_ROOT_SET | sd_pat_key(kp) % 12u);
-                seqp.scale = kp->scale;
-            }
-            sd_pattern_randomize(&seqp, &seq_rng);
-            seq_push();
-        } else if (bk == 1 && seq_has_undo) {   /* UNDO: the pattern before the last rewrite (and back) */
-            SdPattern t = seqp;
-            seqp = seq_undo;
-            seq_undo = t;
-            seq_push();
-        } else if (bk == 2) {                   /* CLR, pressed twice (or then OCT+): every step a rest */
-            if (seq_clr_at && fm1_ms - seq_clr_at < 3000u) {
-                seq_clear();
-            } else {
-                seq_clr_at = fm1_ms;
-            }
-        }
+{
+    if (!set.xchrom && key_trk() != seq_trk) {
+        const SdPattern *kp = key_pat();
+        seqp.root = (uint8_t)(SD_ROOT_SET | sd_pat_key(kp) % 12u);
+        seqp.scale = kp->scale;
     }
-    if (seq_clr_at && fm1_ms - seq_clr_at >= 3000u) seq_clr_at = 0;
+    sd_pattern_randomize(&seqp, &seq_rng);
+    seq_push();
+}
+static void seq_back(void)                      /* UNDO: the pattern before the last rewrite (and back) */
+{
+    SdPattern t = seqp;
+    seqp = seq_undo;
+    seq_undo = t;
+    seq_push();
 }
 
 static uint32_t dr_tool_keys(void)              /* the black keys with a job on DRUM (with GLO): B1 B2 B3 B4 */
@@ -2656,14 +2750,24 @@ static void dr_knobs(void)
     }
 }
 
-/* The encoders on SEQ (every one but PRESETS). GLO held: K1 LENGTH, K2 DIV, K3 SWING, K4 XPOSE
- * (the track's transpose, taken at its next one, as GLO + a key), ALGORITHM the SCALE */
+/* The encoders on SEQ (every one but PRESETS): ALGORITHM the layer (GLO: the SCALE), the knobs the layer's (seq_layer;
+ * GLO leaves them so); SELECT the step (select_turn) */
 static void seq_knobs(void)
 {
     int32_t e;
     SdStep *st = &seqp.step[seq_cur];
     uint32_t changed = 0;
-    if (shift() && !seq_segmode) {
+    if (shift()) {
+        if ((e = enc_take(ENC_ALGORITHM)) != 0) {   /* the scale: IN KEY the master's only, set on its page */
+            if (!set.xchrom && key_trk() != seq_trk) msg(key_trk() ? "THE KEY IS SEQ B'S" : "THE KEY IS SEQ A'S");
+            else seqp.scale = (uint8_t)step_mod(seqp.scale % SD_SCALES, e, SD_SCALES), changed = 1;
+        }
+    } else if ((e = enc_take(ENC_ALGORITHM)) != 0) {   /* the layer: what the knobs do */
+        seq_layer = step_mod(seq_layer, e, SL_N);
+        seq_clr_at = 0;
+        if (seq_layer == SL_PARTS) seq_dseg = sd_seg_of(&seqp, seq_cur);   /* (the part of the step picked) */
+    }
+    if (seq_layer == SL_TRACK) {
         if ((e = enc_take(ENC_KNOB1)) != 0) seq_len(e), changed = 1;
         if ((e = enc_take(ENC_KNOB2)) != 0) { seqp.div = (uint8_t)sdiv_step(seqp.div % SD_SDIVS, e); changed = 1; }
         if ((e = enc_take(ENC_KNOB3)) != 0) {
@@ -2671,33 +2775,28 @@ static void seq_knobs(void)
             seqp.swing = (uint8_t)(w < 50 ? 50 : w > 75 ? 75 : w);
             changed = 1;
         }
-        if ((e = enc_take(ENC_KNOB4)) != 0) {
+        if ((e = enc_take(ENC_KNOB4)) != 0) {   /* XPOSE: the track's transpose, taken at its next one (as GLO + a key) */
             int32_t x = eng.t[seq_trk].xpose_next + e;
             eng.t[seq_trk].xpose_next = (int8_t)(x < -24 ? -24 : x > 24 ? 24 : x);
         }
-        if ((e = enc_take(ENC_ALGORITHM)) != 0) {   /* the scale: IN KEY the master's only, set on its page */
-            if (!set.xchrom && key_trk() != seq_trk) msg(key_trk() ? "THE KEY IS SEQ B'S" : "THE KEY IS SEQ A'S");
-            else seqp.scale = (uint8_t)step_mod(seqp.scale % SD_SCALES, e, SD_SCALES), changed = 1;
+    } else if (seq_layer == SL_TOOLS) {
+        if ((e = enc_take(ENC_KNOB1)) != 0) {   /* RANDOM: a new line each detent; a turn's first keeps the line before
+                                                   it for UNDO */
+            if (!seq_roll_at || fm1_ms - seq_roll_at > 1000u) seq_keep_undo();
+            seq_roll_at = fm1_ms ? fm1_ms : 1u;
+            seq_roll();
         }
+        if ((e = enc_take(ENC_KNOB2)) != 0) {   /* UNDO: one a turn (its other detents within 0.6 s nothing) */
+            if (!seq_has_undo) msg("NOTHING TO UNDO");
+            else if (!seq_back_at || fm1_ms - seq_back_at > 600u) seq_back();
+            seq_back_at = fm1_ms ? fm1_ms : 1u;
+        }
+        if ((e = enc_take(ENC_KNOB3)) != 0) seq_clr_at = fm1_ms ? fm1_ms : 1u;   /* CLEAR: asked, OCT+ yes */
+        if ((e = enc_take(ENC_KNOB4)) != 0) seq_dub = e > 0;   /* DUB: a turn right on, left off */
     } else if (seq_segmode) {
         uint8_t bd[SD_SEGS + 1u];
         uint32_t sc = sd_seg_bounds(&seqp, bd), g = seq_dseg < sc ? seq_dseg : sc - 1u;
-        if ((e = enc_take(ENC_KNOB1)) != 0) {
-            int32_t r = (int32_t)(seqp.seg_rep[g] < 1u ? 1u : seqp.seg_rep[g]) + e;
-            seqp.seg_rep[g] = (uint8_t)(r < 1 ? 1 : r > 4 ? 4 : r);
-            changed = 1;
-        }
-        if ((e = enc_take(ENC_KNOB2)) != 0) seqp.seg_order[g] = (uint8_t)step_mod(seqp.seg_order[g] % SD_SORDERS, e, SD_SORDERS), changed = 1;
-        if ((e = enc_take(ENC_KNOB3)) != 0) {
-            seqp.seg_skip = (uint8_t)(e > 0 ? seqp.seg_skip | 1u << g : seqp.seg_skip & ~(1u << g));
-            changed = 1;
-        }
-        if ((e = enc_take(ENC_KNOB4)) != 0) {
-            int32_t l = (int32_t)(bd[g + 1u] - bd[g]) + e;
-            sd_seg_set_len(&seqp, g, (uint32_t)(l < 1 ? 1 : l));
-            changed = 1;
-        }
-        if ((e = enc_take(ENC_ALGORITHM)) != 0) {   /* ALGORITHM: how many parts, even (UNDO takes it back) */
+        if ((e = enc_take(ENC_KNOB1)) != 0) {   /* PARTS: how many, even (UNDO takes it back) */
             int32_t c = (int32_t)sc + e, mx = seqp.len < SD_SEGS ? (int32_t)seqp.len : (int32_t)SD_SEGS;
             c = c < 1 ? 1 : c > mx ? mx : c;
             if ((uint32_t)c != sc) {
@@ -2707,6 +2806,23 @@ static void seq_knobs(void)
                 if (seq_dseg >= (uint32_t)c) seq_dseg = (uint32_t)c - 1u;
                 changed = 1;
             }
+        }
+        if ((e = enc_take(ENC_KNOB2)) != 0) {
+            int32_t r = (int32_t)(seqp.seg_rep[g] < 1u ? 1u : seqp.seg_rep[g]) + e;
+            seqp.seg_rep[g] = (uint8_t)(r < 1 ? 1 : r > 4 ? 4 : r);
+            changed = 1;
+        }
+        if ((e = enc_take(ENC_KNOB3)) != 0) {   /* ORDER: FWD REV P-P RND, then SKIP (the part left out) */
+            uint32_t o = (seqp.seg_skip >> g & 1u) ? SD_SORDERS : seqp.seg_order[g] % SD_SORDERS;
+            o = step_lim(o, e, SD_SORDERS + 1u);
+            if (o == SD_SORDERS) seqp.seg_skip = (uint8_t)(seqp.seg_skip | 1u << g);
+            else { seqp.seg_skip = (uint8_t)(seqp.seg_skip & ~(1u << g)); seqp.seg_order[g] = (uint8_t)o; }
+            changed = 1;
+        }
+        if ((e = enc_take(ENC_KNOB4)) != 0) {
+            int32_t l = (int32_t)(bd[g + 1u] - bd[g]) + e;
+            sd_seg_set_len(&seqp, g, (uint32_t)(l < 1 ? 1 : l));
+            changed = 1;
         }
     } else if (seq_more) {                      /* RATCHET 1..3, PROB in 5 % steps */
         if ((e = enc_take(ENC_KNOB1)) != 0) {
@@ -2749,11 +2865,6 @@ static void seq_knobs(void)
                 seq_bank = seq_cur / 16u;
             }
         }
-        if ((e = enc_take(ENC_ALGORITHM)) != 0) {
-            seq_cur = step_mod(seq_cur, e, seqp.len);
-            seq_bank = seq_cur / 16u;
-            aud_step(seq_cur, 0xFFu);
-        }
     } else {
         if ((e = enc_take(ENC_KNOB1)) != 0) {
             int32_t n = (int32_t)st->note + e;
@@ -2772,11 +2883,6 @@ static void seq_knobs(void)
             changed = 1;
         }
         if ((e = enc_take(ENC_KNOB4)) != 0) st->type = (uint8_t)step_mod(st->type % SD_STYPES, e, SD_STYPES), changed = 1;
-        if ((e = enc_take(ENC_ALGORITHM)) != 0) {
-            seq_cur = step_mod(seq_cur, e, seqp.len);
-            seq_bank = seq_cur / 16u;
-            aud_step(seq_cur, 0xFFu);
-        }
     }
     if (changed) seq_push();
 }
@@ -3198,7 +3304,7 @@ static void draw_nav(void)
 
 /* ---- the four knobs */
 typedef struct { const char *nm; char v[12]; int16_t bar; uint8_t kind, hot; } Kn;
-enum { KN_TXT, KN_UNI, KN_BI };
+enum { KN_TXT, KN_UNI, KN_BI, KN_BTN };       /* (KN_BTN: its value a panel button, bar its state: btn()'s st) */
 static Kn kn[4];
 static void kt(uint32_t i, const char *nm, const char *v)   /* a name and a text (7 characters fit) */
 {
@@ -3217,6 +3323,7 @@ static void kb(uint32_t i, const char *nm, const char *v, int32_t b99)   /* a ba
     kn[i].bar = (int16_t)(b99 < -99 ? -99 : b99 > 99 ? 99 : b99);
 }
 static void k0(uint32_t i) { kn[i].nm = 0; kn[i].v[0] = 0; kn[i].kind = KN_TXT; kn[i].hot = 0; }
+static void kbt(uint32_t i, const char *nm, const char *v, uint32_t st) { kt(i, nm, v); kn[i].kind = KN_BTN; kn[i].bar = (int16_t)st; }
 
 static void env_knobs(const uint8_t *ev)        /* an envelope: A D S R (0..127) */
 {
@@ -3246,7 +3353,8 @@ static void seq_l2_knobs(void)                  /* SEQ with GLO held */
 static uint32_t has_l2(void)                    /* GLO gives this page a second layer */
 {
     return page != 4u && page != PAGE_ARP && page != PAGE_TIME && page != PAGE_SUB &&
-           !(page == PAGE_SEQ && seq_segmode);   /* (TIME, LOOPER: GLO only with a button or ALGORITHM there; RADAR:
+           page != PAGE_SEQ;                    /* (SEQ: the layers on ALGORITHM, GLO there the key; TIME, LOOPER: GLO
+                                                   only with a button or ALGORITHM there; RADAR:
                                                    none since its DIV went to K4, 2026-11-21) */
 }
 static void knobs_of(void)
@@ -3536,17 +3644,23 @@ static void knobs_of(void)
         }
         break;
     }
-    default:                                    /* SEQ A, B */
-        if (seq_segmode) {
+    default:                                    /* SEQ A, B: the layer's (ALGORITHM) */
+        if (seq_layer == SL_TOOLS) {            /* RANDOM UNDO CLEAR DUB, each a button: lit as it acts, UNDO's dim
+                                                   with nothing to take back, CLEAR's while it asks, DUB's ON lit */
+            kbt(0, "RANDOM", "ROLL", seq_roll_at && fm1_ms - seq_roll_at < 300u ? 1u : 0u);
+            kbt(1, "UNDO", "BACK", seq_back_at && fm1_ms - seq_back_at < 300u ? 1u : seq_has_undo ? 2u : 0u);
+            kbt(2, "CLEAR", "CLEAR", seq_clr_at ? 1u : 0u);
+            kbt(3, "DUB", seq_dub ? "ON" : "OFF", seq_dub ? 1u : 0u);
+        } else if (seq_layer == SL_TRACK) {
+            seq_l2_knobs();
+        } else if (seq_segmode) {
             uint8_t bd[SD_SEGS + 1u];
             uint32_t sc = sd_seg_bounds(&seqp, bd), g = seq_dseg < sc ? seq_dseg : sc - 1u;
             uint32_t r = seqp.seg_rep[g] < 1u ? 1u : seqp.seg_rep[g];
-            p = put(t, "x"); *put_u(p, r) = 0; kx(0, "REPEAT", t, (r - 1u) * 33u);
-            kt(1, "ORDER", SORDER_NAME[seqp.seg_order[g] % SD_SORDERS]);
-            kt(2, "SKIP", (seqp.seg_skip >> g & 1u) ? "SKIP" : "PLAY");
+            *put_u(t, sc) = 0; kt(0, "PARTS", t);
+            p = put(t, "x"); *put_u(p, r) = 0; kx(1, "REPEAT", t, (r - 1u) * 33u);
+            kt(2, "ORDER", (seqp.seg_skip >> g & 1u) ? "SKIP" : SORDER_NAME[seqp.seg_order[g] % SD_SORDERS]);
             *put_u(t, bd[g + 1u] - bd[g]) = 0; kt(3, "LENGTH", t);
-        } else if (l2) {
-            seq_l2_knobs();
         } else {
             const SdStep *st = &seqp.step[seq_cur];
             if (seq_more) {
@@ -3585,6 +3699,7 @@ static void draw_knobs(void)
         if (i) cv_line(x, 18, x, (int32_t)H_KNOB - 4, C_GRID);   /* (under the names: seven letters fit) */
         if (!k->nm) continue;                  /* (no knob there: nothing) */
         cv_text(cx - text_w(&FONT_S, k->nm) / 2, 0, &FONT_S, k->nm, cn);
+        if (k->kind == KN_BTN) { btn(x + 4, 17, 52, k->v, (uint32_t)k->bar); continue; }   /* (TOOLS: a button) */
         cv_text(cx - text_w(&FONT_S, k->v) / 2, 17, &FONT_S, k->v, k->hot ? C_RED : cv);
         if (k->kind == KN_UNI || k->kind == KN_BI) {   /* a printed scale (eleven ticks, the middle and the ends
                                                    long), filled to the value, its pointer there */
@@ -4216,6 +4331,96 @@ static void pic_mod_full(void)                  /* MOD: a row a slot, its column
         }
     }
 }
+static const char *const PG_NAME[16] = {"NAV", "REACTOR", "DISTROY", "SPACE", "LFO", "MACROS", "SEQ", "ENV", "FILTER",
+                                        "ARP", "ORBIT", "TIME", "LOOPER", "SETUP", "DRUM", "SUB"};
+static const char *btn_name(uint32_t b)
+{
+    return b == BTN_OCT_DOWN ? "OCT-" : b == BTN_OCT_UP ? "OCT+" : b == BTN_FX ? "FX" : b == BTN_SEL ? "SEL" :
+           b == BTN_ENV ? "ENV" : b == BTN_LFO ? "LFO" : b == BTN_EDIT ? "EDIT" : b == BTN_GLO ? "GLO" :
+           b == BTN_HOME ? "HOME" : b == BTN_SAVE ? "SAVE" : b == BTN_ARP ? "ARP" : b == BTN_SEQ ? "SEQ" :
+           b == BTN_PLAY ? "PLAY" : b == BTN_REC ? "REC" : "BTN";
+}
+static const char *enc_name(uint32_t e)
+{
+    return e == ENC_SELECT ? "SEL" : e == ENC_ALGORITHM ? "ALG" : e == ENC_PRESETS ? "PRE" : e == ENC_KNOB1 ? "K1" :
+           e == ENC_KNOB2 ? "K2" : e == ENC_KNOB3 ? "K3" : e == ENC_KNOB4 ? "K4" : "ENC";
+}
+static char *put_hex(char *p, uint32_t v)
+{
+    uint32_t k;
+    for (k = 0; k < 8u; k++) *p++ = "0123456789ABCDEF"[v >> (28u - 4u * k) & 15u];
+    return p;
+}
+static char *put_2(char *p, uint32_t v) { *p++ = (char)('0' + v / 10u % 10u); *p++ = (char)('0' + v % 10u); return p; }
+static void pic_frz(void)                       /* SETUP, SELECT: a freeze (or a crash) from the log, whole: a photo of
+                                                   it is the report. What, when, where it stood and was stuck, the
+                                                   inputs before it, the newest first */
+{
+    FrzRec r;
+    char s[48], t[12], *p;
+    uint32_t i, up, y = 74, ln = 0, first = 1;
+    int32_t k;
+    if (frz_get(setup_log - 1u, &r)) { cv_text(6, 0, &FONT_S, "THE LOG CANNOT BE READ", C_RED); return; }
+    p = put(s, r.kind == FRZ_CRASH ? "CRASH " : "FREEZE "); p = put_u(p, setup_log); p = put(p, " OF "); *put_u(p, frz_n) = 0;
+    cv_text(6, 0, &FONT_S, s, C_RED);
+    r.ver[15] = 0;
+    cv_text(234 - text_w(&FONT_S, r.ver), 0, &FONT_S, r.ver, C_ICE_D);
+    up = r.run.ms / 1000u;
+    p = put_u(put(s, "AFTER "), up / 3600u); *p++ = ':'; p = put_2(p, up / 60u % 60u); *p++ = ':'; p = put_2(p, up % 60u);
+    p = put(p, r.run.st & 1u ? "  PLAY" : "  STOP");
+    if (r.run.st & 2u) p = put(p, " REC");
+    if (r.run.st & 4u) p = put(p, " GLO");
+    *p = 0;
+    cv_text(6, 18, &FONT_S, s, C_ICE);
+    p = put(s, PG_NAME[r.run.page & 15u]);
+    if (r.run.page == PAGE_SEQ) p = put(p, r.run.st >> 6 & 1u ? " B " : " A "), p = put(p, SL_NAME[(r.run.st >> 8 & 7u) % SL_N]);
+    p = put_u(put(p, "  CPU "), (r.run.cpu + 5u) / 10u); *p++ = '%';
+    p = put(p, "  AT ");
+    if (r.run.at == LR_INPUT) p = put(p, "INPUT");   /* (where the main loop stood, LR_*) */
+    else if (r.run.at >= LR_SAVE && r.run.at < LR_SETTINGS) p = put(p, "SAVE");
+    else if (r.run.at == LR_SETTINGS) p = put(p, "SETUP");
+    else if (r.run.at == LR_DRAW) p = put(p, "DRAW");
+    else if (r.run.at == LR_DRAWN) p = put(p, "DRAWN");
+    else if (r.run.at == LR_END) p = put(p, "END");
+    else p = put_u(p, r.run.at);
+    *p = 0;
+    cv_text(6, 36, &FONT_S, s, C_ICE);
+    if (r.kind == FRZ_CRASH) { p = put_hex(put(s, "PC "), r.crash[3]); p = put_hex(put(p, " "), r.crash[4]); }
+    else if (r.run.pc_n) {                      /* where it was stuck: the first and the last PC sampled */
+        p = put_hex(put(s, "STUCK "), r.run.pc[0]);
+        if (r.run.pc_n > 1u && r.run.pc[r.run.pc_n - 1u] != r.run.pc[0]) p = put_hex(put(p, " "), r.run.pc[r.run.pc_n - 1u]);
+    } else p = put(s, (int32_t)(r.run.isr_ms - r.run.ms) < 1500 ? "STUCK --, THE AUDIO STOOD TOO" : "STUCK --");
+    *p = 0;
+    cv_text(6, 54, &FONT_S, s, C_ICE);
+    p = s; *p = 0;
+    for (k = (int32_t)EV_N - 1; k >= 0 && ln < 4u; k--) {   /* the inputs, newest first, as words, four lines */
+        const SdEv *v = &r.ev[k];
+        char *q = t;
+        uint32_t kind = v->kc >> 5, code = v->kc & 31u;
+        if (!kind || kind == EV_KEY_UP || (kind == EV_BTN_UP && code != BTN_GLO)) continue;
+        if (first) {                            /* (how long before the freeze the newest came) */
+            uint32_t d = (((r.run.ms >> 3) - v->t8) & 0xFFFFu) * 8u;
+            char h[32], *hp = put(h, "INPUTS BEFORE, NEWEST ");
+            hp = put_u(hp, d / 1000u); *hp++ = '.'; *hp++ = (char)('0' + d / 100u % 10u); *put(hp, "S") = 0;
+            cv_text(6, y, &FONT_S, h, C_ICE_D);
+            y += 18u; first = 0;
+        }
+        if (kind == EV_BTN) q = put(q, btn_name(code));
+        else if (kind == EV_BTN_UP) q = put(put(q, btn_name(code)), "^");
+        else if (kind == EV_KEY) q = put_note(q, KEY0 + code);
+        else { q = put(q, enc_name(code)); *q++ = v->val < 0 ? '-' : '+'; q = put_u(q, (uint32_t)(v->val < 0 ? -v->val : v->val)); }
+        *q = 0;
+        if ((uint32_t)(p - s) + (uint32_t)(q - t) + 1u > 29u) {   /* (the line full: the next) */
+            cv_text(6, (int32_t)y, &FONT_S, s, C_ICE);
+            y += 18u; ln++; p = s; *p = 0;
+            if (ln >= 4u) break;
+        }
+        if (p != s) *p++ = ' ';
+        p = put(p, t); *p = 0;
+    }
+    if (p != s && ln < 4u) cv_text(6, (int32_t)y, &FONT_S, s, C_ICE);
+    (void)i;
+}
 static void pic_setup_full(void)                /* SETUP: each knob's choices as buttons under its name, the one lit
                                                    the setting (GLO: SYNC over TEMPO's, CORES over XPOSE's); TEMPO
                                                    its number and scale (a MIDI clock leading: its tempo, CLK); COLOUR
@@ -4225,6 +4430,7 @@ static void pic_setup_full(void)                /* SETUP: each knob's choices as
                                                    rule), the worst since the start a mark on it, MAX or the GAPs (GLO:
                                                    the battery's volts) */
 {
+    if (setup_log) { pic_frz(); return; }      /* (SELECT: the freeze log) */
     static const char *const NM[4] = {"TEMPO", "XPOSE", "MASTER", "COLOUR"};
     uint32_t l2 = shift(), k, pm = cpu_permille;
 #if FM1_CPU1
@@ -4355,7 +4561,7 @@ static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the 
     {                                           /* (2026-11-22, the user took the sheet: the line under only when it
                                                    says something, REC, GLO, TOOLS, a lock, CLR; else the towers take
                                                    its room) */
-        uint32_t line = seq_rec || shift() || seq_tools || lock || seq_clr_at;
+        uint32_t line = seq_rec || shift() || lock || seq_clr_at;
         tb = seq_segmode ? 60 : line ? 78 : 96;
         ts = seq_segmode ? 24u : line ? 40u : 56u;
     }
@@ -4417,25 +4623,22 @@ static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the 
         }
         *p = 0;
         cv_text(6, 68, &FONT_S, s, C_ICE);
-        cv_text(6, 86, &FONT_S, "KEYS PICK A PART  ALGO PARTS", C_ICE_D);
-        return;
+        if (!seq_rec && !shift() && !seq_clr_at) { cv_text(6, 86, &FONT_S, "SELECT PICKS THE PART", C_ICE_D); return; }
     }
     /* the line under: what the keys do now */
-    if (seq_rec) { p = put(s, "ENV: A TIE   LFO: A REST"); lc = C_RED; }
-    else if (shift() && !seq_segmode) { p = put(s, "KEYS TRANSPOSE  G5: TOOLS"); lc = C_RED; }   /* GLO: every key
-                                                   transposes (their lights), G5 opens TOOLS */
-    else if (seq_tools) {                       /* TOOLS: the black keys' jobs, left to right as on the keys, red */
-        static const uint8_t BK[6] = {0, 1, 2, BK_MORE, BK_SEG, BK_KEYS};
-        static const char *const NM[6] = {"RND", "UNDO", "CLR", "MORE", "SEG", "KEYS"};
-        int32_t gx = 6;
-        for (k = 0; k < 6u; k++) gx = key_chip(gx + (k == 4u ? 4 : 0), 86, BK[k], NM[k], C_RED) + 2;   /* (230 px) */
+    if (seq_clr_at) {                           /* CLEAR asked (TOOLS' K3) */
+        cv_text(6, 86, &FONT_S, seq_trk ? "CLEAR SEQ B? OCT+ YES" : "CLEAR SEQ A? OCT+ YES", C_RED);
         return;
     }
-    else if (lock) { p = put(s, "B NEEDS DUO OR POLY: SEL"); lc = C_RED; }
-    else if (seq_clr_at) {                      /* CLR asked: its key blinking, the answer's two */
-        cv_text(key_chip(6, 86, 2u, "CLR", C_RED), 86, &FONT_S, " / OCT+: CLEAR  OCT- NO", C_RED);
+    if (seq_rec) {                              /* REC (or DUB) STEP or LIVE, the two buttons a TIE and a REST */
+        int32_t x = cv_text(6, 86, &FONT_S, seq_dub ? "DUB" : "REC", C_RED);
+        x = cv_text(x + 8, 86, &FONT_S, eng.seq_run ? "LIVE" : "STEP", C_ICE);
+        cv_text(x + 16, 86, &FONT_S, "ENV TIE  LFO REST", C_ICE_D);
         return;
-    } else return;                              /* (the keys play: no line; GLO says what they do then) */
+    }
+    if (shift()) { p = put(s, "KEYS TRANSPOSE"); lc = C_RED; }   /* GLO: every key transposes (their lights) */
+    else if (lock) { p = put(s, "B NEEDS DUO OR POLY: SEL"); lc = C_RED; }
+    else return;                                /* (the keys play: no line; GLO says what they do then) */
     *p = 0;
     cv_text(6, 86, &FONT_S, s, lc);
 }
@@ -4727,6 +4930,12 @@ static void draw_hint(void)
             } else cv_text(6, 0, &FONT_S, "CLEAR ALL? OCT+ YES, OCT- NO", C_RED);
             break;
         }
+        if (setup_log) { hint("SELECT", "OLDER, LEFT: BACK"); break; }   /* (the log) */
+        if (frz_n && !shift()) {                /* (a freeze in the log: SELECT shows it) */
+            p = put_u(put(a, "LOG "), frz_n); *p = 0;
+            hint_algo("DEMO/CLR", 0); hint_two("SELECT", a);
+            break;
+        }
 #if FM1_CPU1
         if (shift()) { hint_algo("DEMO/CLR", 1); break; }   /* (K1 K2 SYNC CORES ran off the edge: the knobs say it) */
         hint_algo("DEMO/CLR", 0); hint_two("GLO", "SYNC CORES");
@@ -4815,17 +5024,6 @@ static void draw_hint(void)
         else hint_two("GLO+KEY", "STEP");
         break;
     default:
-        if (seq_rec) {                          /* (GLO + B11: back; B11 alone records its note) */
-            hint("REC", eng.seq_run ? "LIVE" : "STEP");
-            if (shift()) hint_key_r(BK_KEYS, "KEYS");
-            break;
-        }
-        if (seq_segmode) {                      /* SEGMENTS: how many parts (ALGORITHM), the way back */
-            uint8_t bd[SD_SEGS + 1u];
-            p = put_u(a, sd_seg_bounds(&seqp, bd)); *put(p, " PARTS") = 0;
-            hint_algo(a, 0); hint_key_r(BK_SEG, "BACK");
-            break;
-        }
         if (shift()) {                          /* GLO held: ALGORITHM the scale; IN KEY the key (the master's: on the
                                                    other track's page, KEY) */
             const SdPattern *kp = set.xchrom ? &seqp : key_pat();
@@ -4835,11 +5033,18 @@ static void draw_hint(void)
             else { hint_algo(a, 1); hint_x = HINT_R; hint_c("SELECT", "ROOT", C_RED); }   /* (GLO + SELECT) */
             break;
         }
-        p = put(a, "STEP "); *put_u(p, seq_cur + 1u) = 0;
-        hint_algo(a, 0);
-        if (seq_tools) hint_two("G5", "BACK");  /* (TOOLS open: G5 closes it) */
-        else if (!set.xchrom && key_trk() != seq_trk) hint_two("KEY", key_trk() ? "SEQ B" : "SEQ A");
-        else hint_two("GLO", "KEY");     /* (GLO + ALGORITHM the scale, GLO + SELECT the root; the key: the top line) */
+        {                                       /* the layers, a button each, ALGORITHM's (2026-11-22): the one the
+                                                   knobs do lit */
+            uint32_t k;
+            int32_t x = 2;
+            for (k = 0; k < SL_N; k++) {
+                int32_t w = text_w(&FONT_S, SL_NAME[k]) + 8;
+                if (k == seq_layer) cv_box(x, 0, w, 16, C_RED);
+                else cv_frame(x, 0, w, 16, C_ICE_D);
+                cv_text(x + 5, 0, &FONT_S, SL_NAME[k], k == seq_layer ? C_BG : C_ICE_D);
+                x += w + 3;
+            }
+        }
         break;
     }
 }
@@ -4863,19 +5068,24 @@ static void draw_status(void)
     *p = 0;
     cv_box(8, 4, 8, 10, run ? C_RED : C_ICE_D);   /* play: a square, red; stopped: dim */
     cv_text(22, 1, &FONT_S, s, run ? C_ICE : C_ICE_D);
-    {                                           /* the mode, always (the CPU is SETUP's), then who holds the voices:
-                                                   A B the tracks, R ARP, - the keys' */
+    {                                           /* the mode, always (the CPU is SETUP's), then the voices, a box each
+                                                   (2026-11-22, the user: how many are used, how many left): lit with
+                                                   who holds it, A B the tracks, R ARP; an empty frame the keys' (free) */
         uint32_t k, i, n = 0, x;
         static const char L[4] = {'-', 'A', 'B', 'R'};
         static const uint8_t ORD[4] = {SD_SRC_A, SD_SRC_B, SD_SRC_ARP, SD_SRC_HAND};
         for (k = 0; k < 4u; k++) n += eng.quota[ORD[k]];
         const char *mn = MODE_NAME[eng.mode_on < SD_MODES ? eng.mode_on : 0];
-        x = 232u - 8u * (n > 4u ? 4u : n);
-        cv_text((int32_t)x - 8 - text_w(&FONT_S, mn), 1, &FONT_S, mn, C_ICE);   /* (the mode: how many voices) */
+        x = 236u - 12u * (n > 4u ? 4u : n);
+        cv_text((int32_t)x - 6 - text_w(&FONT_S, mn), 1, &FONT_S, mn, C_ICE);   /* (the mode: how many voices) */
         for (k = 0; k < 4u; k++)
-            for (i = 0; i < eng.quota[ORD[k]] && x < 232u; i++, x += 8u) {
+            for (i = 0; i < eng.quota[ORD[k]] && x < 236u; i++, x += 12u) {
                 char c[2] = {L[ORD[k]], 0};
-                cv_text((int32_t)x, 1, &FONT_S, c, ORD[k] == SD_SRC_HAND ? C_ICE_D : C_ICE);
+                int32_t bx = (int32_t)x;
+                if (ORD[k] == SD_SRC_HAND) {    /* (free: the box's outline, its corners a pixel off as the lit one's) */
+                    cv_rect(bx + 1, 2, 8, 1, C_ICE_D); cv_rect(bx + 1, 13, 8, 1, C_ICE_D);
+                    cv_rect(bx, 3, 1, 10, C_ICE_D); cv_rect(bx + 9, 3, 1, 10, C_ICE_D);
+                } else { cv_box(bx, 2, 10, 12, C_ICE); cv_text(bx + 1, 1, &FONT_S, c, C_BG); }
             }
     }
 }
@@ -5102,51 +5312,15 @@ static void keys_lit(uint32_t held, uint32_t base)
             if (home_on((uint32_t)i)) full |= 1u << k; else glow |= 1u << k;
             if (bk >= 0) bk_led[bk] = (uint8_t)(full >> k & 1u ? 2u : 1u);
         }
-    } else if (seq_page() && !seq_rec && shift() && !seq_segmode) {   /* GLO: the black keys' tools (as below), and
-                                                   on the other keys the notes a key may take the track to (IN KEY the
-                                                   key's), as printed: OCT's octave left out (it is the playing's) */
+    } else if (seq_page() && !seq_rec && shift()) {   /* GLO: on every key the notes a key may take the track to (IN
+                                                   KEY the key's), as printed: OCT's octave left out (it is the
+                                                   playing's); where it is lit, where it goes blinking */
         int32_t xn = eng.t[seq_trk].xpose_next, xc = eng.t[seq_trk].xpose, z = (int32_t)key_none() - (int32_t)KEY0;
         for (k = 0; k < 27u; k++) if (key_has(KEY0 + k)) glow |= 1u << k;
         if (z + xc >= 0 && z + xc < 27) full |= 1u << (z + xc);
         if (z + xn >= 0 && z + xn < 27 && (xn == xc || (fm1_ms / 200u) & 1u)) full |= 1u << (z + xn);
-        full &= ~(1u << SEQ_TOOLS_KEY); glow &= ~(1u << SEQ_TOOLS_KEY);
-        if (seq_tools) full |= 1u << SEQ_TOOLS_KEY; else glow |= 1u << SEQ_TOOLS_KEY;   /* (G5: TOOLS) */
-    } else if (seq_page() && !seq_rec && seq_tools && !seq_segmode) {   /* TOOLS: the black keys' jobs lit, G5 full
-                                                   (the way back), the white keys as played */
-        uint32_t tools = seq_tool_keys(), tl;
-        full = held & ~0u;
-        full &= ~tools;
-        for (k = 0; k < 27u; k++) {
-            int32_t bk = key_black(k);
-            if (!(tools >> k & 1u)) continue;
-            tl = bk == BK_MORE ? (seq_more ? 2u : 1u) : bk == 1 ? (seq_has_undo ? 1u : 0u) :
-                 bk == 2 ? (seq_clr_at && (fm1_ms / 200u) & 1u ? 2u : 1u) : 1u;   /* (MORE full while on, UNDO lit
-                                                   while there is something to take back, CLR blinking while it asks) */
-            if (tl == 2u) full |= 1u << k; else if (tl) glow |= 1u << k;
-            bk_led[bk] = (uint8_t)tl;
-        }
-        full |= 1u << SEQ_TOOLS_KEY;
-    } else if (seq_page() && !seq_rec && seq_segmode) {   /* SEGMENTS: the white keys the steps, the part picked
-                                                   full; B10 (D#5) the way back; the other black keys rest */
-        uint8_t bd[SD_SEGS + 1u];
-        uint32_t sc = sd_seg_bounds(&seqp, bd), g = seq_dseg < sc ? seq_dseg : sc - 1u;
-        for (k = 0; k < 27u; k++) {
-            int32_t w = key_white(k), bk = key_black(k);
-            if (w >= 0) {
-                i = seq_bank * 16u + (uint32_t)w;
-                if (i >= seqp.len) continue;
-                if (i >= bd[g] && i < bd[g + 1u]) full |= 1u << k; else glow |= 1u << k;
-            } else if (bk == BK_SEG) {
-                full |= 1u << k;
-            }
-            if (bk >= 0) bk_led[bk] = (uint8_t)(full >> k & 1u ? 2u : glow >> k & 1u ? 1u : 0u);
-        }
     } else {
         full = held;
-        if (seq_page() && seq_rec && shift()) { /* playing into the steps, GLO: B11 lit, the way back */
-            for (k = 0; k < 27u; k++) if (key_black(k) == BK_KEYS) full |= 1u << k;
-            bk_led[BK_KEYS] = 2u;
-        }
         for (i = 0; i < SD_VOICES; i++) {
             const SdVoice *v = &eng.voice[i];
             uint32_t n = v->note;
@@ -5270,6 +5444,18 @@ static void sd_diag_service(void)
     uint32_t n, v[SD_DIAG_MAXW], k = 0, i, h = 2166136261u;
     const char *nm = APP_NAME " " APP_VER;
     if (!ota_frame_get(&p, &n)) return;
+    if (n == 5u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x05u) {   /* the freeze log: F0 7D 53
+                                                   44 05 <i> F7, record i / 2 (0 the newest), its half i & 1, answered
+                                                   F0 7D 53 44 06 <n> <i, the record's words> F7 (tools/fm1_diag -l) */
+        FrzRec r;
+        uint32_t ix = p[4], hw = (sizeof r / 4u + 1u) / 2u;
+        ota_frame_done();
+        v[k++] = ix;
+        if (!frz_get(ix >> 1, &r))
+            for (i = (ix & 1u) * hw; i < (ix & 1u) * hw + hw && i < sizeof r / 4u; i++) v[k++] = ((const uint32_t *)(const void *)&r)[i];
+        sd_diag_send(0x06u, v, k);
+        return;
+    }
     if (n != 4u || p[0] != 0x7Du || p[1] != 0x53u || p[2] != 0x44u || (p[3] != 0x01u && p[3] != 0x03u))
         return;                                 /* (not ours: on) */
     ota_frame_done();
@@ -5567,23 +5753,42 @@ static void app_main(void)
     do {                                        /* one pass (a millisecond) a call */
 #else
 #ifndef DINGHY_HOST
-    boot_run = last_run;
-    boot_wd = last_run.magic == LAST_RUN_MAGIC && (fm1_boot.p3_rst & 4u);
-    if (last_run.magic == LAST_RUN_MAGIC && (fm1_boot.p3_rst & 4u)) {   /* the watchdog restarted it: what the last
-                                                   run left (RESTART P14 B800 C99 H0 2 5: the page, the buttons, the
-                                                   CPU %, the brake's blocks, the second core on, the seconds the
-                                                   audio ran on after the main loop stood) */
-        char *p = put(last_said, "RESTART P");
-        uint32_t gap = last_run.isr_ms > last_run.ms ? (last_run.isr_ms - last_run.ms) / 1000u : 0u;
-        p = put_u(p, last_run.page > 99u ? 99u : last_run.page);
-        p = put_u(put(p, " B"), last_run.btn & 0x3FFFu);
-        p = put_u(put(p, " C"), last_run.cpu > 9999u ? 999u : (last_run.cpu + 5u) / 10u);
-        p = put_u(put(p, " H"), last_run.held > 9999u ? 9999u : last_run.held);
-        p = put_u(put(p, " "), last_run.c1 & 1u);
-        p = put_u(put(p, " "), gap > 99u ? 99u : gap);
-        *p = 0;
+    {                                           /* the freeze log: what the last run left, when the watchdog made this
+                                                   start (a freeze: the main loop stood 8 s) or a crash's screen did (its
+                                                   count new); said for 12 s after the splash, SETUP shows it whole */
+        static uint32_t crash_seen __attribute__((section(".noinit")));   /* (the crash count last logged) */
+        boot_run = last_run;
+        boot_wd = last_run.magic == LAST_RUN_MAGIC && (fm1_boot.p3_rst & 4u);
+        if (last_run.magic != LAST_RUN_MAGIC) boot_run.pc_n = 0;
+        frz_scan();
+        if (boot_wd) {
+            frz_add(FRZ_FREEZE, &boot_run, 0);
+            *put(last_said, "FREEZE LOGGED: SETUP, SELECT") = 0;
+        } else if (!(fm1_boot.p3_rst & 1u) && fm1_crash.magic == FM1_CRASH_MAGIC && fm1_crash.count != crash_seen) {
+            frz_add(FRZ_CRASH, &boot_run, (const uint32_t *)(const void *)&fm1_crash);
+            *put(last_said, "CRASH LOGGED: SETUP, SELECT") = 0;
+        }
+        crash_seen = fm1_crash.count;
     }
 #endif
+#if defined(DINGHY_HOST) && defined(SD_FRZ_FAKE)  /* (a test build: a freeze in the log, to see SETUP show it) */
+    {
+        static const uint8_t EVK[12][3] = {{EV_BTN, BTN_PLAY, 1}, {EV_KEY, 7, 1}, {EV_KEY_UP, 7, 0}, {EV_ENC, ENC_KNOB3, 2},
+                                           {EV_BTN, BTN_SEQ, 1}, {EV_ENC, ENC_ALGORITHM, 1}, {EV_KEY, 12, 1}, {EV_KEY_UP, 12, 0},
+                                           {EV_BTN, BTN_GLO, 1}, {EV_BTN_UP, BTN_GLO, 0}, {EV_BTN, BTN_GLO, 1}, {EV_BTN_UP, BTN_GLO, 0}};
+        LastRun r;
+        uint32_t i;
+        uint8_t *z = (uint8_t *)&r;
+        for (i = 0; i < sizeof r; i++) z[i] = 0;
+        r.magic = LAST_RUN_MAGIC; r.ms = 754321u; r.isr_ms = 761000u; r.page = PAGE_SEQ; r.cpu = 781u; r.at = LR_DRAW;
+        r.st = 1u | 4u | SD_MODE_POLY << 4 | SL_STEP << 8; r.pc_n = 4u; r.pc[0] = 0xA1C4u; r.pc[3] = 0xA1D0u;   /* (not addresses: the lint) */
+        last_run.ev_n = 0;
+        for (i = 0; i < 12u; i++) { ev_put(EVK[i][0], EVK[i][1], EVK[i][2]); ev_ring[i].t8 = (uint16_t)((740000u + i * 1200u) >> 3); }
+        r.ev_n = 12u;
+        frz_add(FRZ_FREEZE, &r, 0);
+    }
+#endif
+    last_run.ev_n = 0;                          /* (this run's inputs from here) */
     last_run.magic = 0;
     last_run.at = 0; last_run.stop_ms = 0; last_run.play_ms = 0;
     splash();
@@ -5610,13 +5815,6 @@ static void app_main(void)
             keys = down = up = 0;
         }
         if (demo_st == DEMO_RESTORE) demo_restore();
-        if (seq_page() && seq_rec && shift()) { /* the keys playing into the steps: GLO + B11 (F#5) is the way back, no
-                                                   note (B11 alone records its note) */
-            uint32_t fk = 0;
-            for (k = 0; k < 27u; k++) if (key_black(k) == BK_KEYS) fk = 1u << k;
-            if (down & fk) { rec_toggle(); if (fm1_in.buttons >> BTN_GLO & 1u) gl_used = 1; }
-            down &= ~fk; keys &= ~fk;
-        }
         if (page != 1u) r_stages = 0;           /* (STAGES: REACTOR's only) */
         if (page == 1u && !seq_rec) {           /* REACTOR: GLO + B10 (D#5) STAGES, no note (B10 alone plays; in
                                                    STAGES it is the way back); there the white keys 1..6 pick the stage
@@ -5643,17 +5841,8 @@ static void app_main(void)
             }
             down &= ~fk; keys &= ~fk;
         }
-        if (!seq_page() || seq_rec || seq_segmode) seq_tools = 0;
-        if (seq_page() && seq_tools && !shift()) {   /* TOOLS: the black keys' jobs, G5 back; the white keys play */
-            uint32_t tk = seq_tool_keys(), fk = tk | 1u << SEQ_TOOLS_KEY;
-            if (down >> SEQ_TOOLS_KEY & 1u) seq_tools = 0;
-            seq_keys(down & tk);
-            if (seq_segmode || seq_rec) seq_tools = 0;   /* (SEG, KEYS: their own way back) */
-            down &= ~fk; keys &= ~fk;
-        }
-        sq = seq_page() && !seq_rec && (shift() || seq_segmode);   /* SEQ: the keys play (2026-11-17, the user: SELECT
-                                                   picks the step, so the keys try a line before REC); GLO there the
-                                                   black keys' tools and the transpose; SEGMENTS its keys */
+        sq = seq_page() && !seq_rec && shift();   /* SEQ: the keys play (2026-11-17, the user: SELECT picks the step,
+                                                   so the keys try a line before REC); GLO there every one transposes */
         oq = page == PAGE_ORB && !seq_rec && (shift() || orb_setup);   /* ORBIT: the same, GLO its steps and SETUP */
         if (page == PAGE_DRUM) {                /* DRUM (2026-11-20, the user: "no synth on the drums"): the pads and
                                                    the MUTE keys; GLO the steps, B1 RND B2 UNDO B3 CLR B4 MORE B10 MIX */
@@ -5675,17 +5864,13 @@ static void app_main(void)
                 }
             down &= ~hk; keys &= ~hk;
         }
-        if (sq && seq_segmode) {
-            seq_keys(down);
-        } else if (sq) {                        /* GLO: every key but G5 transposes the track, at its next one: IN KEY
-                                                   its root to the key pressed, in the key (the keys lit), CHROM from
-                                                   C4; the keys as printed, whatever OCT's octave (past them: GLO + K4
-                                                   XPOSE). G5: TOOLS (seq_tools) */
-            uint32_t tools = 1u << SEQ_TOOLS_KEY;
+        if (sq) {                               /* GLO: every key transposes the track, at its next one: IN KEY its
+                                                   root to the key pressed, in the key (the keys lit), CHROM from C4;
+                                                   the keys as printed, whatever OCT's octave (past them: TRACK's
+                                                   XPOSE, GLO + OCT) */
             if (down && (fm1_in.buttons >> BTN_GLO & 1u)) gl_used = 1;   /* (GLO held: no tap) */
-            if (down & tools) { seq_tools = !seq_tools; if (seq_tools) gl_latch = 0; }   /* (a latched GLO spent: TOOLS opens on its first layer) */
             for (k = 0; k < 27u; k++)
-                if ((down & ~tools) >> k & 1u) {
+                if (down >> k & 1u) {
                     int32_t x = (int32_t)(KEY0 + k) - (int32_t)key_none();
                     if (!key_has(KEY0 + k)) { msg("NOT IN THE KEY"); continue; }
                     eng.t[seq_trk].xpose_next = (int8_t)(x < -24 ? -24 : x > 24 ? 24 : x);
@@ -5783,14 +5968,18 @@ static void app_main(void)
             if (rec_tie_at != 0xFEu && at < SD_PSTEPS && at < seqp.len && at != rec_tie_at && at != rec_at &&
                 seqp.step[at].type != SD_ST_SKIP && tt->seq_pos_q8 >= tt->seq_step_q8 / 2u + rec_ahead() * 256u) {
                                                 /* (past the middle as heard: rec_ahead) */
-                if (rec_at < SD_PSTEPS) {       /* (the held note's own: a TIE turned into a NOTE later plays it) */
-                    seqp.step[at].note = seqp.step[rec_at].note;
-                    seqp.step[at].vel = seqp.step[rec_at].vel;
+                if (seq_dub && seqp.step[at].type != SD_ST_REST) rec_tie_at = 0xFEu;   /* (DUB: a held note stops
+                                                   at the next note, takes nothing) */
+                else {
+                    if (rec_at < SD_PSTEPS) {   /* (the held note's own: a TIE turned into a NOTE later plays it) */
+                        seqp.step[at].note = seqp.step[rec_at].note;
+                        seqp.step[at].vel = seqp.step[rec_at].vel;
+                    }
+                    seqp.step[at].type = SD_ST_TIE;
+                    rec_tie_at = at;
+                    rec_ties++;
+                    seq_push();
                 }
-                seqp.step[at].type = SD_ST_TIE;
-                rec_tie_at = at;
-                rec_ties++;
-                seq_push();
             }
         }
         if (eng.orb_hold && (page != PAGE_ORB || orb_setup || eng.orb_hold > SD_ORB_LEN(&orbp) ||
@@ -5801,6 +5990,22 @@ static void app_main(void)
                       (aud_off && (int32_t)(fm1_ms - aud_off) >= 0))) aud_stop();   /* (the step heard: done) */
         b = fm1_input_edges(&rel);
         last_run.magic = LAST_RUN_MAGIC; last_run.ms = fm1_ms; last_run.page = page;   /* (the last run's marks) */
+        last_run.pc_n = 0;                      /* (a pass: not stuck) */
+#ifdef SD_FREEZE_TEST                           /* (a test build, DINGHY_DEFS=-DSD_FREEZE_TEST=6000: the main loop stands
+                                                   from that ms while the log is empty; the watchdog's restart logs it) */
+        if (fm1_ms > SD_FREEZE_TEST && !frz_n) { volatile uint32_t z = 0; LR_AT(77u); for (;;) z++; }
+#endif
+        last_run.st = eng.seq_run | seq_rec << 1 | (uint32_t)gl_latch << 2 | set.mode << 4 | seq_trk << 6 |
+                      seq_layer << 8 | (uint32_t)seq_dub << 12 | (uint32_t)eng.arp_on << 13 | (uint32_t)lp_arm << 14;
+        if (b | rel | down | up) {              /* the freeze log's inputs: each button and key, down and up */
+            uint32_t q;
+            for (q = 0; q < 32u; q++) {
+                if (b >> q & 1u) ev_put(EV_BTN, q, 1);
+                if (rel >> q & 1u) ev_put(EV_BTN_UP, q, 0);
+                if (q < 27u && (down >> q & 1u)) ev_put(EV_KEY, q, 1);
+                if (q < 27u && (up >> q & 1u)) ev_put(EV_KEY_UP, q, 0);
+            }
+        }
         LR_AT(LR_INPUT);
         {                                       /* STOP: when, and after how long a PLAY */
             static uint32_t ran, ran_at;
@@ -5905,7 +6110,6 @@ static void app_main(void)
            the macros, FX the effects, ENV the envelopes and the filter, LFO the LFOs, RADAR and the matrix, ARP, SEQ
            the tracks and ORBIT */
         {
-            uint32_t was = page;
             if (b & (1u << BTN_SEQ)) {
                 if (!seq_page() && page != PAGE_ORB && page != PAGE_DRUM) {   /* from another page: the one SEQ showed
                                                    last */
@@ -5936,7 +6140,6 @@ static void app_main(void)
                 page = 4u;
             }
             if (b & (1u << BTN_ARP)) page = page == PAGE_ARP ? PAGE_LOOP : page == PAGE_LOOP ? PAGE_ARP : arp_last;
-            if (page != was) { seq_segmode = 0; seq_more = 0; }
             if (b & (1u << BTN_HOME | 1u << BTN_FX | 1u << BTN_ENV | 1u << BTN_LFO | 1u << BTN_ARP | 1u << BTN_SEQ))
                 gl_latch = 0;                   /* a page button: a latched GLO let go (2026-11-17, the user: the new
                                                    page starts on its first layer; held, it is still held) */

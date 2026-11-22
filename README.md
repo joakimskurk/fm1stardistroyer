@@ -285,19 +285,27 @@ of the patch. Off until you switch it on.
 - Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate (1–100 %: 100 the whole step, up to
   the next), **RATCHET** (2 or 3 hits)
   and **PROB**, and can hold a chord of up to four notes.
-- **SELECT** picks the step (ALGORITHM too), in SEGMENTS the part. Stopped, the step picked sounds (a white key held,
-  SELECT, ALGORITHM or its NOTE turned), so you hear what you edit.
+- **ALGORITHM picks what the knobs do**, a row of buttons on the bottom line, the one in use lit: **STEP** (NOTE VEL
+  GATE TYPE of the step picked), **MORE** (RATCHET PROB MOVE LENGTH), **TRACK** (LENGTH DIV SWING XPOSE), **PARTS**
+  (PARTS REPEAT ORDER LENGTH) and **TOOLS** (RANDOM UNDO CLEAR DUB). No key has a job on SEQ: the keys play.
+- **SELECT** picks the step, on PARTS the part. Stopped, the step picked sounds (SELECT or its NOTE turned), so you
+  hear what you edit.
 - **The key** is the master's: GLO + ALGORITHM its scale, **GLO + SELECT its root** (the hint line says SELECT ROOT
   with GLO held). The notes stay as written. A pattern from before keeps the key it had (its step 1's note), and
   from then on writing step 1 no longer moves it.
-- **B4 MORE** (C♯4): the step's RATCHET and PROB, and the note heard there: **MOVE** a step earlier or later and
+- **MORE**: the step's RATCHET and PROB, and the note heard there: **MOVE** a step earlier or later and
   **LENGTH**, how many steps it holds (its TIEs). A join stays a join: a note played legato into the next keeps its
   end when it moves, and the note before holds into the step it leaves. It never takes another note's place.
-- **Segments A–F:** up to six parts of the pattern, each with REPEAT, ORDER (forwards, reverse, ping-pong,
-  random), SKIP and LENGTH. **GLO + D♯5** opens them: a white key picks the part its step is in (framed, the others
-  dim), ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
+- **PARTS A–F:** up to six parts of the pattern: K1 how many (evenly), and the one SELECT picks (framed, the others
+  dim) its REPEAT, ORDER (forwards, reverse, ping-pong, random, or SKIP: left out) and LENGTH; the screen says how
+  they play (PLAYS A B<x2 C D).
   The loop keeps to the pattern's LENGTH: repeats play inside it, and when it has played its LENGTH it starts at step 1.
-- **REC** (or **B11**, the last black key, lit while it is on; REC on any page ends it, and away from SEQ ENV and LFO go to their pages) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
+- **TOOLS**: turn **RANDOM** for a new line in the key, a new one each detent (UNDO brings back the line before the
+  turn); **UNDO** takes back the last RANDOM, CLEAR, recording or KEEP (and again: forth); **CLEAR** asks, OCT+ empties
+  the track; **DUB** on (a turn right) makes REC add: a key on a step with a note joins its chord, as far as the
+  voices allow (four notes a step), on an empty step it is the note, and nothing is written over.
+- **REC** (lit while it is on; REC on any page ends it, and away from SEQ ENV and LFO go to their pages; the line
+  under the steps says REC or DUB, STEP or LIVE) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
   step (keys held together, a chord); playing, into the step nearest where you heard it (the engine runs ~10 ms ahead
   of the speaker; that is taken back, so a note a little early for the next step lands on it, and it sounds once), and
   a key held on past the middle of the next step writes a TIE into it, and so on, and its last step's **GATE** is how long you held it in that step
@@ -308,10 +316,12 @@ of the patch. Off until you switch it on.
 - **One key, the master's:** its step 1 is the root and its SCALE (GLO + ALGORITHM on its page) the scale; the hint
   line shows it with GLO held (A MINOR). The other track has none of its own: what it plays is pulled to the nearest
   note of the key, and on its page the hint line says whose key it follows (KEY SEQ A).
-- **GLO held** transposes a track from the keys, every key but the top one, taken at its next one: the keys in the
-  key are lit, and the root goes to the one you press (the root itself: no transpose). **GLO + G5** opens **TOOLS**:
-  there the black keys are RND, UNDO, CLR, MORE, SEG and KEYS, the white keys play, and G5 closes it. The keys stay as printed whatever OCT's octave (OCT is the
-  playing's), and GLO + OCT moves the transpose an octave (to ±24; GLO + K4 XPOSE sets any).
+- **GLO held** transposes a track from the keys, every one of them, taken at its next one: the keys in the
+  key are lit, and the root goes to the one you press (the root itself: no transpose). The keys stay as printed
+  whatever OCT's octave (OCT is the playing's), and GLO + OCT moves the transpose an octave (to ±24; TRACK's XPOSE
+  sets any).
+- **The voices** on the bottom line, a box each after MONO, DUO or POLY: lit with who holds it (A, B, R for the
+  ARP), an empty frame free for the keys. POLY's four, A A A B: full.
 - **IN KEY** (the default): a transpose moves the notes in degrees of the key, and a chord moves tone by tone (C minor
   up a third in C minor: E♭ major); K4 XPOSE and ORBIT's XPOSE count the same, +5 up a fourth in the key, +7 a fifth.
   **SETUP**'s XPOSE switches to **CHROM**: each track as written, transposed in semitones (from C4, every key lit).
@@ -465,7 +475,7 @@ the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS (MUTATE MOVE BREAK FILTER; GLO + K4 MACRO 4 and GLO + ALGORITHM its kind; GLO + F♯3–D♯4 the chain's switches, GLO + F3–E4 the players' and the drums', drawn as those keys with their lamps) → SETUP (TEMPO, with GLO SYNC AUTO or INT and CORES 2 or 1, from the next start; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; ALGORITHM the **DEMOS**, played on the FM-1 itself (a turn: DEMO 1, SINGULARITY; a turn more: DEMO 2, ARMADA, with the drums; then OCT+; any key or knob stops it, and your sound, patterns and song come back) or, at the far end, **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), with GLO the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If the watchdog ever restarts it again, the first 10 s after the splash show **RESTART** P(page) B(buttons) C(CPU %) H(blocks skipped) (second core 1/0) (seconds the sound ran on): a photo of it says what stopped |
+| **HOME** | MACROS (MUTATE MOVE BREAK FILTER; GLO + K4 MACRO 4 and GLO + ALGORITHM its kind; GLO + F♯3–D♯4 the chain's switches, GLO + F3–E4 the players' and the drums', drawn as those keys with their lamps) → SETUP (TEMPO, with GLO SYNC AUTO or INT and CORES 2 or 1, from the next start; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; ALGORITHM the **DEMOS**, played on the FM-1 itself (a turn: DEMO 1, SINGULARITY; a turn more: DEMO 2, ARMADA, with the drums; then OCT+; any key or knob stops it, and your sound, patterns and song come back) or, at the far end, **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), with GLO the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If it ever freezes again (the watchdog restarts it 8 s later: wait for that before switching it off) or crashes, the start after it says **FREEZE LOGGED** and keeps it in the **freeze log**, in the flash (the last 16): **SELECT** on SETUP shows them, the newest first, each the time since the start, PLAY or REC, GLO latched, the page (on SEQ its track and layer), the CPU, where the main loop stood and where it was stuck (the PCs the sound interrupted once it had stood a second), and the last 24 buttons, keys and knobs before it, the newest first: a photo of it says what stopped (`build/fm1_diag -l` reads them over USB) |
 | **FX** | REACTOR → DISTROY → TIME → SPACE: the chain in its order (the delay into the reverb; SPACE before TIME till 2026-11-21) |
 | **ENV** | NAV → FILTER → ENV → SUB: the voice in its order, the filter before the amp (NAV was HOME's second till 2026-11-21; SUB since that day, the order too). SUB joins after the effects, clean |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD (ALGORITHM: SLOT 1 … 8) |
@@ -473,13 +483,13 @@ the keys). The CPU is on SETUP.
 | **SEQ** | SEQ A → SEQ B → ORBIT → DRUM |
 | **K1–K4** | the four values in the row on top; on the FM-1 a fast turn goes further (slow, a step a detent; a fast spin crosses a level, an amount or the cutoff in about a turn), a list, a note or a semitone still one a detent |
 | **GLO** | held, the second layer (the names turn red); a tap latches it (GLO lit) and a tap again, or a page button, lets it go, so a hand can stay on the knobs; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, and OCT moves it an octave; on LOOPER, OCT the loop's octave |
-| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP: its frame moves in the picture; on NAV the algorithm, a list); GLO + ALGORITHM the second |
+| **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP: its frame moves in the picture; on NAV the algorithm, a list; on SEQ what the knobs do, STEP MORE TRACK PARTS TOOLS, a button each); GLO + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, SUB, ARP, a track, ORBIT, the drums (off at every start), RADAR (a track or ORBIT, while the master plays: in at its one; the drums at the bar's one). Off, the hint line says OFF: EDIT TURNS IT ON (not on SEQ, ORBIT and DRUM, where you write a part while it is off) |
 | **PRESETS** | the patch (on SEQ the pattern, on ORBIT the song, on DRUM the beat; the list says PATCHES, PATTERNS, SONGS or BEATS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now. A pattern or a song loaded while it plays comes in at the one, from its step 1 (the hint line blinks P02: AT THE ONE till then) |
-| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, DRUM's step (GLO: the fourth drum's ENGINE), REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
+| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (PARTS: the part), ORBIT's step, DRUM's step (GLO: the fourth drum's ENGINE), REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns, 16 songs): it plays on, the save is there at once, into the flash when PLAY stops. The flash keeps each save twice and writes over the older one: switched off (or restarted) in the middle of a save, the FM-1 starts with the save before it. Each save is read back; one the flash did not take says **SAVE FAILED** |
 | **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
-| **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, every key but G5 the track's transpose, and GLO + G5 **TOOLS**, where the black keys, lit where they do something, are B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC; GLO + B11 again: back), the white keys play, G5 closes it; on ORBIT, with GLO, the white keys its steps (16), B4 MORE, B10 SETUP; on DRUM the keys play the drums (F3–B3, accented C4–F4) and F♯4–C♯5 mute them, with GLO the white keys the drum's steps (off → ON → ACCENT → RADAR), B1 RND, B2 UNDO, B3 CLR (the row), B4 MORE, B10 MIX; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys the stage, ALGORITHM how many (1–6). Where the keys play, a black key does something only with GLO |
+| **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, every key the track's transpose (its tools are TOOLS' knobs since 2026-11-22: no key has a job there); on ORBIT, with GLO, the white keys its steps (16), B4 MORE, B10 SETUP; on DRUM the keys play the drums (F3–B3, accented C4–F4) and F♯4–C♯5 mute them, with GLO the white keys the drum's steps (off → ON → ACCENT → RADAR), B1 RND, B2 UNDO, B3 CLR (the row), B4 MORE, B10 MIX; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys the stage, ALGORITHM how many (1–6). Where the keys play, a black key does something only with GLO |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MIDI out** | USB: the keys' notes, and while no clock comes in, a clock, START and STOP (the FM-1's TEMPO and PLAY) |
 | **MASTER** | the volume |
@@ -590,6 +600,7 @@ tests/run_host.sh tests/scripts/q1.txt       # the whole firmware on the host: a
 tools/emu_strict.sh build/stardistroyer.fwsc # the chip's load as the FM-1 has it (fm1-live)
 cc -O2 -o build/fm1_diag tools/fm1_diag.c -framework CoreMIDI -framework CoreFoundation
 build/fm1_diag -w 250 -o build/diag.txt      # a Mac: what the FM-1 does, read over USB MIDI four times a second
+build/fm1_diag -l                            # the freeze log the FM-1 keeps in its flash, the newest first
 sh tests/run_tests.sh                        # the update path, the loader, the installer, the flash maps, the
                                              # store's two copies, the button masher
 sh web/app/build.sh                          # the player: the firmware as WebAssembly (clang + lld, wasm32)
@@ -707,7 +718,10 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     the SMK-37, in the allow-list) slots 3 and 4's and the settings'; the blobs keep one copy (on the FM-1 they lie in
     the stock firmware's USR area, its patch settings at 0xFA000: Star Distroyer writes none). The SMK-37's owner
     check clears those three sectors too. `tests/store_test.c` is new (the power cut at every step of a save, on a
-    simulated flash); `tests/smk_flash_test.c` counts the three sectors.
+    simulated flash); `tests/smk_flash_test.c` counts the three sectors. Since 2026-11-22 `store.h` also places
+    the freeze log, two sectors after the copies (0xBA000 on the FM-1, 0xE5000 on the SMK-37, in the allow-list).
+  - `firmware/hal/fm1_irq.h` (2026-11-22, the freeze log): `fm1_reti`, the PC an interrupt came in on, read in its
+    body (the audio samples it when the main loop has stood a second: where a freeze is stuck).
   - `tests/host.c`: `HOST_POLL_HOOK` and `HOST_BLOCK_HOOK`, a test's own look each millisecond and each block, and
     `HOST_NO_FILES` for a long run without screens or a WAV (`tests/app_fuzz_test.c`, the button masher: random fast
     input on every page under ASan, no hang and no stuck note; three seeds in `tests/run_tests.sh`).

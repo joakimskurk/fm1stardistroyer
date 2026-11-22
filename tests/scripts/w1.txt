@@ -1,15 +1,10 @@
 # W1 (2026-11-16, a playtest's wishes): the status line's mode always; SEQ: SELECT picks the step (stopped: heard),
-# GLO + G5 (TOOLS, since 2026-11-21), MORE (C#4) its note's MOVE and LENGTH; GLO: the key with SELECT ROOT, GLO + SELECT the root; SETUP: TEMPO, the CPU,
+# ALGORITHM +1: MORE (since 2026-11-22), its note's MOVE and LENGTH; GLO: the key with SELECT ROOT, GLO + SELECT the root; SETUP: TEMPO, the CPU,
 # CLEAR ALL (ALGORITHM, OCT+); RADAR as a stepped scope.
 2200 btn 11
 2400 shot
 2500 enc 0 5
-2650 btndown 7
-2655 keys 0x4000000
-2660 keys 0
-2665 btnup 7
-2700 keys 0x100
-2750 keys 0
+2700 enc 1 1
 2900 enc 5 1
 3100 shot
 3300 btndown 7

@@ -6,6 +6,9 @@
  * else, never the installer's messages; the FM-1 writes nothing for it, and no flash.
  *   cc -O2 -o build/fm1_diag tools/fm1_diag.c -framework CoreMIDI -framework CoreFoundation
  *   build/fm1_diag                       one reading, every field named
+ *   build/fm1_diag -l                    the freeze log (2026-11-22): each freeze or crash the FM-1 kept in its flash,
+ *                                        the newest first: when, where it stood and was stuck, the inputs before it
+ *                                        (F0 7D 53 44 05 <i> F7: record i / 2, its half i & 1)
  *   build/fm1_diag -w [ms] [-o log.txt]  a reading every ms (default 250), a line each (and into the log); when the
  *                                        FM-1 restarts (its uptime back) the crash it kept, in full
  * The FM-1 is the USB MIDI device "Felucca" (Dinghy's name for it). */
@@ -131,6 +134,65 @@ static int reading_p(MIDIEndpointRef dst, int ms, int page)   /* ask once; 1 whe
     return got;
 }
 static int reading(MIDIEndpointRef dst, int ms) { return reading_p(dst, ms, 1); }
+static uint8_t ask_log[7] = {0xF0, 0x7D, 0x53, 0x44, 0x05, 0x00, 0xF7};
+static int reading_log(MIDIEndpointRef dst, int ms, int ix)   /* the freeze log's record ix / 2, its half ix & 1 */
+{
+    int t;
+    ask_log[5] = (uint8_t)ix;
+    want = 6;
+    got = 0;
+    sent = 0;
+    memset(&req, 0, sizeof req);
+    req.destination = dst;
+    req.data = ask_log;
+    req.bytesToSend = sizeof ask_log;
+    req.completionProc = on_sent;
+    if (MIDISendSysex(&req) != noErr) return 0;
+    for (t = 0; t < ms && !got; t += 5) usleep(5000);
+    __sync_synchronize();
+    return got;
+}
+/* a record (stardistroyer.c's FrzRec, 67 words, sent in two halves): magic seq kind crc, ver (4), LastRun (magic ms isr_ms page btn cpu
+   held c1 at stop_ms play_ms st ev_n pc_n pc[4]), crash (16), ev_n, ev (24: t8 | kind << 21 | code << 16 | val << 24) */
+static const char *const PG[16] = {"NAV", "REACTOR", "DISTROY", "SPACE", "LFO", "MACROS", "SEQ", "ENV", "FILTER", "ARP",
+                                   "ORBIT", "TIME", "LOOPER", "SETUP", "DRUM", "SUB"};
+static const char *const BT[14] = {"OCT-", "OCT+", "FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
+                                   "PLAY", "REC"};
+static const char *const EN[7] = {"SELECT", "ALGORITHM", "K1", "K2", "K3", "K4", "PRESETS"};
+static void log_print(FILE *f, int k, const uint32_t *r)
+{
+    static const char *const LAYER[5] = {"STEP", "MORE", "TRACK", "PARTS", "TOOLS"};
+    char ver[17];
+    const uint32_t *run = r + 8, *cr = run + 18;
+    uint32_t st = run[11], i, n = cr[16] < 24u ? cr[16] : 24u;
+    memcpy(ver, r + 4, 16); ver[16] = 0;
+    fprintf(f, "#%d (%u): a %s, firmware %s, %u:%02u:%02u after the start\n", k + 1, r[1], r[2] == 2u ? "CRASH" : "FREEZE",
+            ver, run[1] / 3600000u, run[1] / 60000u % 60u, run[1] / 1000u % 60u);
+    fprintf(f, "  page %s%s%s, %s%s%s, voices %u, ARP %s, looper %s, CPU %.1f %%, the brake's blocks %u, core 2 %u\n",
+            PG[run[3] & 15u], run[3] == 6u ? (st >> 6 & 1u ? " B " : " A ") : "", run[3] == 6u ? LAYER[(st >> 8 & 7u) % 5u] : "",
+            st & 1u ? "PLAY" : "STOP", st & 2u ? " REC" : "", st & 4u ? " GLO latched" : "", (st >> 4 & 3u) + 1u,
+            st >> 13 & 1u ? "on" : "off", st >> 14 & 1u ? "armed" : "off", run[5] / 10.0, run[6], run[7] & 1u);
+    fprintf(f, "  the main loop stood at %u (2 input, 20-25 a save, 30 settings, 50 drawing, 51 drawn, 99 end), its last pass "
+            "%u ms, the audio's last second %u ms; its last STOP %u ms after %u ms of PLAY\n",
+            run[8], run[1], run[2], run[9], run[10]);
+    fprintf(f, "  stuck at (the PCs the audio interrupted, a quarter second apart from 1 s):");
+    for (i = 0; i < run[13] && i < 4u; i++) fprintf(f, " %08X", run[14 + i]);
+    fprintf(f, run[13] ? "\n" : " none (the audio stood too, or it was not stuck)\n");
+    if (r[2] == 2u) fprintf(f, "  the crash: VEC %u PC %08X RETS %08X EMU %08X DBG %08X SP %08X, %u ms up\n",
+                            cr[2], cr[3], cr[4], cr[5], cr[6], cr[7], cr[10]);
+    fprintf(f, "  the last %u inputs of %u, the oldest first (seconds before):\n   ", n, cr[16]);
+    for (i = 24u - n; i < 24u; i++) {
+        uint32_t e = cr[17 + i], t8 = e & 0xFFFFu, kind = e >> 21 & 7u, code = e >> 16 & 31u;
+        int val = (int8_t)(e >> 24);
+        double ago = (double)(((run[1] >> 3) - t8) & 0xFFFFu) * 0.008;
+        if (kind == 1u || kind == 2u) fprintf(f, " %s%s", code < 14u ? BT[code] : "BTN", kind == 2u ? "^" : "");
+        else if (kind == 3u || kind == 4u) fprintf(f, " key%u%s", code, kind == 4u ? "^" : "");
+        else if (kind == 5u) fprintf(f, " %s%+d", code < 7u ? EN[code] : "ENC", val);
+        else continue;
+        fprintf(f, "(%.1f)", ago);
+    }
+    fprintf(f, "\n");
+}
 
 static int find(MIDIEndpointRef *src, MIDIEndpointRef *dst)   /* the FM-1's ports: 1 when both are there */
 {
@@ -200,7 +262,8 @@ int main(int argc, char **argv)
     for (a = 1; a < argc; a++) {
         if (!strcmp(argv[a], "-w")) { watch = 1; if (a + 1 < argc && argv[a + 1][0] != '-') every = atoi(argv[++a]); }
         else if (!strcmp(argv[a], "-o") && a + 1 < argc) logname = argv[++a];
-        else { fprintf(stderr, "usage: fm1_diag [-w [ms]] [-o log.txt]\n"); return 2; }
+        else if (!strcmp(argv[a], "-l")) watch = 2;
+        else { fprintf(stderr, "usage: fm1_diag [-l] [-w [ms]] [-o log.txt]\n"); return 2; }
     }
     if (every < 50) every = 50;
     if (MIDIClientCreate(CFSTR("fm1_diag"), NULL, NULL, &cl) != noErr) { fprintf(stderr, "fm1_diag: no CoreMIDI\n"); return 1; }
@@ -211,6 +274,25 @@ int main(int argc, char **argv)
     MIDIInputPortCreate(cl, CFSTR("in"), on_read, NULL, &in);
     MIDIPortConnectSource(in, src, NULL);
     if (logname && !(lg = fopen(logname, "a"))) { fprintf(stderr, "fm1_diag: cannot write %s\n", logname); return 1; }
+    if (watch == 2) {                           /* the freeze log, the newest first */
+        uint32_t r[128];
+        int k, h, any = 0, off;
+        for (k = 0; k < 16; k++) {
+            for (h = off = 0; h < 2; h++) {
+                if (!reading_log(dst, 1500, 2 * k + h)) { fprintf(stderr, "fm1_diag: no answer (an older firmware?)\n"); return 1; }
+                if (nw < 2 || off + nw - 1 > 128) break;
+                memcpy(r + off, w + 1, (size_t)(nw - 1) * 4u);
+                off += nw - 1;
+            }
+            if (h < 2) break;
+            log_print(stdout, k, r);
+            if (lg) log_print(lg, k, r);
+            any = 1;
+        }
+        if (!any) printf("The freeze log is empty.\n");
+        if (lg) fclose(lg);
+        return 0;
+    }
     if (!watch) {
         if (!reading(dst, 1500)) { fprintf(stderr, "fm1_diag: no answer (an older firmware, or USB MIDI not through)\n"); return 1; }
         printf("Star Distroyer, the FM-1 now:\n");

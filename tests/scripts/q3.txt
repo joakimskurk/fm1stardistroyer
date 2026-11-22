@@ -1,12 +1,7 @@
-# RATCHET and PROB: SEQ (11), step 1 (as it starts), GLO (7) + G5: TOOLS (since 2026-11-21), B4 (C#4, key 8: MORE) its second layer; RATCHET x3 (K1),
+# RATCHET and PROB: SEQ (11), step 1 (as it starts), ALGORITHM (1) +1: MORE (since 2026-11-22), its second layer; RATCHET x3 (K1),
 # PROB 70 (K2 -6); step 5 picked with SELECT (encoder 0, +4; the layer stays), RATCHET x2; PLAY (12).
 1700 btn 11
-1880 btndown 7
-1885 keys 0x4000000
-1890 keys 0
-1895 btnup 7
-1900 keys 0x100
-1950 keys 0
+1900 enc 1 1
 2000 enc 2 2
 2100 enc 3 -6
 2200 enc 0 4
