@@ -375,7 +375,7 @@ static void track_on(int trk, int on)
 /* The drums (SEQ's fourth page, DRUM; 2026-11-21 in the performances): the kit, the fourth drum's ENGINE and DUCK as
    the player left them before the take (the app keeps them: drums_ready, the preparation); while it plays a beat from
    PRESETS there (in at the bar's one), EDIT (in at the master's one), the four MUTE keys (F#4 G#4 A#4 C#5, no GLO, on
-   DRUM), GLO + ALGORITHM the fourth's ENGINE (its values as chosen: SD_PC_DEF), MIX (GLO + B10): K1..K4 the levels.
+   DRUM), GLO + SELECT the fourth's ENGINE (its values as chosen: SD_PC_DEF), MIX (GLO + B10): K1..K4 the levels.
    Their batch (the app's, e.dr.ob) only once a performance has drums: the others sound as they did */
 static int16_t dr_ob[2u * SD_DR_BATCH * SD_SUB];
 static void drums_ready(const SdDrumKit *k, uint32_t perc)
@@ -416,16 +416,15 @@ static void drum_mute(uint32_t d, int mute)    /* a MUTE key on DRUM */
     snprintf(t, sizeof t, "MUTE key: %s %s", N[d % SD_DRS], mute ? "OFF" : "ON");
     say(t);
 }
-static void drum_engine(uint32_t pc)            /* GLO + ALGORITHM on DRUM: the fourth's ENGINE, its values as chosen */
+static void drum_engine(uint32_t pc)            /* GLO + SELECT on DRUM: the fourth's ENGINE, its values as chosen */
 {
-    static const char *const N[SD_PCS] = {"CLAP", "TOM", "RIM", "COW", "ZAP"};
     uint32_t k;
     char t[40];
     on_page(PG_DRUM, "the fourth's ENGINE off DRUM");
     act();
     e.dr.perc = (uint8_t)(pc % SD_PCS);
     for (k = 0; k < 8u; k++) e.dr.kit.d[SD_DR_CLAP].v[k] = SD_PC_DEF[e.dr.perc][k];
-    snprintf(t, sizeof t, "GLO + ALGORITHM: PERC %s", N[e.dr.perc]);
+    snprintf(t, sizeof t, "GLO + SELECT: ENGINE %s", SD_PC_NAME[e.dr.perc]);
     say(t);
 }
 #define DR_LEVEL(d, to, s0, s1) do { int32_t v_; on_ramp_page(PG_DRUM, s0, s1); \

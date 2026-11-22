@@ -1,0 +1,18 @@
+# HOME1 (2026-11-21): MACROS' switches as the screen has them: on top the chain on the black keys F#3..D#4, under it
+# the players on the white keys F3..E4. GLO held (7): F3 (key 0) ARP on, F#3 (key 1) the FILTER off, D#4 (key 10)
+# SPACE off, F#5 (key 25, RADAR's before) and G5 (key 26, the drums' before) no longer switch. Checked by
+# tests/app_home_test.c.
+1700 btndown 7
+1800 keys 0x1
+1850 keys 0
+1950 keys 0x2
+2000 keys 0
+2100 keys 0x400
+2150 keys 0
+2250 keys 0x2000000
+2300 keys 0
+2400 keys 0x4000000
+2450 keys 0
+2600 btnup 7
+2700 shot
+2800 end

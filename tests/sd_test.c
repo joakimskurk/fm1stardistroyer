@@ -3184,21 +3184,20 @@ static void test_seq(void)
     p.step[0].type = SD_ST_NOTE; p.step[0].note = 45;
     seq_trace(&e1, &p, 6, tr, 0);
     CHECK(e1.voice[0].gate && e1.voice[0].note == 45, "TIE: the note is not held (gate %u)", e1.voice[0].gate);
-    /* GATE past 100 %: 150 holds on half way into a REST that follows, then lets go; 50 is off as the REST starts */
+    /* GATE 100 % (2026-11-22, the user: no more past 100; at 100 right up to the next step): the whole step, off as a
+       REST after it starts, as 50 is; an older save's 200 reads as 100 */
     {
         static int32_t o[2u * 2048u];
         uint32_t g;
-        for (g = 50u; g <= 150u; g += 100u) {
+        for (g = 50u; g <= 200u; g += 50u) {
+            if (g == 150u) continue;
             sd_pattern_default(&p);
             for (k = 0; k < 16u; k++) p.step[k].type = SD_ST_REST;
             p.step[0].type = SD_ST_NOTE; p.step[0].note = 45; p.step[0].gate = (uint8_t)g; p.step[0].ratchet = 1;
+            p.step[3].type = SD_ST_NOTE; p.step[3].note = 52; p.step[3].gate = 50; p.step[3].ratchet = 1;
             seq_trace(&e1, &p, 2, tr, 0);       /* (step 2, the REST, just started) */
             run(&e1, o, 1024, 32);              /* ~19 % into it */
-            CHECK(!!e1.voice[0].gate == (g > 100u), "GATE %u %%: at a fifth of the REST after it the gate is %u", g,
-                  e1.voice[0].gate);
-            run(&e1, o, 2048, 32);
-            run(&e1, o, 1024, 32);              /* ~93 % into it: past the half it held for */
-            CHECK(!e1.voice[0].gate, "GATE %u %%: still on near the REST's end", g);
+            CHECK(!e1.voice[0].gate, "GATE %u %%: at a fifth of the REST after it the gate is %u", g, e1.voice[0].gate);
         }
     }
     sd_pattern_default(&p);
@@ -4673,8 +4672,63 @@ static void test_sub(void)
     sd_engine_note(&e1, 60, 0); run_ms(&e1, 2000); run(&e1, b, n / 4u, 256);
     tail = sub_bin(b, n / 4u, f60 / 2.0);
     CHECK(tail < on - 40.0, "SUB 2 s after its note: %.1f dBFS (on %.1f)", tail, on);
+    {                                           /* OCTAVE (2026-11-21, the user: "choose the octave, +/- 3"): three
+                                                   under, one over; past 4 kHz down till it is not */
+        double d3, u1, u0, hi, hi0;
+        p.sub_oct = -2;
+        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+        d3 = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 8.0);
+        CHECK(d3 > -16.0 && d3 - sub_bin(a + SD_FS / 4u, n / 2u, f60 / 8.0) > 40.0, "SUB OCTAVE -3: %.1f dBFS at C1", d3);
+        p.sub_oct = 2;
+        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
+        u1 = sub_bin(b + SD_FS / 4u, n / 2u, f60 * 2.0); u0 = sub_bin(a + SD_FS / 4u, n / 2u, f60 * 2.0);
+        CHECK(u1 > -16.0 && u1 - u0 > 30.0, "SUB OCTAVE +1: %.1f dBFS at C5 (without it %.1f)", u1, u0);
+        p.sub_oct = 4;                          /* +3 over C8: 33 kHz, down to C7 (2.1 kHz) */
+        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 108, 100); run(&e1, b, n, 256);
+        hi = sub_bin(b + SD_FS / 4u, n / 2u, 440.0 * pow(2.0, (96 - 69) / 12.0));
+        p.sub_lvl = 0;
+        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 108, 100); run(&e1, b, n, 256);
+        hi0 = sub_bin(b + SD_FS / 4u, n / 2u, 440.0 * pow(2.0, (96 - 69) / 12.0));
+        CHECK(hi > -20.0 && hi - hi0 > 30.0, "SUB OCTAVE +3 over C8: %.1f dBFS at C7, under 4 kHz (without it %.1f)", hi, hi0);
+        p.sub_lvl = 65535; p.sub_oct = 0;
+        printf("sub: OCTAVE -3 %.1f dBFS at C1, +1 %.1f at C5, +3 over C8 down to C7 %.1f\n", d3, u1, hi);
+    }
     printf("sub: off the same sample for sample; on %.1f dBFS an octave under C4, TRI's third %.1f over the sine's, a "
            "chord's lowest, ROOT, B silent under A, gone with its note\n", on, tri3 - sin3);
+}
+
+/* REACTOR's stage count (2026-11-21, the user: "choose the number of steps on REACTOR; I often make monosynths locked
+ * to one step and must copy the same step to all of them"): at one stage POS and the stage clock change nothing; at
+ * two POS's whole turn spans stages 1 and 2 (its top end is stage 2, not 6) */
+static void test_reactor_stages(void)
+{
+    static SdEngine e1;
+    static int32_t a[SD_FS], b[SD_FS], c[SD_FS];
+    SdPatch p = SD_PATCH[SD_P_VOWEL];
+    uint32_t i, n = SD_FS / 2u, same = 1, diff = 0, two = 1;
+    p.lv = 1; p.r_div = 0; p.r_slew = 0;
+    p.r_track = (uint8_t)((p.r_track & 0x8Fu) | 1u << 4);   /* one stage */
+    p.r_pos = 0;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, a, n, 256);
+    p.r_pos = 1535;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, b, n, 256);
+    for (i = 0; i < 2u * n && i < SD_FS; i++) same &= a[i] == b[i];
+    p.r_pos = 0; p.r_div = 1;                   /* the clock at every step: nowhere to go */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, b, n, 256);
+    for (i = 0; i < 2u * n && i < SD_FS; i++) same &= a[i] == b[i];
+    CHECK(same, "REACTOR at one stage: POS or its clock still moved it");
+    p.r_div = 0; p.r_pos = 1535;                /* six: POS at its top is stage 6 */
+    p.r_track &= 0x8Fu;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, b, n, 256);
+    for (i = 0; i < 2u * n && i < SD_FS; i++) diff += a[i] != b[i];
+    CHECK(diff > 1000u, "REACTOR at six stages: POS at its top sounds as stage 1 (%u samples differ)", diff);
+    p.r_track = (uint8_t)((p.r_track & 0x8Fu) | 2u << 4);   /* two: POS's top is stage 2, as POS on stage 2 of six */
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, b, n, 256);
+    p.r_track &= 0x8Fu; p.r_pos = 256;
+    sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 100); run(&e1, c, n, 256);
+    for (i = 0; i < 2u * n && i < SD_FS; i++) two &= b[i] == c[i];
+    CHECK(two, "REACTOR at two stages: POS at its top is not stage 2");
+    printf("reactor stages: one stage, POS and the clock change nothing; two, POS's top is stage 2; six as before\n");
 }
 
 /* The gain staging (2026-11-21, the user: "huge differences in level as some parameters shape the sound, heard in the
@@ -4877,6 +4931,40 @@ static void test_radar(void)
         for (k = 8; k < 40u; k++) same &= vals[k] == vals[k - 5u];
         CHECK(same, "CHANGE 100: not locked, a loop of 5");
     }
+    /* locked, STOP and PLAY: from START the same loop from its 1 again (2026-11-22, the user: LOCK let go after STOP
+       and PLAY; it came round from wherever it had stopped) */
+    {
+        int32_t v1[10], v2[10];
+        uint32_t n1, n2, same = 1;
+        pt.tur_set = 0x80u;
+        sd_engine_init(&e1);
+        sd_engine_patch(&e1, &pt);
+        e1.bpm = 120;
+        e1.seq_run = 1;
+        for (n1 = 0, f = 0, last = e1.tur_count; n1 < 10u && f < 10u * SD_FS; f += SD_SUB) {
+            memset(o, 0, sizeof o);
+            sd_engine_render(&e1, o, SD_SUB);
+            if (e1.tur_count != last) { last = e1.tur_count; v1[n1++] = e1.tur_out; }
+        }
+        for (k = 0, f = 0; k < 7u && f < 10u * SD_FS; f += SD_SUB) {   /* 17 steps in all: not where it began */
+            memset(o, 0, sizeof o);
+            sd_engine_render(&e1, o, SD_SUB);
+            if (e1.tur_count != last) { last = e1.tur_count; k++; }
+        }
+        e1.seq_run = 0;
+        for (f = 0; f < SD_FS / 2u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+        e1.seq_run = 1;
+        last = e1.tur_count;
+        for (n2 = 0, f = 0; n2 < 10u && f < 10u * SD_FS; f += SD_SUB) {
+            memset(o, 0, sizeof o);
+            sd_engine_render(&e1, o, SD_SUB);
+            if (e1.tur_count != last) { last = e1.tur_count; v2[n2++] = e1.tur_out; }
+        }
+        for (k = 3; k < 10u && k < n1 && k < n2; k++) same &= v1[k] == v2[k];   /* (from its 4th: the 8 bits read all
+                                                   the loop's, as above) */
+        if (!same) for (k = 0; k < 10u; k++) printf("  %u: %d %d\n", k, v1[k], v2[k]);
+        CHECK(n1 == 10u && n2 == 10u && same, "LOCK: after STOP and PLAY not the same loop from its 1 (%u, %u steps)", n1, n2);
+    }
     /* CHANGE 60 and 40: the same chance (the middle the most) */
     pt.tur_set = 0x80u | 60u;
     CHECK(SD_TUR_FLIP(&pt) == 40u && (pt.tur_set = 0x80u | 40u, SD_TUR_FLIP(&pt) == 40u), "SEARCH 60 and 40: not both 40 %%");
@@ -4937,6 +5025,7 @@ int main(void)
     test_distroy_lite();
     test_gain_staging();
     test_sub();
+    test_reactor_stages();
     test_limiter();
     test_orbit();
     test_xkey();

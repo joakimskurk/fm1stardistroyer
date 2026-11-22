@@ -260,7 +260,7 @@ Two LFOs. All at control rate; AMP envelope ramped per sample across the sub-blo
 | RES, SLEW, a global frequency offset, key tracking | RES, SLEW, FREQ ± 48 semitones, key tracking of the last note |
 | A stage clock: division, range, FWD / BWD / ping-pong / random | the same, clocked by the note driver's steps |
 | A level that runs into saturation at its top | level to 2×, past 1 a soft clip on each filter |
-| Presets into a stage: 13 vowel formants (ee i ay e au u a aw oo ar er ir iir), 13 chords | the vowels as textbook formants; chords as patches use them; on the FM-1 STAGES (GLO + B10 on REACTOR; B10 plays without GLO): a stage's TYPE from a list, its PITCH, WIDTH and LEVEL, GLO F1..F4 |
+| Presets into a stage: 13 vowel formants (ee i ay e au u a aw oo ar er ir iir), 13 chords | the vowels as textbook formants; chords as patches use them; on the FM-1 STAGES (GLO + B10 on REACTOR; B10 plays without GLO): a stage's TYPE from a list, its PITCH, WIDTH and LEVEL, GLO F1..F4; ALGORITHM how many stages it uses, 1..6 (2026-11-21: POS's turn and the clock across those, r_track's bits 4..6, 0 all six) |
 | A dry control | MIX dry ↔ wet, so 0 is no Reactor at all (the patches before R1 are bit for bit unchanged) |
 
 ### 4.1 Signal path
@@ -713,7 +713,9 @@ listening rounds are in the git history.
 - *SUB* (2026-11-21, the user: "a sub osc that can follow A, B or the root, always an octave under"; "a little more
   fill at the bottom"): one oscillator an octave under the lowest note held on its side (A: the keys, SEQ A, the ARP;
   B: SEQ B; ROOT: the key's root at or under A's note), at that voice's own envelope, glide and PITCH; clean after the
-  FX, mono, before the limiter; SHAPE a sine to a triangle; LEVEL. Table-free; its sub-block's frames made at the tick,
+  FX, mono, before the limiter; SHAPE a sine to a triangle; OCTAVE -3..+3 from the note (-1 by default; the user,
+  later that day: "choose the octave, +/- 3"; in the patch's spare byte, so every save loads as before), a fundamental
+  past 4 kHz an octave down till it is not; LEVEL. Table-free; its sub-block's frames made at the tick,
   outside the hot section and only while it sounds (the RAM code is full), the render adding them: too little to
   measure. A page of ENV's (NAV FILTER ENV SUB), ALGORITHM what it follows. `test_sub`.
 - *The stereo* (§3.6): a patch may lean, never hard left or right: the banks round the nav mix's middle, the far side

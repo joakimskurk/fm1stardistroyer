@@ -25,6 +25,18 @@ run "FM-1 MIDI recorded: step by step, chords, live, KEEP from the ARP, over the
 run "SMK-37: velocity, a pad, an outer key, the pitch wheel" env BOARD=smk37 sh tests/run_host.sh tests/scripts/smk37.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_key_test" tests/app_key_test.c
 run "the key: SEQ B's RND in A's (the master's) root and scale" "$OUT/app_key_test" "$OUT/app_key_test" tests/scripts/k2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_home_test" tests/app_home_test.c
+run "HOME's switches: the chain on black, the players on white, as the screen" "$OUT/app_home_test" "$OUT/app_home_test" tests/scripts/home1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_loop_test" tests/app_loop_test.c
+run "the looper off keeps its loop; GLO + EDIT clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_lane_test" tests/app_lane_test.c
+run "ORBIT: a lane picks its destination on its knob" "$OUT/app_lane_test" "$OUT/app_lane_test" tests/scripts/ob2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum4_test" tests/app_drum4_test.c
+run "DRUM: ALGORITHM the drum with GLO too, GLO + SELECT the fourth's ENGINE" "$OUT/app_drum4_test" "$OUT/app_drum4_test" tests/scripts/dr4.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recoff_test" tests/app_recoff_test.c
+run "SEQ's REC ends from any page; ENV and LFO go to their pages" "$OUT/app_recoff_test" "$OUT/app_recoff_test" tests/scripts/rec3.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recgate_test" tests/app_recgate_test.c
+run "REC writes each note's GATE from how long it was held" "$OUT/app_recgate_test" "$OUT/app_recgate_test" tests/scripts/recg.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_save_test" tests/app_save_test.c
 run "SAVE while it plays: on, the flash at STOP; PRESETS at the one" "$OUT/app_save_test" "$OUT/app_save_test" tests/scripts/sv1.txt
 run "SAVE while it plays, then STOP: in the flash" "$OUT/app_save_test" "$OUT/app_save_test" tests/scripts/sv2.txt

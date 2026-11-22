@@ -36,15 +36,17 @@ static const uint8_t SD_SDIV_ORDER[SD_SDIVS] = {6, 7, 0, 1, 2, 3, 8, 4, 9, 10, 5
 typedef struct {
     uint8_t note;                               /* MIDI */
     uint8_t vel;                                /* 1..127 */
-    uint8_t gate;                               /* 1..SD_GATE_MAX % of the step: past 100 the note holds on over a
-                                                   REST that follows (2026-11-18, the user: a little longer) */
+    uint8_t gate;                               /* 1..SD_GATE_MAX % of the step; 100: the whole step, up to the next
+                                                   (2026-11-22, the user: "GATE should not go past 100 %, then it is
+                                                   right up to the next note"; 101..200, 2026-11-18's "a little longer",
+                                                   read as 100) */
     uint8_t type;                               /* SD_ST_* */
     uint8_t ratchet;                            /* 1..3 hits in the step (0 reads as 1) */
     uint8_t prob;                               /* 0..100 %: the chance it plays (the default: 100) */
     int8_t chord[3];                            /* a chord: up to three more notes, semitones
                                                    from note (0: none); they move with it (RADAR's NOTES, RND, transpose) */
 } SdStep;
-#define SD_GATE_MAX 200u
+#define SD_GATE_MAX 100u
 #define SD_RATCHET_MAX 3u
 #define SD_RATCHET_MIN_SAMPLES 2205u            /* 50 ms: hits never closer */
 

@@ -1,0 +1,13 @@
+# REC3 (2026-11-22, the user: REC left on, SEQ's recording could not be ended away from SEQ): SEQ (11), REC (13) on;
+# FX (2): REACTOR; ENV (4) there: to its page, not a TIE; SEQ four times: A, B, ORBIT, DRUM; REC there: SEQ's recording off, the drums'
+# not on. Checked by tests/app_recoff_test.c.
+1700 btn 11
+1800 btn 13
+1850 btn 2
+1900 btn 4
+2100 btn 11
+2200 btn 11
+2300 btn 11
+2400 btn 11
+2500 btn 13
+2700 end

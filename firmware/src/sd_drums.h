@@ -71,12 +71,18 @@ static void sd_dr_values(const SdEngine *e, uint32_t d, int32_t *v)
     case SD_DR_HAT:
         v[0] += m * 4 / 100; v[1] += m * 13 / 100; v[2] += m * 8 / 100; v[4] += m * 30 / 100; v[5] += m * 20 / 100;
         break;
-    default:                                    /* the fourth: its engine's macro (CROWD, DEEP, BODY, BELL, LASER) */
+    default:                                    /* the fourth: its engine's macro (CROWD, DEEP, CHAOS, DEPTH, LASER,
+                                                   SIZE). CHAOS: faster, wider, noisier, longer; DEPTH: lower, longer,
+                                                   slower, more REPEATS fading less; SIZE: more STEPS, a longer TAIL,
+                                                   more NOISE and SWEEP */
         switch (e->dr.perc) {
         case SD_PC_TOM: v[0] -= m * 6 / 100; v[1] += m * 12 / 100; v[2] += m * 8 / 100; v[4] += m * 10 / 100; break;
-        case SD_PC_RIM: v[0] -= m * 8 / 100; v[1] += m * 15 / 100; v[4] += m * 30 / 100; break;
-        case SD_PC_COW: v[1] += m * 15 / 100; v[2] += m * 6 / 100; v[5] -= m * 40 / 100; break;
+        case SD_PC_DATA: v[1] += m * 10 / 100; v[2] -= m * 3 / 100; v[4] += m * 12 / 100; v[6] += m * 40 / 100; break;
+        case SD_PC_SONAR:
+            v[0] -= m * 12 / 100; v[1] += m * 12 / 100; v[2] += m * 2 / 100; v[4] += m * 4 / 100; v[6] -= m * 30 / 100;
+            break;
         case SD_PC_ZAP: v[2] += m * 24 / 100; v[4] += m * 12 / 100; v[5] += m * 30 / 100; break;
+        case SD_PC_SWELL: v[1] += m * 8 / 100; v[2] += m * 15 / 100; v[4] += m * 30 / 100; v[6] += m * 40 / 100; break;
         default:
             v[0] -= m * 4 / 100; v[1] += m * 10 / 100; v[2] += m * 6 / 100; v[4] += (m * 2 + (m < 0 ? -50 : 50)) / 100;
             v[6] += m * 40 / 100; v[7] += m * 40 / 100;
@@ -86,8 +92,11 @@ static void sd_dr_values(const SdEngine *e, uint32_t d, int32_t *v)
         break;
     }
     for (k = 0; k < 8; k++)
-        if (k != 3) v[k] = sd_dr_cl(v[k], sd_dr_min(d, e->dr.perc, k) - (k == 0 ? (d == SD_DR_CLAP ? 24 : 6) : 0),
-                                    sd_dr_max(d, e->dr.perc, k) + (k == 1 || k == 2 ? 15 : 0) + (k == 0 && d == SD_DR_CLAP ? 24 : 0));
+        if (k != 3) {                           /* (a count or a division: never past its own range) */
+            uint32_t kd = sd_dr_kind(d, e->dr.perc, (uint32_t)k), x = (k == 1 || k == 2) && kd != SD_DK_N && kd != SD_DK_DIV;
+            v[k] = sd_dr_cl(v[k], sd_dr_min(d, e->dr.perc, (uint32_t)k) - (k == 0 ? (d == SD_DR_CLAP ? 24 : 6) : 0),
+                            sd_dr_max(d, e->dr.perc, (uint32_t)k) + (x ? 15 : 0) + (k == 0 && d == SD_DR_CLAP ? 24 : 0));
+        }
 }
 
 static void sd_dr_hit(SdEngine *e, uint32_t d, uint32_t acc)
@@ -101,8 +110,12 @@ static void sd_dr_hit(SdEngine *e, uint32_t d, uint32_t acc)
     sd_dr_values(e, d, v);
     r->live |= 1u << d;
     r->hitm |= (uint8_t)(1u << d);
-    if (d == SD_DR_CLAP && r->perc != SD_PC_CLAP) {   /* the fourth's other engines: their envelopes from the top */
+    if (d == SD_DR_CLAP && r->perc != SD_PC_CLAP) {   /* the fourth's other engines: their envelopes from the top
+                                                   (SWELL's from nothing), their time and count (DATA's blips,
+                                                   SONAR's pings) from 0 */
         r->p_env = vel; r->p_ne = vel; r->p_pe = SD_ONE; r->p_ph = r->p_ph2 = 0;
+        r->c_t = 0; r->c_b = 0; r->c_v = vel;
+        if (r->perc == SD_PC_SWELL) { r->p_env = 0; r->p_pe = 0; r->p_ne = SD_ONE; }
         return;
     }
     switch (d) {
@@ -164,6 +177,27 @@ static void sd_dr_step_hits(SdEngine *e, uint32_t s)   /* step s comes: who play
         sd_dr_hit(e, d, acc);
         r->roll_n[d] = (uint8_t)(roll + 1u); r->roll_k[d] = 1; r->roll_a[d] = (uint8_t)acc;
     }
+}
+
+/* the fourth's timing: a division of the step (its place, fastest first: SD_SDIV_ORDER) in frames, at the tempo
+   heard (120 BPM before there is one); DATA's i-th blip, semitones from TUNE within SPREAD (the first on it; the
+   same burst each hit) */
+static uint32_t sd_dr_16th(const SdEngine *e)
+{
+    uint32_t q = e->tempo_q8 ? e->tempo_q8 : e->seq_len_q8 ? e->seq_len_q8 : 1411200u;
+    return q >> 8;
+}
+static uint32_t sd_dr_div(const SdEngine *e, int32_t rank)
+{
+    uint32_t d = SD_SDIV_ORDER[rank < 0 ? 0 : rank > (int32_t)SD_SDIVS - 1 ? SD_SDIVS - 1u : (uint32_t)rank];
+    return sd_dr_16th(e) * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
+}
+static int32_t sd_dr_blip(uint32_t i, int32_t spread)
+{
+    uint32_t h = i * 0x9E3779B9u ^ 0x5BD1E995u;
+    if (!i || spread <= 0) return 0;
+    h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12; h *= 0x297A2D39u; h ^= h >> 15;
+    return (int32_t)((h >> 8) % (uint32_t)(2 * spread + 1)) - spread;
 }
 
 /* a sub-block of the batch (its grid g, the master running): the steps on the grid, the auditions, each sounding
@@ -295,23 +329,69 @@ static void sd_drum_tick(SdEngine *e, uint32_t g, uint32_t run)
     }
     if ((r->live & 1u << SD_DR_CLAP) && r->perc != SD_PC_CLAP) {   /* the fourth's engine: two oscillators (sine to
                                                    a soft square), a pitch falling BEND / RANGE over SWEEP, noise,
-                                                   a band filter, DRIVE */
+                                                   a band filter, DRIVE; DATA, SONAR and SWELL time their own (c_t the
+                                                   frames since the hit, c_b the blips, the pings, SWELL's peak) */
         int32_t n0, bend = 0, rb = 0, lvb = 0, sq = 0, nl = 0, nidx = 30, sw = 40, cut = 0, kq = 0, sh = 0, drv;
+        int32_t lva = 24576, eidx, keep = 0, own = 0, pdec = 1;
         uint32_t fm = 0;
         sd_dr_values(e, SD_DR_CLAP, v);
         n0 = v[0] * 100;
+        eidx = v[1];
         switch (r->perc) {
         case SD_PC_TOM:                         /* a sine falling BEND into TUNE, a fifth above it (RING), a stick */
             bend = v[2] * 100; sw = v[4]; rb = 702; lvb = v[7] * 160; nl = v[5] * 200; nidx = 26;
             break;
-        case SD_PC_RIM:                         /* a ping at TONE and a low partial (RING), a click, a band (RES) */
-            bend = 300; sw = 20; rb = -2300; lvb = v[4] * 200 * (100 - v[7]) / 100; nl = v[2] * 260; nidx = 20;
-            fm = 1u; cut = v[0] * 256; kq = (int32_t)(1677721600 / (60 + v[5] * 8));
+        case SD_PC_DATA: {                      /* a blip each RATE, its pitch SPREAD round TUNE, at the burst's level
+                                                   (falling over DECAY), each GATE long; NOISE through the blip's band */
+            uint32_t per = sd_dr_div(e, v[2]);
+            if (r->c_b < 255u && r->c_t >= (r->c_b + 1u) * per) {
+                r->c_b++;
+                r->p_env = r->p_ne = (int32_t)(((int64_t)r->c_v * r->p_pe) >> 30);
+            }
+            n0 += sd_dr_blip(r->c_b, v[4]) * 100;
+            sw = v[1];                          /* (p_pe: the burst's level) */
+            eidx = nidx = 22 + v[5] / 2;
+            lva = 32767; rb = 1200; lvb = 5461; sq = v[7] * 200; nl = v[6] * 250;
+            fm = 1u; cut = n0 * 256 / 100; kq = 5592405;   /* (Q 3) */
+            keep = r->p_pe > SD_ONE / 128;
             break;
-        case SD_PC_COW:                         /* two soft squares DETUNE apart through a band at TUNE + TONE */
-            rb = 300 + v[4] * 6; lvb = 16384; sq = 32767; sh = v[5] * 327;
-            fm = 1u; cut = (v[0] + v[2]) * 256; kq = 8388608;
+        }
+        case SD_PC_SONAR: {                     /* a ping, its REPEATS TIME apart, each STEP semitones on and FALL
+                                                   quieter (p_pe: its level), a faint partial, a tick of noise */
+            uint32_t per = sd_dr_div(e, v[2]);
+            if (r->c_b + 1u < (uint32_t)v[4] && r->c_t >= (r->c_b + 1u) * per) {
+                r->c_b++;
+                r->p_pe = (int32_t)(((int64_t)r->p_pe * ((100 - v[6] * 9 / 10) * 327)) >> 15);
+                r->p_env = r->p_ne = (int32_t)(((int64_t)r->c_v * r->p_pe) >> 30);
+                r->p_ph = r->p_ph2 = 0;
+            }
+            n0 += (int32_t)r->c_b * v[5] * 100;
+            rb = 1757; lvb = 2600; sq = v[7] * 120; nl = 2400; nidx = 18;
+            keep = r->c_b + 1u < (uint32_t)v[4];
+            pdec = 0;
             break;
+        }
+        case SD_PC_SWELL: {                     /* up for STEPS steps as a cube (slow, then fast: a hit played
+                                                   backwards), the band rising SWEEP with it, NOISE against the tone
+                                                   and its fifth; at the peak the TAIL (p_pe: how far up, 0..1) */
+            int32_t q, to;
+            if (!r->c_b) {
+                uint32_t n = sd_dr_16th(e) * (uint32_t)v[1] / SD_SUB;
+                r->p_pe += n ? (int32_t)((uint32_t)SD_ONE / n) : SD_ONE;
+                if (r->p_pe >= SD_ONE) { r->p_pe = SD_ONE; r->c_b = 1; }
+            }
+            q = r->p_pe >> 15;
+            to = (int32_t)(((int64_t)r->c_v * ((((q * q) >> 15) * q) >> 15)) >> 15);
+            if (!r->c_b) { r->p_envs = (to - r->p_env) >> SD_SUB_SHIFT; own = 1; keep = 1; }
+            else eidx = v[2];
+            r->p_ne = SD_ONE; r->p_nes = 0;
+            lva = (100 - v[4]) * 245; lvb = lva / 2; rb = 702; nl = v[4] * 600;   /* (the noise twice: a band of it
+                                                   is far less than the tone at its peak) */
+            fm = 1u; cut = v[0] * 256 - (int32_t)(((int64_t)(SD_ONE - r->p_pe) * v[6] * 123) >> 30);
+            kq = (int32_t)(1677721600 / (60 + v[5] * 8));
+            pdec = 0;
+            break;
+        }
         default:                                /* ZAP: a laser, RANGE down over SWEEP, SHAPE to a square, RING */
             bend = v[2] * 100; sw = v[4]; rb = 1902; lvb = v[7] * 160; sq = v[5] * 327;
             break;
@@ -321,16 +401,19 @@ static void sd_drum_tick(SdEngine *e, uint32_t g, uint32_t run)
             r->p_inc = sd_dr_inc(n0 + b);
             r->p_inc2 = sd_dr_inc(n0 + b + rb);
         }
-        r->p_pe = sd_toward(r->p_pe, 0, SD_ENV_DEC[sw & 127]);
-        sd_dr_env(&r->p_env, &r->p_envs, (uint32_t)v[1]);
-        sd_dr_env(&r->p_ne, &r->p_nes, (uint32_t)nidx);
-        r->p_lva = r->perc == SD_PC_COW ? 16384 : 24576;
+        if (pdec) r->p_pe = sd_toward(r->p_pe, 0, SD_ENV_DEC[sw & 127]);
+        if (!own) sd_dr_env(&r->p_env, &r->p_envs, (uint32_t)eidx);
+        if (r->perc != SD_PC_SWELL) sd_dr_env(&r->p_ne, &r->p_nes, (uint32_t)nidx);
+        r->p_lva = lva;
         r->p_lvb = lvb; r->p_sqa = sq; r->p_nl = nl; r->p_short = sh; r->p_fm = (uint8_t)fm;
         if (fm) sd_dr_fset(&r->c_f, cut, kq);
         drv = 256 + v[6] * 1536 / 100;
+        if (r->perc == SD_PC_DATA || r->perc == SD_PC_SONAR || r->perc == SD_PC_SWELL) drv = 256 + v[7] * 1536 / 100;
         r->p_drv = drv;
         r->p_nrm = (int32_t)(((int64_t)32767 << 12) / (sd_dr_clip(32767 * drv >> 8) | 1));
-        if (r->p_env < 1024 && r->p_ne < 1024) r->live &= ~(1u << SD_DR_CLAP);
+        r->c_t += SD_SUB;
+        if (!keep && r->p_env < 1024 && (r->p_ne < 1024 || r->perc == SD_PC_SWELL)) r->live &= ~(1u << SD_DR_CLAP);   /* (SWELL's
+                                                   noise under its one envelope) */
     } else if (r->live & 1u << SD_DR_CLAP) {   /* CLAP: BURSTS of noise SPREAD apart, its TAIL over DECAY, through TONE */
         uint32_t sp;
         sd_dr_values(e, SD_DR_CLAP, v);

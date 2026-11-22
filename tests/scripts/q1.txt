@@ -1,5 +1,5 @@
 # The sequencer: PLAY, SEQ (11); step 3 picked (SELECT, encoder 0, +2: the keys play since 2026-11-17), its note +5
-# and SLIDE (K1, K4); GLO held: XPOSE +5 (K4); GLO + SEG (B10, D#5, key 22): ALGORITHM +1, five parts (2026-11-15: no cut on a white key),
+# and SLIDE (K1, K4); GLO held: XPOSE +5 (K4); GLO + G5 (TOOLS, since 2026-11-21), SEG (B10, D#5, key 22): ALGORITHM +1, five parts (2026-11-15: no cut on a white key),
 # step 7's part picked (key 11), its order REV (K2); SEG back, PLAY stops; REC (13): step recording C4 D4 (keys 7 9), LFO (5) a rest, ENV (4) a tie;
 # REC off, LFO three times: RADAR, EDIT (6) on (to XM). Buttons: GLO 7, ENV 4, LFO 5, EDIT 6, SEQ 11, PLAY 12, REC 13.
 # Encoders: ALGORITHM 1, K1..K4 2..5.
@@ -14,9 +14,11 @@
 3000 shot
 3100 btnup 7
 3150 btndown 7
+3155 keys 0x4000000
+3160 keys 0
+3165 btnup 7
 3200 keys 0x400000
 3250 keys 0
-3260 btnup 7
 3300 enc 1 1
 3400 keys 0x800
 3450 keys 0

@@ -1,5 +1,5 @@
 # K2 (2026-11-19, the user: SEQ B does not follow A's key): SEQ (11) A, GLO (7) + SELECT (encoder 0) +2: A's root B
-# (A2, the default line's step 1, + 2); SEQ again: B; GLO + RND (the 1st black key, key 1). tests/app_key_test.c checks
+# (A2, the default line's step 1, + 2); SEQ again: B; GLO + G5 (key 26): TOOLS, then RND (the 1st black key, key 1; since 2026-11-21). tests/app_key_test.c checks
 # B's new line is in A's key (B minor), its step 1 the root.
 1800 btn 11
 1900 btndown 7
@@ -7,7 +7,9 @@
 2000 btnup 7
 2100 btn 11
 2200 btndown 7
+2205 keys 0x4000000
+2210 keys 0
+2215 btnup 7
 2250 keys 0x2
 2300 keys 0
-2350 btnup 7
 2500 end

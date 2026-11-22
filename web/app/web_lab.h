@@ -276,6 +276,7 @@ static void lab_build(void)
     lab_add(G_FILTER, "SUB LEVEL", P(sub_lvl), LAB_U16, LAB_99, 0, 0, 65535);   /* (2026-11-21) */
     lab_add(G_FILTER, "SUB SHAPE %", P(sub_shape), LAB_U8, LAB_RAW, 0, 0, 100);
     lab_add(G_FILTER, "SUB FOLLOWS", P(sub_src), LAB_U8, LAB_RAW, 0, 0, SD_SUBS - 1);
+    lab_add(G_FILTER, "SUB OCTAVE (0: -1)", P(sub_oct), LAB_I8, LAB_RAW, 0, -2, 4);
 }
 #undef F
 #undef P

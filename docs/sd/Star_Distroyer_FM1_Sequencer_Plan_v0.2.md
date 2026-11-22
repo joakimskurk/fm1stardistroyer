@@ -30,8 +30,8 @@ how it behaves; how it got there is in the git history.
 - *A pattern* (`SdPattern`): up to 64 steps; LENGTH (a track restarts at step 1 after it; 16 by default), DIV, SWING
   (50..75 %), SCALE, the segments. A new pattern is 16 steps in four segments of four, forwards, once each; SEQ A's
   default is the loop the engine played before the sequencer (A2), SEQ B's every step a rest.
-- *A step* (`SdStep`): NOTE, VEL, GATE (1..200 % of the step: past 100 the note holds on over a REST that follows,
-  2026-11-18; the tower on SEQ as wide as it) and TYPE: NOTE, SLIDE (a glide into it, no new attack; a single note only), TIE
+- *A step* (`SdStep`): NOTE, VEL, GATE (1..100 % of the step: 100 the whole step, up to the next, 2026-11-22; up to 200 %
+  before, past 100 on over a REST; REC while it plays writes it from how long the key was held; the tower on SEQ as wide as it) and TYPE: NOTE, SLIDE (a glide into it, no new attack; a single note only), TIE
   (the note before held on), REST, SKIP (out of the pattern). A NOTE can RATCHET (2 or 3 hits in its time, each x 0.75
   softer, never closer than 50 ms) and has a PROB (5 % steps; a step that loses its draw is a rest), and holds a chord:
   up to three more notes as semitones from its note, moving with it (RND, the transposes, RADAR's NOTES).
@@ -194,6 +194,12 @@ how it behaves; how it got there is in the git history.
   switched on while it plays, in at the bar's one. Off at every start; the kit, the beat and its place kept in the
   settings, the beats D01..D16 in slot 4 (the first eight the factory's until saved over). PRESETS loads one at the
   bar's one while they play.
+- *The fourth's ENGINE* (2026-11-20; 2026-11-22, the user: "more experimental than a typical cowbell", and GLO +
+  ALGORITHM, which picked it, held the row at the fourth while GLO's keys wrote the steps): CLAP TOM DATA SONAR ZAP
+  SWELL, on GLO + SELECT with a list; ALGORITHM picks the drum in both layers, round. DATA, SONAR and SWELL keep their
+  time by the tempo (DATA's blips and SONAR's echoes a division of the step, SWELL's rise whole steps), so a burst,
+  the echoes and a swell's peak land on the grid; DATA's burst is the same each hit (its pitches a hash of the blip's
+  number), its CHAOS what moves it.
 - *The matrix:* KICK and SNARE are sources (their envelopes); BOOM SIZE AIR CROWD (each drum's macro, ±100 over
   it) and the drums' LEVEL are destinations, and VOLUME, the synth's level after its FX and before the drums (down
   only, a ramp over each sub-block): KICK to VOLUME at a minus AMOUNT is the sidechain.

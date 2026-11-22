@@ -258,6 +258,10 @@ typedef struct {
 } SdReactorStage;
 enum { SD_RM_BP6, SD_RM_BP12, SD_RM_VBP, SD_RM_KP, SD_RM_AP1, SD_RM_AP2, SD_RMODELS };
 enum { SD_RT_KEY = 1, SD_RT_HARM = 2 };          /* r_track's bits: follow the key; snap to its harmonics (R4) */
+#define SD_R_NSTC(p) ((uint32_t)(p)->r_track >> 4 & 7u)   /* r_track's bits 4..6: how many stages it uses, 1..5; 0 (every
+                                                   save before 2026-11-21) all six (the user: "choose the number of steps
+                                                   on REACTOR; I often make monosynths locked to one step") */
+#define SD_R_NST(p) (SD_R_NSTC(p) - 1u < 5u ? SD_R_NSTC(p) : 6u)
 #define SD_DL 2048u                             /* a Reactor delay line, samples: 21.5 Hz the lowest comb */
 /* each model's make-up, Q12: measured (tests/sd_test.c, test_reactor_makeup) on a saw through VOWEL's stage A at RES
  * and level one half, so a change of model keeps the level (within the test's tolerance) */
@@ -308,6 +312,7 @@ enum { SD_PL_IN0, SD_PL_A1 = 4, SD_PL_D1 = 6, SD_PL_A2 = 8, SD_PL_D2 = 10, SD_PL
 enum { SD_FX_REACTOR = 1, SD_FX_DISTROY = 2, SD_FX_SPACE = 4, SD_FX_FILTER = 8, SD_FX_TIME = 16, SD_FX_SUB = 32 };   /* fx_off's
                                                    bits (SPACE: the reverb; TIME: the delay; SUB the sub oscillator) */
 enum { SD_SUB_A, SD_SUB_B, SD_SUB_ROOT, SD_SUBS };   /* what SUB follows */
+#define SD_SUB_INC_MAX ((uint32_t)(4000ull * 4294967296ull / SD_FS))   /* SUB's highest fundamental, 4 kHz */
 
 /* C1: the modulation (Sound Plan §7.x; the spec's "one global matrix"): sources, destinations, a slot */
 enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY,
@@ -402,7 +407,7 @@ typedef struct {
     uint16_t r_pos;                             /* 0 .. 6 x 256 - 1: stage 1 .. 6.999 */
     uint16_t r_res, r_slew, r_drive, r_mix;     /* 0..65535; DRIVE 0..4x (16384 = 1x); MIX 0 = no Reactor */
     int16_t r_freq;                             /* the global offset, semitones x 256 */
-    uint8_t r_model, r_track;                   /* SD_RM_*; key tracking on (1) */
+    uint8_t r_model, r_track;                   /* SD_RM_*; key tracking on (1), SD_RT_*; bits 4..6 SD_R_NST */
     uint8_t r_div, r_cmode, r_min, r_max;       /* the stage clock: steps a stage (0 off), SD_RC_*, the range 0..5 */
     uint16_t r_low;                             /* R4: the lows that skip the Reactor: 0 none, else 50 .. 400 Hz */
     /* DISTROY */
@@ -445,7 +450,10 @@ typedef struct {
     int8_t tur_off;                             /* RADAR's OFFSET, -100..100 %: its output's middle moved (as a MOD
                                                    slot's, for all it feeds), 0 as before. After the OFFSETs, so an
                                                    older save is this less them (2026-11-21, the user) */
-    uint8_t tur_pad;                            /* (spare: 0) */
+    int8_t sub_oct;                             /* SUB's OCTAVE from its usual one, an octave under the note: -2..4 =
+                                                   -3..+3 octaves from the note (2026-11-21, the user: "choose the
+                                                   octave, +/- 3"); the spare byte it took was 0 in every save: -1, as
+                                                   before */
     int8_t trim;                                /* TRIM, the synth's level, half dB (SD_TRIM_LO .. HI): the patch's own
                                                    loudness (the factory's evened, 2026-11-21) */
     uint8_t lv;                                 /* bit 0: its levels are the make-ups' (2026-11-21); 0: from before, moved
@@ -671,6 +679,7 @@ typedef struct {                                /* SPACE's state */
     uint32_t dmax;                              /* the delay line's frames: SD_SP_DMAX, or SD_SP_DHALF lent */
     int32_t dfade;                              /* the echoes' level through a change of it, Q15 */
     uint8_t larm, dsw;                          /* the looper armed; the change: 1 fading out, 3 clearing, 2 in */
+    uint8_t lact;                               /* it records or plays: armed and not held silent (lp_hold) */
     uint32_t dclr;                              /* the clearing: where it has got to (the line, then the looper's
                                                    other piece) */
     int32_t dq, dnext, dtgt;                    /* the delay, samples x 256: now (this sub-block's start), next, target */
@@ -873,6 +882,8 @@ typedef struct {
     uint8_t song_s, song_v[2];                  /* the step whose patterns were loaded last (0xFF none), its values */
     /* RADAR: the register (bit 0 the newest), its clock, its output and where it glides (Q15) */
     volatile uint16_t tur_reg;
+    uint16_t tur_reg1;                          /* its loop as it stood at its 1 (START comes back to it) */
+    uint8_t tur_has1;
     uint32_t tur_pos_q8, tur_rng;
     int32_t tur_out, tur_g;
     volatile uint32_t tur_count;                /* its steps so far (the screen draws its history from them) */
@@ -950,6 +961,11 @@ typedef struct {
     volatile uint8_t lp_arm;                    /* armed by the player (EDIT on LOOPER): it records at any L-LEVEL, 0
                                                    too (2026-11-17, the user: taken at the bottom, faded in); without
                                                    it armed while L-LEVEL is above 0, as before (the demos') */
+    volatile uint8_t lp_hold;                   /* LOOPER off, its loop kept (2026-11-21, the user: switched off from
+                                                   HOME it crackled and the loop was gone): LOOP fades out, then it
+                                                   neither plays nor records, its memory still lent; lp_arm again
+                                                   fades the same loop back in. Let go (the app's clear): the memory
+                                                   back to the delay */
     volatile uint16_t lp_at;                    /* (the screen's: LOOP's head in its loop, 0..4095) */
     volatile uint16_t lp_filt, lp_rsend, lp_dsend;   /* its FILTER (0 a lowpass shut .. 32768 none .. 65535 a highpass
                                                    high), its send into the reverb (65535 whole, as it always went),
@@ -1046,6 +1062,7 @@ typedef struct {
     int32_t sub_g0, sub_g1, sub_sh;             /* its gain at this sub-block's start, its end (Q15); SHAPE (Q15) */
     uint8_t sub_v, sub_note, sub_live;          /* the voice it follows (its release too); the note it plays (the
                                                    screen's; 0: none); sounding this sub-block */
+    uint8_t sub_from;                           /* the note it follows (the root's, ROOT): the screen's */
     int16_t sub_buf[SD_SUB];                    /* its frames this sub-block (mono) */
     uint16_t filt;                              /* HOME's FILTER (the player's, not the patch's): 0 open, 65535 every
                                                    cutoff down as MACRO 4's CUTOFF at full */
@@ -1540,8 +1557,8 @@ static void sd_reactor_clock(SdEngine *e)         /* a step of the note driver: 
 {
     const SdPatch *p = &e->patch;
     SdReactor *r = &e->r;
-    uint32_t lo = p->r_min > 5u ? 5u : p->r_min, hi = p->r_max > 5u ? 5u : p->r_max, st;
-    if (!p->r_div || ++r->count < p->r_div) return;
+    uint32_t top = SD_R_NST(p) - 1u, lo = p->r_min > top ? top : p->r_min, hi = p->r_max > top ? top : p->r_max, st;
+    if (!p->r_div || ++r->count < p->r_div) return;   /* (the stages in use only: 1..SD_R_NST) */
     r->count = 0;
     if (hi < lo) { st = lo; lo = hi; hi = st; }
     st = r->stage < lo || r->stage > hi ? lo : r->stage;
@@ -1573,15 +1590,18 @@ SD_HOT SD_NOINLINE static void sd_reactor_params(SdEngine *e)        /* once a s
 {
     const SdPatch *p = &e->patch;
     SdReactor *r = &e->r;
-    uint32_t pos = ((uint32_t)p->r_pos + (p->r_div ? (uint32_t)r->stage << 8 : 0u)) % 1536u, i, f, j, k;
+    uint32_t ns = SD_R_NST(p), pos = (ns == 6u ? (uint32_t)p->r_pos : (uint32_t)p->r_pos * ns / 6u);   /* (POS's
+                                                   whole turn across the stages in use) */
+    uint32_t i, f, j, k;
     uint32_t slew = p->r_slew >> 9, c = slew ? SD_ENV_DEC[slew] : 0u;   /* 0: no glide */
     int32_t off = p->r_freq + (p->r_track & SD_RT_KEY ? ((int32_t)r->note - 60) * 256 : 0);
     int32_t kk = sd_rkk(p->r_res);
     int32_t rmk = sd_dbq14(sd_rmk(p->r_drive) + (p->lv & 2u ? 0 : sd_qmk(p->r_model < SD_RMODELS ? p->r_model : 0u, kk)));   /* DRIVE's and
                                                    RES's make-ups (Q14) */
+    pos = (pos + (p->r_div ? (uint32_t)r->stage << 8 : 0u)) % (ns << 8);
     if (!slew) pos &= ~255u;                    /* no slew: stage to stage */
     r->shown_pos = (uint16_t)pos;
-    i = pos >> 8; f = pos & 255u; j = i == 5u ? 0u : i + 1u;   /* stage 6 glides on to stage 1 */
+    i = pos >> 8; f = pos & 255u; j = i + 1u >= ns ? 0u : i + 1u;   /* the last stage glides on to stage 1 */
     r->model = p->r_model < SD_RMODELS ? p->r_model : SD_RM_BP6;
     r->drive = p->r_drive;                      /* Q14 as it is: 16384 = 1x, 65535 = 4x */
     r->mix = p->r_mix >> 1;
@@ -2109,7 +2129,7 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
            (armed or let go) fades the echoes out over ~23 ms, clears the line and the looper's memory over ~80 ms
            (1024 a tick: at once it took the interrupt from 52 % to 79 %), the delay writing silence meanwhile, and
            fades what goes in again; letting go waits for the looper to be quiet */
-        int want = sd_lp_total(e) > SD_LP_XF + 64u && (e->lp_lvl != 0 || e->lp_arm);
+        int want = sd_lp_total(e) > SD_LP_XF + 64u && (e->lp_lvl != 0 || e->lp_arm || e->lp_hold);
         if (!s->dmax) { s->dmax = SD_SP_DMAX; s->dfade = 32767; }
         if (!e->lp_borrow) { s->larm = (uint8_t)want; s->dmax = SD_SP_DMAX; s->dsw = 0; s->dfade = 32767; }
         else {
@@ -2158,8 +2178,13 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         if (lq > lm) lq = lm;
         s->llen = (int32_t)(lq / 2u);           /* (half-rate samples x 256) */
         (void)f;                                /* (the halvings: sd_space_sync_q8's count, not kept) */
-        s->llvl = s->larm ? e->lp_lvl >> 1 : 0;   /* (armed: recording, or playing) */
-        s->loop = e->lp_on && s->larm && (s->llvl != 0 || e->lp_arm);   /* (armed by the player: at L-LEVEL 0 too) */
+        {                                       /* held: LOOP out (its own fade, ~46 ms), then silent, no recording */
+            int held = e->lp_hold && !s->pon;
+            s->llvl = s->larm && !held ? e->lp_lvl >> 1 : 0;   /* (armed: recording, or playing) */
+            s->loop = e->lp_on && s->larm && !e->lp_hold && (s->llvl != 0 || e->lp_arm);   /* (armed by the player:
+                                                   at L-LEVEL 0 too) */
+            s->lact = (uint8_t)(s->larm && !held);
+        }
         {
             s->lff = e->lp_filt;                /* its FILTER's knob (sd_lp_fset works it out where the looper runs) */
             s->lrs = e->lp_rsend;
@@ -2370,10 +2395,11 @@ static void sd_seq_steplen(SdEngine *e, SdSeqT *t)         /* this step's length
     const SdStep *st = &p->step[t->seq_step];
     if (sw != 50u) len = (len >> 7) * (t->seq_count & 1u ? 100u - sw : sw) / 50u << 7;   /* a pair's 2 x len split */
     t->seq_step_q8 = len;
-    {                                           /* GATE: past 100 % on to the step's end, the rest into the next */
+    {                                           /* GATE: 100 % the whole step, up to the next (an older save's 101..200
+                                                   read as 100: 2026-11-22, the user, no more past 100) */
         uint32_t g = st->gate < 1u ? 1u : st->gate > SD_GATE_MAX ? SD_GATE_MAX : st->gate;
-        t->seq_gate_q8 = g > 100u ? 0xFFFFFFFFu : (len >> 7) * g / 100u << 7;
-        t->seq_over_q8 = g > 100u ? (len >> 7) * (g - 100u) / 100u << 7 : 0u;
+        t->seq_gate_q8 = (len >> 7) * g / 100u << 7;
+        t->seq_over_q8 = 0u;
     }
 }
 
@@ -2590,10 +2616,16 @@ SD_HOT static void sd_tur_tick(SdEngine *e, uint32_t start)
     const SdPatch *p = &e->patch;
     uint32_t d = SD_TUR_DIV(p), len = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
     if (!SD_TUR_ON(p)) return;
-    if (start) { e->tur_pos_q8 = len; e->tur_place = 0xFFu; }   /* (the step now is the loop's 1) */
+    if (start) {                                /* (the step now is the loop's 1, the loop as it was at its 1: a
+                                                   locked loop plays the same from START, 2026-11-22, the user: LOCK let
+                                                   go after STOP and PLAY; it came round from wherever it stopped) */
+        e->tur_pos_q8 = len; e->tur_place = 0xFFu;
+        if (e->tur_has1) e->tur_reg = e->tur_reg1;
+    }
     if (e->tur_pos_q8 >= len) {
         uint32_t n = SD_TUR_LEN(p), b = (e->tur_reg >> (n - 1u)) & 1u;
         e->tur_place = (uint8_t)(e->tur_place == 0xFFu || e->tur_place + 1u >= n ? 0u : e->tur_place + 1u);
+        if (!e->tur_place) { e->tur_reg1 = e->tur_reg; e->tur_has1 = 1; }   /* (its 1: kept for START) */
         e->tur_pos_q8 -= len;
         if (e->tur_pos_q8 >= len) e->tur_pos_q8 = 0;   /* (the tempo jumped: no catching up) */
         if (sd_seq_rand(&e->tur_rng) % 100u < SD_TUR_FLIP(p)) b ^= 1u;
@@ -2705,7 +2737,7 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
     if (back) sd_seq_restart(e, t);
     if (t->seq_pos_q8 >= t->seq_step_q8) {      /* a new step: it starts at this sub-block's first frame */
         const SdStep *st;
-        uint32_t one, next, over = t->seq_note_on ? t->seq_over_q8 : 0u;   /* (the last step's GATE past 100 %) */
+        uint32_t one, next, over = t->seq_note_on ? t->seq_over_q8 : 0u;   /* (none since GATE stops at 100 %) */
         t->seq_pos_q8 -= t->seq_step_q8;
         if (t->sq_pos == 0xFFu) { t->sq_pos = 0; t->sq_steps = 1; one = 0; }
         else if (t->sq_pos == 0xFEu) { t->sq_pos = 0; t->sq_steps = 1; one = 1; }   /* (in at the master's one: step 1) */
@@ -2782,7 +2814,7 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
         }
         if (st->type == SD_ST_TIE && t->seq_note_on) {
             /* held on: nothing new */
-        } else if (st->type == SD_ST_REST && over) {   /* GATE past 100 %: on over the rest, then off */
+        } else if (st->type == SD_ST_REST && over) {   /* (GATE past 100 % till 2026-11-22: on over the rest) */
             t->seq_gate_q8 = over;
             t->seq_over_q8 = 0;
         } else if (st->type == SD_ST_SLIDE && t->seq_note_on && t->seq_nn == 1u && !st->chord[0]) {
@@ -5105,15 +5137,26 @@ SD_NOINLINE static void sd_sub_tick(SdEngine *e)
         if (best < e->nvoices && (e->voice[best].src == SD_SRC_B) == b) {
             const SdVoice *v = &e->voice[best];
             uint32_t inc = v->inc, n = v->note;
-            if (p->sub_src == SD_SUB_ROOT) {    /* the key's root at or under the note, an octave under that */
+            if (p->sub_src == SD_SUB_ROOT) {    /* the key's root at or under the note (then its OCTAVE from that) */
                 uint32_t rp = sd_pat_key(sd_key_pat(e)) % 12u;
                 n -= (n + 12u - rp) % 12u;
                 inc = sd_note_inc(n);
             }
-            e->sub_inc = (uint32_t)(((uint64_t)inc * e->pmul) >> 17);   /* (x PITCH, an octave under) */
+            {                                   /* x PITCH, at its OCTAVE (-1: an octave under, as it was); a
+                                                   fundamental past 4 kHz an octave down till it is not (a triangle
+                                                   up there would fold back) */
+                int32_t o = (int32_t)p->sub_oct - 1, m;
+                uint64_t x = ((uint64_t)inc * e->pmul) >> 16;
+                o = o < -3 ? -3 : o > 3 ? 3 : o;
+                x = o < 0 ? x >> -o : x << o;
+                while (x > SD_SUB_INC_MAX && o > -6) { x >>= 1; o--; }
+                e->sub_inc = (uint32_t)x;
+                m = (int32_t)n + 12 * o;
+                e->sub_note = (uint8_t)(m > 0 && m < 128 ? m : 0);
+                e->sub_from = (uint8_t)n;
+            }
             g = (v->amp_next * (int32_t)(p->sub_lvl >> 1)) >> 15;       /* (half scale x 32767: fits) */
             e->sub_v = (uint8_t)best;
-            e->sub_note = (uint8_t)(n >= 12u ? n - 12u : n);
         }
     }
     e->sub_g1 = g;
@@ -5184,7 +5227,7 @@ SD_INLINE void sd_plate_queue(SdEngine *e, int32_t sc, int32_t sstep)
         pp->sc0 = sc; pp->sst2 = 2 * sstep; pp->G = sstep != 0; pp->frz = s->frz; pp->tick = s->tick; pp->pst = s->pst;
         pp->m0 = m; pp->n = 0;
         pp->llvl = s->llvl; pp->rlvl = s->rlvl;
-        pp->larm = s->larm; pp->lff = s->lff; pp->lrs = (uint16_t)s->lrs;
+        pp->larm = s->lact; pp->lff = s->lff; pp->lrs = (uint16_t)s->lrs;   /* (held: neither records nor plays) */
         if (nt) s->qti = 0;                     /* the looper's tick (a part of it after a block's end: from there) */
         pp->lt = s->lt; pp->li0 = s->qti;
         if (s->lt.rst) s->lt.rst = s->prst = 0; /* (LOOP's start handed over once) */
@@ -5351,7 +5394,7 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
         if (room) {                             /* one core: the looper here (as on the second, into its ring, heard 6
                                                    samples on through the half-band out), the room on all three */
             int32_t ll = 0, lr = 0;
-            if (lp && (s->llvl || s->larm || s->lt.on)) {   /* (the looper off: not its half-bands, nor it) */
+            if (lp && (s->llvl || s->lact || s->lt.on)) {   /* (the looper off: not its half-bands, nor it) */
                 if (ph) {
                     int32_t yl, yr;
                     sd_lp_step(s, &L, sd_hb_down(s->hx, s->hxw), &s->lt, s->lti, s->lt.rst, s->llvl, &yl, &yr);

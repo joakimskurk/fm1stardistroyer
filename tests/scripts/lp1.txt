@@ -1,0 +1,24 @@
+# LP1 (2026-11-21): the looper off keeps its loop. PLAY (12); ARP twice (10): LOOPER; EDIT (6) arms it; ALGORITHM (1):
+# LOOP held; HOME (8), GLO (7) + G3 (key 2, LOOP's switch): off, its loop kept (silent, not recording, the delay's
+# half still lent); again: on, the same loop back; ARP (LOOPER), GLO + EDIT: CLEAR THE LOOP?, OCT+ (1): cleared, the
+# memory back to the delay. Checked by tests/app_loop_test.c.
+1700 btn 12
+1800 btn 10
+1900 btn 10
+2000 btn 6
+5000 enc 1 1
+7000 btn 8
+7200 btndown 7
+7300 keys 0x4
+7350 keys 0
+7400 btnup 7
+9000 btndown 7
+9100 keys 0x4
+9150 keys 0
+9200 btnup 7
+11000 btn 10
+11200 btndown 7
+11300 btn 6
+11400 btnup 7
+11600 btn 1
+14000 end

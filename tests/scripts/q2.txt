@@ -1,6 +1,6 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
 # Saving: XM up on the Q page (K1), SAVE (9), ALGORITHM (1) two places on, SAVE: U03; PRESETS (6) off and back to it.
-# Then SEQ (11): GLO (7) + RND (the 1st black key, key 1), SAVE twice: P01; PRESETS to P02 (the default), back to P01.
+# Then SEQ (11): GLO (7) + G5: TOOLS (since 2026-11-21), RND (the 1st black key, key 1), SAVE twice: P01; PRESETS to P02 (the default), back to P01.
 1700 enc 2 30
 1800 btn 9
 1900 enc 1 2
@@ -14,9 +14,11 @@
 4500 shot
 4600 btn 11
 4650 btndown 7
+4655 keys 0x4000000
+4660 keys 0
+4665 btnup 7
 4700 keys 0x2
 4750 keys 0
-4800 btnup 7
 4900 btn 9
 5000 btn 9
 5400 enc 6 1

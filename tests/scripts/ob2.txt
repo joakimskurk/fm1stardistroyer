@@ -1,0 +1,13 @@
+# OB2 (2026-11-21): ORBIT's lanes pick their destination where they are (the user could not find it in SETUP). SEQ
+# (11) three times: ORBIT; GLO (7) held: K3 (encoder 4, LANE 1, no destination yet) +3: the list, a destination picked;
+# 1.8 s still, K3 +5: the lane's amount at the step. Checked by tests/app_lane_test.c.
+1700 btn 11
+1800 btn 11
+1900 btn 11
+2000 btndown 7
+2100 enc 4 3
+2200 shot
+4000 enc 4 5
+4100 shot
+4200 btnup 7
+4300 end

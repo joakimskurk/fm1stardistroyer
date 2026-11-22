@@ -73,11 +73,12 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **MIX** keeps the dry voice whole up to the middle, and **LOW** lets the lows pass by. At 0 it is not there.
 - In a patch without it, **EDIT** turns it on with six vowels on POS (A, E, EE, AW, OO, ER), so the knobs are heard
   at once.
-- **STAGES** (GLO + D♯5 on its page; D♯5 again goes back) edits them: the white keys 1–6 pick a stage (POS goes
-  there, so you hear it), **K1 TYPE** puts one of 13 vowels or 13 chords in it from a list, **K2 PITCH** moves it,
+- **STAGES** (GLO + D♯5 on its page; D♯5 again goes back) edits them: **ALGORITHM** sets how many it uses, 1 to 6
+  (POS's whole turn and the stage clock then go through those only: at 1 a monosynth's fixed body, nothing to copy),
+  the white keys or SELECT pick a stage (POS goes there, so you hear it), **K1 TYPE** puts one of 13 vowels or 13 chords in it from a list, **K2 PITCH** moves it,
   **K3 WIDTH** spreads or closes it, **K4 LEVEL**; with GLO, F1–F4 one by one. SAVE keeps it with the patch.
 - The picture: the filters as peaks across the frequency range, and under them the six stages as a piano roll, each
-  its four filters as notes at their pitch, the one playing red.
+  its four filters as notes at their pitch, the one playing red; a stage not in use is a dotted frame.
 
 </td>
 </tr>
@@ -115,7 +116,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   **FDBK**, **TONE** and **D-LEVEL**; ALGORITHM: its **MODE**. Ping-pong comes in pairs: an echo on the left, then one as
   loud on the right. On the beat it stays on the beat: a division longer than its 1 s (1/2 under 120 BPM, 1/4D under
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays.
-- The **looper** (its own page, **LOOPER**, ARP's second: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**; EDIT arms it) records what you hear
+- The **looper** (its own page, **LOOPER**, ARP's second: **GLIDE**, **LENGTH**, **SPEED**, **L-LEVEL**; EDIT arms it; EDIT again, or LOOP's switch on HOME, turns it off with its loop **KEPT**: it fades out, stops recording, and comes back the same when switched on; **GLO + EDIT** clears it, asked, OCT+ yes, and the delay has its whole line again) records what you hear
   before the reverb, always. **LOOP** (ALGORITHM there) plays its last LENGTH round and round, while the delay goes on with what you
   play over it: a loop layer in the background. Synced, while the sequencer plays, LOOP locks on the beat: pressed a
   little late, the loop ends on the line you just passed and goes on at once; a little early, it waits for the line.
@@ -172,11 +173,13 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - A lowpass on each voice, LP12 or LP24, with **CUTOFF**, **RES**, its own envelope (ENV 3), key and velocity. It is
   on from the start, at 12 kHz, where it is as good as open, so CUTOFF works at once; open it costs nothing (it is
   worked out only once you hear it: CUTOFF lower, or RES, ENV, KEY or VEL).
-- **SUB** (ENV's fourth page, 2026-11-21): one oscillator an octave under the note, for more weight at the bottom.
+- **SUB** (ENV's fourth page, 2026-11-21): one oscillator under the note, for more weight at the bottom.
   ALGORITHM picks what it follows: **A** (the keys, SEQ A, the ARP), **B** (SEQ B) or **ROOT** (the key's root under
   A's note). Under a chord it takes the lowest note, with that note's own envelope and glide. It goes in clean after
   REACTOR, DISTROY and SPACE, so the low end stays tight. **SHAPE** (K1) runs from a sine to a triangle, whose
-  overtones carry on small speakers, and **LEVEL** is on K4. EDIT turns it on (the first time a sine under A); it is
+  overtones carry on small speakers; **OCTAVE** (K2) sets where it sits, from three octaves under the note to three
+  over (an octave under unless you turn it; past 4 kHz it drops an octave, so it never folds back); **LEVEL** is on
+  K4. EDIT turns it on (the first time a sine under A); it is
   saved with the patch; playing, it costs too little to measure.
 
 </td>
@@ -198,10 +201,11 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   ~200 Hz, DISTROY's TAME, SPACE's two TONEs, the Reactor an octave. It is yours, not the patch's: it stays where you
   left it as patches change, and CLEAR ALL opens it.
 - **MACRO 4** lives on GLO: K4 how much, GLO + ALGORITHM which, BODY, AIR or DROWN (the patch keeps it).
-- **Switches**: GLO and a key turn things on and off from MACROS, as EDIT on their own pages: B1–B5 the chain's
-  FILTER, REACTOR, DISTROY, TIME and SPACE, B6–B11 ARP, the LOOPER, SEQ A, SEQ B, ORBIT and RADAR, and G5 (the top
-  white key) the DRUMS. The picture draws each as its key with its lamp (lit on, blinking till the one, dark off):
-  the chain in its order, the players in the knobs' columns; with GLO the keys light the same.
+- **Switches**: GLO and a key turn things on and off from MACROS, as EDIT on their own pages, all in the lowest
+  keys, as the screen has them: on top the chain, FILTER, REACTOR, DISTROY, TIME and SPACE, on the black keys
+  F♯3–D♯4; under it the players, ARP, the LOOPER, SEQ A, SEQ B, ORBIT, RADAR and the DRUMS, on the white keys under
+  them, F3–E4. The picture draws each as a panel button (lit red on, blinking till the one, an outline off): the
+  chain in its order, the players in the knobs' columns; with GLO the keys light the same.
 - HOME is **MACROS ↔ SETUP** since 2026-11-21: what you play with and the FM-1's settings. NAV, the voice's
   oscillators, is the ENV button's first page (NAV → FILTER → ENV → SUB).
 
@@ -213,7 +217,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 
 **The modulation matrix**: eight slots a patch, from a source onto a destination by −99 … +99 %, and each slot's
 **OFFSET** (K4, −100 … +100 %): at 0 it swings both ways round the value you set, at +100 % only up from it, at
-−100 % only down, its reach on that side kept (an older save loads with every OFFSET at 0).
+−100 % only down, its reach on that side kept (an older save loads with every OFFSET at 0). The page is a table
+(2026-11-22): a row a slot, its columns the knobs' (SOURCE, DEST, AMOUNT as a bar, OFFSET), the slot SELECT picks red
+and framed, the one the knobs turn; its AMOUNT as a number on the hint line.
 - **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, RADAR, NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
   AFTERTOUCH and RANDOM (each note). The engines feed it too: SEQ A's STEP and SEGMENT, the Reactor's STAGE,
   DISTROY's LOW and TOP BAND, TIME's ECHOES, and the drums' KICK and SNARE (as they sound, for a sidechain). SOURCE
@@ -248,7 +254,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 of the patch. Off until you switch it on.
 - A loop of **LENGTH** bits (K2, 2–16, 16 at first) steps on the tempo at its **DIV** (K4, 1/32 … 1/4). As each
   bit comes round, **SEARCH** (K1, 2 % a detent) is the chance it flips, the knob saying it: most in the middle
-  (50 %), less towards either end, and at both ends **LOCK** in red, the loop held as it is. Turn it towards the
+  (50 %), less towards either end, and at both ends **LOCK** in red, the loop held as it is (PLAY starts it from its
+  1 again, as it was there: the same pattern after STOP). Turn it towards the
   middle to look for a pattern, then to the nearer end to keep it.
 - Its 8 newest bits are the output: a stepped value, every step a new one. **OFFSET** (K3, −100 … +100 %) moves its
   middle, as a MOD slot's OFFSET does, for everything it feeds.
@@ -275,7 +282,8 @@ of the patch. Off until you switch it on.
 <td valign="top">
 
 **Two sequencer tracks on one sound**: a melody on A and a bass line on B, one tempo and one PLAY.
-- Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate, **RATCHET** (2 or 3 hits)
+- Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate (1–100 %: 100 the whole step, up to
+  the next), **RATCHET** (2 or 3 hits)
   and **PROB**, and can hold a chord of up to four notes.
 - **SELECT** picks the step (ALGORITHM too), in SEGMENTS the part. Stopped, the step picked sounds (a white key held,
   SELECT, ALGORITHM or its NOTE turned), so you hear what you edit.
@@ -289,18 +297,20 @@ of the patch. Off until you switch it on.
   random), SKIP and LENGTH. **GLO + D♯5** opens them: a white key picks the part its step is in (framed, the others
   dim), ALGORITHM sets how many parts (evenly), and the screen says how they play (PLAYS A B<x2 C D). D♯5 again: back.
   The loop keeps to the pattern's LENGTH: repeats play inside it, and when it has played its LENGTH it starts at step 1.
-- **REC** (or **B11**, the last black key, lit while it is on) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
+- **REC** (or **B11**, the last black key, lit while it is on; REC on any page ends it, and away from SEQ ENV and LFO go to their pages) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
   step (keys held together, a chord); playing, into the step nearest where you heard it (the engine runs ~10 ms ahead
   of the speaker; that is taken back, so a note a little early for the next step lands on it, and it sounds once), and
-  a key held on past the middle of the next step writes a TIE into it, and so on, so a note is as long as you held it (a key let go a little late writes
+  a key held on past the middle of the next step writes a TIE into it, and so on, and its last step's **GATE** is how long you held it in that step
+  (held past it: 100 %, the whole step), so a note is as long as you held it (a key let go a little late writes
   none, and a held key never writes over its own note round the loop; a new key while one is held is the next note, legato,
   unless it comes in the same step: a chord). Play over a wrong note and it is replaced. It writes what you hear: under a transpose
   (GLO's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
 - **One key, the master's:** its step 1 is the root and its SCALE (GLO + ALGORITHM on its page) the scale; the hint
   line shows it with GLO held (A MINOR). The other track has none of its own: what it plays is pulled to the nearest
   note of the key, and on its page the hint line says whose key it follows (KEY SEQ A).
-- **GLO held** transposes a track from the keys, taken at its next one: the keys in the key are lit, and the root goes
-  to the one you press (the root itself: no transpose). The keys stay as printed whatever OCT's octave (OCT is the
+- **GLO held** transposes a track from the keys, every key but the top one, taken at its next one: the keys in the
+  key are lit, and the root goes to the one you press (the root itself: no transpose). **GLO + G5** opens **TOOLS**:
+  there the black keys are RND, UNDO, CLR, MORE, SEG and KEYS, the white keys play, and G5 closes it. The keys stay as printed whatever OCT's octave (OCT is the
   playing's), and GLO + OCT moves the transpose an octave (to ±24; GLO + K4 XPOSE sets any).
 - **IN KEY** (the default): a transpose moves the notes in degrees of the key, and a chord moves tone by tone (C minor
   up a third in C minor: E♭ major); K4 XPOSE and ORBIT's XPOSE count the same, +5 up a fourth in the key, +7 a fifth.
@@ -323,14 +333,19 @@ of the patch. Off until you switch it on.
   master (SEQ A unless you choose B); a step changes at its one.
 - Each step: **SEQ A** and **SEQ B**, the pattern each plays there (a saved P01–P32, loaded at the one from its step
   1; **--** leaves the track as it plays: your own pattern, your edits), **DRUMS**, the beat there (D01–D16, the
-  drums on, at the bar's one; **OFF**; **--** as they play), and **LOOPS**. The picture shows A's pattern, B's and
-  the drums' beat in each step (a crossed pad: off), its loops as a line under it, the step playing red.
+  drums on, at the bar's one; **OFF**; **--** as they play), and **LOOPS**. The picture is a **timeline** (2026-11-22):
+  the song left to right, each step a block as wide as its LOOPS (you see how long each part lasts), a row each for
+  SEQ A, SEQ B and the drums (the pattern's number in the block where it fits; a line: as it plays; a crossed box:
+  the drums off), the steps' ticks and numbers under them, and under those the transposes and lanes as curves over
+  the whole song (held, or with GLIDE a slope to the next step). The step picked is red, a red line shows where the
+  song plays now. With GLO (LANES) or in MACRO the blocks become a thin strip and their four curves come up.
 - With GLO: **XPOS A** and **XPOS B** (±24) and two free lanes, each to its **DEST** (any matrix destination,
-  ±100 %); **MORE** (GLO + B4, C♯4) the four macros' changes. Every value is a change from where you are: 0
+  ±100 %): a lane with none says DEST? and its knob picks one from the list first (1.5 s still, and the knob is its
+  amount; SETUP changes it later); **MORE** (GLO + B4, C♯4) the four macros' changes. Every value is a change from where you are: 0
   changes nothing.
 - **The layers** show as on every page (2026-11-20; a row of tabs over the song before): the knobs' names red with
-  GLO (**LANES**), and the line under the song says what the keys do, with GLO the black keys' jobs, **MACRO** (B4)
-  and **SETUP** (B10), lit while one is open, a dot where the step picked has something in a layer you do not see.
+  GLO (**LANES**), and with GLO (or a layer open) a line under the song with the black keys' jobs, **MACRO** (B4)
+  and **SETUP** (B10), lit while one is open.
 - **The step you pick is the one you hear:** a white key, SELECT or ALGORITHM (or a knob turned on it) holds ORBIT
   on that step while it plays (the hint line's lamp lit), so you hear your edit (a pattern at the next one); the
   same key again, or leaving ORBIT, lets it go on, in time, where it would have been.
@@ -350,29 +365,34 @@ of the patch. Off until you switch it on.
 
 **DRUM**, SEQ's fourth page: four synthesized drums on the master's grid and its SWING. They are off at every start;
 **EDIT** turns them on (while it plays: in at the bar's one).
-- **KICK, SNARE, HAT** and a fourth with an **ENGINE** (GLO + ALGORITHM): **CLAP, TOM, RIM, COW** or **ZAP**,
-  nothing sampled. **ALGORITHM** picks the drum, **SELECT** the step (framed red). K1–K4 are its sound, K4 its
-  macro, and GLO gives four more:
+- **KICK, SNARE, HAT** and a fourth with an **ENGINE** (GLO + **SELECT**, a list): **CLAP, TOM, DATA, SONAR, ZAP**
+  or **SWELL**, nothing sampled. **ALGORITHM** picks the drum, with GLO too (it goes round), **SELECT** the step
+  (framed red). K1–K4 are its sound, K4 its macro, and GLO gives four more:
   KICK TUNE DECAY PUNCH **BOOM** · SWEEP CLICK DRIVE SUB;
   SNARE TUNE DECAY SNAPPY **SIZE** · N DECAY TONE BODY ROOM;
   HAT TONE DECAY OPEN **AIR** · METAL RES DRIVE THIN;
   CLAP TONE DECAY SPREAD **CROWD** · BURSTS RES TAIL ROOM;
   TOM TUNE DECAY BEND **DEEP** · SWEEP NOISE DRIVE RING;
-  RIM TONE DECAY CLICK **BODY** · RING RES DRIVE THIN;
-  COW TUNE DECAY TONE **BELL** · DETUNE SHORT DRIVE THIN;
-  ZAP TUNE DECAY RANGE **LASER** · SWEEP SHAPE DRIVE RING.
+  DATA TUNE DECAY RATE **CHAOS** · SPREAD GATE NOISE DRIVE (a burst of blips, a new pitch each, SPREAD semitones
+  round TUNE, RATE a division of the step; the same burst each hit);
+  SONAR TUNE DECAY TIME **DEPTH** · REPEATS STEP FALL DRIVE (a ping and its echoes, TIME apart as a division, each
+  STEP semitones on and FALL quieter);
+  ZAP TUNE DECAY RANGE **LASER** · SWEEP SHAPE DRIVE RING;
+  SWELL TUNE STEPS TAIL **SIZE** · NOISE RES SWEEP DRIVE (a hit played backwards: noise and a tone rising for STEPS
+  steps, their band opening SWEEP with it, cut at the peak by TAIL; on step 13 with STEPS 4 it peaks on the next
+  one).
   Turned while stopped, the drum sounds. The fourth's TUNE is a destination too, **P TUNE**: RADAR on it plays a
-  tom or a zap in whole semitones, a note a hit.
+  tom, a zap or a ping in whole semitones, a note a hit.
 - **The keys play the drums, never the synth here** (2026-11-20): F3 G3 A3 B3 are KICK SNARE HAT and the fourth, C4
   D4 E4 F4 the same accented (the drum played is the one you edit). F♯4 G♯4 A♯4 C♯5 **MUTE** them, at once (lit: it
-  sounds; the bottom of the picture shows the four). **REC** plays the pads into the steps while it runs, onto the
+  sounds; a muted drum's name and steps go dark). **REC** plays the pads into the steps while it runs, onto the
   step nearest where you heard it (as SEQ's REC: the drums run ahead of the speaker, and that is taken back), on top of
   what is there; UNDO takes the pass back.
 - **The steps** are the white keys, with GLO: a key cycles its step off → ON → **ACCENT** → **RADAR** → off. A RADAR
   step plays where RADAR's newest bit is 1 (RADAR on, LFO's third page). **B1 RND** writes a new row for the drum, **B2
   UNDO** takes it back, **B3 CLR** empties the row (twice, or then OCT+). The picture shows the four rows as
-  buttons, as far apart down as across: lit dim ON, lit full ACCENT, a lamp RADAR, a red pip under the step playing;
-  under them RADAR's loop, a digit a place, and the edited drum's ROLLs.
+  buttons: lit dim ON, lit full ACCENT, a lamp RADAR, a red pip under the step playing; under them RADAR's loop, a
+  lamp a place; in MORE the edited drum's ROLLs and PROBs.
 - **B4 MORE** (C♯4, as on SEQ): the step's **ROLL** (×1–×4, its hits evenly through the step) and **PROB** (100, 75,
   50 or 25 %).
 - **B10 MIX** (D♯5; B4 until 2026-11-20): K1–K4 the four levels, GLO their pans; ALGORITHM **DUCK**, how far the
@@ -445,7 +465,7 @@ the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS (MUTATE MOVE BREAK FILTER; GLO + K4 MACRO 4 and GLO + ALGORITHM its kind; GLO + B1–B11 the switches and GLO + G5 the drums, drawn as those keys with their lamps) → SETUP (TEMPO, with GLO SYNC AUTO or INT and CORES 2 or 1, from the next start; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept; ALGORITHM the **DEMOS**, played on the FM-1 itself (a turn: DEMO 1, SINGULARITY; a turn more: DEMO 2, ARMADA, with the drums; then OCT+; any key or knob stops it, and your sound, patterns and song come back) or, at the far end, **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), with GLO the battery's volts). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If the watchdog ever restarts it again, the first 10 s after the splash show **RESTART** P(page) B(buttons) C(CPU %) H(blocks skipped) (second core 1/0) (seconds the sound ran on): a photo of it says what stopped |
+| **HOME** | MACROS (MUTATE MOVE BREAK FILTER; GLO + K4 MACRO 4 and GLO + ALGORITHM its kind; GLO + F♯3–D♯4 the chain's switches, GLO + F3–E4 the players' and the drums', drawn as those keys with their lamps) → SETUP (TEMPO, with GLO SYNC AUTO or INT and CORES 2 or 1, from the next start; XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; ALGORITHM the **DEMOS**, played on the FM-1 itself (a turn: DEMO 1, SINGULARITY; a turn more: DEMO 2, ARMADA, with the drums; then OCT+; any key or knob stops it, and your sound, patterns and song come back) or, at the far end, **CLEAR ALL**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), with GLO the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If the watchdog ever restarts it again, the first 10 s after the splash show **RESTART** P(page) B(buttons) C(CPU %) H(blocks skipped) (second core 1/0) (seconds the sound ran on): a photo of it says what stopped |
 | **FX** | REACTOR → DISTROY → TIME → SPACE: the chain in its order (the delay into the reverb; SPACE before TIME till 2026-11-21) |
 | **ENV** | NAV → FILTER → ENV → SUB: the voice in its order, the filter before the amp (NAV was HOME's second till 2026-11-21; SUB since that day, the order too). SUB joins after the effects, clean |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD (ALGORITHM: SLOT 1 … 8) |
@@ -456,10 +476,10 @@ the keys). The CPU is on SETUP.
 | **ALGORITHM** | the page's choice, named on the hint line (on DISTROY the band, then LOOP: its frame moves in the picture; on NAV the algorithm, a list); GLO + ALGORITHM the second |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, SUB, ARP, a track, ORBIT, the drums (off at every start), RADAR (a track or ORBIT, while the master plays: in at its one; the drums at the bar's one). Off, the hint line says OFF: EDIT TURNS IT ON (not on SEQ, ORBIT and DRUM, where you write a part while it is off) |
 | **PRESETS** | the patch (on SEQ the pattern, on ORBIT the song, on DRUM the beat; the list says PATCHES, PATTERNS, SONGS or BEATS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now. A pattern or a song loaded while it plays comes in at the one, from its step 1 (the hint line blinks P02: AT THE ONE till then) |
-| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
+| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (SEGMENTS: the part), ORBIT's step, DRUM's step (GLO: the fourth drum's ENGINE), REACTOR's stage (STAGES), DISTROY's band, MOD's slot, SAVE's place · MONO → DUO → POLY |
 | **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns, 16 songs): it plays on, the save is there at once, into the flash when PLAY stops. The flash keeps each save twice and writes over the older one: switched off (or restarted) in the middle of a save, the FM-1 starts with the save before it. Each save is read back; one the flash did not take says **SAVE FAILED** |
 | **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLR) **OCT+** is yes and **OCT−** no |
-| **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, the black keys, lit where they do something, B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC; GLO + B11 again: back), the other keys the track's transpose; on ORBIT, with GLO, the white keys its steps (16), B4 MORE, B10 SETUP; on DRUM the keys play the drums (F3–B3, accented C4–F4) and F♯4–C♯5 mute them, with GLO the white keys the drum's steps (off → ON → ACCENT → RADAR), B1 RND, B2 UNDO, B3 CLR (the row), B4 MORE, B10 MIX; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys 1–6 the stage. Where the keys play, a black key does something only with GLO |
+| **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, every key but G5 the track's transpose, and GLO + G5 **TOOLS**, where the black keys, lit where they do something, are B1 RND, B2 UNDO (lit while there is something to take back), B3 CLR (blinking while it asks), B4 MORE (the step's RATCHET and PROB, its note's MOVE and LENGTH), B10 SEG (SEGMENTS: a white key picks the part its step is in, ALGORITHM how many parts, K1–K4 its REPEAT, ORDER, SKIP, LENGTH; the picture shows how they play) and B11 the keys into the steps (REC; GLO + B11 again: back), the white keys play, G5 closes it; on ORBIT, with GLO, the white keys its steps (16), B4 MORE, B10 SETUP; on DRUM the keys play the drums (F3–B3, accented C4–F4) and F♯4–C♯5 mute them, with GLO the white keys the drum's steps (off → ON → ACCENT → RADAR), B1 RND, B2 UNDO, B3 CLR (the row), B4 MORE, B10 MIX; on REACTOR GLO + B10 STAGES (B10 again: back), there the white keys the stage, ALGORITHM how many (1–6). Where the keys play, a black key does something only with GLO |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MIDI out** | USB: the keys' notes, and while no clock comes in, a clock, START and STOP (the FM-1's TEMPO and PLAY) |
 | **MASTER** | the volume |

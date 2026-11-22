@@ -11,13 +11,16 @@
  * A pitch is a MIDI note, a time an index of the envelopes' times (SD_ENV_MS: 1 ms .. 10 s, to -40 dB), the rest
  * percent. A step: 0 off, 1 on, 2 accent, 3 RADAR (it plays where RADAR's newest bit is 1); its second layer (MORE,
  * 2026-11-20): ROLL x1..x4 and PROB 100 75 50 25 %, beside the beat (SdDrumMore). The fourth drum has an ENGINE
- * (2026-11-20, the user: "the clap swappable with other engines, RADAR can play it"): CLAP, TOM, RIM, COW, ZAP, its
- * eight values each its own (SD_PC_*), its TUNE a matrix destination (PERC TUNE: RADAR plays it in semitones). */
+ * (2026-11-20, the user: "the clap swappable with other engines, RADAR can play it"): CLAP, TOM, DATA, SONAR, ZAP,
+ * SWELL (2026-11-22: RIM and COW gone), its eight values each its own (SD_PC_*), its TUNE a matrix destination (PERC
+ * TUNE: RADAR plays it in semitones). */
 #ifndef SD_DRUMKIT_H
 #define SD_DRUMKIT_H
 
 enum { SD_DR_KICK, SD_DR_SNARE, SD_DR_HAT, SD_DR_CLAP, SD_DRS };
-enum { SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_PCT, SD_DK_N };   /* what a value is */
+enum { SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_PCT, SD_DK_N, SD_DK_DIV, SD_DK_SST };   /* what a value is
+                                                   (DIV: a division of the step, its place fastest first; SST:
+                                                   semitones either way) */
 enum { SD_DS_OFF, SD_DS_ON, SD_DS_ACC, SD_DS_RADAR };
 #define SD_DR_STEPS 16u
 #define SD_DR_PLACES 16u                        /* the beats' places, D01..D16 (PRESETS, SAVE, a song's step) */
@@ -69,31 +72,37 @@ static const char *const SD_DR_PNAME[SD_DRS][8] = {
     {"TONE", "DECAY", "SPREAD", "CROWD", "BURSTS", "RES", "TAIL", "ROOM"}};
 
 /* the fourth drum's engines (SD_PC_CLAP: the clap above): each its eight values, ranges, names and its sound as
-   chosen (an engine picked: these, its level and pan kept) */
-enum { SD_PC_CLAP, SD_PC_TOM, SD_PC_RIM, SD_PC_COW, SD_PC_ZAP, SD_PCS };
-static const char *const SD_PC_NAME[SD_PCS] = {"CLAP", "TOM", "RIM", "COW", "ZAP"};
-static const char *const SD_PC_SHORT[SD_PCS] = {"CLP", "TOM", "RIM", "COW", "ZAP"};
+   chosen (an engine picked: these, its level and pan kept). Since 2026-11-22 (the user: "more experimental than a
+   typical cowbell"): CLAP and TOM, then four of the ship's own. DATA: a burst of blips, each a new pitch SPREAD
+   round TUNE (the same burst each hit), RATE a division of the step; SONAR: a ping and its REPEATS, TIME apart (a
+   division), each STEP semitones on and FALL quieter; ZAP: a laser; SWELL: noise and a tone swelling for STEPS steps,
+   their band rising with it (SWEEP), cut at the peak (TAIL): a hit played backwards, its peak on the beat STEPS on */
+enum { SD_PC_CLAP, SD_PC_TOM, SD_PC_DATA, SD_PC_SONAR, SD_PC_ZAP, SD_PC_SWELL, SD_PCS };
+static const char *const SD_PC_NAME[SD_PCS] = {"CLAP", "TOM", "DATA", "SONAR", "ZAP", "SWELL"};
+static const char *const SD_PC_SHORT[SD_PCS] = {"CLP", "TOM", "DAT", "SON", "ZAP", "SWL"};
 static const uint8_t SD_PC_KIND[SD_PCS][8] = {
     {SD_DK_NOTE, SD_DK_TIME, SD_DK_TIME, SD_DK_MAC, SD_DK_N, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
     {SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_TIME, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
-    {SD_DK_NOTE, SD_DK_TIME, SD_DK_PCT, SD_DK_MAC, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
-    {SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
-    {SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_TIME, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT}};
-static const int16_t SD_PC_MIN[SD_PCS][8] = {
-    {71, 40, 20, -100, 1, 0, 0, 0}, {36, 50, 0, -100, 20, 0, 0, 0}, {84, 20, 0, -100, 0, 0, 0, 0},
-    {68, 40, 0, -100, 0, 0, 0, 0}, {30, 30, 0, -100, 15, 0, 0, 0}};
+    {SD_DK_NOTE, SD_DK_TIME, SD_DK_DIV, SD_DK_MAC, SD_DK_SEMI, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
+    {SD_DK_NOTE, SD_DK_TIME, SD_DK_DIV, SD_DK_MAC, SD_DK_N, SD_DK_SST, SD_DK_PCT, SD_DK_PCT},
+    {SD_DK_NOTE, SD_DK_TIME, SD_DK_SEMI, SD_DK_MAC, SD_DK_TIME, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT},
+    {SD_DK_NOTE, SD_DK_N, SD_DK_TIME, SD_DK_MAC, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT, SD_DK_PCT}};
+static const int16_t SD_PC_MIN[SD_PCS][8] = {   /* (a DIV: its place fastest first, SD_SDIV_ORDER: 0 1/64 .. 11 1/2) */
+    {71, 40, 20, -100, 1, 0, 0, 0}, {36, 50, 0, -100, 20, 0, 0, 0}, {48, 50, 0, -100, 0, 0, 0, 0},
+    {60, 30, 0, -100, 1, -12, 0, 0}, {30, 30, 0, -100, 15, 0, 0, 0}, {48, 1, 20, -100, 0, 0, 0, 0}};
 static const int16_t SD_PC_MAX[SD_PCS][8] = {
-    {111, 100, 52, 100, 6, 100, 100, 100}, {72, 100, 36, 100, 90, 100, 100, 100}, {112, 64, 100, 100, 100, 100, 100, 100},
-    {90, 90, 24, 100, 100, 100, 100, 100}, {84, 95, 72, 100, 85, 100, 100, 100}};
+    {111, 100, 52, 100, 6, 100, 100, 100}, {72, 100, 36, 100, 90, 100, 100, 100}, {96, 100, 7, 100, 24, 100, 100, 100},
+    {100, 90, 11, 100, 8, 12, 100, 100}, {84, 95, 72, 100, 85, 100, 100, 100}, {96, 16, 90, 100, 100, 100, 100, 100}};
 static const char *const SD_PC_PNAME[SD_PCS][8] = {
     {"TONE", "DECAY", "SPREAD", "CROWD", "BURSTS", "RES", "TAIL", "ROOM"},
     {"TUNE", "DECAY", "BEND", "DEEP", "SWEEP", "NOISE", "DRIVE", "RING"},
-    {"TONE", "DECAY", "CLICK", "BODY", "RING", "RES", "DRIVE", "THIN"},
-    {"TUNE", "DECAY", "TONE", "BELL", "DETUNE", "SHORT", "DRIVE", "THIN"},
-    {"TUNE", "DECAY", "RANGE", "LASER", "SWEEP", "SHAPE", "DRIVE", "RING"}};
+    {"TUNE", "DECAY", "RATE", "CHAOS", "SPREAD", "GATE", "NOISE", "DRIVE"},
+    {"TUNE", "DECAY", "TIME", "DEPTH", "REPEATS", "STEP", "FALL", "DRIVE"},
+    {"TUNE", "DECAY", "RANGE", "LASER", "SWEEP", "SHAPE", "DRIVE", "RING"},
+    {"TUNE", "STEPS", "TAIL", "SIZE", "NOISE", "RES", "SWEEP", "DRIVE"}};
 static const int16_t SD_PC_DEF[SD_PCS][8] = {   /* (as chosen; CLAP the kit's own) */
-    {88, 76, 34, 20, 4, 30, 60, 40}, {50, 78, 12, 0, 52, 15, 20, 18}, {92, 40, 60, 0, 40, 50, 30, 20},
-    {73, 76, 7, 0, 63, 45, 20, 30}, {45, 72, 36, 0, 62, 30, 30, 0}};
+    {88, 76, 34, 20, 4, 30, 60, 40}, {50, 78, 12, 0, 52, 15, 20, 18}, {76, 78, 0, 0, 12, 45, 15, 25},
+    {81, 74, 6, 0, 3, 0, 45, 15}, {45, 72, 36, 0, 62, 30, 30, 0}, {80, 4, 40, 0, 70, 25, 60, 10}};
 /* the fourth's tables by its engine, the others' as they are */
 static uint32_t sd_dr_kind(uint32_t d, uint32_t pc, uint32_t i) { return d == SD_DR_CLAP ? SD_PC_KIND[pc % SD_PCS][i & 7u] : SD_DR_KIND[d % SD_DRS][i & 7u]; }
 static int32_t sd_dr_min(uint32_t d, uint32_t pc, uint32_t i) { return d == SD_DR_CLAP ? SD_PC_MIN[pc % SD_PCS][i & 7u] : SD_DR_MIN[d % SD_DRS][i & 7u]; }
