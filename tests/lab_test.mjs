@@ -181,10 +181,10 @@ const { x, out } = await play(sc);
   for (let i = a0; i < a1; i++) if (o2[i] !== out[i]) d1++;
   console.log(`lab: XM set through the page from ${base} to 60000 for 0.3 s: ${d1} of ${a1 - a0} samples different there`);
   check(d1 > (a1 - a0) / 4, 'a field set through the page does not change the sound');
-  // a factory patch from the lab is PRESETS + EDIT's (VOWEL: the next after DISTROY, as the script loads it)
+  // a factory patch from the lab is PRESETS + EDIT's (GRAVITY: three after DISTROY, as the script loads it)
   const xx = await boot();
   xx.web_pat_load(3);
-  check(xx.web_pat_now() === 3 && str(xx, xx.web_pat_name(3)) === 'VOWEL', `web_pat_load(3): ${str(xx, xx.web_pat_name(xx.web_pat_now()))}`);
+  check(xx.web_pat_now() === 3 && str(xx, xx.web_pat_name(3)) === 'GRAVITY', `web_pat_load(3): ${str(xx, xx.web_pat_name(xx.web_pat_now()))}`);
 }
 
 // 4. the C the page exports, compiled: the patch's bytes, every factory patch and one with every field set at random

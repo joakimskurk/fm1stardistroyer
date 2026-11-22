@@ -156,11 +156,11 @@ static void patterns(void)
     }
     /* the player's places: AURORA (U01), DRIVE (U02), STRINGS (U03), VOYAGE (U04) and TITAN (U05), each with its
        plate and echoes as the player opened them */
-    U01 = SD_PATCH[SD_P_AURORA]; wet(&U01, 66, 92, 99, 40, 55);
-    U02 = SD_PATCH[SD_P_DRIVE]; wet(&U02, 34, 76, 88, 30, 38);
-    U03 = SD_PATCH[SD_P_STRINGS]; wet(&U03, 60, 90, 99, 36, 48);
-    U04 = SD_PATCH[SD_P_VOYAGE]; wet(&U04, 52, 86, 96, 34, 45);
-    U05 = SD_PATCH[SD_P_TITAN]; wet(&U05, 44, 84, 96, 32, 45);
+    U01 = SD_DPATCH[SD_D_AURORA]; wet(&U01, 66, 92, 99, 40, 55);
+    U02 = SD_DPATCH[SD_D_DRIVE]; wet(&U02, 34, 76, 88, 30, 38);
+    U03 = SD_DPATCH[SD_D_STRINGS]; wet(&U03, 60, 90, 99, 36, 48);
+    U04 = SD_DPATCH[SD_D_VOYAGE]; wet(&U04, 52, 86, 96, 34, 45);
+    U05 = SD_DPATCH[SD_D_TITAN]; wet(&U05, 44, 84, 96, 32, 45);
     U01.trim = U02.trim = U04.trim = U05.trim = 0;   /* (saved before the factory's TRIMs, 2026-11-21: each at its own
                                                    level, as the player mixed it; STRINGS' at what it sounded, its
                                                    DISTROY levels 14 dB down since: +3 dB) */

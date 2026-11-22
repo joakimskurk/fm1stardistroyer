@@ -1,5 +1,5 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
-# V1: the loop in DISTROY (the default), then PRESETS one on (VOWEL), warp and fold up on the knobs, TIMBRE down, stop
+# V1: the loop in DISTROY (the default), then PRESETS one on (VOYAGE), warp and fold up on the knobs, TIMBRE down, stop
 200 btn 12
 1500 shot
 2000 enc 6 1

@@ -3,7 +3,7 @@
  *
  *   sd_render render OUT.wav [SECONDS] [BPM] [PATCH]   the 16-step loop -> a stereo 16-bit WAV, as the FM-1 renders
  *                                              it (256-frame interrupts, Dinghy's clip at +-32767). A PATCH is its
- *                                              name (SD_PATCH_NAME, any case: distroy) or its number from 0
+ *                                              name (any case: distroy; the FM-1's, then the demos') or its number
  *   sd_render hold OUT.wav PATCH [NOTE] [cmp]  one note held 2 s and let ring 2 s (cmp: DISTROY's complementary
  *                                              crossover instead of the patch's, D1's A/B)
  *   sd_render field OUT.wav [SECONDS]          VOYAGE held, X/Y round the field's edge and across it (Gate D VOICE)
@@ -34,18 +34,34 @@
 #include <time.h>
 #include <math.h>
 #include "sd_engine.h"
+#include "sd_demo_patches.h"
 
 #define HALF 256u                               /* frames per audio interrupt on Dinghy */
 
-static uint32_t patch_arg(const char *a)        /* a patch by name, any case, or by number */
+/* A patch: the FM-1's (0..SD_PATCHES-1), then the demos' own as they were (tools/sd_demo_patches.h: the tour and
+   the gates' renders keep the sound they were judged by) */
+#define NPAT (SD_PATCHES + SD_DPATCHES)
+#define DP(x) (SD_PATCHES + SD_D_##x)
+static const SdPatch *pat_of(uint32_t i)
+{
+    i %= NPAT;
+    return i < SD_PATCHES ? &SD_PATCH[i] : &SD_DPATCH[i - SD_PATCHES];
+}
+static const char *pname(uint32_t i)
+{
+    i %= NPAT;
+    return i < SD_PATCHES ? SD_PATCH_NAME[i] : SD_DPATCH_NAME[i - SD_PATCHES];
+}
+static uint32_t patch_arg(const char *a)        /* a patch by name, any case (the FM-1's first), or by number */
 {
     uint32_t i, k;
-    for (i = 0; i < SD_PATCHES; i++) {
-        for (k = 0; a[k] && SD_PATCH_NAME[i][k] && (a[k] & ~0x20) == SD_PATCH_NAME[i][k]; k++) {}
-        if (!a[k] && !SD_PATCH_NAME[i][k]) return i;
+    for (i = 0; i < NPAT; i++) {
+        const char *n = pname(i);
+        for (k = 0; a[k] && n[k] && (a[k] & ~0x20) == n[k]; k++) {}
+        if (!a[k] && !n[k]) return i;
     }
     if (a[0] < '0' || a[0] > '9') { fprintf(stderr, "sd_render: no patch %s\n", a); exit(2); }
-    return (uint32_t)atoi(a) % SD_PATCHES;
+    return (uint32_t)atoi(a) % NPAT;
 }
 
 static SdEngine eng;
@@ -91,7 +107,7 @@ static int render(const char *path, uint32_t secs, uint32_t bpm, uint32_t patch)
     if (!f) return 1;
     SD_INIT(&eng);
     {
-        SdPatch p = SD_PATCH[patch % SD_PATCHES];
+        SdPatch p = *pat_of(patch);
         no_dyn(&p);
         sd_engine_patch(&eng, &p);
     }
@@ -105,7 +121,7 @@ static int render(const char *path, uint32_t secs, uint32_t bpm, uint32_t patch)
         done += n;
     }
     fclose(f);
-    printf("render -> %s (%u s, %u BPM, %s)\n", path, secs, bpm, SD_PATCH_NAME[patch % SD_PATCHES]);
+    printf("render -> %s (%u s, %u BPM, %s)\n", path, secs, bpm, pname(patch));
     return 0;
 }
 
@@ -118,7 +134,7 @@ static int hold(const char *path, uint32_t patch, uint32_t note)
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     {
-        SdPatch p = SD_PATCH[patch % SD_PATCHES];
+        SdPatch p = *pat_of(patch);
         if (xover_cmp) p.d_xover = SD_DX_CMP;
         no_dyn(&p);
         SD_INIT(&eng);
@@ -134,7 +150,7 @@ static int hold(const char *path, uint32_t patch, uint32_t note)
         done += n;
     }
     fclose(f);
-    printf("hold -> %s (%s, note %u)\n", path, SD_PATCH_NAME[patch % SD_PATCHES], note);
+    printf("hold -> %s (%s, note %u)\n", path, pname(patch), note);
     return 0;
 }
 
@@ -156,7 +172,7 @@ static int sweep(const char *what, const char *path, uint32_t secs, uint32_t not
         p.bank[0].osc[0] = (SdOscPatch){1, 0, SD_ROLE_S, 0, 65535};
         p.bank[0].osc[1] = (SdOscPatch){1, 0, SD_ROLE_C, 0, 65535};
     } else if (!strcmp(what, "pos")) {          /* VOWEL held, its clock off: POS from stage 1 through 6, a glide */
-        p = SD_PATCH[SD_P_VOWEL];
+        p = SD_DPATCH[SD_D_VOWEL];
         p.r_div = 0;
         p.r_slew = 20000;
         p.e1_s = 127;
@@ -196,7 +212,7 @@ static int field(const char *path, uint32_t secs)
 {
     uint32_t frames = secs * SD_FS, done = 0;
     int32_t buf[2u * HALF];
-    SdPatch p = SD_PATCH[SD_P_VOYAGE];
+    SdPatch p = SD_DPATCH[SD_D_VOYAGE];
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     p.course = 0;
@@ -226,7 +242,7 @@ static int mode(const char *path, uint32_t m, uint32_t patch)
     static const uint8_t CH[4] = {48, 52, 55, 59};
     uint32_t frames = 5u * SD_FS, done = 0, i;
     int32_t buf[2u * HALF];
-    SdPatch p = SD_PATCH[patch % SD_PATCHES];
+    SdPatch p = *pat_of(patch);
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     SD_INIT(&eng);
@@ -246,7 +262,7 @@ static int mode(const char *path, uint32_t m, uint32_t patch)
         done += n;
     }
     fclose(f);
-    printf("mode %s -> %s (%s)\n", m == SD_MODE_POLY ? "POLY" : "DUO", path, SD_PATCH_NAME[patch % SD_PATCHES]);
+    printf("mode %s -> %s (%s)\n", m == SD_MODE_POLY ? "POLY" : "DUO", path, pname(patch));
     return 0;
 }
 
@@ -302,7 +318,7 @@ static int scene(const char *path, uint32_t patch)
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     {
-        SdPatch p = SD_PATCH[patch % SD_PATCHES];
+        SdPatch p = *pat_of(patch);
         no_dyn(&p);
         SD_INIT(&eng);
         sd_engine_patch(&eng, &p);
@@ -324,7 +340,7 @@ static int scene(const char *path, uint32_t patch)
         done += n;
     }
     fclose(f);
-    printf("scene -> %s (%s)\n", path, SD_PATCH_NAME[patch % SD_PATCHES]);
+    printf("scene -> %s (%s)\n", path, pname(patch));
     return 0;
 }
 
@@ -333,7 +349,7 @@ static int macros(const char *path, uint32_t patch)
     const uint32_t seg = 7u * SD_FS + SD_FS / 5u, frames = 4u * seg;   /* 7.2 s a macro */
     uint32_t done = 0;
     int32_t buf[2u * HALF];
-    SdPatch p = SD_PATCH[patch % SD_PATCHES];
+    SdPatch p = *pat_of(patch);
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     SD_INIT(&eng);
@@ -354,7 +370,7 @@ static int macros(const char *path, uint32_t patch)
         done += n;
     }
     fclose(f);
-    printf("macros -> %s (%s: MUTATE, MOVE, BREAK, %s)\n", path, SD_PATCH_NAME[patch % SD_PATCHES],
+    printf("macros -> %s (%s: MUTATE, MOVE, BREAK, %s)\n", path, pname(patch),
            p.mac4 == SD_M4_AIR ? "AIR" : p.mac4 == SD_M4_DROWN ? "DROWN" : p.mac4 == SD_M4_CUTOFF ? "CUTOFF" : "BODY");
     return 0;
 }
@@ -385,7 +401,7 @@ static int pattern(const char *path, uint32_t patch, uint32_t mut)
     q.seg_rep[0] = 2; q.seg_order[1] = SD_SO_REV; q.seg_order[2] = SD_SO_PP; q.seg_order[3] = SD_SO_RND;
     SD_INIT(&eng);
     {                                           /* mut: RADAR on, its NOTES at that AMOUNT (CHANGE 25, LENGTH 16) */
-        SdPatch pt = SD_PATCH[patch % SD_PATCHES];
+        SdPatch pt = *pat_of(patch);
         if (mut) {
             pt.tur_set = 0x80u | 25u;
             pt.tur_ld = 16u;
@@ -405,7 +421,7 @@ static int pattern(const char *path, uint32_t patch, uint32_t mut)
         done += n;
     }
     fclose(f);
-    printf("pattern -> %s (%s, RADAR's NOTES %u %%)\n", path, SD_PATCH_NAME[patch % SD_PATCHES], mut);
+    printf("pattern -> %s (%s, RADAR's NOTES %u %%)\n", path, pname(patch), mut);
     return 0;
 }
 
@@ -420,7 +436,7 @@ static int evolve(const char *path, uint32_t patch, uint32_t secs)
     double tgt[4] = {0, 0.2, 0, 0.1}, cur[4] = {0, 0.2, 0, 0.1};
     static const uint32_t EVERY[4] = {1, 2, 3, 4};   /* bars between a macro's steps: they meet now and then */
     SdPattern q;
-    SdPatch p = SD_PATCH[patch % SD_PATCHES];
+    SdPatch p = *pat_of(patch);
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
     sd_pattern_default(&q);
@@ -460,7 +476,7 @@ static int evolve(const char *path, uint32_t patch, uint32_t secs)
         done += n;
     }
     fclose(f);
-    printf("evolve -> %s (%s, %u s)\n", path, SD_PATCH_NAME[patch % SD_PATCHES], secs);
+    printf("evolve -> %s (%s, %u s)\n", path, pname(patch), secs);
     return 0;
 }
 
@@ -479,25 +495,25 @@ typedef struct {
     uint8_t mac_lo[4], mac_hi[4];               /* its range, 0..99 */
 } TourPart;
 static const TourPart TOUR_PARTS[] = {
-    {"voyage", SD_P_VOYAGE, 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
+    {"voyage", DP(VOYAGE), 76, 5, 38, 16, SD_MODE_MONO, {0, TIE_, TIE_, SLD_ + 7, 3, TIE_, 10, TIE_, 5, TIE_, TIE_, SLD_ + 12, 7, TIE_, SLD_ + 3, RST_},
      {0}, {0}, 96, {3, 1, 0, 2}, {0, 20, 0, 10}, {30, 80, 0, 60}},
-    {"comet", SD_P_COMET, 112, 2, 38, 16, SD_MODE_MONO, {0, RST_, 12, 0, SLD_ + 3, RST_, 0, 10, 0, RST_, 15, SLD_ + 12, 7, RST_, 5, SLD_ + 3},
+    {"comet", DP(COMET), 112, 2, 38, 16, SD_MODE_MONO, {0, RST_, 12, 0, SLD_ + 3, RST_, 0, 10, 0, RST_, 15, SLD_ + 12, 7, RST_, 5, SLD_ + 3},
      {0}, {0}, 60, {2, 0, 1, 4}, {0, 0, 0, 0}, {60, 0, 70, 50}},
-    {"nebula", SD_P_NEBULA, 70, 5, 50, 0, SD_MODE_POLY, {0}, {0}, {0}, 100, {0, 1, 0, 2}, {0, 10, 0, 20}, {0, 70, 0, 80}},
-    {"pulsar", SD_P_PULSAR, 100, 4, 50, 16, SD_MODE_MONO, {0, 7, 12, 15, 19, 15, 12, TIE_, 3, 10, 15, 22, 24, 22, 15, TIE_},
+    {"nebula", DP(NEBULA), 70, 5, 50, 0, SD_MODE_POLY, {0}, {0}, {0}, 100, {0, 1, 0, 2}, {0, 10, 0, 20}, {0, 70, 0, 80}},
+    {"pulsar", DP(PULSAR), 100, 4, 50, 16, SD_MODE_MONO, {0, 7, 12, 15, 19, 15, 12, TIE_, 3, 10, 15, 22, 24, 22, 15, TIE_},
      {0}, {0}, 80, {2, 1, 4, 3}, {0, 0, 0, 0}, {45, 60, 40, 70}},
-    {"ion", SD_P_ION, 124, 2, 33, 16, SD_MODE_MONO, {0, 0, 12, RST_, 0, 10, RST_, 0, 3, RST_, 0, 12, 0, RST_, 7, 5},
+    {"ion", DP(ION), 124, 2, 33, 16, SD_MODE_MONO, {0, 0, 12, RST_, 0, 10, RST_, 0, 3, RST_, 0, 12, 0, RST_, 7, 5},
      {1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1}, {0, 70, 0, 0, 0, 60, 0, 80, 0, 0, 0, 50, 0, 0, 0, 70}, 55,
      {2, 0, 1, 0}, {0, 0, 10, 0}, {50, 0, 80, 0}},
-    {"orbital", SD_P_ORBITAL, 96, 4, 45, 16, SD_MODE_MONO, {0, RST_, 7, 0, RST_, 12, 3, RST_, 0, 10, RST_, 7, 15, RST_, 0, 5},
+    {"orbital", DP(ORBITAL), 96, 4, 45, 16, SD_MODE_MONO, {0, RST_, 7, 0, RST_, 12, 3, RST_, 0, 10, RST_, 7, 15, RST_, 0, 5},
      {0}, {0, 0, 70, 0, 0, 60, 80, 0, 0, 70, 0, 50, 60, 0, 0, 80}, 70, {1, 0, 2, 3}, {10, 0, 0, 10}, {70, 0, 50, 70}},
-    {"monolith", SD_P_MONOLITH, 64, 6, 31, 8, SD_MODE_MONO, {0, TIE_, 3, TIE_, SLD_ + 7, TIE_, 5, RST_}, {0}, {0}, 98,
+    {"monolith", DP(MONOLITH), 64, 6, 31, 8, SD_MODE_MONO, {0, TIE_, 3, TIE_, SLD_ + 7, TIE_, 5, RST_}, {0}, {0}, 98,
      {2, 0, 2, 4}, {0, 0, 0, 0}, {60, 0, 50, 50}},
-    {"distroy", SD_P_DISTROY, 100, 4, 38, 16, SD_MODE_MONO, {0, 0, 12, SLD_ + 10, 0, RST_, 7, SLD_ + 5, 0, 0, 15, SLD_ + 12, 3, RST_, 10, 7},
+    {"distroy", DP(DISTROY), 100, 4, 38, 16, SD_MODE_MONO, {0, 0, 12, SLD_ + 10, 0, RST_, 7, SLD_ + 5, 0, 0, 15, SLD_ + 12, 3, RST_, 10, 7},
      {0}, {0}, 70, {1, 2, 1, 4}, {0, 0, 0, 0}, {80, 70, 60, 60}},
-    {"split", SD_P_SPLIT, 118, 2, 40, 16, SD_MODE_MONO, {0, RST_, 0, 12, RST_, 0, 10, 0, RST_, 7, 0, RST_, 3, 5, 0, RST_},
+    {"split", DP(SPLIT), 118, 2, 40, 16, SD_MODE_MONO, {0, RST_, 0, 12, RST_, 0, 10, 0, RST_, 7, 0, RST_, 3, 5, 0, RST_},
      {0}, {0}, 50, {2, 1, 1, 0}, {0, 0, 0, 0}, {50, 60, 80, 0}},
-    {"growl", SD_P_GROWL, 92, 4, 31, 16, SD_MODE_MONO, {0, 0, SLD_ + 12, 0, RST_, 0, SLD_ + 7, 5, 0, 0, SLD_ + 15, 12, RST_, 10, SLD_ + 7, 3},
+    {"growl", DP(GROWL), 92, 4, 31, 16, SD_MODE_MONO, {0, 0, SLD_ + 12, 0, RST_, 0, SLD_ + 7, 5, 0, 0, SLD_ + 15, 12, RST_, 10, SLD_ + 7, 3},
      {0}, {0}, 75, {2, 0, 1, 3}, {0, 0, 0, 0}, {50, 0, 60, 60}},
 };
 #define TOUR_N (sizeof TOUR_PARTS / sizeof TOUR_PARTS[0])
@@ -505,12 +521,13 @@ static const TourPart TOUR_PARTS[] = {
 static uint32_t tour_part(const TourPart *t, FILE *one, FILE *all, uint32_t secs)
 {
     static const uint8_t CH[4][4] = {{0, 3, 7, 14}, {-4 + 12, 0 + 12, 3 + 12, 7 + 12}, {-7 + 12, -4 + 12, 0 + 12, 9 + 12}, {-5 + 12, 0 + 12, 2 + 12, 7 + 12}};
-    uint32_t frames = secs * SD_FS, fade = 2u * SD_FS, done = 0, k, bar_len = SD_FS * 60u * 4u / t->bpm, rnd = 0xC0FFEEu ^ t->patch;
+    uint32_t frames = secs * SD_FS, fade = 2u * SD_FS, done = 0, k, bar_len = SD_FS * 60u * 4u / t->bpm;
+    uint32_t rnd = 0xC0FFEEu ^ (t->patch >= SD_PATCHES ? t->patch - SD_PATCHES : t->patch);   /* (its number in its set) */
     uint32_t chord = 99, held[4] = {0};
     int32_t buf[2u * HALF];
     double tgt[4], cur[4];
     SdPattern q;
-    SdPatch p = SD_PATCH[t->patch % SD_PATCHES];
+    SdPatch p = *pat_of(t->patch);
     sd_pattern_default(&q);
     if (t->len) {
         for (k = 0; k < t->len; k++) {
@@ -595,7 +612,7 @@ static int tour(const char *dir)
         if (!one) return 1;
         tour_part(&TOUR_PARTS[k], one, all, secs);
         fclose(one);
-        printf("tour -> %s (%s, %u BPM)\n", path, SD_PATCH_NAME[TOUR_PARTS[k].patch], TOUR_PARTS[k].bpm);
+        printf("tour -> %s (%s, %u BPM)\n", path, pname(TOUR_PARTS[k].patch), TOUR_PARTS[k].bpm);
     }
     fclose(all);
     return 0;

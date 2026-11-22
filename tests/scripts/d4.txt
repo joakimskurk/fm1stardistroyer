@@ -1,6 +1,6 @@
-# D4 (2026-11-09): DISTROY's page. FX (2) twice: band 1 of P03 (DISTROY), shot 1900; ALGORITHM (1) +1: band 2, shot
-# 2200; GLO (7) tapped: latched: BIAS PAN DYNAMIC SPLIT, the hint BODY, shot 2500; ALGORITHM +3: LOOP, shot 2900; PRESETS (6) +2,
-# EDIT (6): CHORDS, its bands never set, shot 3400; EDIT: on, four bands, shot 3800.
+# D4 (2026-11-09): DISTROY's page. FX (2) twice: band 1 of P01 (DISTROY), shot 1900; ALGORITHM (1) +1: band 2, shot
+# 2200; GLO (7) tapped: latched: BIAS PAN DYNAMIC SPLIT, the hint BODY, shot 2500; ALGORITHM +3: LOOP, shot 2900; PRESETS (6) +1,
+# EDIT (6): VOYAGE, its bands never set, shot 3400; EDIT: on, four bands, shot 3800.
 1700 btn 2
 1800 btn 2
 1900 shot
@@ -11,7 +11,7 @@
 2600 btn 7
 2700 enc 1 3
 2900 shot
-3000 enc 6 2
+3000 enc 6 1
 3050 btn 6
 3400 shot
 3500 btn 6

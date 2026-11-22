@@ -32,6 +32,8 @@
 #include "sd_engine.h"
 #include "sd_gen.h"
 #include "../tools/sd_loud.h"
+#include "../tools/sd_demo_patches.h"            /* the set before the collection: the engine's tests on VOWEL,
+                                                   CHORDS, SPLIT, COMET and ORBITAL */
 
 static int fails;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("FAIL %s:%d: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n"); } } while (0)
@@ -773,7 +775,7 @@ static void test_stereo(void)
             for (k = 0; k < 5u; k++) {
                 d = fabs(k < 4u ? st_lr(&e1, &NT[k], 1) : st_lr(&e1, NT, 4));
                 if (d > worst) { worst = d; wn = SD_PATCH_NAME[pi]; }
-                if (md && k < 4u && d > wpoly && (pi == SD_P_AURORA || pi == SD_P_PRISM || pi == SD_P_SHARDS)) wpoly = d;
+                if (md && k < 4u && d > wpoly && (pi == SD_P_AURORA || pi == SD_P_PRISM)) wpoly = d;
                                                 /* (WIDTH at its most, no Reactor) */
             }
         }
@@ -1062,7 +1064,7 @@ static void test_reactor_rest(void)               /* a comb rings out, then rest
 /* ---- R3: each model's level against the dry voice: a saw through VOWEL's stage A, RES and level one half */
 static double reactor_vs_dry(uint32_t model)
 {
-    SdPatch p = SD_PATCH[SD_P_VOWEL];
+    SdPatch p = SD_DPATCH[SD_D_VOWEL];
     uint32_t i;
     double d = 0, w = 0;
     p.r_div = 0; p.r_pos = 0; p.r_slew = 0; p.e1_s = 127;
@@ -2630,7 +2632,7 @@ static void test_reactor_bypass(void)             /* MIX 0: the Reactor is not t
     sd_engine_patch(&e1, &SD_PATCH[SD_P_VOYAGE]);
     sd_engine_note(&e1, 50, 100);
     run(&e1, a, SD_FS / 2u, 256);
-    p.stage[0] = SD_PATCH[SD_P_VOWEL].stage[0];
+    p.stage[0] = SD_DPATCH[SD_D_VOWEL].stage[0];
     p.r_model = SD_RM_BP12; p.r_res = 60000; p.r_drive = 65535; p.r_mix = 0;
     sd_engine_init(&e2);
     sd_engine_patch(&e2, &p);
@@ -3679,10 +3681,10 @@ static void test_names(void)
 {
 #define PN(x) {SD_P_##x, #x}
     static const struct { uint32_t i; const char *name; } P[] = {
-        PN(GROWL), PN(VOYAGE), PN(DISTROY), PN(VOWEL), PN(CHORDS), PN(PLUCKS), PN(FLANGE), PN(PHASER), PN(FUSION),
-        PN(SPLIT), PN(COMET), PN(NEBULA), PN(PULSAR), PN(ION), PN(ORBITAL), PN(MONOLITH), PN(STRINGS), PN(HALO),
-        PN(AURORA), PN(TITAN), PN(DRIVE), PN(UNDERTOW), PN(IMPACT), PN(BRAAM), PN(SCREAM), PN(BEACON), PN(DEPTH),
-        PN(SHARDS), PN(PRISM)};
+        PN(DISTROY), PN(VOYAGE), PN(GROWL), PN(GRAVITY), PN(CHROME), PN(ABYSS), PN(NEON), PN(CORE), PN(NOVA),
+        PN(SOLAR), PN(LASER), PN(SIGNAL), PN(AURORA), PN(NEBULA), PN(MASS), PN(OVERTONE), PN(HORIZON), PN(CHOIR),
+        PN(STRINGS), PN(STARDUST), PN(CIRCUIT), PN(PLUCKS), PN(PULSAR), PN(BRAAM), PN(VOWEL), PN(FUSION),
+        PN(MONOLITH), PN(ORBITAL), PN(PRISM)};
 #undef PN
     uint32_t k;
     CHECK(SD_P_COUNT == SD_PATCHES && sizeof P / sizeof P[0] == SD_PATCHES, "SD_P_* has %u names, the bank %u patches",
@@ -4704,7 +4706,7 @@ static void test_reactor_stages(void)
 {
     static SdEngine e1;
     static int32_t a[SD_FS], b[SD_FS], c[SD_FS];
-    SdPatch p = SD_PATCH[SD_P_VOWEL];
+    SdPatch p = SD_DPATCH[SD_D_VOWEL];
     uint32_t i, n = SD_FS / 2u, same = 1, diff = 0, two = 1;
     p.lv = 1; p.r_div = 0; p.r_slew = 0;
     p.r_track = (uint8_t)((p.r_track & 0x8Fu) | 1u << 4);   /* one stage */
@@ -4735,17 +4737,18 @@ static void test_reactor_stages(void)
  * volume and as extreme ducking on the master", then "keep the rise in intensity"), on tools/sd_loud.h's phrase and
  * meter (tools/sd_gain.c: every knob on every patch). DISTROY's DRIVE adds a little, never a jump (+7 .. +15 dB before);
  * the Reactor's DRIVE past 1x and BP6's RES likewise; a patch from before moved onto the make-ups sounds as it did; the
- * factory patches as loud as each other (their loudest 400 ms at -11 LUFS; the percussive three lower, their attacks
- * under the limiter), the output limiter and DISTROY's safety idle on them as they are */
+ * factory patches as loud as each other (their loudest 400 ms at -11 LUFS; the percussive three, PLUCKS, STARDUST
+ * and PRISM, lower, their attacks under the limiter), the output limiter and DISTROY's safety idle on them as they are */
 static void test_gain_staging(void)
 {
     static SdEngine e3;
     static SdSpaceMem m3;
-    static const uint8_t DP[3] = {SD_P_DISTROY, SD_P_SPLIT, SD_P_COMET};
+    static const SdPatch *const DP[3] = {&SD_PATCH[SD_P_DISTROY], &SD_DPATCH[SD_D_SPLIT], &SD_DPATCH[SD_D_COMET]};
+    static const char *const DPN[3] = {"DISTROY", "SPLIT", "COMET"};
     uint32_t i, k;
     double lo = 99, hi = -99, grx = 0, dlx = 0, dr[3];
     for (i = 0; i < 3u; i++) {                  /* DISTROY's DRIVE, all four bands, 0 -> 100 % */
-        SdPatch p = SD_PATCH[DP[i]];
+        SdPatch p = *DP[i];
         Meas a, b;
         sd_patch_levels(&p);
         for (k = 0; k < 4u; k++) p.d_gain[k] = 0;
@@ -4754,17 +4757,17 @@ static void test_gain_staging(void)
         b = sd_loud(&e3, &m3, &p);
         dr[i] = b.lufs - a.lufs;
         CHECK(dr[i] > 0.5 && dr[i] < 9.0, "gain staging: %s's DRIVE 0 -> 100 %% %+.1f dB (want +0.5 .. +9: more, no jump)",
-              SD_PATCH_NAME[DP[i]], dr[i]);
+              DPN[i], dr[i]);
     }
     {                                           /* the Reactor's DRIVE 1x -> 4x (CHORDS, BP12); BP6's RES 0 -> 100 % */
-        SdPatch p = SD_PATCH[SD_P_CHORDS];
+        SdPatch p = SD_DPATCH[SD_D_CHORDS];
         Meas a, b;
         sd_patch_levels(&p);
         p.r_drive = 16384; a = sd_loud(&e3, &m3, &p);
         p.r_drive = 65535; b = sd_loud(&e3, &m3, &p);
         CHECK(b.lufs - a.lufs > -1.0 && b.lufs - a.lufs < 4.0, "gain staging: the Reactor's DRIVE 1x -> 4x %+.1f dB "
               "(want -1 .. +4)", b.lufs - a.lufs);
-        p = SD_PATCH[SD_P_ORBITAL];
+        p = SD_DPATCH[SD_D_ORBITAL];
         sd_patch_levels(&p);
         p.r_res = 0; a = sd_loud(&e3, &m3, &p);
         p.r_res = 65535; b = sd_loud(&e3, &m3, &p);
@@ -4781,13 +4784,13 @@ static void test_gain_staging(void)
         }
         CHECK(q.lv == 1u && p.lv == 0u, "gain staging: the factory's patches are from before (lv %u), moved to lv %u", p.lv, q.lv);
         p = SD_PATCH[SD_P_STRINGS]; sd_patch_levels(&p);
-        q = SD_PATCH[SD_P_ORBITAL]; sd_patch_levels(&q);
+        q = SD_DPATCH[SD_D_ORBITAL]; sd_patch_levels(&q);
         CHECK(p.lv == 3u && q.lv == 1u, "gain staging: STRINGS keeps RES as it was (lv %u, its stage levels at the top), "
               "ORBITAL takes the make-up (lv %u)", p.lv, q.lv);
     }
     for (i = 0; i < SD_PATCHES; i++) {          /* the factory's, as they are */
         Meas m = sd_loud(&e3, &m3, &SD_PATCH[i]);
-        int perc = i == SD_P_PLUCKS || i == SD_P_SHARDS || i == SD_P_PRISM;
+        int perc = i == SD_P_PLUCKS || i == SD_P_STARDUST || i == SD_P_PRISM;
         if (!perc) { lo = m.mmax < lo ? m.mmax : lo; hi = m.mmax > hi ? m.mmax : hi; }
         grx = m.gr_max > grx ? m.gr_max : grx;
         dlx = m.dlim_max > dlx ? m.dlim_max : dlx;

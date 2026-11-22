@@ -1,10 +1,10 @@
-# R5 (2026-11-14; 2026-11-15: GLO + B10): REACTOR's STAGES on PRISM, a patch without a Reactor. PRESETS +26 from
+# R5 (2026-11-14; 2026-11-15: GLO + B10): REACTOR's STAGES on PRISM, a patch without a Reactor. PRESETS +28 from
 # DISTROY, EDIT (6) loads; FX (2): REACTOR, EDIT on (six vowels); B10 (D#5, key 22) alone: a note, no STAGES; GLO held
 # (7) + B10: STAGES, stage 1; G3 (key 2): stage 2; K1 (encoder 2) +15: the list, into the chords; K2 +5 (PITCH), K3 +4
 # (WIDTH), K4 -10 (LEVEL); GLO tapped: F1..F4; tapped again; B10 alone: back.
 # Shots: 2500 the note (the hint: GLO+D#5 STAGES), 2620 GLO held (D#5 STAGES, D#5 glowing), 2900 stage 1 (A), 3300
 # stage 2 (E), 3600 the list, 5300 MIN7, 5700 changed, 6000 F1..F4, 6500 back.
-1700 enc 6 26
+1700 enc 6 28
 1800 btn 6
 2200 btn 2
 2400 btn 6

@@ -135,18 +135,18 @@ static void patterns(void)
     notes(&LEAD, le, 64, 4, 100);
     /* U01: CHORDS, saved dark in a big hall: on NAV WARP 30 and XM 36; the FILTER on (LP12, CUTOFF 3.2 kHz, no KEY);
        SIZE 90, DECAY 82, R-LEVEL 46, TONE 34; D-LEVEL 30, FDBK 40 */
-    U01 = SD_PATCH[SD_P_CHORDS];
+    U01 = SD_DPATCH[SD_D_CHORDS];
     U01.warp = u99(30); U01.xm = u99(36);
     U01.fx_off &= (uint8_t)~SD_FX_FILTER; U01.f_type = SD_FT_LP12; U01.f_cut = 50000; U01.f_key = 0;
     U01.e3_a = U01.e1_a; U01.e3_d = U01.e1_d; U01.e3_s = U01.e1_s; U01.e3_r = U01.e1_r;
     wet(&U01, 46, 82, 90, 30, 40);
     U01.s_rtone = u99(34);
     /* U02 VOYAGE, U03 AURORA, U05 VOWEL: wet (the plate and the echoes up) */
-    U02 = SD_PATCH[SD_P_VOYAGE]; wet(&U02, 52, 86, 99, 44, 56);
-    U03 = SD_PATCH[SD_P_AURORA]; wet(&U03, 66, 92, 99, 40, 60);
-    U05 = SD_PATCH[SD_P_VOWEL]; wet(&U05, 58, 88, 96, 36, 50);
+    U02 = SD_DPATCH[SD_D_VOYAGE]; wet(&U02, 52, 86, 99, 44, 56);
+    U03 = SD_DPATCH[SD_D_AURORA]; wet(&U03, 66, 92, 99, 40, 60);
+    U05 = SD_DPATCH[SD_D_VOWEL]; wet(&U05, 58, 88, 96, 36, 50);
     /* U04: BEACON with its MODE FREE (PP kept) and TIME at 1000 ms (its 1/4D is 1.13 s at 80 BPM: synced, half) */
-    U04 = SD_PATCH[SD_P_BEACON];
+    U04 = SD_DPATCH[SD_D_BEACON];
     U04.s_mode = SD_SP_PP; U04.s_time = 65535u;
 }
 
@@ -269,7 +269,7 @@ static int bed_score(void)
 static void low_setup(void)
 {
     in_key();
-    preset(SD_P_GROWL);
+    preset(SD_D_GROWL);
     page = PG_SEQA; remember();
     pattern(0, &ACID, "ACID (E minor, SLIDE, ratchet, PROB, swing 56)");
     page = PG_NAV; remember();
@@ -316,7 +316,7 @@ static int low_score(void)
     if (at(BAR(13) + 2)) press("SEQ", PG_SEQA);
     if (at(BAR(13) + 3)) pattern(0, &RIFF, "WALL RIFF (E, eighths, 4 segments: RND)");
     home_to(PG_MACROS, BAR(14));
-    if (at(BAR(14) + 4)) preset(SD_P_DISTROY);
+    if (at(BAR(14) + 4)) preset(SD_D_DISTROY);
     pot(__LINE__, 4092, BAR(14) + 4, BAR(15));
     /* the wall */
     if (at(BAR(17))) play(1);
@@ -390,7 +390,7 @@ static int motion_score(void)
     if (at(BAR(13) + 1)) press("SEQ", PG_SEQA);
     if (at(BAR(13) + 2)) pattern(0, &OST, "OSTINATO (E)");
     if (at(BAR(13) + 4)) press("HOME", PG_MACROS);
-    if (at(BAR(13) + 6)) preset(SD_P_ORBITAL);
+    if (at(BAR(13) + 6)) preset(SD_D_ORBITAL);
     pot(__LINE__, 2600, BAR(13) + 6, BAR(14));
     go_to("LFO", PG_MOD, BAR(13) + 8);          /* NOTES, 36 % (MOD's: slot 7, ORBITAL's six before it), CHANGE 30 */
     if (at(BAR(13) + 12)) tur_route(6, SD_TD_NOTES, 36);

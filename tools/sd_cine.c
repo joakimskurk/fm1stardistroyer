@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sd_engine.h"
+#include "sd_demo_patches.h"
 
 #define BPM 84u
 #define BAR (SD_FS * 60u * 4u / BPM)            /* frames a bar */
@@ -94,14 +95,14 @@ static void bass_pattern(uint32_t ch)           /* eighths on the root, an octav
 static void setup(void)
 {
     uint32_t i, k;
-    static const uint8_t PATCH[NT] = {SD_P_NEBULA, SD_P_VOYAGE, SD_P_PULSAR, SD_P_ION, SD_P_ORBITAL, SD_P_MONOLITH,
-                                       SD_P_DISTROY, 0 /* T_SUB: the sine */};
+    static const uint8_t PATCH[NT] = {SD_D_NEBULA, SD_D_VOYAGE, SD_D_PULSAR, SD_D_ION, SD_D_ORBITAL, SD_D_MONOLITH,
+                                       SD_D_DISTROY, 0 /* T_SUB: the sine */};
     for (i = 0; i < NT; i++) {
         Track *t = &tr[i];
         sd_engine_init(&t->e);
         memset(&t->sm, 0, sizeof t->sm);
         t->e.sm = &t->sm;
-        t->p = i == T_SUB ? SD_PATCH_SINE : SD_PATCH[PATCH[i]];
+        t->p = i == T_SUB ? SD_PATCH_SINE : SD_DPATCH[PATCH[i]];
         sd_pattern_default(&t->q);
         t->e.bpm = BPM;
     }

@@ -129,7 +129,7 @@ static void s1_nav(double s0)
     if (at(S(131))) pattern(0, &A2, "ACID (16, SLIDE, ratchet, PROB, swing 56)");
     go_to("ENV", PG_FILTER, S(136));            /* (ENV: NAV, the one it showed last, then FILTER: NAV ENV's first,
                                                    FILTER its second since 2026-11-21) */
-    if (at(S(141))) preset(SD_P_GROWL);
+    if (at(S(141))) preset(SD_D_GROWL);
     pot(__LINE__, 3400, S(139), S(143));   /* (more RES: the lowpass a little quieter) */
 #undef S
 }
@@ -183,7 +183,7 @@ static void s2_filter(double s0)
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) pattern(1, &B3, "BASS (16)");
     if (at(S(137))) press("FX", PG_REACTOR);
-    if (at(S(141))) preset(SD_P_VOWEL);
+    if (at(S(141))) preset(SD_D_VOWEL);
     pot(__LINE__, 2000, S(139), S(143));   /* (DRIVE: the Reactor a little louder) */
 #undef S
 }
@@ -219,7 +219,7 @@ static void s3_reactor(double s0)
     go_to("SEQ", PG_SEQA, S(131));              /* (SEQ: ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
     if (at(S(134))) pattern(0, &A4, "RIFF (4 segments: RND, P-P)");
     if (at(S(136))) press("HOME", PG_MACROS);
-    if (at(S(141))) preset(SD_P_DISTROY);
+    if (at(S(141))) preset(SD_D_DISTROY);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
 }
@@ -248,7 +248,7 @@ static void s4_distroy(double s0)
     if (at(S(133))) press("SEQ", PG_SEQB);
     if (at(S(134))) { e.t[1].mute = 1; say("EDIT: SEQ B OFF"); }
     if (at(S(136))) press("ARP", PG_ARP);
-    if (at(S(141))) preset(SD_P_CHORDS);
+    if (at(S(141))) preset(SD_D_CHORDS);
     pot(__LINE__, 2130, S(139), S(143));
 #undef S
 }
@@ -286,7 +286,7 @@ static void s5_poly(double s0)
     if (at(S(132))) xpose(0, 0);
     if (at(S(133))) pattern(0, &A6, "OSTINATO (16)");
     if (at(S(139))) press("HOME", PG_MACROS);
-    if (at(S(141))) preset(SD_P_ORBITAL);
+    if (at(S(141))) preset(SD_D_ORBITAL);
     pot(__LINE__, 4092, S(139), S(143));
 #undef S
 }
@@ -317,7 +317,7 @@ static void s6_radar(double s0)
     /* the bar between: BEACON, the long notes, the SPACE page */
     if (at(S(132))) { pa_cur = A7; pattern(0, &A7, "LONG NOTES (32)"); }   /* (on SEQ A still) */
     go_to("FX", PG_SPACE, S(135));              /* (FX: the one it showed last, DISTROY; TIME, SPACE) */
-    if (at(S(141))) preset(SD_P_BEACON);
+    if (at(S(141))) preset(SD_D_BEACON);
 #undef S
 }
 
@@ -339,7 +339,7 @@ static int s7_space(double s0)                  /* 1: the end */
 static void setup(void)
 {
     patterns();
-    preset(SD_P_VOYAGE);
+    preset(SD_D_VOYAGE);
     page = PG_SEQA; remember();
     pattern(0, &A1, "LINE (16)");
     page = PG_NAV; remember();

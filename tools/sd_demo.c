@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sd_engine.h"
+#include "sd_demo_patches.h"
 #include "sd_gen.h"
 
 #define BPM 100u
@@ -178,7 +179,7 @@ static void setup(void)
 {
     uint32_t i;
     /* PAD: soft carriers 1 2 3 (+ a 2 a few cents off), toward triangle, slow ADSR; POLY; the Reactor's AP2 */
-    SdPatch pad = SD_PATCH[SD_P_PHASER];
+    SdPatch pad = SD_DPATCH[SD_D_PHASER];
     for (i = 0; i < SD_BANKS; i++)
         pad.bank[i] = (SdBankPatch){{{1, 0, SD_ROLE_C, 0, 34000}, {2, 6, SD_ROLE_C, 0, 18000},
                                      {3, -4, SD_ROLE_C, 0, 9000}, {2, -7, SD_ROLE_C, 0, 12000}}, 0, 0, 0, 0};
@@ -186,16 +187,16 @@ static void setup(void)
     pad.e1_a = 82; pad.e1_d = 100; pad.e1_s = 110; pad.e1_r = 98;
     pad.r_div = 0; pad.r_slew = 50000; pad.r_res = 52000; pad.r_mix = 52000;
     tr[T_PAD].p = pad;
-    tr[T_PLUCK].p = SD_PATCH[SD_P_PLUCKS];                /* PLUCKS */
+    tr[T_PLUCK].p = SD_DPATCH[SD_D_PLUCKS];                /* PLUCKS */
     tr[T_PLUCK].p.r_div = 0; tr[T_PLUCK].p.r_track = 1; tr[T_PLUCK].p.r_res = 56000;
-    tr[T_BASS].p = SD_PATCH[SD_P_GROWL];                 /* GROWL */
+    tr[T_BASS].p = SD_DPATCH[SD_D_GROWL];                 /* GROWL */
     tr[T_BASS].p.e1_d = 50; tr[T_BASS].p.e1_s = 60; tr[T_BASS].p.e1_r = 30;
-    tr[T_LEAD].p = SD_PATCH[SD_P_VOWEL];                 /* VOWEL; at bar 28 it becomes VOYAGE */
+    tr[T_LEAD].p = SD_DPATCH[SD_D_VOWEL];                 /* VOWEL; at bar 28 it becomes VOYAGE */
     tr[T_LEAD].p.r_div = 0; tr[T_LEAD].p.r_slew = 34000; tr[T_LEAD].p.e1_r = 70;
-    tr[T_WEIRD].p = SD_PATCH[SD_P_DISTROY];                /* DISTROY */
+    tr[T_WEIRD].p = SD_DPATCH[SD_D_DISTROY];                /* DISTROY */
     tr[T_WEIRD].p.r_div = 0; tr[T_WEIRD].p.e1_d = 40; tr[T_WEIRD].p.e1_s = 40; tr[T_WEIRD].p.e1_r = 25;
     tr[T_WEIRD].p.r_mix = 52000;
-    tr[T_SWELL].p = SD_PATCH[SD_P_FLANGE];               /* FLANGE */
+    tr[T_SWELL].p = SD_DPATCH[SD_D_FLANGE];               /* FLANGE */
     tr[T_SWELL].p.r_div = 0; tr[T_SWELL].p.e1_a = 100; tr[T_SWELL].p.e1_r = 100;
     if (first) {                                /* the patches' Reactor values before R4 */
         tr[T_PLUCK].p.r_mix = 65535; tr[T_PLUCK].p.r_drive = 16384;
@@ -239,11 +240,11 @@ int main(int argc, char **argv)
         while (next16 * S16 <= done) sixteenth(next16++);
         if (bar >= 28.0 && !toured) {           /* the lead becomes VOYAGE, once */
             toured = 1;
-            tr[T_LEAD].p = SD_PATCH[SD_P_VOYAGE];
+            tr[T_LEAD].p = SD_DPATCH[SD_D_VOYAGE];
             tr[T_LEAD].p.course = 0; tr[T_LEAD].p.e1_r = 80; tr[T_LEAD].p.e1_s = 110;
-            tr[T_LEAD].p.r_mix = 30000; tr[T_LEAD].p.stage[0] = SD_PATCH[SD_P_VOWEL].stage[2];
+            tr[T_LEAD].p.r_mix = 30000; tr[T_LEAD].p.stage[0] = SD_DPATCH[SD_D_VOWEL].stage[2];
             tr[T_LEAD].p.r_model = SD_RM_VBP; tr[T_LEAD].p.r_res = 30000; tr[T_LEAD].p.r_drive = 20000;
-            for (k = 0; k < 6u; k++) tr[T_LEAD].p.stage[k] = SD_PATCH[SD_P_VOWEL].stage[k];
+            for (k = 0; k < 6u; k++) tr[T_LEAD].p.stage[k] = SD_DPATCH[SD_D_VOWEL].stage[k];
             if (first) as_first(&tr[T_LEAD].p);
         }
         modulate(t, bar);

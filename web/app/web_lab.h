@@ -189,7 +189,8 @@ static void lab_build(void)
     lab_add(G_REACT, "DRIVE", P(r_drive), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_REACT, "MIX", P(r_mix), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_REACT, "FREQ", P(r_freq), LAB_I16, LAB_SEMI, 0, -48 * 256, 48 * 256);
-    lab_add(G_REACT, "TRACK", P(r_track), LAB_U8, LAB_HEX, 0, 0, 3);
+    lab_add(G_REACT, "TRACK", P(r_track), LAB_U8, LAB_HEX, 0, 0, 0x7F);   /* (bits 0, 1 KEY, HARM; 4..6 how many
+                                                   stages, 0 six: the collection's, 2026-11-22) */
     lab_add(G_REACT, "LOW", P(r_low), U16, 0, 65535);   /* 0 none, else 50 .. 400 Hz */
     lab_add(G_REACT, "CLOCK DIV", P(r_div), U8, 0, 16);
     lab_add(G_REACT, "CLOCK MODE", P(r_cmode), LAB_U8, LAB_ENUM, LAB_E_RCLOCK, 0, 3);

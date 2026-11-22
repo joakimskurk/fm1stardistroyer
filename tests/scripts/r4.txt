@@ -1,7 +1,7 @@
 # (PRESETS turns a list since 2026-11-09: EDIT (6) loads, 50 ms after each turn here)
-# R4: VOWEL (PRESETS +1 from DISTROY) in the loop on the REACTOR page (FX once); ALGORITHM: TRACK one step; GLO held:
+# R4: VOWEL (PRESETS +24 from DISTROY) in the loop on the REACTOR page (FX once); ALGORITHM: TRACK one step; GLO held:
 # ALGORITHM, LOW up. Buttons: GLO 7, FX 2, PLAY 12. Encoders: ALGORITHM 1, PRESETS 6.
-1700 enc 6 1
+1700 enc 6 24
 1750 btn 6
 1800 btn 12
 2000 btn 2

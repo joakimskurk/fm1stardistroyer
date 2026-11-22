@@ -8,6 +8,7 @@
  * <math.h>, <stdio.h>, <stdlib.h>, <string.h>. */
 #ifndef SD_PLAY_H
 #define SD_PLAY_H
+#include "sd_demo_patches.h"                 /* PRESETS as the FM-1 had them when the demos were made */
 
 #define BLOCK 256u                              /* the firmware's interrupt: knobs reach the engine once a block */
 #define SD_PLAY_SETTLE 40u                      /* the renders before the score (not heard) */
@@ -169,17 +170,18 @@ static void on_ramp_page(int pg, double s0, double s1) { if (q >= s0 && pq <= s1
                                                    together below it; as the app turns home_filt) */
 
 /* ---- the patch, the patterns */
-static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned to a stock patch, then EDIT to load it
+static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned to a stock patch (as the FM-1 had it then:
+                                                   sd_demo_patches.h), then EDIT to load it
                                                    (since 2026-11-09; one gesture here) */
 {
     char t[48];
     if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
     act();
-    pat = SD_PATCH[i];
+    pat = SD_DPATCH[i];
     sd_patch_levels(&pat);                      /* (as the app's patch_load: onto the make-ups) */
     gen = 0xFFFFFFFFu;
     dirty = 1;
-    snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_PATCH_NAME[i]);
+    snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_DPATCH_NAME[i]);
     say(t);
 }
 static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past the stock ones: a place of the player's */

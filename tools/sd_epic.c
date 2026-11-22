@@ -10,9 +10,9 @@
  *
  *   sd_epic OUT.wav [STEMS_DIR] [CELLO_PARAMS]   (CELLO_PARAMS: key-value lines in place of STRINGS, for tuning)
  *
- * Fifteen parts, each its own engine as an FM-1 would play it, each on a stock patch (sd_patches.h: STRINGS and
- * the twelve after it are this cue's); only the notes, the macros' moves, the cello's opening and the mix are
- * this tool's:
+ * Fifteen parts, each its own engine as an FM-1 would play it, each on a stock patch as it was then
+ * (sd_demo_patches.h: STRINGS and the twelve after it are this cue's); only the notes, the macros' moves, the
+ * cello's opening and the mix are this tool's:
  *   CELLO    STRINGS, the bowed cello (a saw through the Reactor's body, HARM): the melody, the heart.
  *            At the start it is filtered (TAME and DISTROY's upper bands) and opens over eight bars, in a long
  *            hall with a 1 s delay.
@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sd_engine.h"
+#include "sd_demo_patches.h"
 #include "sd_params.h"
 
 #define BPM 70u
@@ -227,12 +228,12 @@ static void darp_pattern(uint32_t ch)  /* 16ths down the chord's tones from two 
     sd_engine_pattern(&tr[T_DARP].e, q);
 }
 
-static const SdPatch *patch_named(const char *name)   /* every part plays a stock patch (sd_patches.h) */
+static const SdPatch *patch_named(const char *name)   /* every part plays a stock patch (as it was: sd_demo_patches.h) */
 {
     uint32_t i;
-    for (i = 0; i < SD_PATCHES && strcmp(SD_PATCH_NAME[i], name); i++) {}
-    if (i == SD_PATCHES) { fprintf(stderr, "sd_epic: no patch %s\n", name); exit(1); }
-    return &SD_PATCH[i];
+    for (i = 0; i < SD_DPATCHES && strcmp(SD_DPATCH_NAME[i], name); i++) {}
+    if (i == SD_DPATCHES) { fprintf(stderr, "sd_epic: no patch %s\n", name); exit(1); }
+    return &SD_DPATCH[i];
 }
 
 static void setup(const char *cello_params)

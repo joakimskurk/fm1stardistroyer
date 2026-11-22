@@ -488,13 +488,41 @@ The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/sta
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The patches
 
-<p align="center">
-<code>GROWL</code> <code>VOYAGE</code> <code>DISTROY</code> <code>VOWEL</code> <code>CHORDS</code> <code>PLUCKS</code> <code>FLANGE</code> <code>PHASER</code> <code>FUSION</code> <code>SPLIT</code><br>
-<code>COMET</code> <code>NEBULA</code> <code>PULSAR</code> <code>ION</code> <code>ORBITAL</code> <code>MONOLITH</code> <code>STRINGS</code> <code>HALO</code> <code>AURORA</code> <code>TITAN</code><br>
-<code>DRIVE</code> <code>UNDERTOW</code> <code>IMPACT</code> <code>BRAAM</code> <code>SCREAM</code> <code>BEACON</code> <code>DEPTH</code> <code>SHARDS</code> <code>PRISM</code>
-</p>
+| | |
+|---|---|
+| **First** | `DISTROY` `VOYAGE` |
+| **Bass** | `GROWL` `GRAVITY` `CHROME` `ABYSS` `NEON` `CORE` |
+| **Lead** | `NOVA` `SOLAR` `LASER` `SIGNAL` |
+| **Pad** | `AURORA` `NEBULA` `MASS` `OVERTONE` `HORIZON` `CHOIR` `STRINGS` |
+| **Pluck** | `STARDUST` `CIRCUIT` `PLUCKS` `PULSAR` |
+| **Film** | `BRAAM` `VOWEL` `FUSION` `MONOLITH` `ORBITAL` `PRISM` |
 
 DISTROY is the one it starts on: everything at once.
+
+Sixteen are new (2026-11-22). Each has four banks of its own and moves inside the note: COURSE and the envelopes
+carry it from bank to bank, the Reactor sweeps, and the hands play it (the wheel, aftertouch and velocity each have a
+job). They snap at the attack, have grit in the mids, and none steps on the beat by itself: MOVE and RADAR give steps
+when you want them.
+- **GRAVITY:** the growl bass. A wobble on the tempo says "yow"; the wheel speeds it up, aftertouch turns it to metal.
+- **CHROME:** a rubbery bass: each note goes from a metal ping to a sine in 350 ms, bending down into it.
+- **ABYSS:** wide and dark: a held note rises, grits and hollows over five seconds.
+- **NEON:** the retro bass: soft notes two saws, hard ones a square.
+- **CORE:** the sub that can growl: aftertouch warms it, the wheel folds it.
+- **NOVA:** the chord lead, pumping on the quarters.
+- **SOLAR:** the soaring lead: each note blooms from glass to saws to a buzz; aftertouch bends it up.
+- **LASER:** the pulse lead: each note chirps, its width drifting.
+- **SIGNAL:** the sci-fi lead: FM through four vowels, "wow-yeah" in each note.
+- **MASS:** the fullest pad: combs on the octave and the fifth, SUB under, the plate at its largest.
+- **OVERTONE:** the overtones sing, stepping on the harmonics by themselves, free of the beat.
+- **HORIZON:** the warm retro pad, swelling in its filter.
+- **CHOIR:** a choir opening from OO to AH as each chord swells.
+- **STARDUST:** the wide pluck for arpeggios, with a sparkle at the attack.
+- **CIRCUIT:** a sci-fi blip: metal to sine in 200 ms.
+- **PLUCKS:** each note rings out a chord in four combs; aftertouch moves the chord.
+
+In POLY each voice keeps the bank it starts on, so the pads begin in their richest bank and move in the filter, the
+vowels and the combs; played one note at a time they travel between the banks too. VOWEL, FUSION, MONOLITH, ORBITAL
+and PRISM hold the film places until their own are made. The demos still play the patches they were made with.
 
 Two patches start from a plain FM sound and carry the Star Distroyer edge: the body stays as it was, only the top
 band is destroyed, and something steps on the beat.

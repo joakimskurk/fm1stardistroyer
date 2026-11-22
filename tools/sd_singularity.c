@@ -115,10 +115,10 @@ static void patterns(void)
     }
     /* the player's places: AURORA (U01), VOWEL (U02) and DISTROY (U03) with their plates and echoes up; BEACON (U04)
        with its MODE FREE (PP kept) and TIME at 1000 ms */
-    U01 = SD_PATCH[SD_P_AURORA]; wet(&U01, 66, 92, 99, 40, 55);
-    U02 = SD_PATCH[SD_P_VOWEL]; wet(&U02, 56, 88, 96, 38, 50);
-    U03 = SD_PATCH[SD_P_DISTROY]; wet(&U03, 44, 84, 96, 40, 55);
-    U04 = SD_PATCH[SD_P_BEACON];
+    U01 = SD_DPATCH[SD_D_AURORA]; wet(&U01, 66, 92, 99, 40, 55);
+    U02 = SD_DPATCH[SD_D_VOWEL]; wet(&U02, 56, 88, 96, 38, 50);
+    U03 = SD_DPATCH[SD_D_DISTROY]; wet(&U03, 44, 84, 96, 40, 55);
+    U04 = SD_DPATCH[SD_D_BEACON];
     U04.s_mode = SD_SP_PP; U04.s_time = 65535u;
     U01.trim = U02.trim = U03.trim = U04.trim = 0;   /* (saved before the factory's TRIMs, 2026-11-21: each at its
                                                    own level, as the player mixed it) */

@@ -185,16 +185,16 @@ static void patterns(void)
     for (i = 0; i < 32u; i++) st(&RESTS, i, 50)->type = SD_ST_REST;
     /* U01: STRINGS, its SPACE opened on the SPACE page and saved: FREE PP, TIME 1000 ms, FDBK 52, D-LEVEL 44, TONE 34;
        SIZE 90, DECAY 84, R-LEVEL 56, its TONE 36 */
-    U01 = SD_PATCH[SD_P_STRINGS];
+    U01 = SD_DPATCH[SD_D_STRINGS];
     U01.s_mode = SD_SP_PP; U01.s_time = 65535u;   /* (TIME's top: 1000 ms) */
     U01.s_fb = u99(52); U01.s_dlevel = u99(44); U01.s_dtone = u99(34);
     U01.s_size = u99(90); U01.s_decay = u99(84); U01.s_rlevel = u99(56); U01.s_rtone = u99(36);
     /* U02, U03: AURORA and BEACON, each with its SPACE MODE turned to FREE (PP kept) and TIME to 1000 ms, saved. Their
        1/4D is 1.07 s at 84 BPM, longer than the line: synced it plays at half, 1/8D (since 2026-11-10). DERELICT was
        made with 1 s echoes there, and the user, hearing both, kept them */
-    U02 = SD_PATCH[SD_P_AURORA];
+    U02 = SD_DPATCH[SD_D_AURORA];
     U02.s_mode = SD_SP_PP; U02.s_time = 65535u;
-    U03 = SD_PATCH[SD_P_BEACON];
+    U03 = SD_DPATCH[SD_D_BEACON];
     U03.s_mode = SD_SP_PP; U03.s_time = 65535u;
 }
 
@@ -233,7 +233,7 @@ static int chords_score(void)
    IV starts); CRUSH on its top band, BREAK and MOVE */
 static void pulse_setup(void)
 {
-    preset(SD_P_PULSAR);
+    preset(SD_D_PULSAR);
     page = PG_SEQA; remember();
     pattern(0, &PU[2], "THEME II (16ths)");
     master = 4092;
@@ -277,7 +277,7 @@ static int pulse_score(void)
    keyboard two octaves down */
 static void low_setup(void)
 {
-    preset(SD_P_BRAAM);
+    preset(SD_D_BRAAM);
     page = PG_SEQA; remember();
     pattern(0, &LO[1], "LOW (THEME I: whole bars)");
     page = PG_NAV; remember();
@@ -286,14 +286,14 @@ static void low_setup(void)
 }
 static int low_score(void)
 {
-    int32_t wp = (int32_t)d99(SD_PATCH[SD_P_UNDERTOW].warp);   /* UNDERTOW's WARP, in detents */
+    int32_t wp = (int32_t)d99(SD_DPATCH[SD_D_UNDERTOW].warp);   /* UNDERTOW's WARP, in detents */
     if (at(0.5)) key(36, 1);                    /* the call: C, Ab, G */
     if (at(BAR(2) + 10)) key(36, 0);
     if (at(BAR(3))) key(32, 1);
     if (at(BAR(3) + 12)) key(32, 0);
     if (at(BAR(4))) key(31, 1);
     if (at(BAR(4) + 12)) key(31, 0);
-    if (at(SEC(1) - 1.2)) preset(SD_P_UNDERTOW);
+    if (at(SEC(1) - 1.2)) preset(SD_D_UNDERTOW);
     pot(__LINE__, 2100, SEC(1) - 1.1, SEC(1) - 0.2);   /* (THEME I's long roots, softer) */
     pot(__LINE__, 3500, SEC(2) - 2, SEC(2));
     if (at(SEC(1))) play(1);
@@ -305,7 +305,7 @@ static int low_score(void)
     go_to("ENV", PG_NAV, SEC(5) + 2);           /* (NAV: ENV's since 2026-11-21, HOME's second before) */
     KNOB99(PG_NAV, pat.warp, wp + 24, SEC(5) + 4, SEC(6) - 10);   /* K2: WARP toward the saw */
     if (at(SEC(6) - 1.5)) play(0);
-    if (at(SEC(6) - 0.6)) preset(SD_P_BRAAM);
+    if (at(SEC(6) - 0.6)) preset(SD_D_BRAAM);
     if (at(SEC(6))) key(32, 1);                 /* the coda: Ab, then C held */
     if (at(SEC(6) + 24)) key(32, 0);
     if (at(BAR(27))) key(36, 1);

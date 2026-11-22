@@ -15,7 +15,7 @@
 3500 enc 1 1
 3700 shot
 3800 btnup 7
-4200 enc 6 -1
+4200 enc 6 1
 4250 btn 6
 4500 shot
 5200 btn 12

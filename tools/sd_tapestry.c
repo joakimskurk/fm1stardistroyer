@@ -78,7 +78,7 @@ static void bed(void)                           /* bars 9-12: the loop, backward
 
 static void line_over(void)                     /* bars 13-20: AURORA over the bed; FREEZE, SHIMMER */
 {
-    if (at(192)) preset(SD_P_AURORA);
+    if (at(192)) preset(SD_D_AURORA);
     if (at(194)) scl(SD_MODE_POLY);
     note(74, 196, 200); note(72, 200, 208);                         /* bar 13: D C */
     note(69, 208, 224);                                             /* 14: A */
@@ -127,7 +127,7 @@ static int ending(void)                         /* bars 25-30: FREEZE off, the l
 static void setup(void)                         /* before the first note: PRISM, MONO, the pattern; the looper's memory */
 {
     patterns();
-    preset(SD_P_PRISM);
+    preset(SD_D_PRISM);
     page = PG_SEQA; remember();
     pattern(0, &ARP, "ARP (Dm9 Bbmaj7 C)");
     page = PG_SPACE; remember();

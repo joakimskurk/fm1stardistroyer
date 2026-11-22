@@ -919,6 +919,14 @@ Eight patches, rendered as a held note, a 16-step line and a POS/XY sweep each:
 
 Patch 8 is also the CPU worst case for Gate A/B.
 
+The factory set (2026-11-22) is 29: DISTROY first, then the basses, the leads, the pads, the plucks and the film.
+What it decided: a patch steps on the beat only where the steps are its idea (MOVE and RADAR give steps when the
+player wants them); a new patch has four banks of its own, moved through inside the note (COURSE, the envelopes),
+the wheel, aftertouch and velocity each a job, the Reactor swept inside the note, a snap at the attack and grit in
+the mids; no aliasing hash, the lows clean, the top tamed, nothing that sounds like a classic FM preset. In POLY a
+voice keeps the bank it starts on, so a pad starts in its richest bank. Each patch's loudest 400 ms at -11 LUFS
+(TRIM), the plucks lower. The demos keep the set they were made with (tools/sd_demo_patches.h).
+
 ---
 
 ## 8. Budget estimate (to be replaced by measurement)

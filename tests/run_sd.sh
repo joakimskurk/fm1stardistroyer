@@ -36,7 +36,9 @@ if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: ove
     echo "sd_derelict: clean under the sanitizers"
 fi
 rm -f build/audio/*.wav
-NAMES="growl voyage distroy vowel chords plucks flange phaser fusion split aurora"   # sd_render takes SD_PATCH_NAME's
+NAMES="growl voyage distroy vowel chords plucks flange phaser fusion split aurora"   # sd_render takes the FM-1's names,
+NAMES="$NAMES gravity chrome abyss neon core nova solar laser signal mass overtone horizon choir stardust circuit"
+                                            # then the demos' (sd_demo_patches.h); the collection's sixteen (2026-11-22)
 for n in $NAMES; do                         # each patch in the loop, and one note held 2 s then let ring
     build/sd/sd_render render build/audio/loop_$n.wav 8 120 $n
     build/sd/sd_render hold build/audio/hold_$n.wav $n 57
@@ -45,6 +47,8 @@ build/sd/sd_render hold build/audio/hold_growl_low.wav growl 33
 build/sd/sd_render field build/audio/v3_field_voyage.wav 15            # Gate D VOICE: the XY field
 build/sd/sd_render mode poly build/audio/v3_poly_nebula.wav nebula    # four voices: a chord
 build/sd/sd_render mode poly build/audio/v3_poly_aurora.wav aurora
+for n in mass overtone horizon choir nova; do build/sd/sd_render mode poly build/audio/pad_poly_$n.wav $n; done   # the
+                                            # collection's pads and its chord lead (2026-11-22), a chord each
 build/sd/sd_render mode duo build/audio/v3_duo_voyage.wav voyage             # two voices, A <-> B by X
 build/sd/sd_render hold build/audio/d1_split_lr4.wav split 40                # D1's A/B: SPLIT's crossover, LR4
 build/sd/sd_render hold build/audio/d1_split_cmp.wav split 40 cmp            #   and complementary
