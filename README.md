@@ -21,14 +21,14 @@
 <p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
   <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
-  <img src="docs/readme/screen_radar.png" width="256" alt="RADAR: its loop as a scope, each step a blip round it and the sweep where it is, a gauge of the value now, and its bits as a matrix of lamps">
+  <img src="docs/readme/screen_radar.png" width="256" alt="RADAR: its loop as a large scope, each step a blip round it and the sweep where it is, and its bits as a matrix of lamps">
 </p>
 
 Star Distroyer turns the FM-1 into one instrument with four engines in a row. A **voice** of sixteen oscillators,
 morphed across an X/Y field; a **Reactor** of four resonators that sweep through vowels, chords and combs; **DISTROY**,
 which splits the sound into four bands and wrecks each its own way; and **TIME** and **SPACE**, a delay and a looper
 feeding a plate. Around them
-are a modulation matrix with RADAR (a loop of random steps), four macros, a two-track step sequencer with segments, and an
+are a modulation matrix with RADAR (a loop of random steps), six macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
 > **Status:** the second beta, [0.3-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta). Each version is
@@ -37,7 +37,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 > may not load in the next beta: the saves can change until 1.0.
 
 <p align="center">
-  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with RADAR and four macros reach every engine">
+  <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with RADAR and six macros reach every engine">
 </p>
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> The sound
@@ -206,14 +206,17 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td width="264" valign="top"><img src="docs/readme/screen_macros.png" width="256" alt="MACROS"></td>
 <td valign="top">
 
-**Three macros and a FILTER** on HOME. For the macros, 0 is the patch as programmed.
+**Three macros and the CUTOFF** on HOME, and four more a layer down. For the macros, 0 is the patch as programmed.
 - **MUTATE**: the voice's FM, warp, fold and detune.
-- **MOVE**: the nav in orbit or jumping on the beat, the Reactor's POS, the width.
-- **BREAK**: the Reactor's drive and DISTROY's gain, ALT, bias and feedback, the top bands first.
-- **FILTER** (K4): every filter at once, 99 open, turned down darker: the voices' FILTER from where it is set to
-  ~200 Hz, DISTROY's TAME, SPACE's two TONEs, the Reactor an octave. It is yours, not the patch's: it stays where you
-  left it as patches change, and CLEAR ALL opens it.
-- **MACRO 4** is MACROS' second layer (ALGORITHM): K1 which, BODY, AIR or DROWN, K4 how much (the patch keeps it).
+- **MOVE**: the nav in orbit or jumping on the beat, the Reactor's POS, the width, the cutoff and the FM moved with it.
+- **BREAK**: the Reactor's drive and DISTROY's gain, ALT, bias, feedback, fold and warp, the top bands first.
+- **CUTOFF** (K4): the synth's own, FILTER's K1 on the front page.
+- **MORE** (ALGORITHM, 2026-11-23): **BODY** (detune, fold, the top down), **AIR** (the top up, warp), **DROWN** (the
+  room) each on its own knob, all three at once if you like, and **DARK**: every filter at once, turned up darker:
+  the voices' FILTER from where it is set to ~200 Hz, DISTROY's TAME, SPACE's two TONEs, the Reactor an octave. DARK
+  is yours, not the patch's: it stays where you left it as patches change, and CLEAR ALL opens it. A patch saved
+  before, with MACRO 4 as BODY, AIR or DROWN, loads with it on that knob.
+- The first time a page opens after power-on, the line at the bottom says what it is for 2.5 s.
 - **Switches**: GLO and a key turn things on and off from MACROS, as EDIT on their own pages, all in the lowest
   keys, as the screen has them: on top the chain, FILTER, REACTOR, DISTROY, TIME and SPACE, on the black keys
   F♯3–D♯4; under it the players, ARP, the LOOPER, SEQ A, SEQ B, ORBIT and RADAR, on the white keys under
@@ -285,10 +288,11 @@ of the patch. Off until you switch it on.
   bits as gates and triggers from SOURCE **RADAR 1** (2026-11-23: RESTART, NEXT, SEQ A, SEQ B, ARP, REPEAT). To **PITCH** it is quantized first: every voice lands on a note of SEQ A's scale from its key
   (CHROM: whole semitones). The first EDIT, with RADAR sent nowhere yet, takes a free slot to XM at 30 % and says
   which. A patch saved before has its RADAR DEST moved into a free slot as it loads, sounding as it did.
-- The picture (2026-11-21), in two: the scope, the full height, its 1 at 12 o'clock (START plays it from there), each
-  place's value a blip held over its arc (further out higher, the dotted ring 0), no edge ring but its bearings
-  ticked round it, and the sweep turning through each step with a trail fading behind it (2026-11-23: a real radar's),
-  and a gauge of the value going out now. Beside it, small so the scope leads, the loop's bits as a readout in a
+- The picture (2026-11-21), in two: the scope, the full height (since 2026-11-23 down into the hint's row, as big as
+  the room beside the bits allows, the hint over its foot only when there is one), its 1 at 12 o'clock (START plays it
+  from there), each place's value a blip held over its arc (further out higher, the dotted ring 0), the lines between
+  the blips drawn, no edge ring but its bearings ticked round it, and the sweep turning through each step with a
+  faint trail fading behind it (2026-11-23: a real radar's). Beside it, small so the scope leads, the loop's bits as a readout in a
   frame, its 16 places in four rows from the top left: a 1 a small digit on a dim lamp, a 0 the digit alone, the
   place now red with a pointer at its row, past LENGTH a dot; a bit SEARCH just flipped has a red point until the
   sweep comes round.
@@ -375,8 +379,8 @@ of the patch. Off until you switch it on.
 - **The layers** (ALGORITHM, as on every page): **SONG** (the step's SEQ A, SEQ B, LOOPS); **PITCH**: **XPOS A**
   and **XPOS B** (±24), and the **LOOP**'s and the **FREEZE**'s pitch (±12 semitones, 2026-11-22: the looper over its
   GLIDE, the frozen tail as SPACE's PITCH); **LANE**: **DEST 1**, **LANE 1**, **DEST 2**, **LANE 2**: two free lanes,
-  each to its DEST (any matrix destination, a list) and its amount at the step (±100 %); **MACRO** the four macros'
-  changes; **SETUP**: LENGTH (1–16), **END** (LOOP, or STOP: PLAY stops after the last step, the red square), **GLIDE**,
+  each to its DEST (any matrix destination, a list) and its amount at the step (±100 %); **MACRO** MUTATE, MOVE, BREAK
+  and the CUTOFF changed (the CUTOFF since 2026-11-23, where MACRO 4 was); **SETUP**: LENGTH (1–16), **END** (LOOP, or STOP: PLAY stops after the last step, the red square), **GLIDE**,
   the lanes that glide (JUMP, LANE 1, LANE 2 or BOTH), and **MACROS**, whether the macros do (jump at the step, or
   glide through it to the next). Every value is a change from where you are: 0 changes nothing. EDIT switches ORBIT on and off.
   Songs saved before keep everything, the pitches 0.
@@ -447,7 +451,7 @@ the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS (MUTATE MOVE BREAK FILTER; MACRO 4, its layer: K1 its kind, K4 how much; GLO + F♯3–D♯4 the chain's switches, GLO + F3–D4 the players', drawn as those keys with their lamps) → SETUP (TEMPO, XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; MORE: SYNC AUTO or INT, CORES 2 or 1, from the next start, and **CLICK** (2026-11-23), a metronome: OFF, REC (while SEQ records) or PLAY (whenever it plays), a tick a beat and a higher one on the bar's one, after the whole sound (never in the looper or the FX), drawn the same; TOOLS: the **DEMOS**, played on the FM-1 itself (K1 DEMO 1, SINGULARITY; K2 DEMO 2, ARMADA; then OCT+; any key or knob stops it, and your sound, patterns and song come back), K3 **CLEAR**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), on MORE the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If it ever freezes again (the watchdog restarts it 8 s later: wait for that before switching it off) or crashes, the start after it says **FREEZE LOGGED** and keeps it in the **freeze log**, in the flash (the last 16): **SELECT** on SETUP (or TOOLS' K4 LOG) shows them, the newest first, each the time since the start, PLAY or REC, GLO latched, the page (on SEQ its track and layer), the CPU, where the main loop stood and where it was stuck (the PCs the sound interrupted once it had stood a second), and the last 24 buttons, keys and knobs before it, the newest first: a photo of it says what stopped (`build/fm1_diag -l` reads them over USB) |
+| **HOME** | MACROS (MUTATE MOVE BREAK CUTOFF; MORE: BODY AIR DROWN DARK; GLO + F♯3–D♯4 the chain's switches, GLO + F3–D4 the players', drawn as those keys with their lamps) → SETUP (TEMPO, XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; MORE: SYNC AUTO or INT, CORES 2 or 1, from the next start, and **CLICK** (2026-11-23), a metronome: OFF, REC (while SEQ records) or PLAY (whenever it plays), a tick a beat and a higher one on the bar's one, after the whole sound (never in the looper or the FX), drawn the same; TOOLS: the **DEMOS**, played on the FM-1 itself (K1 DEMO 1, SINGULARITY; K2 DEMO 2, ARMADA; then OCT+; any key or knob stops it, and your sound, patterns and song come back), K3 **CLEAR**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), on MORE the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If it ever freezes again (the watchdog restarts it 8 s later: wait for that before switching it off) or crashes, the start after it says **FREEZE LOGGED** and keeps it in the **freeze log**, in the flash (the last 16): **SELECT** on SETUP (or TOOLS' K4 LOG) shows them, the newest first, each the time since the start, PLAY or REC, GLO latched, the page (on SEQ its track and layer), the CPU, where the main loop stood and where it was stuck (the PCs the sound interrupted once it had stood a second), and the last 24 buttons, keys and knobs before it, the newest first: a photo of it says what stopped (`build/fm1_diag -l` reads them over USB) |
 | **FX** | REACTOR → DISTROY → TIME → SPACE: the chain in its order (the delay into the reverb; SPACE before TIME till 2026-11-21) |
 | **ENV** | NAV → FILTER → ENV → SUB: the voice in its order, the filter before the amp (NAV was HOME's second till 2026-11-21; SUB since that day, the order too). SUB joins after the effects, clean |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD (SELECT: SLOT 1 … 8) |
@@ -730,7 +734,9 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     streaming 2: macOS 13 to 15 then show no USB audio device, MIDI still works; felucca-bsp cd76d43), the
     collection in that order, the endpoints unmoved, bcdDevice 3.A0 (3.20 before) so a host reads the new layout;
     and a SETUP that came while a STALL was being cleared is answered in the same pass (it waited for the host's
-    timeout: felucca-bsp 3c80360, #28). The update loader keeps Dinghy's code there, byte for byte.
+    timeout: felucca-bsp 3c80360, #28); and MIDI out to a host that does not read (macOS with no app on the port):
+    after 50 ms the notes and the clock that wait are dropped, not sent later as a stale burst (felucca-bsp 4649f1e,
+    7f86288). The update loader keeps Dinghy's code there, byte for byte.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `firmware/hal/fm1_audio.h` (2026-11-21, the user: "a real pop every time I switch it on"): the codec's control
     line PC6 stays low through the bring-up, so the codec settles on zeros; `fm1_audio_unmute` lets the output out

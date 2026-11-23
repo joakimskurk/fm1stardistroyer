@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 mkdir -p build/host
 N=stardistroyer; D=
 if [ "${BOARD:-fm1}" = smk37 ]; then N=stardistroyer-smk37; D=-DBOARD_SMK37=1; fi
+D="$D ${HOST_DEFS:-}"                            # (e.g. HOST_DEFS=-DSD_HELP_MS=0: no page's first line)
 cc -O2 -Wall -Wno-unused-function -DDINGHY_HOST $D -DAPP_VER="\"${APP_VER:-dev}\"" -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o build/host/$N firmware/src/stardistroyer.c
 build/host/$N build/host/$N ${1:+"$1"}
 python3 - "$N" <<'PY'

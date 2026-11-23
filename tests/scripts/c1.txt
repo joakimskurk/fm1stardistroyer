@@ -1,5 +1,5 @@
 # C1: DISTROY (the boot patch) in the loop; LFO (5) three times to MOD: slot 1 SOURCE DEST AMOUNT turned; LFO again: LFO 1, its
-# rate up; HOME (8) to MACROS (once since 2026-11-15, MACROS HOME's first): MUTATE and BREAK up, ALGORITHM +1: MACRO 4's layer (its KIND as it was). Buttons: LFO 5, HOME 8, PLAY 12.
+# rate up; HOME (8) to MACROS (once since 2026-11-15, MACROS HOME's first): MUTATE and BREAK up, ALGORITHM +1: MORE (BODY AIR DROWN DARK, untouched). Buttons: LFO 5, HOME 8, PLAY 12.
 # Encoders: ALGORITHM 1, K1..K4 2..5.
 1700 btn 12
 1800 btn 5

@@ -94,7 +94,7 @@
 
   <rect x="576" y="298" width="206" height="88" rx="8" fill="#0B1017" stroke="#EB1C1C" stroke-width="1.5"/>
   <text x="592" y="320" class="h"><tspan fill="#EB1C1C">MACROS</tspan></text>
-  <text x="592" y="340" class="b">MUTATE · MOVE</text>
-  <text x="592" y="358" class="b">BREAK · MACRO 4</text>
+  <text x="592" y="340" class="b">MUTATE · MOVE · BREAK</text>
+  <text x="592" y="358" class="b">BODY · AIR · DROWN</text>
   <text x="592" y="376" class="d">0: the patch as set</text>
 </svg>

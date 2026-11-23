@@ -66,9 +66,9 @@
  *              ROUTE: K1 the bank's roles (SSSC PSSC PPPC SCSC PPCC CSSC SCCC CCCC; a list as it turns: how many are
  *              heard, the routing), K2 the bank. SELECT the bank, A B C D. EDIT: COURSE OFF, ON (from each note), LOOP
  *              (round on its own, from START)
- *   MACROS     HOME's first (HOME: MACROS <-> SETUP since 2026-11-21). MUTATE MOVE BREAK FILTER (every cutoff down
- *              together, the player's: 99 open); MACRO 4: K1 its KIND (BODY AIR DROWN; CUTOFF, FILTER's twin, kept on a
- *              patch saved with it), K4 how much. GLO + a key its switch.
+ *   MACROS     HOME's first (HOME: MACROS <-> SETUP since 2026-11-21). MUTATE MOVE BREAK CUTOFF (the synth's own,
+ *              FILTER's K1, 2026-11-23); MORE: BODY AIR DROWN (each its own amount, where MACRO 4 was one of them)
+ *              DARK (every cutoff down together, the player's: 0 open, kept as patches change). GLO + a key its switch.
  *              The picture: the switches as the keys that work them, each its key's lamp (pic_chain): on top the
  *              chain FILT REAC DIST TIME SPAC on the black keys F#3..D#4 (B1..B5), in its order; under it the players
  *              ARP LOOP SEQ A SEQ B ORBIT RADAR DRUMS on the white keys under them, F3..E4 (2026-11-21, the user: "what
@@ -175,7 +175,7 @@
  *              OFF; -- as they play), K4 LOOPS; PITCH XPOS A, XPOS B, LOOP and FREEZE (the loop's and the frozen
  *              tail's pitch, -12..12: sd_orb_tail, 2026-11-22); LANE DEST 1 LANE 1 DEST 2 LANE 2 (each lane its
  *              matrix DEST, a list, and its amount at the step, -100..100 %); MACRO the macros' changes (MUTATE MOVE
- *              BREAK MACRO 4, -99..99); the song's own: SETUP K1 LENGTH K2 END K3 GLIDE (the lanes that glide: JUMP
+ *              BREAK CUTOFF, -99..99); the song's own: SETUP K1 LENGTH K2 END K3 GLIDE (the lanes that glide: JUMP
  *              LANE 1 LANE 2 BOTH) K4 MACROS (theirs, a button). EDIT on / off. Every value a change from where the player is (0
  *              none); saved as a song (S01..S16). The step picked (SELECT, a knob, GLO + a key) is held while it is
  *              edited (eng.orb_hold): 2 s after the last edit, GLO + its key again, or leaving ORBIT, on in time
@@ -1206,6 +1206,7 @@ static void patch_load(uint32_t i, SdPatch *p)
     *p = i < SD_PATCHES ? SD_PATCH[i] : upat.p[i - SD_PATCHES];
     tur_slot(p);
     sd_patch_levels(p);                         /* (one from before the make-ups, 2026-11-21: onto them, as it sounded) */
+    sd_patch_macros(p);                         /* (one from before HOME's MORE, 2026-11-23: its MACRO 4 to its knob) */
     if (p->f_type == SD_FT_OFF && !p->f_cut && !p->f_res && !p->f_env && !p->f_vel && !p->f_key) {   /* the filter never
                                                    set: on, at 12 kHz, as good as open (the engine runs it once it is
                                                    heard), so its knobs work at once (2026-11-19, the user) */
@@ -1237,6 +1238,8 @@ static uint32_t fx_last = 1u, env_last = 0u, arp_last = PAGE_ARP, seq_last;   /*
 #define H_KNOB 50u
 #define Y_PIC 98u
 #define H_PIC 104u                              /* (the steps' row gone, 2026-11-15: the picture took its room) */
+#define H_PIC_TUR 122u                          /* RADAR's: down to the status (the hint's row under it, drawn over its
+                                                   foot only while it has something to say: draw_frame) */
 #define Y_HINT 204u
 #define Y_STAT 222u
 #define H_LIST (Y_PIC + H_PIC - Y_KNOB)         /* PRESETS' list, a DEST's: over the knobs and the picture */
@@ -1440,7 +1443,6 @@ static uint32_t lcyc_of(uint32_t m) { return m < 6u ? m / 2u : m - 3u; }   /* a 
 static uint32_t lmode_at(uint32_t cyc, uint32_t sync) { return cyc < 3u ? cyc * 2u + (sync ? 1u : 0u) : cyc + 3u; }
 static const char *const LDIV_NAME[SD_LFO_DIVS] = {"1/16", "1/8", "1/8D", "1/4", "1/4D", "1/2", "1/2D", "1 BAR",
                                                    "1.5 BAR", "2 BAR", "3 BAR", "4 BAR"};
-static const char *const M4_NAME[SD_M4S] = {"BODY", "AIR", "DROWN", "CUTOFF"};
 static const char *const DIV_NAME[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
                                                  "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};   /* (the
                                                    last three the looper's LENGTH only) */
@@ -1453,7 +1455,7 @@ static const char *const LY_NAV[3] = {"TONE", "X/Y", "ROUTE"}, *const LY_REAC[5]
                          *const LY_ARP[2] = {"ARP", "TOOLS"}, *const LY_LOOP[3] = {"LOOPER", "SEND", "TOOLS"},
                          *const LY_ORB[5] = {"SONG", "PITCH", "LANE", "MACRO", "SETUP"},
                          *const LY_DRUM[6] = {"DRUM", "TONE", "MORE", "MIX", "KIT", "TOOLS"},
-                         *const LY_MAC[2] = {"MACROS", "MACRO 4"}, *const LY_SET[3] = {"SETUP", "MORE", "TOOLS"};
+                         *const LY_MAC[2] = {"MACROS", "MORE"}, *const LY_SET[3] = {"SETUP", "MORE", "TOOLS"};
 static uint32_t lay_names(const char *const **nm)   /* the page's layers: how many (1: no row), their names */
 {
     switch (page) {
@@ -1618,8 +1620,8 @@ static void lp_clear(void)                      /* the loop let go: the memory b
 }
 static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl = 52300u;   /* (1/8, or 334 ms free;
                                                    L-LEVEL 79: only its level now, EDIT arms it) */
-static uint16_t home_filt;                      /* HOME's FILTER (K4, 2026-11-19): every cutoff down, 0 open (eng.filt;
-                                                   the player's, not the patch's: kept as patches change) */
+static uint16_t home_filt;                      /* HOME's DARK (MORE's K4; FILTER on K4 2026-11-19): every cutoff down, 0
+                                                   open (eng.filt; the player's, not the patch's: kept as patches change) */
 static uint16_t lp_filt = 32768u, lp_rsend = 65535u, lp_dsend;   /* LOOPER's SEND: FILTER (none in the middle),
                                                    R-SEND (whole: as it always went into the reverb), D-SEND (none) */
 static int16_t lp_speed;
@@ -3615,10 +3617,12 @@ static void knobs_of(void)
         kt(2, "MASTER", set.master ? "SEQ B" : "SEQ A");
         kt(3, "COLOUR", ACC_NAME[set.accent % SD_ACCENTS]);
         break;
-    case 5:                                     /* MUTATE MOVE BREAK FILTER (99 open); MACRO 4: its KIND, how much */
-        if (l == 1u) { kt(0, "KIND", M4_NAME[pat.mac4 % SD_M4S]); k0(1); k0(2); ku(3, M4_NAME[pat.mac4 % SD_M4S], q99(pat.mac[3])); break; }
+    case 5:                                     /* MUTATE MOVE BREAK CUTOFF (the synth's); MORE: BODY AIR DROWN DARK */
+        if (l == 1u) { ku(0, "BODY", q99(pat.mac[3])); ku(1, "AIR", q99(pat.mac_air * 257u)); ku(2, "DROWN", q99(pat.mac_drown * 257u));
+                       ku(3, "DARK", q99(home_filt)); break; }
         ku(0, "MUTATE", q99(pat.mac[0])); ku(1, "MOVE", q99(pat.mac[1])); ku(2, "BREAK", q99(pat.mac[2]));
-        ku(3, "FILTER", q99(65535u - home_filt));
+        *put_hz(t, hz_of(16 * 256 + (int32_t)((uint32_t)pat.f_cut * 114u >> 8))) = 0;
+        kx(3, "CUTOFF", t, q99(pat.f_cut));
         break;
     case 1:
         if (r_stages) {                         /* STAGE, F1-F4: the stage SELECT picks */
@@ -3832,7 +3836,7 @@ static void knobs_of(void)
             kt(2, "GLIDE", GL[orbp.glide & 3u]);   /* (the lanes that glide) */
             kbt(3, "MACROS", orbp.glide & SD_OG_MAC ? "GLIDE" : "JUMP", orbp.glide & SD_OG_MAC ? 1u : 0u);
         } else if (orb_more) {                  /* MACRO: the step's macros */
-            static const char *const MN[4] = {"MUTATE", "MOVE", "BREAK", "MACRO 4"};
+            static const char *const MN[4] = {"MUTATE", "MOVE", "BREAK", "CUTOFF"};
             for (k = 0; k < 4u; k++) { *put_sgn(t, orbp.mac[k][s]) = 0; kb(k, MN[k], t, orbp.mac[k][s]); }
         } else if (l == LO_PITCH) {             /* PITCH: XPOS A, XPOS B, the LOOP's, the FREEZE's (semitones) */
             *put_xp(t, orbp.xa[s]) = 0; kb(0, "XPOS A", t, orbp.xa[s] * 99 / 24);
@@ -4447,16 +4451,19 @@ static void pic_lfo(uint32_t k)                 /* its cycle in a frame, the wid
  * starship's): LENGTH places round it, clockwise from the top, each step's value a blip's distance from the middle
  * (the dotted ring 0, outward up), held over its arc with a hard jump to the next (as it sounds; faint), no edge
  * ring but its bearings ticked, the sweep turning through each step with a trail fading behind it (2026-11-23, the
- * user: "more like a real radar"), the newest blip red, the older dimmer as they age; a gauge of the value now.
+ * user: "more like a real radar"), the newest blip red, the older dimmer as they age. Since 2026-11-23 (the user: "RADAR
+ * feels squeezed: the little meter between the matrix and the radar out, the radar as big as it goes in between; the
+ * trail a little fainter; the lines between the dots seen better again"): no gauge, the scope 120 across in the
+ * middle of the space left of the readout, down into the hint line's rows (a message drawn over its foot while it
+ * shows: draw_frame), the trail fainter, the lines between the blips ICE_D while it runs.
  * Right the loop's bits, its 16 places in rows of TG_C (the 1 top left, as the scope's at 12), a small readout in
  * a starship's frame, low in contrast so the scope leads (2026-11-21, the user: "less white, a little more sci-fi";
  * "the digits take all the focus: draw a 1 and a 0 smaller"): each place a small cell, its bit a 3 x 5 digit, a 1 a
  * dim lamp behind it, a 0 the digit alone; the place now red, its row's pointer red at the left; past LENGTH a dot;
  * a bit SEARCH flipped as it came round a dark red point till the sweep is back. Where it goes is MOD's: not here */
-enum { TG_C = 4, TG_X = 154, TG_Y = 25, TG_P = 15, TG_W = 11 };   /* (the matrix: 4 x 4 cells of 11, 15 apart) */
-enum { TUR_CX = 58, TUR_GX = 122 };             /* (the scope's middle, 7 from the left; the gauge's left, 11 wide:
-                                                   13 columns from the scope's edge and 13 to the readout's frame, the
-                                                   user, 2026-11-21) */
+enum { TG_C = 4, TG_X = 154, TG_Y = 34, TG_P = 15, TG_W = 11 };   /* (the matrix: 4 x 4 cells of 11, 15 apart, beside
+                                                   the scope's middle) */
+enum { TUR_CX = 72, TUR_CY = 61, TUR_RO = 60 }; /* (the scope: its middle and its radius in the picture of H_PIC_TUR) */
 static void tur_bit(int32_t x, int32_t y, uint32_t b, uint16_t c)   /* a 3 x 5 digit, its top left x, y */
 {
     if (b) { cv_line(x + 1, y, x + 1, y + 4, c); cv_pset(x, y + 1, c); cv_line(x, y + 4, x + 2, y + 4, c); }
@@ -4466,7 +4473,7 @@ static void tur_at(uint32_t ph, int32_t r, int32_t *x, int32_t *y)   /* an angle
                                                    clockwise), radius r */
 {
     *x = TUR_CX + ((r * sd_sine(ph)) >> 15);
-    *y = 52 - ((r * sd_sine(ph + 0x40000000u)) >> 15);
+    *y = TUR_CY - ((r * sd_sine(ph + 0x40000000u)) >> 15);
 }
 static void tur_pt(uint32_t p, uint32_t len, int32_t r, int32_t *x, int32_t *y)   /* place p of len, radius r */
 {
@@ -4474,14 +4481,14 @@ static void tur_pt(uint32_t p, uint32_t len, int32_t r, int32_t *x, int32_t *y) 
 }
 static void pic_tur(void)
 {
-    enum { CX = TUR_CX, CY = 52, RO = 51, RZ = 4 + (RO - 8) / 2, M = 8 };   /* (M: an arc's pieces) */
+    enum { CX = TUR_CX, CY = TUR_CY, RO = TUR_RO, RZ = 3 + (RO - 6) / 2, M = 8 };   /* (M: an arc's pieces) */
     static int16_t pv[16];
     static uint8_t wk[16], wf[16];              /* (each place's step, its low byte: an age up to 255 is enough; the
                                                    step its bit flipped at, +1: 0 none) */
     static uint32_t seen, have, plen, preg;
     uint32_t c = eng.tur_count, reg = eng.tur_reg, plc = eng.tur_place, i, n, len = SD_TUR_LEN(&pat), on = SD_TUR_ON(&pat),
              cur, tn, hist;
-    int32_t x, y, x0, y0, v;
+    int32_t x, y, x0, y0;
     if (eng.tur_count != c) { c = eng.tur_count; reg = eng.tur_reg; plc = eng.tur_place; }   /* (a step meanwhile: the
                                                    newer three) */
     if (plc >= len) plc = 0;                    /* (LENGTH shorter: the engine's next step puts it right) */
@@ -4519,7 +4526,8 @@ static void pic_tur(void)
     cv_text(CX + 4, CY - RO + 1, &FONT_S, "1", on ? C_ICE : C_ICE_D);
     if (on) {                                   /* the sweep turning through the step (where RADAR's clock is in it),
                                                    its trail fading behind it over 36 degrees */
-        static const uint8_t TR[20] = {0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3};
+        static const uint8_t TR[20] = {0, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};   /* (fainter:
+                                                   the hand red, then the dark red, the fill, the grid) */
         uint32_t d = SD_TUR_DIV(&pat), sl = eng.seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d], fr = 0, st = 0xFFFFFFFFu / len, ph;
         uint16_t tc[4];
         int32_t k;
@@ -4534,32 +4542,26 @@ static void pic_tur(void)
     for (i = 0; i < len; i++) {                 /* the loop: each place an arc at its radius, then the jump */
         uint32_t j = (i + 1u) % len, q, a = i * M + tn - M / 2u;
         int32_t ri, rj;
-        uint16_t lc = C_GRID;                   /* (faint: the sweep and the blips lead) */
+        uint16_t lc = on ? C_ICE_D : C_GRID;    /* (seen again, 2026-11-23: dim, the sweep and the blips lead) */
         if (!(have >> i & 1u)) continue;
-        ri = 4 + (sd_tur_off(&pat, pv[i]) + 32767) * (RO - 8) / 65534;
+        ri = 3 + (sd_tur_off(&pat, pv[i]) + 32767) * (RO - 6) / 65534;
         for (q = 0; q < M; q++) {
             tur_pt((a + q) % tn, tn, ri, &x0, &y0); tur_pt((a + q + 1u) % tn, tn, ri, &x, &y);
             cv_line(x0, y0, x, y, lc);
         }
         if (!(have >> j & 1u)) continue;
-        rj = 4 + (sd_tur_off(&pat, pv[j]) + 32767) * (RO - 8) / 65534;
+        rj = 3 + (sd_tur_off(&pat, pv[j]) + 32767) * (RO - 6) / 65534;
         tur_pt((a + M) % tn, tn, ri, &x0, &y0); tur_pt((a + M) % tn, tn, rj, &x, &y);
         cv_line(x0, y0, x, y, lc);
     }
     for (i = 0; i < len; i++) {                 /* the blips: the newest red, the rest as old as they are */
         uint32_t age = (uint8_t)(c - wk[i]);
         if (!(have >> i & 1u)) continue;
-        tur_pt(i, len, 4 + (sd_tur_off(&pat, pv[i]) + 32767) * (RO - 8) / 65534, &x, &y);
+        tur_pt(i, len, 3 + (sd_tur_off(&pat, pv[i]) + 32767) * (RO - 6) / 65534, &x, &y);
         if (!on) { cv_rect(x - 1, y - 1, 3, 3, C_GRID); continue; }
         if (i == cur && !age) { cv_box(x - 2, y - 2, 5, 5, C_RED); cv_pset(x, y, C_GLINT); }
         else cv_rect(x - 1, y - 1, 3, 3, age < len / 2u ? C_ICE : C_ICE_D);
     }
-    v = sd_tur_off(&pat, have >> cur & 1u ? pv[cur] : 0);   /* the gauge: the value now (its OFFSET in), from its
-                                                   middle */
-    cv_frame(TUR_GX, 2, 11, 100, on ? C_ICE_D : C_GRID);
-    y = 52 - v * 46 / 32767;
-    if (on && y != 52) cv_rect(TUR_GX + 2, y < 52 ? y : 52, 7, y < 52 ? 52 - y : y - 52, C_RED_D);
-    cv_rect(TUR_GX + 1, y, 9, 2, on ? C_RED : C_ICE_D);
     {                                           /* the readout's frame: four corners round it */
         const int32_t x0 = TG_X - 8, y0 = TG_Y - 8, x1 = TG_X + 3 * TG_P + TG_W + 7, y1 = TG_Y + 3 * TG_P + TG_W + 7;
         const uint16_t fc = on ? C_ICE_D : C_GRID;
@@ -5165,6 +5167,22 @@ static void pic(void)
    key, REC, OCT). GLO held: ALGORITHM's second job on the left, its name red as the knobs'. A toggle has a lamp, as
    the top line's. A message, OFF: EDIT TURNS IT ON, a length the line cannot hold: the whole line */
 #define HINT_R 126                              /* (the right place: the longest left, 2>3>4 1>4, ends at 118) */
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
+#define SD_POOLED                               /* (a small state of the screen's in the pool: the RAM's .bss is full) */
+#else
+#define SD_POOLED __attribute__((section(".pool")))
+#endif
+/* each page's line the first time it opens since power-on (2026-11-23, "HOME more customizable?": what a page is, 2.5 s
+   in the hint's place); MOD and RADAR apart from the LFOs on their page (help_id) */
+static const char *const HELP[18] = {"NAV: THE VOICE ON X/Y", "REACTOR: A RINGING BODY", "DISTROY: BANDS DESTROYED",
+    "SPACE: PLATE AND FREEZE", "LFO: A WAVE FOR MOD", "MACROS: FOUR BIG KNOBS", "SEQ: STEPS CHORDS PARTS",
+    "ENV: THE SHAPE OF A NOTE", "FILTER: CUTOFF RES ENV 3", "ARP: HELD NOTES IN TURN", "ORBIT: THE SONG IN STEPS",
+    "TIME: THE DELAY", "LOOPER: A TAPE ON LOOP", "SETUP: TEMPO MIDI CORES", "DRUM: THE DRUMS", "SUB: AN OCTAVE UNDER",
+    "MOD: WHAT MOVES WHAT", "RADAR: A LOOP OF BITS"};
+#ifndef SD_HELP_MS
+#define SD_HELP_MS 2500u                        /* (0: none; the README's screens are made so: their hints) */
+#endif
+static uint32_t help_id(void) { return page == 4u ? (dmod == DMOD_TUR ? 17u : dmod < SD_MODS ? 16u : 4u) : page & 15u; }
 static int32_t hint_x;
 static void hint_c(const char *l, const char *v, uint16_t lc)
 {
@@ -5228,6 +5246,16 @@ static void draw_hint(void)
         return;
     }
     if (page == PAGE_SETUP && setup_log) { hint("SELECT", "OLDER, LEFT: BACK"); return; }   /* (the log) */
+    {                                           /* a page new since power-on: its line, 2.5 s (not while GLO is held) */
+        static struct { uint32_t seen, at; uint8_t id; } hl SD_POOLED;
+        uint32_t id = help_id();
+        if (id + 1u != hl.id) {
+            hl.id = (uint8_t)(id + 1u);
+            hl.at = hl.seen >> id & 1u ? 0u : fm1_ms ? fm1_ms : 1u;
+            hl.seen |= 1u << id;
+        }
+        if (SD_HELP_MS && hl.at && fm1_ms - hl.at < SD_HELP_MS && !shift()) { cv_text(6, 0, &FONT_S, HELP[id], C_ICE_D); return; }
+    }
     if (shift() && seq_page()) {                /* GLO held on SEQ: ALGORITHM the scale; IN KEY the key (the master's:
                                                    on the other track's page, KEY) */
         const SdPattern *kp = set.xchrom ? &seqp : key_pat();
@@ -5428,6 +5456,10 @@ static void demo_restore(void)                  /* after it: the engine fresh, a
 }
 static void draw_frame(void)
 {
+    static struct { uint32_t blank; uint8_t over, was_tall, ok; } hb SD_POOLED;   /* an empty hint row's hash; RADAR:
+                                                   the hint drawn over its picture's foot; RADAR the last frame */
+    uint32_t tall = page == 4u && dmod == DMOD_TUR && !save_mode && !saved_at && !browse_at && !dlist_at, hint_on = 0;
+    if (!hb.ok) { cv_begin(240, 16, C_BG); hb.blank = cv_hash(); hb.ok = 1; }
     if (demo_st) { draw_demo(); return; }
     draw_info(); cv_show(0, 1);
     draw_nav(); cv_show(Y_NAV, 2);
@@ -5460,11 +5492,27 @@ static void draw_frame(void)
     } else {
         if (listed) { lcd_fill(0, Y_KNOB + H_KNOB, 240, Y_PIC - Y_KNOB - H_KNOB, C_BG); listed = 0; shown[6] = ~0u; }
         draw_knobs(); cv_show(Y_KNOB, 3);
-        cv_begin(240, H_PIC, C_BG);
+        if (tall) {                             /* RADAR's tall picture: is there a hint to draw over its foot? */
+            draw_hint();
+            hint_on = cv_hash() != hb.blank;
+            if (hint_on != hb.over) shown[4] = ~0u;   /* (the picture back where the hint was, or the hint new) */
+        }
+        cv_begin(240, tall ? H_PIC_TUR : H_PIC, C_BG);
         if (save_mode || saved_at) draw_save(); else pic();
-        cv_show(Y_PIC, 4);
+        {
+            uint32_t was = shown[4];
+            cv_show(Y_PIC, 4);
+            if (tall && shown[4] != was) shown[5] = ~0u;   /* (the picture blitted over the hint's row: again) */
+        }
     }
-    draw_hint(); cv_show(Y_HINT, 5);
+    if (hb.was_tall && !tall) {                 /* left RADAR: its picture lies in the hint's row, and in the two
+                                                   between it and the picture's (no page draws them) */
+        shown[5] = ~0u;
+        lcd_fill(0, Y_PIC + H_PIC, 240, Y_HINT - Y_PIC - H_PIC, C_BG);
+    }
+    hb.was_tall = (uint8_t)tall;
+    hb.over = (uint8_t)(tall && hint_on);
+    if (!tall || hint_on) { draw_hint(); cv_show(Y_HINT, 5); }
     draw_status(); cv_show(Y_STAT, 7);
 }
 
@@ -5884,15 +5932,15 @@ static void app_main(void)
     }
     set.dpad = 0;
     accent_set(set.accent);
-    if (slot_load(0, &upat, sizeof upat)) {    /* (or as saved before SUB, 2026-11-21, before TRIM and the make-ups' mark, before
+    if (slot_load(0, &upat, sizeof upat)) {    /* (or as saved before HOME's MORE, 2026-11-23, before SUB, 2026-11-21, before TRIM and the make-ups' mark, before
                                                    RADAR's OFFSET, 2026-11-21, or before MOD's OFFSETs, 2026-11-19: each
                                                    patch that less the fields at its end, moved to its place, those 0) */
         const uint32_t po = (uint32_t)__builtin_offsetof(UserPatches, p), sz = (uint32_t)sizeof(SdPatch);
-        const uint32_t OLD[4] = {sz - 4u, sz - 6u, sz - 8u, sz - 8u - SD_MODS};
+        const uint32_t OLD[5] = {sz - 2u, sz - 6u, sz - 8u, sz - 10u, sz - 10u - SD_MODS};
         uint8_t *z = (uint8_t *)&upat;
         uint32_t v;
-        for (v = 0; v < 4u && slot_load(0, &upat, po + UPATCHES * OLD[v]); v++) ;
-        if (v < 4u) {
+        for (v = 0; v < 5u && slot_load(0, &upat, po + UPATCHES * OLD[v]); v++) ;
+        if (v < 5u) {
             for (k = UPATCHES; k-- > 0u;) {     /* (the last first, back to front: the new place lies above) */
                 uint8_t *d = z + po + k * sz;
                 const uint8_t *s = z + po + k * OLD[v];
@@ -6585,20 +6633,20 @@ static void app_main(void)
                     dirty = 1;
                 }
                 if (dirty && !d0) t_change = fm1_ms;
-            } else if (page == 5u) {            /* MACROS: MUTATE MOVE BREAK FILTER; MACRO 4: K1 its KIND, K4 how much */
+            } else if (page == 5u) {            /* MACROS: MUTATE MOVE BREAK CUTOFF; MORE: BODY AIR DROWN DARK */
                 static const uint8_t KN[4] = {ENC_KNOB1, ENC_KNOB2, ENC_KNOB3, ENC_KNOB4};
                 for (k = 0; k < 4u; k++) {
                     if ((e = enc_take(KN[k])) == 0) continue;
                     if (l == 1u) {
-                        if (k == 3u) pat.mac[3] = knob_q(pat.mac[3], e), changed = 1;
-                        else if (k == 0u) {     /* (BODY AIR DROWN: CUTOFF is FILTER's now; a patch saved with it
-                                                   keeps it till turned) */
-                            pat.mac4 = (uint8_t)step_mod(pat.mac4 % SD_M4_CUTOFF, e, SD_M4_CUTOFF);
-                            changed = 1;
-                        }
-                    }
-                    else if (k == 3u) { home_filt = (uint16_t)(65535u - knob_q((uint16_t)(65535u - home_filt), e)); eng.filt = home_filt; }
-                    else pat.mac[k] = knob_q(pat.mac[k], e), changed = 1;
+                        uint8_t *m = k == 1u ? &pat.mac_air : &pat.mac_drown;
+                        if (k == 3u) { home_filt = knob_q(home_filt, e); eng.filt = home_filt; }
+                        else if (!k) pat.mac[3] = knob_q(pat.mac[3], e), changed = 1;
+                        else *m = sd_mac8(knob_q((uint16_t)(*m * 257u), e)), changed = 1;
+                    } else if (k == 3u) {       /* CUTOFF as FILTER's K1: a quarter semitone a detent */
+                        int32_t v = (int32_t)pat.f_cut + enc_far(e, 456u) * 147;
+                        pat.f_cut = (uint16_t)(v < 0 ? 0 : v > 65535 ? 65535 : v);
+                        changed = 1;
+                    } else pat.mac[k] = knob_q(pat.mac[k], e), changed = 1;
                 }
             } else if (page == 4u && dmod == DMOD_TUR) {   /* RADAR: SEARCH LENGTH OFFSET DIV (where it goes: MOD) */
                 if ((e = enc_take(ENC_KNOB1)) != 0) {   /* SEARCH: 2 % a detent (half the travel, 2026-11-21) */

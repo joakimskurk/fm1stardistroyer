@@ -265,7 +265,7 @@ static int score(void)
     home_to(PG_MACROS, BAR(19) + 1);
     hand(H2, 3, BAR(19) + 3, BAR(19) + 5);
     KNOB99(PG_MACROS, pat.mac[2], 58, BAR(19) + 6, BAR(21));         /* BREAK */
-    KNOB99(PG_MACROS, pat.mac[3], 55, BAR(21) + 1, BAR(22) + 8);     /* MACRO 4: BODY */
+    KNOB99(PG_MACROS, pat.mac[3], 55, BAR(21) + 1, BAR(22) + 8);     /* BODY (MORE) */
     go_to("LFO", PG_MOD, BAR(22) + 9);          /* RADAR on the FOLD: 40 % (MOD's: slot 7, DISTROY's six before it),
                                                    CHANGE 40 (LFO: MOD, the one it showed last) */
     if (at(BAR(22) + 11)) tur_route(6, SD_MD_FOLD, 40);   /* (RADAR off till 23 + 9: unheard) */

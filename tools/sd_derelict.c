@@ -223,7 +223,7 @@ static int chords_score(void)
     pot(__LINE__, 3600, SEC(5), SEC(5) + 8);    /* (the breach a little up) */
     pot(__LINE__, 3000, SEC(6), SEC(6) + 8);
     if (at(SEC(6) + 3.5)) press("HOME", PG_MACROS);
-    KNOB99(PG_MACROS, pat.mac[3], 80, SEC(6) + 4, BAR(32));   /* MACRO 4: DROWN */
+    KNOB99B(PG_MACROS, pat.mac_drown, 80, SEC(6) + 4, BAR(32));   /* DROWN (MORE) */
     if (at(BAR(33) - 1)) play(0);
     pot(__LINE__, 0, BAR(33), BAR(36));         /* the hall let go of by hand */
     return q >= BAR(36);

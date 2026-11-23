@@ -699,9 +699,14 @@ listening rounds are in the git history.
   SPEED, not under SPACE; the first 24 (OFF .. ENV 3) where they were, so a DEST turn played before lands there.
 - *LFOs:* six shapes, free or synced, KEY, and ONE (one cycle a note, unipolar: a SAW a ramp down inside the note).
 - *The macros:* MUTATE (XM WP FD DT, gentle: past it the saw edges alias), MOVE (the nav and POS stepping on the beat,
-  glided ~10 ms), BREAK (DISTROY weighted toward the top band, never its feedback: on a patch without one it opened a
-  1 ms howl), MACRO 4 (BODY, AIR, DROWN or CUTOFF: 2026-11-19, the user's, every cutoff down together: the FILTER
-  ~70 semitones from where it is set, TAME in, both TONEs and the Reactor's FREQ an octave down).
+  glided ~10 ms; since 2026-11-23 the cutoff and XM ride the nav too), BREAK (DISTROY weighted toward the top band,
+  never its feedback: on a patch without one it opened a 1 ms howl; since 2026-11-23 FOLD and WARP as well). HOME's
+  K4 the synth's own CUTOFF; its MORE layer (2026-11-23, the user: "MACRO 4's place is odd ... the macros often do
+  little"): BODY, AIR and DROWN each its own amount (they were MACRO 4's kinds, one at a time: a patch saved before
+  has its amount moved to its kind's knob), and DARK, the player's (2026-11-19, then K4's FILTER): every cutoff down
+  together, the FILTER ~70 semitones from where it is set, TAME in, both TONEs and the Reactor's FREQ an octave down.
+  ORBIT's fourth macro lane moves the CUTOFF. Measured over the bank (a macro at full against the patch, 1.5 dB of
+  change as "weak"): MOVE weak on 18 patches before, 1 after; BODY 8 to 0; AIR 15 to 0; BREAK 3 to 0.
 - *The output:* a limiter 64 frames ahead to −1.4 dBFS, then a shoulder (linear to 0.85, a cubic to full scale).
 - *The CPU:* no divide a sample (`sd_tz`); one loop variant per model and per crossover; the user chose a lighter
   DISTROY (its middle banks under the squash, unfolded) over -O2, to keep room (-O2 also broke USB-MIDI on the device).

@@ -27,6 +27,8 @@ $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen
 run "the key: SEQ B's RND in A's (the master's) root and scale" "$OUT/app_key_test" "$OUT/app_key_test" tests/scripts/k2.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_home_test" tests/app_home_test.c
 run "HOME's switches: the chain on black, the players on white, as the screen" "$OUT/app_home_test" "$OUT/app_home_test" tests/scripts/home1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_mac_test" tests/app_mac_test.c
+run "HOME's MORE: BODY AIR DROWN DARK, MACROS' CUTOFF; an old MACRO 4 on its knob" "$OUT/app_mac_test" "$OUT/app_mac_test" tests/scripts/mac1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_loop_test" tests/app_loop_test.c
 run "the looper off keeps its loop; TOOLS' CLEAR clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_lane_test" tests/app_lane_test.c

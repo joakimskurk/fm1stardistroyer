@@ -20,7 +20,6 @@ export const SCALE = ["MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "
 export const ROUTE = ["1>2>3>4", "2>3>4 1>4", "1+2+3>4", "1>2 3>4", "1+2>3 4", "1 2>3>4", "1>2 3 4", "1 2 3 4"];
 export const SHAPER = ["NONE", "SOFT", "HARD", "FOLD", "CRUSH"];
 export const RMODEL = ["BP6", "BP12", "VBP", "KP", "AP1", "AP2"];
-export const MAC4 = ["BODY", "AIR", "DROWN", "CUTOFF"];
 export const MODE = ["MONO", "DUO", "POLY"];
 export const KEY = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 export const SPDIV = ["1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2"];
@@ -71,7 +70,7 @@ export function decode(b, st) {
   if (u() !== slow) return false;
   if (slow === 0) {
     st.patch = u(); st.name = String.fromCharCode(...Array.from({ length: 8 }, u)).trim();
-    st.algo = u(); st.mac4 = u(); st.course = u(); st.fxOff = u();
+    st.algo = u(); st.dark = u(); st.course = u(); st.fxOff = u();
     st.rModel = u(); st.rRes = u(); st.rMix = u(); st.rNst = u();
     st.dType = [u(), u(), u(), u()]; st.dXover = u(); st.dFb = u(); st.dTame = u(); st.dMix = u();
     st.sTime = w() << 2; st.sMode = u(); st.sFb = u(); st.sDlevel = u(); st.sSize = u(); st.sDecay = u(); st.sRlevel = u();

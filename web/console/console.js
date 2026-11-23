@@ -3,7 +3,7 @@
 // CONSOLE (W1): everything the FM-1 does, at once, a ship's bridge of 1600 x 900 scaled to the window. Its frames
 // (frame.js) come from an FM-1 over USB MIDI (Web MIDI with SysEx: the page asks each second, the FM-1 sends 25 a
 // second while asked) or from the player under it (the firmware in this browser, ../app/player.js). Read only.
-import { newState, decode, isFrame, ASK, STOP, SRC_NAME, dstName, LSHAPE, SCALE, ROUTE, SHAPER, RMODEL, MAC4, MODE, KEY,
+import { newState, decode, isFrame, ASK, STOP, SRC_NAME, dstName, LSHAPE, SCALE, ROUTE, SHAPER, RMODEL, MODE, KEY,
          SPDIV, SDIV, AMODE, PAGE } from './frame.js';
 
 const $ = (id) => document.getElementById(id);
@@ -187,7 +187,7 @@ function out() {
 
 function macros() {
   const [w] = SZ.mac; let g = '';
-  ['MUTATE', 'MOVE', 'BREAK', MAC4[st.mac4] || 'MACRO 4'].forEach((n, i) => {
+  ['MUTATE', 'MOVE', 'BREAK', 'BODY'].forEach((n, i) => {
     const x = 8 + i * (w - 16) / 4, bw = (w - 16) / 4 - 14, hh = 92, v = st.mac[i] / 127;
     g += R(x, 4, bw, hh, DARK, LINE) + R(x, 4 + hh * (1 - v), bw, hh * v, 'rgba(205,230,240,.55)') +
          L(x - 3, 4 + hh * (1 - v), x + bw + 3, 4 + hh * (1 - v), v ? ICE : MUTE, 2) + t(x + bw / 2, hh + 18, n, ICE, 8, 'middle');
@@ -213,7 +213,7 @@ function macros() {
     g += t(x, SZ.mac[1] - 4, on ? bit((place - i + n) % n) : '·', i === place && on ? RED : on ? ICE : MUTE, 11, 'start', 700);
   }
   put('mac', g);
-  $('n-mac').textContent = `MACRO 4: ${MAC4[st.mac4] || '—'}`;
+  $('n-mac').textContent = `DARK ${Math.round((st.dark || 0) * 99 / 127)}`;
 }
 
 function lane(id, k) {

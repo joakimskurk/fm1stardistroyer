@@ -43,7 +43,8 @@ static const Knob KNOB[] = {
     KU("F CUTOFF", f_cut, 0, 65535), KU("F RES", f_res, 0, 65535),
     KU("S D-LEVEL", s_dlevel, 0, 65535), KU("S FDBK", s_fb, 0, 65535), KU("S R-LEVEL", s_rlevel, 0, 65535),
     KU("S DECAY", s_decay, 0, 65535), KU("S SIZE", s_size, 0, 65535),
-    KU("MUTATE", mac[0], 0, 65535), KU("MOVE", mac[1], 0, 65535), KU("BREAK", mac[2], 0, 65535), KU("MACRO 4", mac[3], 0, 65535),
+    KU("MUTATE", mac[0], 0, 65535), KU("MOVE", mac[1], 0, 65535), KU("BREAK", mac[2], 0, 65535), KU("BODY", mac[3], 0, 65535),
+    K8("AIR", mac_air, 0, 255), K8("DROWN", mac_drown, 0, 255),
 };
 #define NKNOB (sizeof KNOB / sizeof KNOB[0])
 
@@ -69,6 +70,7 @@ static SdPatch base(uint32_t i)                  /* as the app loads it: the fil
 #ifdef SD_MK_D
     sd_patch_levels(&p);                        /* (as the app loads it: onto the make-ups; a knob then turns that) */
 #endif
+    sd_patch_macros(&p);                        /* (the macros apart, as the app loads it) */
     return p;
 }
 

@@ -352,6 +352,7 @@ static int macros(const char *path, uint32_t patch)
     SdPatch p = *pat_of(patch);
     FILE *f = wav_open(path, frames);
     if (!f) return 1;
+    sd_patch_macros(&p);                        /* (the fourth BODY, as the app has it) */
     SD_INIT(&eng);
     sd_engine_patch(&eng, &p);
     eng.bpm = 110;
@@ -370,8 +371,7 @@ static int macros(const char *path, uint32_t patch)
         done += n;
     }
     fclose(f);
-    printf("macros -> %s (%s: MUTATE, MOVE, BREAK, %s)\n", path, pname(patch),
-           p.mac4 == SD_M4_AIR ? "AIR" : p.mac4 == SD_M4_DROWN ? "DROWN" : p.mac4 == SD_M4_CUTOFF ? "CUTOFF" : "BODY");
+    printf("macros -> %s (%s: MUTATE, MOVE, BREAK, BODY)\n", path, pname(patch));
     return 0;
 }
 

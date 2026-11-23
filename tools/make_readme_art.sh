@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")/.."
 python3 tools/gen_logo.py >/dev/null
 rm -f build/host/stardistroyer-*.png
-sh tests/run_host.sh tests/scripts/readme.txt >/dev/null
+HOST_DEFS=-DSD_HELP_MS=0 sh tests/run_host.sh tests/scripts/readme.txt >/dev/null   # (the hints, not the pages' first lines)
 python3 - <<'PY'
 from pathlib import Path
 from PIL import Image

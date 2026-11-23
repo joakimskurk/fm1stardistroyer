@@ -902,6 +902,19 @@ static void ota_frame_done(void)
 }
 #endif
 
+/* MIDI to a host that does not read (felucca-bsp 4649f1e, 7f86288; 2026-11-23): macOS polls the MIDI IN endpoint only
+ * while an app has the port open, so without one the clock and the notes filled the ring and came out later as a stale
+ * burst (64 clocks at once to a DAW opening the port). Past FELUCCA_MIDI_TX_STALL_POLLS polls with the packet still in
+ * the FIFO (50 ms at the 2 kHz poll), the notes and the clock that wait are dropped at each poll until the host takes
+ * that packet; the FIFO is not flushed (it may hold a SysEx answer's start) and SysEx is kept (an answer to what the host
+ * just asked). The update loader keeps Dinghy's code, byte for byte */
+#ifndef FELUCCA_MIDI_TX_STALL_POLLS
+#define FELUCCA_MIDI_TX_STALL_POLLS 100u
+#endif
+#if !(defined(FELUCCA_LOADER) && FELUCCA_LOADER)
+static uint32_t tx_wait;
+static uint8_t tx_deaf;                                 /* nobody reading: notes and clock dropped */
+#endif
 static void ep1_tx(void)
 {
     uint32_t csr, n = 0;
@@ -914,8 +927,22 @@ static void ep1_tx(void)
 #endif
     sie_wr(S_INDEX, 1);
     csr = sie_rd(S_TXCSR1);
+#if defined(FELUCCA_LOADER) && FELUCCA_LOADER
     if (csr & 0x01u)
         return;                                         /* previous packet still pending */
+#else
+    if (csr & 0x01u) {                                  /* previous packet still pending */
+        if (tx_wait < FELUCCA_MIDI_TX_STALL_POLLS)
+            tx_wait++;
+        else
+            tx_deaf = 1;                                /* nobody reads (the packet stays in the FIFO) */
+        if (tx_deaf)
+            mo_r = mo_w;                                /* the notes and the clock that wait: no stale burst later */
+        return;
+    }
+    tx_deaf = 0;                                        /* the host took the packet: it reads */
+    tx_wait = 0;
+#endif
     if (csr & 0x80u)
         sie_wr(S_TXCSR1, csr & ~0x80u);
 #if FELUCCA_OTA

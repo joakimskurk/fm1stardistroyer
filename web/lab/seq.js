@@ -243,7 +243,7 @@ export function buildSeq(Q) {
   const LANES = [['XPOS A', 'oXa', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`], ['XPOS B', 'oXb', 0, 24, (v) => `${v > 0 ? '+' : ''}${v}`],
     ['LANE 1', 'oLane', 0, 100, (v) => `${v > 0 ? '+' : ''}${v}%`], ['LANE 2', 'oLane', NS, 100, (v) => `${v > 0 ? '+' : ''}${v}%`],
     ['MUTATE', 'oMac', 0, 99, String], ['MOVE', 'oMac', NS, 99, String], ['BREAK', 'oMac', 2 * NS, 99, String],
-    ['MACRO 4', 'oMac', 3 * NS, 99, String]];
+    ['CUTOFF', 'oMac', 3 * NS, 99, String]];
   for (const [name, key, at, hi, fmt] of LANES) {
     const r = h('div', 'lane');
     r.append(h('span', 'lbl', name));

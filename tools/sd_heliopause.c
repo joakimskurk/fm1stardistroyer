@@ -437,7 +437,7 @@ static int lead_score(void)
     home_to(PG_MACROS, BAR(14) + 4);                    /* (MACROS: DROWN) */
     pot(__LINE__, 2600, BAR(14) + 4, BAR(16));
     if (at(BAR(17))) play(1);
-    KNOB99(PG_MACROS, pat.mac[3], 72, BAR(19), BAR(24));   /* MACRO 4: DROWN */
+    KNOB99B(PG_MACROS, pat.mac_drown, 72, BAR(19), BAR(24));   /* DROWN (MORE) */
     /* its last E, its echoes up */
     if (at(BAR(25))) play(0);
     fx_to(PG_TIME, BAR(25) + 1);

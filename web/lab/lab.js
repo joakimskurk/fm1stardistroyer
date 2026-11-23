@@ -142,7 +142,7 @@ function build() {
   {
     const b = mod('mac', 'MACROS');
     b.append(row('big', knob('.mac[0]', 'MUTATE', { size: 'l' }), knob('.mac[1]', 'MOVE', { size: 'l' }), knob('.mac[2]', 'BREAK', { size: 'l' }),
-      knob('.mac[3]', 'MACRO 4', { size: 'l' })), row('', seg('.mac4', 'MACRO 4 IS')));
+      knob('.mac[3]', 'BODY', { size: 'l' })), row('', knob('.mac_air', 'AIR'), knob('.mac_drown', 'DROWN')));
   }
   // the envelopes
   const env = (pre, id, title) => {

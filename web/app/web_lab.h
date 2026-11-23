@@ -264,8 +264,9 @@ static void lab_build(void)
     lab_add(G_MACRO, "MUTATE", P(mac[0]), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_MACRO, "MOVE", P(mac[1]), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_MACRO, "BREAK", P(mac[2]), LAB_U16, LAB_99, 0, 0, 65535);
-    lab_add(G_MACRO, "MACRO 4", P(mac[3]), LAB_U16, LAB_99, 0, 0, 65535);
-    lab_add(G_MACRO, "MACRO 4 KIND", P(mac4), LAB_U8, LAB_ENUM, LAB_E_M4, 0, SD_M4S - 1);
+    lab_add(G_MACRO, "BODY", P(mac[3]), LAB_U16, LAB_99, 0, 0, 65535);
+    lab_add(G_MACRO, "AIR", P(mac_air), LAB_U8, LAB_RAW, 0, 0, 255);
+    lab_add(G_MACRO, "DROWN", P(mac_drown), LAB_U8, LAB_RAW, 0, 0, 255);
     lab_add(G_MACRO, "FX OFF", P(fx_off), LAB_U8, LAB_HEX, 0, 0, 31);
     lab_add(G_RADAR, "ON + CHANGE", P(tur_set), LAB_U8, LAB_HEX, 0, 0, 255);
     lab_add(G_RADAR, "LENGTH + DIV", P(tur_ld), LAB_U8, LAB_HEX, 0, 0, 255);
@@ -273,7 +274,7 @@ static void lab_build(void)
     lab_add(G_RADAR, "AMOUNT %", P(tur_amt), LAB_I8, LAB_RAW, 0, -100, 100);
     lab_add(G_RADAR, "OFFSET %", P(tur_off), LAB_I8, LAB_RAW, 0, -100, 100);   /* (2026-11-21) */
     lab_add(G_MACRO, "TRIM 0.5dB", P(trim), LAB_I8, LAB_RAW, 0, SD_TRIM_LO, SD_TRIM_HI);   /* (2026-11-21) */
-    lab_add(G_MACRO, "LEVELS V", P(lv), LAB_U8, LAB_RAW, 0, 0, 3);
+    lab_add(G_MACRO, "LEVELS V", P(lv), LAB_U8, LAB_RAW, 0, 0, 7);   /* (bit 2: the macros apart, 2026-11-23) */
     lab_add(G_FILTER, "SUB LEVEL", P(sub_lvl), LAB_U16, LAB_99, 0, 0, 65535);   /* (2026-11-21) */
     lab_add(G_FILTER, "SUB SHAPE %", P(sub_shape), LAB_U8, LAB_RAW, 0, 0, 100);
     lab_add(G_FILTER, "SUB FOLLOWS", P(sub_src), LAB_U8, LAB_RAW, 0, 0, SD_SUBS - 1);

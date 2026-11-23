@@ -1,0 +1,13 @@
+# MAC1 (2026-11-23, the user: "MACRO 4's place is odd ... the synth's cutoff on the front"): HOME's MACROS. ALGORITHM
+# (1) +1: MORE; K1 (2) +7 BODY, K2 (3) +10 AIR, K3 (4) +5 DROWN, K4 (5) +20 DARK (shot 2300); ALGORITHM -1: MACROS;
+# K4 -8: CUTOFF down (shot 2800). Checked by tests/app_mac_test.c (with a patch saved before it: MACRO 4 as DROWN).
+1700 enc 1 1
+1900 enc 2 7
+2000 enc 3 10
+2100 enc 4 5
+2200 enc 5 20
+2300 shot
+2400 enc 1 -1
+2600 enc 5 -8
+2800 shot
+3000 end

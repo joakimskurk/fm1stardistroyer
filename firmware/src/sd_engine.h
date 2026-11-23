@@ -449,8 +449,10 @@ typedef struct {
     SdModSlot mod[SD_MODS];
     uint8_t lfo_shape[2], lfo_mode[2];          /* SD_LS_*; SD_LM_* */
     uint16_t lfo_rate[2];                       /* free: 0.02 .. 40 Hz (SD_LFO_INC); SYNC: a division, 0..65535 */
-    uint16_t mac[4];                            /* MUTATE MOVE BREAK MACRO 4, 0..65535: 0 = the patch as programmed */
-    uint8_t mac4, tur_set;                      /* MACRO 4's kind, SD_M4_*; RADAR: bit 7 on, bits 0..6 CHANGE % */
+    uint16_t mac[4];                            /* MUTATE MOVE BREAK BODY (MACRO 4 till 2026-11-23: of mac4's kind), 0..65535:
+                                                   0 = the patch as programmed */
+    uint8_t mac4, tur_set;                      /* MACRO 4's kind (SD_M4_*: read once, sd_patch_macros moves it to its
+                                                   own field); RADAR: bit 7 on, bits 0..6 CHANGE % */
     /* the filter: a lowpass on each voice, on its banks' carriers before the nav's balance; ENV3 on its cutoff.
        All zero: off (every patch before it plays as it did) */
     uint8_t f_type, f_key;                      /* SD_FT_*; KEY 0..100 % (100: the cutoff follows the note) */
@@ -480,7 +482,9 @@ typedef struct {
     uint16_t sub_lvl;                           /* SUB (2026-11-21, the user: "a sub osc that follows A, B or the root,
                                                    always an octave under"): its LEVEL, 0..65535 (0 off; at the top half
                                                    full scale under a full note), the voice's own envelope on it */
-    uint8_t sub_shape, sub_src;                 /* its SHAPE 0..100 % (SINE .. TRIANGLE); what it follows, SD_SUB_*.
+    uint8_t sub_shape, sub_src;                 /* its SHAPE 0..100 % (SINE .. TRIANGLE); what it follows, SD_SUB_*. */
+    uint8_t mac_air, mac_drown;                 /* AIR and DROWN, each its own knob on HOME's MORE beside BODY (mac[3])
+                                                   (2026-11-23), 0..255 (a byte each: the pool holds 32 saved patches).
                                                    Last, so an older save is this less them */
 } SdPatch;
 /* RADAR (RADAR on the screen since 2026-11-16), a modulation source: a looping shift register on the tempo, its four fields in the patch's four spare
@@ -1359,7 +1363,7 @@ static void sd_patch_levels(SdPatch *p)         /* a patch from before the make-
 {
     uint32_t k, st, keep = 0;
     int32_t c = sd_rmk(p->r_drive), q = sd_qmk(p->r_model, sd_rkk(p->r_res));
-    if (p->lv) return;
+    if (p->lv & 3u) return;
     for (k = 0; k < 4u; k++)
         p->d_level[k] = sd_law_up(p->d_level[k], sd_dmk(p->d_type[k] < SD_DSHAPES ? p->d_type[k] : SD_DS_NONE, p->d_gain[k], k));
     if (q)                                      /* (RES's: only if every stage level can take it back) */
@@ -1370,13 +1374,30 @@ static void sd_patch_levels(SdPatch *p)         /* a patch from before the make-
     if (c)
         for (st = 0; st < 6u; st++)
             for (k = 0; k < 4u; k++) p->stage[st].level[k] = sd_law_up(p->stage[st].level[k], c);
-    p->lv = (uint8_t)(keep ? 3u : 1u);
+    p->lv = (uint8_t)((p->lv & ~3u) | (keep ? 3u : 1u));
+}
+/* HOME's macros apart (2026-11-23, the user: "MACRO 4's place is odd"): BODY, AIR and DROWN each their own amount
+ * (mac[3], mac_air, mac_drown) where MACRO 4 was one of them (mac4) at mac[3]. A patch from before (lv bit 2 clear)
+ * has its MACRO 4 moved to its kind's field, sounding as it did (CUTOFF's, every cutoff down, is the player's DARK now:
+ * dropped). After sd_patch_levels (its mark is lv's bits 0 and 1) */
+static uint8_t sd_mac8(uint32_t v) { v = (v + 128u) >> 8; return (uint8_t)(v > 255u ? 255u : v); }   /* 0..65535 -> a byte */
+static void sd_patch_macros(SdPatch *p)
+{
+    uint16_t a = p->mac[3];
+    if (p->lv & 4u) return;
+    p->lv |= 4u;
+    if (p->mac4 == SD_M4_BODY) return;
+    p->mac[3] = 0;
+    if (p->mac4 == SD_M4_AIR) p->mac_air = sd_mac8(a);
+    else if (p->mac4 == SD_M4_DROWN) p->mac_drown = sd_mac8(a);
+    p->mac4 = SD_M4_BODY;
 }
 
 static void sd_engine_patch(SdEngine *e, const SdPatch *p)
 {
     SdPatch c = *p;
     sd_patch_levels(&c);                        /* (one from before the make-ups: as it sounded) */
+    sd_patch_macros(&c);                        /* (one from before HOME's MORE: its MACRO 4 to its own knob) */
     e->patch_seq++;
     SD_BARRIER();
     e->patch_in = c;
@@ -3489,6 +3510,19 @@ static void sd_add7(uint8_t *f, int32_t a)     /* an envelope's 0..127, by a (Q1
     *f = (uint8_t)(v < 0 ? 0 : v > 127 ? 127 : v);
 }
 SD_INLINE int32_t sd_mw(int32_t m, int32_t w) { return (m * w) >> 15; }   /* a macro (Q15) x its depth */
+#ifndef MV_CUT                                  /* (the macros' depths on the voice, 2026-11-23: tuned by measure,
+                                                   tools' maceff: each macro at full moves every patch) */
+#define MV_CUT 24000                            /* (MOVE: the filter down to 44 semitones a step, XM +-18 %; at full
+                                                   it moved 11 of 29 patches, now 28) */
+#define MV_XM 10000
+#define BD_DT 6000                              /* (BODY: it moved 21, now all 29; AIR 14, now 29; BREAK 26, now 29) */
+#define BD_FOLD 5000
+#define BD_CUT 3300
+#define AIR_CUT 7000
+#define AIR_WARP 4000
+#define BR_FOLD 12000
+#define BR_WARP 6000
+#endif
 
 SD_HOT static void sd_mod_restore(SdEngine *e)         /* every field the matrix and the macros write, from the base */
 {
@@ -3550,7 +3584,7 @@ SD_HOT static int32_t sd_seq_note_src(const SdEngine *e, uint32_t k)   /* a trac
 SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
 {
     SdPatch *p = &e->patch;
-    int32_t acc[SD_MDSTS], src[SD_MSRCS], m[4], mf = e->filt >> 1, semis = 0, tq = 0, lq = 0;
+    int32_t acc[SD_MDSTS], src[SD_MSRCS], m[4], ma, md, mf = e->filt >> 1, semis = 0, tq = 0, lq = 0;
     int32_t xp = 0, xs = 0, xl = 0;             /* (the tracks' notes to PITCH, FRZ PITCH, L-SPEED: semitones x 256) */
     int32_t tst = SD_TUR_ON(p) ? sd_tur_off(p, e->tur_out) : 0;   /* RADAR's step, unglided: to PITCH it is
                                                    quantized (its OFFSET in) */
@@ -3687,11 +3721,14 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
                 om[k] = v * 331;                /* 99: 32769 */
             }
         }
-        for (k = 0; k < 4u; k++) {
+        for (k = 0; k < 3u; k++) {
             int32_t v = (p->mac[k] >> 1) + om[k];
             m[k] = v < 0 ? 0 : v > 32767 ? 32767 : v;
             any |= (uint32_t)m[k];
         }
+        m[3] = p->mac[3] >> 1; ma = p->mac_air * 257 >> 1; md = p->mac_drown * 257 >> 1;   /* BODY AIR DROWN (HOME's MORE) */
+        any |= (uint32_t)(m[3] | ma | md);
+        if (om[3]) { acc[SD_MD_FCUT] += om[3]; any = 1; }   /* ORBIT's fourth: HOME's K4, the synth's CUTOFF */
     }
     for (k = 0; k < 6u; k++) {                  /* the drums' (theirs to read, not the patch's): the macros, the level,
                                                    PERC TUNE */
@@ -3767,6 +3804,11 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
         acc[SD_MD_Y] += sd_mw(e->move_cur[1], sd_mw(m[1], 11000));
         acc[SD_MD_RPOS] += sd_mw(e->move_cur[2], sd_mw(m[1], 16384));
         acc[SD_MD_WIDTH] += sd_mw(m[1], 13000);
+        /* (2026-11-23: it did little where the nav's corners or the Reactor are alike: the voice's own filter and
+           FM step too, so it moves every patch) */
+        acc[SD_MD_FCUT] += sd_mw((e->move_cur[2] - 32767) / 2, sd_mw(m[1], MV_CUT));   /* (down from where it is
+                                                   set: an open filter steps too) */
+        acc[SD_MD_XM] += sd_mw(e->move_cur[0], sd_mw(m[1], MV_XM));
     }
     if (m[2] && !e->base.d_mix) {               /* BREAK on a patch without DISTROY: one of its own, the lows clean,
                                                    SOFT and HARD on the top two bands, at unity (else BREAK only
@@ -3781,6 +3823,8 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
                                                    bands first, the lows nearly clean (it works best on the
                                                    top) */
         acc[SD_MD_RDRIVE] += sd_mw(m[2], 6000);   /* (12000: FUSION, its drive low, +3 dB louder) */
+        acc[SD_MD_FOLD] += sd_mw(m[2], BR_FOLD); acc[SD_MD_WARP] += sd_mw(m[2], BR_WARP);   /* (the voice broken too,
+                                                   2026-11-23: heard where DISTROY is quiet) */
         acc[SD_MD_DMIX] += sd_mw(m[2], 15000);   /* (no feedback: on a patch without its own, BREAK's 1 ms loop
                                                    howled on COMET and ION) */
         for (k = 0; k < 4u; k++) {
@@ -3791,32 +3835,35 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
                                                    its own -8.5 dB before 2026-11-21) */
         }
     }
-    if (m[3]) {                                 /* MACRO 4 */
-        if (p->mac4 == SD_M4_AIR) {             /* brightness and spread */
-            acc[SD_MD_RFREQ] += sd_mw(m[3], 8192);   /* +12 semitones */
-            acc[SD_MD_WIDTH] += sd_mw(m[3], 15000);
-            acc[SD_MD_DTAME] -= sd_mw(m[3], 15000);
-            sd_add16(&p->s_rtone, sd_mw(m[3], 20000));
-            sd_add16(&p->s_dtone, sd_mw(m[3], 20000));
-        } else if (p->mac4 == SD_M4_CUTOFF) {   /* (below, with FILTER) */
-        } else if (p->mac4 == SD_M4_DROWN) {    /* the room */
-            acc[SD_MD_SDLVL] += sd_mw(m[3], 12000); acc[SD_MD_SRLVL] += sd_mw(m[3], 14000);
-            acc[SD_MD_SDECAY] += sd_mw(m[3], 8000); acc[SD_MD_SFB] += sd_mw(m[3], 3000);   /* (8000 built up)*/
-            sd_add16(&p->s_size, sd_mw(m[3], 20000));
-        } else {                                /* BODY (the spec's MASS): weight and density */
-            acc[SD_MD_RRES] += sd_mw(m[3], 4000); acc[SD_MD_DTAME] += sd_mw(m[3], 12000);   /* (RES 8000 rang)*/
-            sd_add16(&p->r_low, sd_mw(m[3], 30000));
-            for (k = 0; k < 4u; k++) sd_adds16(&p->d_shape[k], -sd_mw(m[3], 20000));   /* toward PHAT */
-        }
+    if (m[3]) {                                 /* BODY (the spec's MASS): weight and density; on the voice too (its
+                                                   detune, its fold, the filter a little down), so it is heard where
+                                                   the Reactor and DISTROY are quiet (2026-11-23) */
+        acc[SD_MD_RRES] += sd_mw(m[3], 4000); acc[SD_MD_DTAME] += sd_mw(m[3], 12000);   /* (RES 8000 rang)*/
+        sd_add16(&p->r_low, sd_mw(m[3], 30000));
+        for (k = 0; k < 4u; k++) sd_adds16(&p->d_shape[k], -sd_mw(m[3], 20000));   /* toward PHAT */
+        acc[SD_MD_DT] += sd_mw(m[3], BD_DT); acc[SD_MD_FOLD] += sd_mw(m[3], BD_FOLD);
+        acc[SD_MD_FCUT] -= sd_mw(m[3], BD_CUT);
     }
-    {                                           /* every cutoff down together: MACRO 4's CUTOFF (2026-11-19, the user:
-                                                   "filter cutoff in the macros, maybe moving several cutoffs") and
-                                                   HOME's FILTER, the player's (K4, later that day: "filter on one of
-                                                   the K knobs"): the voices' FILTER from where it is set ~70
-                                                   semitones (12 kHz to ~200 Hz), DISTROY's TAME in, SPACE's two
-                                                   TONEs and the Reactor's FREQ down an octave; the FILTER switched
-                                                   off (EDIT) stays off */
-        int32_t c = (m[3] && p->mac4 == SD_M4_CUTOFF ? m[3] : 0) + mf;
+    if (ma) {                                   /* AIR: brightness and spread; the voice's filter up too (2026-11-23) */
+        acc[SD_MD_RFREQ] += sd_mw(ma, 8192);    /* +12 semitones */
+        acc[SD_MD_WIDTH] += sd_mw(ma, 15000);
+        acc[SD_MD_DTAME] -= sd_mw(ma, 15000);
+        sd_add16(&p->s_rtone, sd_mw(ma, 20000));
+        sd_add16(&p->s_dtone, sd_mw(ma, 20000));
+        acc[SD_MD_FCUT] += sd_mw(ma, AIR_CUT); acc[SD_MD_WARP] += sd_mw(ma, AIR_WARP);
+    }
+    if (md) {                                   /* DROWN: the room */
+        acc[SD_MD_SDLVL] += sd_mw(md, 12000); acc[SD_MD_SRLVL] += sd_mw(md, 14000);
+        acc[SD_MD_SDECAY] += sd_mw(md, 8000); acc[SD_MD_SFB] += sd_mw(md, 3000);   /* (8000 built up)*/
+        sd_add16(&p->s_size, sd_mw(md, 20000));
+    }
+    {                                           /* every cutoff down together: HOME's DARK, the player's (FILTER on
+                                                   K4 2026-11-19, the user: "filter on one of the K knobs"; on MORE
+                                                   since 2026-11-23, K4 the synth's own CUTOFF): the voices' FILTER
+                                                   from where it is set ~70 semitones (12 kHz to ~200 Hz), DISTROY's
+                                                   TAME in, SPACE's two TONEs and the Reactor's FREQ down an octave;
+                                                   the FILTER switched off (EDIT) stays off */
+        int32_t c = mf;
         if (c > 32767) c = 32767;
         if (c) {
             sd_add16(&p->f_cut, -sd_mw(c, 40000));

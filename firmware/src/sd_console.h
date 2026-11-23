@@ -24,7 +24,7 @@
  *        127 open), the four macros, RADAR's 16 bits (7, 7, 2), its place and its value, LFO 1 and 2 (signed + 64),
  *        ENV 1-3 of the last voice, the eight slots' value now (source x AMOUNT, signed + 64), SEQ A's and B's step
  *        now and note now, ORBIT's step and its loops so far, ARP's note now (0 none), the wheel, aftertouch
- *  SLOW  0 the sound: the patch's number and its name (8), ALGORITHM, MACRO 4's kind, COURSE, the engines off,
+ *  SLOW  0 the sound: the patch's number and its name (8), ALGORITHM, HOME's DARK (0..127), COURSE, the engines off,
  *        the Reactor's model, RES, MIX and stages in use, DISTROY's shapers (4), the crossover, its loop's FDBK,
  *        TAME, MIX, the delay's TIME (14), its mode (SYNC, PP, SHIMMER), FDBK, LEVEL, the plate's SIZE, DECAY,
  *        LEVEL, FREEZE PITCH (+ 64), the looper's LENGTH (14), SPEED (+ 64), its level, the LFOs' shapes, modes
@@ -136,7 +136,7 @@ static uint32_t sd_con_frame(uint8_t *o0)       /* the next frame into o0 (SD_CO
         o = con_b(o, set.patch);
         for (i = 0; i < 8u; i++) { o = con_b(o, *nm ? *nm : ' '); if (*nm) nm++; }
         o = con_b(o, (int32_t)algo_of(p));
-        o = con_b(o, p->mac4); o = con_b(o, p->course); o = con_b(o, p->fx_off);
+        o = con_b(o, eng.filt >> 9); o = con_b(o, p->course); o = con_b(o, p->fx_off);
         o = con_b(o, p->r_model); o = con_b(o, p->r_res >> 9); o = con_b(o, p->r_mix >> 9); o = con_b(o, SD_R_NST(p));
         for (i = 0; i < 4u; i++) o = con_b(o, p->d_type[i]);
         o = con_b(o, p->d_xover); o = con_b(o, p->d_fb >> 9); o = con_b(o, p->d_tame >> 9); o = con_b(o, p->d_mix >> 9);

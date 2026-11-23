@@ -164,6 +164,9 @@ static uint16_t u99(int32_t d) { d = d < 0 ? 0 : d > 99 ? 99 : d; return (uint16
 #define KNOB99(pg, field, to, s0, s1) do { int32_t v_; on_ramp_page(pg, s0, s1); \
     if (ramp(__LINE__, (int32_t)d99(field), to, s0, s1, &v_)) { field = u99(v_); dirty = 1; } } while (0)
 static void on_ramp_page(int pg, double s0, double s1) { if (q >= s0 && pq <= s1) on_page(pg, "a knob of another page"); }
+#define KNOB99B(pg, field, to, s0, s1) do { int32_t v_; on_ramp_page(pg, s0, s1); \
+    if (ramp(__LINE__, (int32_t)d99(field * 257u), to, s0, s1, &v_)) { field = sd_mac8(u99(v_)); dirty = 1; } } while (0)
+                                                /* (a byte's knob, 0..255: HOME's AIR and DROWN, as the app keeps them) */
 #define HOME_FILTER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_MACROS, s0, s1); \
     if (ramp(__LINE__, (int32_t)d99(65535u - e.filt), to, s0, s1, &v_)) e.filt = (uint16_t)(65535u - u99(v_)); } while (0)
                                                 /* (MACROS' K4 FILTER, the player's: 99 open, every cutoff down
@@ -178,7 +181,8 @@ static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned t
     if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
     act();
     pat = SD_DPATCH[i];
-    sd_patch_levels(&pat);                      /* (as the app's patch_load: onto the make-ups) */
+    sd_patch_levels(&pat);                      /* (as the app's patch_load: onto the make-ups, the macros apart) */
+    sd_patch_macros(&pat);
     gen = 0xFFFFFFFFu;
     dirty = 1;
     snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_DPATCH_NAME[i]);
@@ -191,6 +195,7 @@ static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past th
     act();
     pat = *p;
     sd_patch_levels(&pat);
+    sd_patch_macros(&pat);
     gen = 0xFFFFFFFFu;
     dirty = 1;
     snprintf(t, sizeof t, "PRESETS: %s", name);

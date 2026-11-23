@@ -212,24 +212,30 @@ static void test_drums(void)
             CHECK(hits[2] == 0u, "MUTE: %u hits", hits[2]);
         }
     }
-    {                                           /* FILTER (HOME's K4, 2026-11-19): closed, MACRO 4's CUTOFF at full,
-                                                   sample for sample; open, the patch */
-        SdPatch p = SD_PATCH[0];
-        uint32_t n = SD_FS, same = 1, moved = 0;
-        for (side = 0; side < 2u; side++) {
-            SdEngine *e = side ? &e2 : &e1;
-            SdPatch q = p;
-            if (!side) { q.mac4 = SD_M4_CUTOFF; q.mac[3] = 65535u; }
-            sd_engine_init(e);
-            sd_engine_patch(e, &q);
-            e->filt = side ? 65535u : 0u;
-            sd_engine_note(e, 57, 110);
-            run(e, side ? b : a, n, 256);
-        }
-        for (i = 0; i < 2u * n; i++) same &= a[i] == b[i];
-        sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 57, 110); run(&e1, a, n, 256);
+    {   /* HOME's macros apart (2026-11-23): a patch from before, MACRO 4 as AIR (then DROWN) at an amount, is sample
+           for sample the same amount on AIR (DROWN) now; and DARK at full moves the sound */
+        uint32_t n = SD_FS / 2u, kind, same = 1, moved = 0;
+        for (kind = SD_M4_AIR; kind <= SD_M4_DROWN; kind++)
+            for (side = 0; side < 2u; side++) {
+                SdEngine *e = side ? &e2 : &e1;
+                SdPatch q = SD_PATCH[0];
+                q.lv = (uint8_t)(q.lv & ~4u);
+                if (!side) { q.mac4 = (uint8_t)kind; q.mac[3] = 40000u; }
+                else {
+                    q.lv |= 4u; q.mac4 = SD_M4_BODY; q.mac[3] = 0;
+                    if (kind == SD_M4_AIR) q.mac_air = sd_mac8(40000u); else q.mac_drown = sd_mac8(40000u);
+                }
+                sd_engine_init(e);
+                sd_engine_patch(e, &q);
+                sd_engine_note(e, 57, 110);
+                run(e, side ? b : a, n, 256);
+                if (side) for (i = 0; i < 2u * n; i++) same &= a[i] == b[i];
+            }
+        sd_engine_init(&e1); sd_engine_patch(&e1, &SD_PATCH[0]); e1.filt = 65535u; sd_engine_note(&e1, 57, 110);
+        run(&e1, a, n, 256);
+        sd_engine_init(&e2); sd_engine_patch(&e2, &SD_PATCH[0]); sd_engine_note(&e2, 57, 110); run(&e2, b, n, 256);
         for (i = 0; i < 2u * n; i++) moved |= a[i] != b[i];
-        CHECK(same && moved, "FILTER: closed as MACRO 4's CUTOFF at full (%u), and not the patch open (%u)", same, moved);
+        CHECK(same && moved, "MACROS: an old MACRO 4 as AIR and DROWN where it was (%u); DARK at full moves (%u)", same, moved);
     }
     (void)en;
 }
@@ -3177,32 +3183,32 @@ static void test_mod(void)
     CHECK(abs((int)e1.pmul - 32768) < 200, "PITCH at -12: x %.4f", e1.pmul / 65536.0);
     /* the restore knows every field the modulation writes: everything at full, then put back, is the base again */
     {
-        uint32_t d, kind;
-        for (kind = 0; kind < SD_M4S; kind++) {
-            p = SD_PATCH[SD_P_DISTROY];
-            for (d = 1; d < SD_MDSTS && d - 1u < SD_MODS * 3u; d++)
-                p.mod[(d - 1u) % SD_MODS] = (SdModSlot){(uint8_t)(1u + d % (SD_MSRCS - 1u)), (uint8_t)d, 32767};
-            for (k = 0; k < 4u; k++) p.mac[k] = 65535;
-            p.mac4 = (uint8_t)kind;
-            mod_init(&e1, &p);
-            sd_engine_note(&e1, 60, 127);
-            e1.wheel = e1.after = 127;
-            for (d = 1; d < SD_MDSTS; d++) {    /* each destination in turn in slot 1, so all get written */
-                e1.base.mod[0] = (SdModSlot){SD_MS_WHEEL, (uint8_t)d, 32767};
-                e1.patch.mod[0] = e1.base.mod[0];
-                mod_run(&e1, &p, 1);
-            }
-            sd_mod_restore(&e1);
-            CHECK(!memcmp(&e1.patch, &e1.base, sizeof e1.patch), "MACRO 4 kind %u: the restore misses a field", kind);
+        uint32_t d;
+        p = SD_PATCH[SD_P_DISTROY];
+        for (d = 1; d < SD_MDSTS && d - 1u < SD_MODS * 3u; d++)
+            p.mod[(d - 1u) % SD_MODS] = (SdModSlot){(uint8_t)(1u + d % (SD_MSRCS - 1u)), (uint8_t)d, 32767};
+        for (k = 0; k < 4u; k++) p.mac[k] = 65535;
+        p.mac_air = p.mac_drown = 255;
+        mod_init(&e1, &p);
+        e1.filt = 65535u;
+        sd_engine_note(&e1, 60, 127);
+        e1.wheel = e1.after = 127;
+        for (d = 1; d < SD_MDSTS; d++) {        /* each destination in turn in slot 1, so all get written */
+            e1.base.mod[0] = (SdModSlot){SD_MS_WHEEL, (uint8_t)d, 32767};
+            e1.patch.mod[0] = e1.base.mod[0];
+            mod_run(&e1, &p, 1);
         }
+        sd_mod_restore(&e1);
+        CHECK(!memcmp(&e1.patch, &e1.base, sizeof e1.patch), "every macro and DARK at full: the restore misses a field");
     }
-    {   /* MACRO 4 CUTOFF (2026-11-19, the user): every cutoff down together; at 0 the FILTER open and not run */
+    {   /* DARK (HOME's MORE, the user's FILTER of 2026-11-19): every cutoff down together; at 0 the FILTER open and
+           not run */
         uint32_t m;
         for (m = 0; m < 2u; m++) {
             p = SD_PATCH[SD_P_DISTROY];
             p.f_type = SD_FT_LP12; p.f_cut = SD_FCUT_OPEN;
-            p.mac4 = SD_M4_CUTOFF; p.mac[3] = m ? 65535 : 0;
             mod_init(&e1, &p);
+            e1.filt = m ? 65535u : 0u;
             sd_engine_note(&e1, 60, 100);
             mod_run(&e1, &p, 4);
             if (!m) CHECK(e1.patch.f_cut == SD_FCUT_OPEN && !e1.f_live, "CUTOFF at 0: the filter at %u, run %u", e1.patch.f_cut, e1.f_live);
@@ -3211,7 +3217,7 @@ static void test_mod(void)
                        "CUTOFF at full: FILTER %u, TAME %u (%u), TONEs %u %u", e1.patch.f_cut, e1.patch.d_tame,
                        e1.base.d_tame, e1.patch.s_rtone, e1.patch.s_dtone);
         }
-        printf("mod: MACRO 4 CUTOFF at full: the FILTER 12 kHz -> MIDI %u, TAME in, both TONEs down; at 0 open, not run\n",
+        printf("mod: DARK at full: the FILTER 12 kHz -> MIDI %u, TAME in, both TONEs down; at 0 open, not run\n",
                16u + (uint32_t)e1.patch.f_cut * 114u / 65536u);
     }
     /* every destination by every LFO shape at +-100 %, and every macro of every kind at full, on every patch: in
@@ -3220,7 +3226,7 @@ static void test_mod(void)
         static int32_t o[2u * 2048u];
         uint32_t d, pi, worst = 0;
         for (pi = 0; pi < SD_PATCHES; pi++)
-            for (d = 1; d < SD_MDSTS + 3u; d++) {
+            for (d = 1; d < SD_MDSTS + 2u; d++) {
                 int32_t pk = 0;
                 uint32_t i;
                 p = SD_PATCH[pi];
@@ -3233,9 +3239,10 @@ static void test_mod(void)
                     p.lfo_rate[0] = 60000; p.lfo_rate[1] = 50000;
                 } else {
                     for (k = 0; k < 4u; k++) p.mac[k] = 65535;
-                    p.mac4 = (uint8_t)(d - SD_MDSTS);
+                    p.mac_air = p.mac_drown = 255;
                 }
                 mod_init(&e1, &p);
+                if (d == SD_MDSTS + 1u) e1.filt = 65535u;
                 sd_engine_note(&e1, 48, 127);
                 for (t = 0; t < 20u; t++) {
                     memset(o, 0, sizeof o);
