@@ -210,11 +210,10 @@
 
   <section class="panel" id="overview" role="tabpanel">
   <div class="notes">
-    <p class="warn" role="note"><b>⚠ The second beta, not yet tried on a real FM-1.</b> Star Distroyer is built and tested
-      on a computer and in the FM-1 emulator, but no FM-1 has run it yet. Install it at your own risk, and back up your
-      FM-1 first. What you save may not load in the next beta.</p>
+    <p class="warn" role="note"><b>⚠ The second beta.</b> Each version of Star Distroyer is played on an FM-1, and tested on a
+      computer and in the FM-1 emulator. Install it at your own risk, and back up your FM-1 first. What you save may not load in the next beta.</p>
     <p class="testers" role="note"><b>Testers wanted.</b> Have an FM-1, and know how to get it back (below the Install
-      button)? Be the first to play Star Distroyer on one, and tell how it went in an
+      button)? Play Star Distroyer on yours, and tell how it went in an
       <a href="https://github.com/joakimskurk/fm1stardistroyer/issues/new?title=Tried+on+an+FM-1">issue on GitHub</a>:
       what worked, what did not, what the screen showed, and how it sounded.</p>
   </div>
@@ -515,8 +514,8 @@
       <li>Connect the FM-1 <b>directly</b> to the computer with a USB data cable, and switch it on.</li>
       <li>Close other apps that use MIDI, tick the box, press <b>Install</b> and allow MIDI when the browser asks.</li>
     </ol>
-    <label class="ack"><input type="checkbox" id="ack"><span>I understand that Star Distroyer has not been tried on a
-      real FM-1 yet, that I should back up my FM-1 first, and that I install it at my own risk.</span></label>
+    <label class="ack"><input type="checkbox" id="ack"><span>I understand that Star Distroyer is a beta, that I should back
+      up my FM-1 first, and that I install it at my own risk.</span></label>
     <button id="go" disabled>Install</button>
     <progress id="bar" max="100" value="0"></progress>
     <p id="status">Loading the firmware…</p>
@@ -675,7 +674,7 @@ const TEXT = {
 const say = (k, arg = "", cls = "") => { const s = $("status"); s.textContent = (TEXT[k] ?? k) + arg; s.className = cls; };
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null, writing = false;
-const lock = (on) => { writing = on; $("go").disabled = on || !image || !$("ack").checked; };   /* (not tried on an FM-1: the box first) */
+const lock = (on) => { writing = on; $("go").disabled = on || !image || !$("ack").checked; };   /* (a beta: the box first) */
 $("ack").addEventListener("change", () => lock(writing));
 window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault(); e.returnValue = TEXT.leave; } });
 $("dl").href = meta.pkg;

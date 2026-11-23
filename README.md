@@ -9,7 +9,7 @@
 
 <p align="center">
   <img alt="M-VAVE FM-1 firmware" src="https://img.shields.io/badge/M--VAVE_FM--1-firmware-EB1C1C?style=flat-square&labelColor=06080C">
-  <img alt="Status: a beta, not yet tested on an FM-1" src="https://img.shields.io/badge/status-beta-CDE6F0?style=flat-square&labelColor=06080C">
+  <img alt="Status: a beta" src="https://img.shields.io/badge/status-beta-CDE6F0?style=flat-square&labelColor=06080C">
   <img alt="Built on Dinghy 0.5" src="https://img.shields.io/badge/built_on-Dinghy_0.5-546874?style=flat-square&labelColor=06080C">
   <img alt="Licence GPL-3.0" src="https://img.shields.io/badge/licence-GPL--3.0-546874?style=flat-square&labelColor=06080C">
 </p>
@@ -31,9 +31,9 @@ feeding a plate. Around them
 are a modulation matrix with RADAR (a loop of random steps), four macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
-> **Status:** the second beta, [0.3-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta). Everything here
-> runs on the host (the same C, the sound as WAV, the screen as images) and in the FM-1 emulator, but it has **not yet
-> been tested on a real FM-1**: install it only if you are ready to take the way back (Install, below). What you save
+> **Status:** the second beta, [0.3-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta). Each version is
+> played on an FM-1, and everything here also runs on the host (the same C, the sound as WAV, the screen as images) and
+> in the FM-1 emulator. Install it only if you are ready to take the way back (Install, below). What you save
 > may not load in the next beta: the saves can change until 1.0.
 
 <p align="center">
@@ -569,9 +569,9 @@ Chrome, Edge or Brave and can be copied anywhere; EXPORT moves a patch between b
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
 The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta): `stardistroyer-0.3-beta.fwsc` is the FM-1's (the `-smk37` packages are the
-SMK-37's, untested on one too). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
+SMK-37's, not yet tried on one). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
 of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
-`tools/fm1_install.py`. Either way, installing it is on you: it has not been tried on a real FM-1 yet.
+`tools/fm1_install.py`. Either way, installing it is on you.
 
 1. **Back up your FM-1's flash first**, with M-Flasher or MvaveFM1Unbricker. Star Distroyer saves where the Felucca
    family keeps its data (settings at 0xFC000, patches and patterns from 0x97000). It reads only its own saves, and
