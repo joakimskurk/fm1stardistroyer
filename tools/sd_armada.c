@@ -236,7 +236,7 @@ static int score(void)
     pot(__LINE__, 1800, 0, BAR(4));                /* MASTER: the horizon quiet, then up section by section */
     pot(__LINE__, 2100, BAR(5), BAR(9));
     fx_to(PG_SPACE, T(1, 4));                   /* (FX: REACTOR, DISTROY, SPACE) */
-    SHIMMER(24, T(2, 0), T(5, 0));              /* GLO + K1: SHIMMER up */
+    SHIMMER(24, T(2, 0), T(5, 0));              /* FREEZE's K3: SHIMMER up */
     seq_to(PG_SEQA, T(7, 0));
     if (at(T(7, 2))) pattern(0, &OSTI, "OSTINATO (the D pedal, 16ths)");   /* (in at A's one: bar 9) */
     fx_to(PG_SPACE, T(7, 4));
@@ -342,7 +342,7 @@ static int score(void)
     arp_to(PG_LOOP, T(49, 9));
     if (at(BAR(50))) loop_toggle();             /* the final bar held */
     if (at(T(50, 2))) reverse_toggle();
-    if (at(T(50, 4))) loop_octave(0);           /* GLO + OCT-: an octave down, over a bar */
+    if (at(T(50, 4))) loop_octave(0);           /* TOOLS' OCTAVE down: an octave down, over a bar */
     LP_LEVEL(1, T(51, 0), T(52, 14));           /* K4: L-LEVEL out, to 1 (armed still) */
     pot(__LINE__, 2400, T(50, 0), BAR(53));
     if (at(BAR(53))) loop_toggle();             /* the loop let go */

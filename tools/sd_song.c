@@ -116,7 +116,7 @@ static void verse(double s0)                    /* the verse melody on A, the ba
     if (at(S(2))) press("FX", PG_REACTOR);
     on_ramp_page(PG_REACTOR, S(4), S(120));
     if (ramp(__LINE__, pat.r_pos / 26, 900 / 26, S(4), S(120), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
-    if (at(S(126))) { on_page(PG_REACTOR, "MODEL off REACTOR"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("GLO + K2: MODEL BP12"); }
+    if (at(S(126))) { on_page(PG_REACTOR, "MODEL off REACTOR"); act(); pat.r_model = SD_RM_BP12; dirty = 1; say("TONE K2: MODEL BP12"); }
     on_ramp_page(PG_REACTOR, S(132), S(232));
     if (ramp(__LINE__, pat.r_pos / 26, 520 / 26, S(132), S(232), &v)) { pat.r_pos = (uint16_t)(v * 26); dirty = 1; }
     KNOB99(PG_REACTOR, pat.r_res, 66, S(140), S(220));
@@ -256,7 +256,7 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     if (at(S(35))) press("FX", PG_TIME);         /* (TIME before SPACE since 2026-11-21) */
     if (at(S(36))) press("FX", PG_SPACE);
     KNOB99(PG_SPACE, pat.s_fb, 62, S(38), S(80));
-    KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* GLO + K1: D-LEVEL */
+    KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* TIME's K4: D-LEVEL */
     pot(__LINE__, 1500, S(64), S(150));
     KNOB99(PG_SPACE, pat.s_fb, 22, S(156), S(172));    /* the echoes let go */
     if (at(S(128))) play(0);                    /* the chords stop; the arp plays on, alone */

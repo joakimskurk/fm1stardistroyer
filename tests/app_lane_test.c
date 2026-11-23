@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 joakimskurk */
-/* The app on the host with tests/scripts/ob2.txt: an ORBIT lane with no destination picks one on its own knob (GLO's
- * layer, K3), then the knob is its amount (2026-11-21, the user could not find the destinations in SETUP). Run by
- * tests/run_tests.sh */
+/* The app on the host with tests/scripts/ob2.txt: an ORBIT lane picks its destination on DEST beside it (LANE's
+ * layer: K1 DEST 1, K2 LANE 1; 2026-11-22), then K2 is its amount at the step (2026-11-21, the user could not find
+ * the destinations in SETUP). Run by tests/run_tests.sh */
 #include <unistd.h>
 #include "stardistroyer.c"
 __attribute__((destructor)) static void lane_check(void)
@@ -15,5 +15,5 @@ __attribute__((destructor)) static void lane_check(void)
         fflush(stdout);
         _exit(1);
     }
-    printf("ok    ORBIT's lane 1 picked its destination on its knob (%s), then its amount %+d %%\n", DST_NAME[d % SD_MDSTS], a);
+    printf("ok    ORBIT's lane 1 picked its destination beside it (%s), then its amount %+d %%\n", DST_NAME[d % SD_MDSTS], a);
 }

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 joakimskurk */
 /* The app on the host (tests/host.c through stardistroyer.c), then a look at what the script left: the demo from
- * SETUP (tests/scripts/dm1.txt: ALGORITHM a detent, OCT+, still playing at the end: at its tempo, its renders on);
+ * SETUP (tests/scripts/dm1.txt: TOOLS' K1, OCT+, still playing at the end: at its tempo, its renders on);
  * dm2.txt: PLAY stops it, and all the player had in the engine is back (the patch, the patterns, ORBIT, the tempo,
- * the mode, stopped); dm3.txt: ALGORITHM two detents, DEMO 2, ARMADA with its drums. Run by tests/run_tests.sh */
+ * the mode, stopped); dm3.txt: TOOLS' K2, DEMO 2, ARMADA with its drums. Run by tests/run_tests.sh */
 #include <unistd.h>
 #include "stardistroyer.c"
 __attribute__((destructor)) static void demo_check(void)

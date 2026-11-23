@@ -1,7 +1,7 @@
 # The README's screens (tools/make_readme_art.sh names them by their times): the splash, then each page while
 # DISTROY's loop plays, the macros up; RADAR on (to XM, 30 %, the first EDIT's MOD slot) on LFO's third page; ORBIT (SEQ's third), the song:
 # SEQ A's line saved P01 (SAVE 9 twice), SEQ B's RANDOM (ALGORITHM +4: TOOLS, K1; back to STEP) P02, ORBIT on, four steps: P01 two loops; P01 and
-# P02 +5; P01 and P02 +7, two loops; P01 -2 (SEQ A K1, SEQ B K2, LOOPS K4; GLO: XPOS A K1, XPOS B K2; SELECT the step); then DRUM (SEQ again),
+# P02 +5; P01 and P02 +7, two loops; P01 -2 (SEQ A K1, SEQ B K2, LOOPS K4; ALGORITHM +1, PITCH: XPOS A K1, XPOS B K2, then -1; SELECT the step); then DRUM (SEQ again),
 # EDIT on: the beat in at the one, playing. Then the pages the README had no screen of (2026-11-21, for the site's
 # every page): HOME twice, SETUP; FX round to TIME (SPACE, REACTOR, DISTROY, TIME: the delay on already); ENV round to
 # SUB (FILTER, ENV, SUB), EDIT: SUB on; LFO to LFO 2 (MOD, LFO 1, LFO 2); ARP to LOOPER, EDIT arms it; SEQ to SEQ B
@@ -71,24 +71,24 @@
 15100 enc 0 1
 15200 enc 2 1
 15300 enc 3 2
-15350 btndown 7
+15350 enc 1 1
 15400 enc 2 5
 15420 enc 3 5
-15450 btnup 7
+15450 enc 1 -1
 15500 enc 0 1
 15600 enc 2 1
 15700 enc 3 2
-15750 btndown 7
+15750 enc 1 1
 15800 enc 2 7
 15820 enc 3 7
-15850 btnup 7
+15850 enc 1 -1
 15900 enc 5 1
 16000 enc 0 1
 16100 enc 2 1
-16150 btndown 7
+16150 enc 1 1
 16200 enc 2 -2
 16220 enc 3 -2
-16250 btnup 7
+16250 enc 1 -1
 16300 enc 0 -2
 17400 shot
 17500 btn 11

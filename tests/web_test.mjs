@@ -78,21 +78,24 @@ ppm(x, 'reactor');
 check(differ(before, lcd(x)) > 2000, 'FX turns the page (REACTOR)');
 check(((x.web_leds(0) >>> BTN.FX) & 1) === 1, 'FX lit there');
 
-tap(x, BTN.GLO);                                   // GLO tapped: the second layer, latched (the names red)
-run(x, 600);
+x.web_enc(ENC.ALGORITHM, 1);                       // ALGORITHM: REACTOR's next layer, TONE (2026-11-22: the knobs'
+run(x, 600);                                       // layers on ALGORITHM everywhere; GLO's till then)
 const held = lcd(x);
-ppm(x, 'reactor-glo');
-check(((x.web_leds(0) >>> BTN.GLO) & 1) === 1, 'GLO lit while the second layer is latched');
-tap(x, BTN.GLO);                                   // GLO tapped again: let go
+ppm(x, 'reactor-tone');
+x.web_enc(ENC.ALGORITHM, -1);                      // and back: REACT
 run(x, 200);
-check(differ(held, lcd(x)) > 50, 'a GLO tap latches the second layer, a tap again the first');
-tap(x, BTN.GLO);                                   // latched again, then a page button: let go (2026-11-17)
+check(differ(held, lcd(x)) > 50, 'ALGORITHM turns the knobs\' layer, and back');
+tap(x, BTN.GLO);                                   // GLO tapped on REACTOR: nothing to do there, so dark (2026-11-22)
 run(x, 200);
-tap(x, BTN.ENV);
+check(((x.web_leds(0) >>> BTN.GLO) & 1) === 0, 'GLO stays dark where it does nothing (REACTOR)');
+tap(x, BTN.HOME);                                  // MACROS: GLO tapped, latched (lit: the switches on the keys)
+run(x, 200);
+tap(x, BTN.GLO);
+run(x, 200);
+check(((x.web_leds(0) >>> BTN.GLO) & 1) === 1, 'GLO lit while it is latched (MACROS)');
+tap(x, BTN.FX);                                    // a page button lets it go (2026-11-17); back on REACTOR
 run(x, 200);
 check(((x.web_leds(0) >>> BTN.GLO) & 1) === 0, 'a page button lets a latched GLO go');
-tap(x, BTN.FX);                                    // (back to the FX page, as the test goes on from there)
-run(x, 200);
 
 tap(x, BTN.HOME); run(x, 100); tap(x, BTN.HOME);   // MACROS, SETUP (NAV is ENV's since 2026-11-21)
 run(x, 200);

@@ -5,7 +5,7 @@
   and played it: the CPU read 90 to 100 %, the work now; then W1, the console page; the install always needs the user's go-ahead).
   Two cores again since 2026-11-19 (the plate, the drums and half of each sub-block on the second, `SD_C1_HALVES`:
   an hour on the user's FM-1 at 63 %, no misread): the crash at the boot loader's core supplies is gone
-  with M-VAVE's own raised at the boot (hal/fm1_sys.h `fm1_supply_stock`; Sound Plan 6.8); SETUP's CORES (GLO + K2)
+  with M-VAVE's own raised at the boot (hal/fm1_sys.h `fm1_supply_stock`; Sound Plan 6.8); SETUP's CORES (K2 on its MORE layer)
   one from the next start; a one-core build `DINGHY_DEFS=-DSD_TWO_CORES=0`; the SMK-37 one core. The
   diagnosis over USB (`build/fm1_diag -w 250 -o build/diag.txt`, tools/fm1_diag.c) reads the device as it plays. The sequencer: docs/sd/ Sequencer Plan (the
   reference, v0.3); `firmware/src/sd_seq.h`. The plans hold the design and what each step decided, not a log: the
@@ -72,7 +72,7 @@
   sample; a field added to SdPatch goes in that table, or the test fails). In
   `stardistroyer.c`, `DINGHY_WEB` makes `app_main` one pass a call (`APP_STATE`); keep its loop free of `continue`
   and `return`.
-- The FM-1's demos (SETUP's ALGORITHM: DEMO 1, DEMO 2) are SINGULARITY and ARMADA recorded as what they do to the
+- The FM-1's demos (SETUP's TOOLS: DEMO 1, DEMO 2) are SINGULARITY and ARMADA recorded as what they do to the
   engine (`tools/sd_demo_rec.c` -> `firmware/src/sd_demo.h`, `sd_demo2.h`, never edited by hand): `tests/run_sd.sh`
   fails while a header is not its performance's recording (after a change to `tools/sd_singularity.c`,
   `tools/sd_armada.c`, `tools/sd_play.h`, the structs or `sd_demo_fmt.h`'s scalars): run `tools/make_demo.sh`.

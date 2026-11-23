@@ -1,8 +1,8 @@
-# DM3 (2026-11-21, the second demo): HOME (8): SETUP; ALGORITHM (1) two detents: DEMO 2 ARMADA? (shot 2200); OCT+
-# (1): it plays (shot 30000: bar 12, the drums in). Ends playing: tests/app_demo_test.c checks.
+# DM3 (2026-11-21, the second demo): HOME (8): SETUP; ALGORITHM (1) +2: TOOLS, K2 (3) a detent: DEMO 2 ARMADA?
+# (shot 2200); OCT+ (1): it plays (shot 30000: bar 12, the drums in). Ends playing: tests/app_demo_test.c checks.
 1800 btn 8
-2000 enc 1 1
-2100 enc 1 1
+1900 enc 1 2
+2100 enc 3 1
 2200 shot
 2300 btn 1
 30000 shot

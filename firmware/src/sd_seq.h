@@ -84,7 +84,8 @@ SD_HOT static uint32_t sd_pat_key(const SdPattern *p)
  * loops of the master long (1..8: a step changes at its one), each naming the pattern SEQ A and SEQ B play there (0:
  * as they play, the player's; 1..32 the saved P01..P32, loaded at the one from their step 1) and the drums' beat (a
  * place D01..D16, the drums on; or off; at the bar's one), and a change from where
- * the player is: SEQ A's and B's transpose, two free lanes (each its matrix DEST), the four macros (0 changes
+ * the player is: SEQ A's and B's transpose, the LOOPER's and the frozen tail's pitch (2026-11-22, the user: "I miss
+ * pitch on the loop and FREEZE in ORBIT"), two free lanes (each its matrix DEST), the four macros (0 changes
  * nothing). The lanes and the macros jump at a step's start or glide through it to the next step's value (GLIDE, a
  * lane each: lane 1, lane 2, the macros). At the end: back to step 1, or PLAY stops (END). Saved as a song of its
  * own (16 places; until 2026-11-19 with SEQ A's pattern, 8 steps, one RATE for all) */
@@ -101,7 +102,29 @@ typedef struct {
     uint8_t pat[2][SD_ORB_STEPS];               /* SEQ A's, B's pattern: 0 as it plays, 1..32 P01..P32 */
     uint8_t loops[SD_ORB_STEPS];                /* 1..8 loops of the master (0 reads as 1) */
     uint8_t drm[SD_ORB_STEPS];                  /* the drums' beat: 0 as they play, 1..16 D01..D16 (on), 17 off */
+    uint8_t tail[20];                           /* LOOP's and FREEZE's pitch at each step, -12..12 semitones, 5 bits
+                                                   each (two's complement), LOOP's sixteen then FREEZE's (sd_orb_tail;
+                                                   packed: the songs' RAM, 2026-11-22) */
 } SdOrbit;
+#define SD_ORB_TAIL_B 20u                       /* (the songs saved before it: their size less this, the rest 0) */
+static int32_t sd_orb_tail(const SdOrbit *o, uint32_t w, uint32_t s)   /* w 0 LOOP, 1 FREEZE: step s's semitones */
+{
+    uint32_t b = ((w & 1u) * SD_ORB_STEPS + s % SD_ORB_STEPS) * 5u, i = b >> 3, sh = b & 7u, v = (uint32_t)o->tail[i] >> sh;
+    int32_t x;
+    if (sh > 3u) v |= (uint32_t)o->tail[i + 1u] << (8u - sh);
+    v &= 31u;
+    x = v >= 16u ? (int32_t)v - 32 : (int32_t)v;
+    return x < -12 ? -12 : x > 12 ? 12 : x;
+}
+static void sd_orb_tail_set(SdOrbit *o, uint32_t w, uint32_t s, int32_t x)
+{
+    uint32_t b = ((w & 1u) * SD_ORB_STEPS + s % SD_ORB_STEPS) * 5u, i = b >> 3, sh = b & 7u, k;
+    uint32_t v = (uint32_t)(x < -12 ? -12 : x > 12 ? 12 : x) & 31u;
+    for (k = 0; k < 5u; k++, sh++) {            /* (a bit at a time: no byte past the end touched) */
+        uint32_t at = i + (sh >> 3), bit = sh & 7u;
+        o->tail[at] = (uint8_t)((o->tail[at] & ~(1u << bit)) | (v >> k & 1u) << bit);
+    }
+}
 #define SD_ORB_LEN(o) ((o)->len ? (o)->len > SD_ORB_STEPS ? SD_ORB_STEPS : (uint32_t)(o)->len : 4u)
 #define SD_ORB_LOOPS(o, s) ((o)->loops[(s) % SD_ORB_STEPS] ? (o)->loops[(s) % SD_ORB_STEPS] > SD_ORB_LOOPS_MAX ? \
                             SD_ORB_LOOPS_MAX : (uint32_t)(o)->loops[(s) % SD_ORB_STEPS] : 1u)

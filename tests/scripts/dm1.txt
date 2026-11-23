@@ -1,8 +1,10 @@
-# DM1 (2026-11-19, the user: SINGULARITY as a demo on the FM-1): HOME (8): SETUP (twice till 2026-11-21: NAV between); ALGORITHM (1) a detent: PLAY
-# THE DEMO? (shot 2100); OCT+ (1): it plays (shots 6000, 30000: the time, the bar, what the player does). Ends playing:
+# DM1 (2026-11-19, the user: SINGULARITY as a demo on the FM-1): HOME (8): SETUP (twice till 2026-11-21: NAV between);
+# ALGORITHM (1) +2: TOOLS (2026-11-22; ALGORITHM's own detents before), K1 (2) a detent: DEMO 1 SINGULARITY? (shot
+# 2100); OCT+ (1): it plays (shots 6000, 30000: the time, the bar, what the player does). Ends playing:
 # tests/app_demo_test.c checks.
 1800 btn 8
-2000 enc 1 1
+1900 enc 1 2
+2000 enc 2 1
 2100 shot
 2200 btn 1
 6000 shot

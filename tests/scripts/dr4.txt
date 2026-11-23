@@ -1,7 +1,7 @@
-# DR4 (2026-11-22): DRUM, GLO held: ALGORITHM picks the drum in both layers (it had been the fourth's ENGINE, which took
-# the row to the fourth and held it), round past the fourth; GLO + SELECT the fourth's ENGINE. SEQ (11) four times:
-# DRUM; GLO (7) held: ALGORITHM (1) +1 four times (SNARE HAT, the fourth, KICK again), SELECT (0) +2 (DATA, its list:
-# shot 2900), ALGORITHM -1 (the fourth's row to HAT). Checked by tests/app_drum4_test.c.
+# DR4 (2026-11-22, ALGORITHM's layers everywhere): DRUM's layers and its pads. SEQ (11) four times: DRUM; ALGORITHM (1)
+# +1: TONE, MORE (GLO (7) held: the same, never the fourth's ENGINE), MIX, KIT; the pads F3 G3 B3 (keys 0 2 6) pick
+# their drums; KIT's K4 (5) +2: the fourth's ENGINE DATA (its list: shot 2900); ALGORITHM +1: TOOLS; A3 (key 4) the
+# HAT; ALGORITHM +1: DRUM again, round. Checked by tests/app_drum4_test.c.
 1700 btn 11
 1800 btn 11
 1900 btn 11
@@ -9,10 +9,19 @@
 2100 btndown 7
 2200 enc 1 1
 2300 enc 1 1
+2350 btnup 7
 2400 enc 1 1
 2500 enc 1 1
-2700 enc 0 2
+2550 keys 0x1
+2570 keys 0
+2600 keys 0x4
+2620 keys 0
+2640 keys 0x40
+2660 keys 0
+2750 enc 5 2
 2900 shot
-3100 enc 1 -1
-3200 btnup 7
+2950 enc 1 1
+3000 keys 0x10
+3050 keys 0
+3100 enc 1 1
 3300 end

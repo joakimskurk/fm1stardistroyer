@@ -1,7 +1,8 @@
 # DM2: DM1, then PLAY (12) at 9000 stops it (a fade), the player's sound handed back (shot 9500: DEMO OVER).
 # tests/app_demo_test.c checks.
 1800 btn 8
-2000 enc 1 1
+1900 enc 1 2
+2000 enc 2 1
 2200 btn 1
 9000 btn 12
 9500 shot

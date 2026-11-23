@@ -13,11 +13,11 @@
  * the delay then 0.5 s. F minor (the arp, RADAR's NOTES and the transposes, IN KEY as the app has them, write from it), 72 BPM,
  * POLY throughout, 33 bars:
  *   1-8    GLASS    AURORA (saved wet) on SEQ A, Fm Db Bbm Fm, the arpeggiator over it in eighths; LOOP its last bar,
- *                   SEQ A off; REVERSE, GLO + OCT- (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
+ *                   SEQ A off; REVERSE, OCTAVE down (a bar's glide down onto its own grid); SHIMMER and FREEZE on its
  *                   plate: the loop an octave down under the plate an octave up
  *   9-16   VOICES   VOWEL (saved wet) on SEQ A, long notes, and SEQ B under it, the frozen glass behind: RADAR's NOTES
  *                   on A; LFO 2 onto the Reactor's POS (its vowels, slowly), LFO 1 onto the loop's SPEED (a tape's
- *                   wobble); FREEZE let go; the delay's FDBK and D-LEVEL up; GLIDE 2 BAR, REVERSE off, GLO + OCT+
+ *                   wobble); FREEZE let go; the delay's FDBK and D-LEVEL up; GLIDE 2 BAR, REVERSE off, OCTAVE up
  *                   twice: the loop two octaves up, onto its grid at +12; MOVE
  *   17-26  WALL     DISTROY (saved wet), POLY's four voices full: SEQ A's riff in octaves, SEQ B's bass, the arp in
  *                   16ths at random over two octaves; ORBIT stepping them both through F Db Ab Eb, its lanes on D
@@ -199,9 +199,9 @@ static int score(void)
     arp_off(BAR(5) + 3);
     arp_to(PG_LOOP, BAR(5) + 5);
     if (at(BAR(5) + 10)) reverse_toggle();
-    if (at(BAR(6))) loop_octave(0);             /* GLO + OCT-: down over the bar, onto its grid */
+    if (at(BAR(6))) loop_octave(0);             /* TOOLS' OCTAVE down: over the bar, onto its grid */
     fx_to(PG_SPACE, BAR(7));
-    SHIMMER(30, BAR(7) + 3, BAR(8));            /* GLO + K1: SHIMMER 0 -> 48 % */
+    SHIMMER(30, BAR(7) + 3, BAR(8));            /* FREEZE's K3: SHIMMER 0 -> 48 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 74, BAR(7) + 3, BAR(8));   /* K4: R-LEVEL */
     if (at(BAR(8))) freeze_toggle();
     /* VOICES: VOWEL over the frozen glass, A and B */
@@ -236,7 +236,7 @@ static int score(void)
     arp_to(PG_LOOP, BAR(13) + 3);                     /* LOOPER */
     if (at(BAR(13) + 4)) lp_glide_to(14);       /* K1: GLIDE 2 BAR */
     if (at(BAR(13) + 6)) reverse_toggle();
-    if (at(BAR(14))) loop_octave(1);            /* GLO + OCT+: to its pitch ... */
+    if (at(BAR(14))) loop_octave(1);            /* TOOLS' OCTAVE up: to its pitch ... */
     if (at(BAR(14) + 4)) loop_octave(1);        /* ... and on to +12 */
     home_to(PG_MACROS, BAR(15));
     KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(17));         /* MOVE */
@@ -274,13 +274,13 @@ static int score(void)
     TUR_LENGTH(8, BAR(23) + 8.1, BAR(23) + 8.9);   /* (K2: the 8 it was written for; 16 since 2026-11-16) */
     if (at(BAR(23) + 9)) tur_edit();
     go_every("FX", PG_DISTROY, BAR(23) + 10.25, 0.75);   /* (TIME, SPACE, REACTOR, DISTROY since 2026-11-21: quick) */
-    if (at(BAR(23) + 14)) { act(); say("ALGORITHM: band 4 (the top)"); }
-    if (at(BAR(24))) {                          /* GLO + ALGORITHM: the top band's shaper to CRUSH */
+    if (at(BAR(23) + 14)) { act(); say("SELECT: band 4 (the top)"); }
+    if (at(BAR(24))) {                          /* BAND's K1: the top band's TYPE to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
-        say("GLO + ALGORITHM: SHAPE CRUSH (band 4)");
+        say("K1: TYPE CRUSH (band 4)");
     }
     on_ramp_page(PG_DISTROY, BAR(24) + 1, BAR(25) + 8);
     if (ramp(__LINE__, (int32_t)d99(pat.d_gain[3]), 84, BAR(24) + 1, BAR(25) + 8, &v)) { pat.d_gain[3] = u99(v); dirty = 1; }
@@ -306,7 +306,7 @@ static int score(void)
         say("EDIT: DISTROY OFF");
     }
     go_every("ARP", PG_LOOP, BAR(27) + 12.2, 0.6);
-    if (at(BAR(27) + 14)) loop_octave(0);       /* GLO + OCT-: to its pitch ... */
+    if (at(BAR(27) + 14)) loop_octave(0);       /* TOOLS' OCTAVE down: to its pitch ... */
     if (at(BAR(28) + 4)) loop_octave(0);        /* ... and on to -12 */
     fx_to(PG_TIME, BAR(28) + 10);
     if (at(BAR(28) + 8)) preset_user(&U04, "U04 BEACON 1 S");

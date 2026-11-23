@@ -377,7 +377,7 @@ static void track_on(int trk, int on)
 /* The drums (SEQ's fourth page, DRUM; 2026-11-21 in the performances): the kit, the fourth drum's ENGINE and DUCK as
    the player left them before the take (the app keeps them: drums_ready, the preparation); while it plays a beat from
    PRESETS there (in at the bar's one), EDIT (in at the master's one), the four MUTE keys (F#4 G#4 A#4 C#5, no GLO, on
-   DRUM), GLO + SELECT the fourth's ENGINE (its values as chosen: SD_PC_DEF), MIX (GLO + B10): K1..K4 the levels.
+   DRUM), KIT's K4 the fourth's ENGINE (its values as chosen: SD_PC_DEF), MIX: K1..K4 the levels.
    Their batch (the app's, e.dr.ob) only once a performance has drums: the others sound as they did */
 static int16_t dr_ob[2u * SD_DR_BATCH * SD_SUB];
 static void drums_ready(const SdDrumKit *k, uint32_t perc)
@@ -418,7 +418,7 @@ static void drum_mute(uint32_t d, int mute)    /* a MUTE key on DRUM */
     snprintf(t, sizeof t, "MUTE key: %s %s", N[d % SD_DRS], mute ? "OFF" : "ON");
     say(t);
 }
-static void drum_engine(uint32_t pc)            /* GLO + SELECT on DRUM: the fourth's ENGINE, its values as chosen */
+static void drum_engine(uint32_t pc)            /* KIT's K4 on DRUM: the fourth's ENGINE, its values as chosen */
 {
     uint32_t k;
     char t[40];
@@ -426,7 +426,7 @@ static void drum_engine(uint32_t pc)            /* GLO + SELECT on DRUM: the fou
     act();
     e.dr.perc = (uint8_t)(pc % SD_PCS);
     for (k = 0; k < 8u; k++) e.dr.kit.d[SD_DR_CLAP].v[k] = SD_PC_DEF[e.dr.perc][k];
-    snprintf(t, sizeof t, "GLO + SELECT: ENGINE %s", SD_PC_NAME[e.dr.perc]);
+    snprintf(t, sizeof t, "KIT K4: ENGINE %s", SD_PC_NAME[e.dr.perc]);
     say(t);
 }
 #define DR_LEVEL(d, to, s0, s1) do { int32_t v_; on_ramp_page(PG_DRUM, s0, s1); \
@@ -434,8 +434,8 @@ static void drum_engine(uint32_t pc)            /* GLO + SELECT on DRUM: the fou
                                                    K1..K4, a percent a detent) */
 
 /* The looper (2026-11-11; its own page, LOOPER, since 2026-11-14; ARP's second since 2026-11-15), the player's as the app's: LOOP
-   (ALGORITHM), REVERSE (GLO + ALGORITHM), GLIDE (K1, OFF or a division a detent), LENGTH (K2, a division a detent),
-   SPEED (K3, an eighth of a semitone a detent; GLO + OCT, the next octave, there), L-LEVEL (K4: above 0
+   (TOOLS' K1), REVERSE (TOOLS' K2), GLIDE (K1, OFF or a division a detent), LENGTH (K2, a division a detent),
+   SPEED (K3, an eighth of a semitone a detent; TOOLS' OCTAVE, the next octave), L-LEVEL (K4: above 0
    the looper armed; 0 as the app starts).
    Its memory only when a performance asks for it (looper_mem: the FM-1's own, as the app has it since 2026-11-11:
    half the delay line, lent while the looper is armed, and 24 KB, mono mu-law at half rate, 5.1 s); the performances
@@ -452,14 +452,14 @@ static void loop_toggle(void)
     on_page(PG_LOOP, "LOOP off LOOPER");
     act();
     lp_on = (uint8_t)!lp_on;
-    say(lp_on ? "LOOPER ALGORITHM: LOOP ON (the last LENGTH held)" : "LOOPER ALGORITHM: LOOP OFF");
+    say(lp_on ? "LOOPER TOOLS K1: LOOP ON (the last LENGTH held)" : "LOOPER TOOLS K1: LOOP OFF");
 }
 static void reverse_toggle(void)
 {
     on_page(PG_LOOP, "REVERSE off LOOPER");
     act();
     lp_rev = (uint8_t)!lp_rev;
-    say(lp_rev ? "GLO + ALGORITHM: REVERSE ON" : "GLO + ALGORITHM: REVERSE OFF");
+    say(lp_rev ? "LOOPER TOOLS K2: REVERSE ON" : "LOOPER TOOLS K2: REVERSE OFF");
 }
 static void lp_length(uint32_t d)               /* K2 on LOOPER turned to division d (a few detents: one gesture) */
 {
@@ -483,14 +483,14 @@ static void lp_glide_to(uint32_t d)             /* K1 on LOOPER turned to GLIDE'
     snprintf(t, sizeof t, "LOOPER K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
     say(t);
 }
-static void loop_octave(int up)                 /* GLO + OCT- / OCT+ on LOOPER: SPEED to the next octave */
+static void loop_octave(int up)                 /* TOOLS' OCTAVE on LOOPER: SPEED to the next octave */
 {
     int32_t v = lp_speed;
-    on_page(PG_LOOP, "GLO + OCT off LOOPER");
+    on_page(PG_LOOP, "OCTAVE off LOOPER");
     act();
     v = up ? (v < 0 ? 0 : 3072) : (v > 0 ? 0 : -3072);
     lp_speed = (int16_t)v;
-    say(up ? "GLO + OCT+: SPEED AN OCTAVE UP" : "GLO + OCT-: SPEED AN OCTAVE DOWN");
+    say(up ? "LOOPER TOOLS K3: SPEED AN OCTAVE UP" : "LOOPER TOOLS K3: SPEED AN OCTAVE DOWN");
 }
 #define LP_SPEED(to8, s0, s1) do { int32_t v_; on_ramp_page(PG_LOOP, s0, s1); \
     if (ramp(__LINE__, lp_speed / 32, to8, s0, s1, &v_)) lp_speed = (int16_t)(v_ * 32); } while (0)   /* (eighths) */
@@ -504,17 +504,17 @@ static void time_div(uint32_t d)                /* K1 on TIME, synced, turned to
     dirty = 1;
     say("K1: TIME");
 }
-static void freeze_toggle(void)                 /* ALGORITHM on SPACE */
+static void freeze_toggle(void)                 /* FREEZE's K1 on SPACE */
 {
     on_page(PG_SPACE, "FREEZE off SPACE");
     act();
     e.sp_freeze = (uint8_t)!e.sp_freeze;
-    say(e.sp_freeze ? "ALGORITHM: FREEZE ON" : "ALGORITHM: FREEZE OFF");
+    say(e.sp_freeze ? "FREEZE K1: FREEZE ON" : "FREEZE K1: FREEZE OFF");
 }
 #define SHIMMER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_SPACE, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_SP_SHIM(&pat), to, s0, s1, &v_)) { \
-        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (GLO + K1, 0..63) */
-static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: ALGORITHM to slot k + 1, K1
+        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (FREEZE's K3, 0..63) */
+static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: SELECT to slot k + 1, K1
                                                    SOURCE, K2 DEST (its list), K3 AMOUNT (a percent a detent) */
 {
     char t[64];

@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-only
-# The FM-1's demos (SETUP's ALGORITHM: DEMO 1, DEMO 2): tools/sd_singularity.c and tools/sd_armada.c recorded as what
+# The FM-1's demos (SETUP's TOOLS: DEMO 1, DEMO 2): tools/sd_singularity.c and tools/sd_armada.c recorded as what
 # they do to the engine (tools/sd_demo_rec.c), into firmware/src/sd_demo.h and sd_demo2.h. Run it after a performance
 # or the engine changes; tests/run_sd.sh fails while a header is not its recording's.
 #   tools/make_demo.sh

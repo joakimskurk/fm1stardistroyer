@@ -203,7 +203,7 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   a POLY voice's one at the power of MONO's mix. The level (`vg`): each voice counted by how loud it is against the
   loudest (equal power: a note as loud as MONO's, four alike a half each as POLY always was; a fading tail hardly
   counts, a chord ringing out counts as it was), down in ~3 ms, up over ~50 ms. Measured, one note against MONO's
-  (29 patches): POLY within 0..−2.7 dB (it was −3.5..−7.5), DUO's colour on the vector patches near MONO's (VOYAGE
+  (29 patches): POLY within 0..−2.7 dB (it was −3.5..−7.5), DUO's colour on the X/Y patches near MONO's (VOYAGE
   7.6 → 0.6 dB a band off); POLY's on VOYAGE, PULSAR, BEACON still apart (≈10 dB a band: one bank cannot play a
   four-bank blend or COURSE inside a note; each new note takes the bank COURSE is at). MONO: bit for bit as before.
   *The voice's lowpass, its ceiling* (FILTER, `sd_fsat`; 2026-11-16, after the user heard crackle with every FX

@@ -27,6 +27,6 @@ __attribute__((destructor)) static void loop_check(void)
         fflush(stdout);
         _exit(1);
     }
-    printf("ok    the looper off keeps its loop: held silent, not recording; on again the loop plays; GLO + EDIT, OCT+ "
+    printf("ok    the looper off keeps its loop: held silent, not recording; on again the loop plays; TOOLS' CLEAR, OCT+ "
            "clears it\n");
 }

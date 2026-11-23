@@ -13,12 +13,12 @@
  *   1-8    PRISM, MONO: SEQ A's falling sixteenths (Dm9, Bbmaj7, C) cascading in its dotted-quarter echoes; the plate
  *          opened up (R-LEVEL, DECAY)
  *   9      LOOP: the last bar round; SEQ A off (EDIT): the loop carries it, PLAY running on
- *   10-12  REVERSE: the cascades backwards, swelling into each note; GLIDE 1 BAR, and GLO + OCT- an octave down,
+ *   10-12  REVERSE: the cascades backwards, swelling into each note; GLIDE 1 BAR, and OCTAVE down an octave down,
  *          a tape slowing over the bar and landing on the loop's own grid
  *   13-20  AURORA, POLY: a slow line over the bed, in the plate; LFO 2 slow (0.7 Hz) onto the looper's SPEED, +2 %
  *          (+-0.24 semitones: a tape's wobble, the loop's grid with it); FREEZE holds the plate on its A, SHIMMER
  *          climbs
- *   21-24  GLO + OCT+: back up to pitch over a bar, on its grid; REVERSE off: the cascades forward again
+ *   21-24  OCTAVE up: back up to pitch over a bar, on its grid; REVERSE off: the cascades forward again
  *   25-28  FREEZE off, SHIMMER down, the looper faded out (L-LEVEL), LOOP off; a last chord, MASTER down, the plate's
  *          tail */
 #include <math.h>
@@ -73,7 +73,7 @@ static void bed(void)                           /* bars 9-12: the loop, backward
     arp_to(PG_LOOP, 131);                       /* back to LOOPER (ARP: the one it showed last) */
     if (at(144)) reverse_toggle();
     if (at(152)) lp_glide_to(13);               /* K1: GLIDE 1 BAR */
-    if (at(160)) loop_octave(0);                /* GLO + OCT-: an octave down, over the bar */
+    if (at(160)) loop_octave(0);                /* TOOLS' OCTAVE down: an octave down, over the bar */
 }
 
 static void line_over(void)                     /* bars 13-20: AURORA over the bed; FREEZE, SHIMMER */
@@ -93,7 +93,7 @@ static void line_over(void)                     /* bars 13-20: AURORA over the b
     go_to("FX", PG_SPACE, 243);                 /* (FX: the one it showed last, round to SPACE) */
     if (at(248)) freeze_toggle();
     if (at(254)) key(69, 0);
-    SHIMMER(24, 256, 288);                      /* GLO + K1: SHIMMER 0 -> 38 % */
+    SHIMMER(24, 256, 288);                      /* FREEZE's K3: SHIMMER 0 -> 38 % */
     note(77, 256, 264); note(76, 264, 272);                         /* 17: F E */
     note(74, 272, 288);                                             /* 18: D */
     note(72, 288, 296); note(74, 296, 304);                         /* 19: C D */
@@ -103,7 +103,7 @@ static void line_over(void)                     /* bars 13-20: AURORA over the b
 static void return_up(void)                     /* bars 21-24: to pitch, forward */
 {
     arp_to(PG_LOOP, 306);
-    if (at(320)) loop_octave(1);                /* GLO + OCT+: back to its pitch, over the bar */
+    if (at(320)) loop_octave(1);                /* TOOLS' OCTAVE up: back to its pitch, over the bar */
     note(69, 320, 336); note(74, 336, 352);                         /* 21, 22: A D */
     if (at(352)) reverse_toggle();
     note(72, 352, 360); note(70, 360, 368); note(69, 368, 384);     /* 23, 24: C Bb A */

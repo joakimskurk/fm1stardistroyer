@@ -21,7 +21,8 @@ static uint32_t beat_is(const SdDrumPat *p, uint32_t f)   /* the factory's beat 
 __attribute__((constructor)) static void drum_old_saves(void)
 {
     static uint8_t old[UORB_V2];
-    const uint32_t osz = (uint32_t)sizeof(SdOrbit) - SD_ORB_STEPS;
+    const uint32_t osz = (uint32_t)sizeof(SdOrbit) - SD_ORB_STEPS - SD_ORB_TAIL_B;   /* (before the drums, and
+                                                   LOOP's and FREEZE's pitch after them) */
     SdOrbit o;
     uint8_t s16[16];
     memset(&o, 0, sizeof o);

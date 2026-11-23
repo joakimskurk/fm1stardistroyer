@@ -971,6 +971,8 @@ typedef struct {
                                                    high), its send into the reverb (65535 whole, as it always went),
                                                    into the delay (0 none) */
     volatile int16_t lp_speed;
+    int16_t lp_orb;                             /* ORBIT's step: the loop's pitch (semitones x 256) */
+    int8_t sp_orb;                              /* ... and the frozen tail's (semitones) */
     int32_t lp_mfree, lp_mtq;                   /* the matrix to the looper's SPEED (semitones x 256): free (on the
                                                    rate as it plays, its glide's after), RADAR's in whole semitones
                                                    (on the speed set: through GLIDE, and to the grid at an octave) */
@@ -1978,7 +1980,8 @@ static int32_t sd_lp_snap(const SdEngine *e, uint32_t llen)
 
 SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
 {
-    int32_t sp = e->lp_speed + e->lp_mtq, to, adv, bend = 0, A, gi;   /* (RADAR's semitones on the speed set) */
+    int32_t sp = e->lp_speed + e->lp_mtq + e->lp_orb, to, adv, bend = 0, A, gi;   /* (RADAR's semitones on the
+                                                   speed set, ORBIT's step's) */
     uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow;
     int run = e->seq_run != 0, start = (run && !s->prun) || e->seq_started, on;
     if (start) s->pT = 0;                       /* the transport: STOP parks the loop, START plays it in sync */
@@ -2271,7 +2274,7 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         s->g = (int32_t)(v > 16383u ? 16383u : v);
     }
     s->frz = e->sp_freeze;
-    s->pst = e->sp_pitch;
+    s->pst = (int8_t)(e->sp_pitch + e->sp_orb); /* (the player's and ORBIT's step's; -12..12 where it is used) */
     if (s->frz) { s->g = 16384; s->c = 16384; s->sg = 0; }   /* FREEZE: the tail as it is, for ever (x 1 exactly:
                                                    nothing rounded off) */
     s->d2 = s->g + 2458;                        /* the second allpasses: DECAY + 0.15, 0.25 .. 0.5 */
@@ -2500,6 +2503,9 @@ SD_HOT static void sd_orb_xpose(SdEngine *e)
     uint32_t s = sd_orb_at(e);
     e->t[0].orb_x = o->on && e->orb_live ? o->xa[s] : 0;
     e->t[1].orb_x = o->on && e->orb_live ? o->xb[s] : 0;
+    e->lp_orb = (int16_t)(o->on && e->orb_live ? sd_orb_tail(o, 0, s) * 256 : 0);   /* (the LOOPER over its GLIDE,
+                                                   to the next octave's grid as an octave on its own) */
+    e->sp_orb = (int8_t)(o->on && e->orb_live ? sd_orb_tail(o, 1, s) : 0);
 }
 /* at the master's one: its loop measured (the glide's span), and after RATE loops the next step */
 /* the song's patterns: at the master's one (and START), each track's from the step heard, when that step or its

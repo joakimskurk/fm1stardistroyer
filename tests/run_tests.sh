@@ -28,11 +28,13 @@ run "the key: SEQ B's RND in A's (the master's) root and scale" "$OUT/app_key_te
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_home_test" tests/app_home_test.c
 run "HOME's switches: the chain on black, the players on white, as the screen" "$OUT/app_home_test" "$OUT/app_home_test" tests/scripts/home1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_loop_test" tests/app_loop_test.c
-run "the looper off keeps its loop; GLO + EDIT clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
+run "the looper off keeps its loop; TOOLS' CLEAR clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_lane_test" tests/app_lane_test.c
-run "ORBIT: a lane picks its destination on its knob" "$OUT/app_lane_test" "$OUT/app_lane_test" tests/scripts/ob2.txt
+run "ORBIT: a lane picks its destination beside it, then its amount" "$OUT/app_lane_test" "$OUT/app_lane_test" tests/scripts/ob2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_layers_test" tests/app_layers_test.c
+run "ALGORITHM's layers: every page's every layer shown, every knob there does something" "$OUT/app_layers_test" "$OUT/app_layers_test" tests/scripts/lay1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum4_test" tests/app_drum4_test.c
-run "DRUM: ALGORITHM the drum with GLO too, GLO + SELECT the fourth's ENGINE" "$OUT/app_drum4_test" "$OUT/app_drum4_test" tests/scripts/dr4.txt
+run "DRUM: ALGORITHM the layers, the pads the drum, KIT's K4 the fourth's ENGINE" "$OUT/app_drum4_test" "$OUT/app_drum4_test" tests/scripts/dr4.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recoff_test" tests/app_recoff_test.c
 run "SEQ's REC ends from any page; ENV and LFO go to their pages" "$OUT/app_recoff_test" "$OUT/app_recoff_test" tests/scripts/rec3.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recgate_test" tests/app_recgate_test.c
@@ -43,6 +45,8 @@ run "SAVE while it plays, then STOP: in the flash" "$OUT/app_save_test" "$OUT/ap
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_song_test" tests/app_song_test.c
 run "the songs: the old ORBITs moved over, a song's pattern played" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg1.txt
 run "the songs: SAVE on ORBIT, in the flash" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_tail_test" tests/app_tail_test.c
+run "ORBIT's LOOP and FREEZE pitch: packed, old songs, the engine" "$OUT/app_tail_test" "$OUT/app_tail_test" tests/scripts/ot1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum_test" tests/app_drum_test.c
 run "the drums: DRUM's steps, MIX, a beat loaded and saved; the saves before them kept" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr1.txt
 run "the drums: a song's step names a beat" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr2.txt

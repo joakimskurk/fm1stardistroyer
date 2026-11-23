@@ -257,13 +257,13 @@ static int pulse_score(void)
     if (at(SEC(5) + 3.5)) tur_edit();           /* on: the pedal moves */
     if (at(SEC(5) + 5)) press("FX", PG_REACTOR);
     if (at(SEC(5) + 6.5)) press("FX", PG_DISTROY);
-    if (at(SEC(5) + 8)) { act(); say("ALGORITHM: band 4 (the top)"); }
-    if (at(SEC(5) + 9.5)) {                     /* GLO + ALGORITHM: the top band's shaper to CRUSH */
+    if (at(SEC(5) + 8)) { act(); say("SELECT: band 4 (the top)"); }
+    if (at(SEC(5) + 9.5)) {                     /* BAND's K1: the top band's TYPE to CRUSH */
         on_page(PG_DISTROY, "a shaper off DISTROY");
         act();
         pat.d_type[3] = SD_DS_CRUSH;
         dirty = 1;
-        say("GLO + ALGORITHM: SHAPE CRUSH (band 4)");
+        say("K1: TYPE CRUSH (band 4)");
     }
     KNOB99(PG_DISTROY, pat.d_gain[3], 58, SEC(5) + 10, SEC(5) + 22);   /* K1: its GAIN */
     if (at(SEC(5) + 25.5)) press("HOME", PG_MACROS);
