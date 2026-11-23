@@ -2133,12 +2133,147 @@ static void test_looper_lock_mode(uint32_t one)
     CHECK(s0 == press && st == 0u && lq_b == press && lq_back == 0u, "free or stopped: not where it was pressed");
     space_one = 0;
 }
+/* The loop in time with the master's clock (2026-11-23, the user: "it comes out of sync, out of time; and the
+ * waveform is gone when I switch it off and on again later; then it should be in sync too"). A bar's LOOP, synced,
+ * the transport running; the clock is a MIDI clock's (clk_adv a sub-block, jittered), the 16th as the tracks hold it
+ * (seq_len_q8, 120 BPM). The head (LOOP's own, x 1) against where the clock puts it (its bars since LOOP round the
+ * loop): a clock 0.2 % fast (a MIDI clock read a little off) stays within 6 samples; LOOPER off (held) 1.5 s and on:
+ * nothing recorded, the loop's end where it was, silent, the head in time all the while; a clock 10 % fast (a new
+ * TEMPO): the loop is set back on its line each bar (never off by more than a bar's 10 %, where it went 10 % a bar
+ * further each bar); LOOP taken from a still tape (LOOPER off with LOOP off, then LOOP): its end where the tape
+ * stopped, the head where that end has come round to */
+static double lc_err(uint32_t k0, double c, uint32_t ln)   /* the head against the clock (c bars since LOOP), samples */
+{
+    double want = (c - floor(c)) * ln, d = (double)k0 - want;
+    while (d > ln / 2.0) d -= ln;
+    while (d < -(double)ln / 2.0) d += ln;
+    return d / 256.0;
+}
+static void test_looper_clock_mode(uint32_t one)
+{
+    static int32_t in[2u * SD_SUB], out[2u * SD_SUB];
+    SdPatch p = space_patch(SD_SPMS(300u), SD_SP_SYNC, 0, 0, 0, 30000);
+    uint32_t F = SD_FS, nb = 14u * F / SD_SUB, bk, i, ln = 0, base0 = 0, lw_h = 0, rec = 0, still = 0;
+    double ph = 0, C = 0, C0 = 0, ctape = 0, r, e_slow = 0, e_hold = 0, e_fast = 0, e_fast_last = 0, jit = 0, e_still = 0;
+    int lev_ok = 1, back_ok = 0, pass;
+    const char *mode = one ? "one core" : "two cores";
+    space_one = (uint8_t)one;
+    p.s_dlevel = 1;                             /* (SPACE on: the looper's plan runs) */
+    for (pass = 0; pass < 2; pass++) {          /* 0: the clock, held, a new tempo; 1: LOOP from a still tape */
+        memset(&tsm, 0, sizeof tsm);
+        memset(tl_mem, 0, sizeof tl_mem);
+        sd_engine_init(&e1);
+        e1.sm = &tsm;
+        e1.sp_room = space_one;
+        sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
+        e1.lp_len = (uint16_t)(12u * 65536u / SD_LP_NDIV + 100u);   /* (1 bar) */
+        e1.lp_lvl = 65535; e1.lp_arm = 1;
+        e1.bpm = 120;
+        sd_seq_retime(&e1);
+        e1.patch = p;
+        C = 0; C0 = -1; lw_h = 0;
+        for (bk = 0; bk < nb; bk++) {
+            double t = (double)bk * SD_SUB / F;
+            uint32_t adv;
+            r = t < 7.0 ? 1.002 : 1.10;
+            jit = sin(bk * 0.37) * 0.04;        /* (a clock's estimate, sub-block to sub-block) */
+            adv = (uint32_t)lround(8192.0 * r * (1.0 + jit));
+            if (pass == 0) {
+                e1.lp_on = t >= 1.0;
+                e1.lp_hold = t >= 3.0 && t < 4.5;
+                e1.lp_arm = !e1.lp_hold;
+            } else {
+                e1.lp_hold = t >= 2.0 && t < 3.0;
+                e1.lp_arm = !e1.lp_hold;
+                e1.lp_on = t >= 2.5;
+            }
+            e1.seq_started = (uint8_t)(bk == 0u);
+            e1.seq_run = 1;
+            e1.clk_adv = adv;
+            sd_space_params(&e1);
+            if (e1.sp.pon && C0 < 0) { C0 = pass ? ctape : C; ln = e1.sp.pln; }
+            if (pass == 0 && t >= 2.0 && !base0) base0 = e1.sp.lbase + 1u;   /* (+1: taken) */
+            if (!e1.sp.lt.on && e1.sp.lact) ctape = C + (double)adv / (16.0 * e1.seq_len_q8);   /* (the tape's end,
+                                                   bars: this tick's) */
+            if (pass == 1 && t >= 2.1 && !lw_h) lw_h = e1.sp.lw ? e1.sp.lw : 1u;   /* (the tape stood: the last block in) */
+            if (e1.sp.pon && C0 >= 0 && e1.sp.pln == ln && !e1.sp.lt.bl) {
+                double er = fabs(lc_err(e1.sp.lt.k0, C - C0, ln));
+                if (pass) { if (t > 2.6 && t < 6.9) e_still = er > e_still ? er : e_still; }
+                else if (t > 1.5 && t < 3.0) e_slow = er > e_slow ? er : e_slow;
+                else if (t >= 3.0 && t < 6.9) e_hold = er > e_hold ? er : e_hold;
+                else if (t >= 8.0) { e_fast = er > e_fast ? er : e_fast; if (t > 13.0) e_fast_last = er > e_fast_last ? er : e_fast_last; }
+            }
+            if (pass == 0 && t >= 3.1 && t < 4.5) {
+                lev_ok &= e1.sp.plev == 0 && e1.sp.pon;
+                if (!lw_h) lw_h = e1.sp.lw; else rec |= e1.sp.lw != lw_h;
+            }
+            if (pass == 0 && t >= 4.6 && t < 4.7) back_ok = e1.sp.plev == 16384 && e1.sp.lbase + 1u == base0;
+            if (pass == 1 && t >= 2.6 && !still) still = 1u + (e1.sp.lbase == lw_h && e1.sp.pon);
+            C += (double)adv / (16.0 * e1.seq_len_q8);   /* (this tick's clock, bars) */
+            for (i = 0; i < SD_SUB; i++) {
+                in[2u * i] = in[2u * i + 1u] = (int32_t)lround(8000 * sin(ph));
+                ph += 2 * M_PI * 440 / F;
+                out[2u * i] = out[2u * i + 1u] = 0;
+            }
+            sd_space_run(&e1, in, out, SD_SUB, 0);
+        }
+        C0 = -1;
+    }
+    printf("looper (%s), the master's clock leads: 0.2 %% fast, the head within %.1f samples; LOOPER off 1.5 s and on: "
+           "%s, nothing recorded %s, the same loop back %s, the head within %.1f; 10 %% fast: at most %.0f samples off "
+           "(a bar's 10 %%: %.0f; the last second %.0f); from a still tape: %s, the head within %.1f\n", mode, e_slow,
+           lev_ok ? "silent, going round" : "NOT SILENT", rec ? "NO" : "yes", back_ok ? "yes" : "NO", e_hold, e_fast,
+           0.1 * ln / 256.0, e_fast_last, still == 2u ? "the tape's last LENGTH" : "NOT", e_still);
+    CHECK(e_slow < 6.0, "the clock 0.2 %% fast: the head %.1f samples off", e_slow);
+    CHECK(lev_ok && !rec && back_ok, "held: silent and going round %d, recording %u, the same loop back %d", lev_ok, rec, back_ok);
+    CHECK(e_hold < 6.0, "held and back: the head %.1f samples off", e_hold);
+    CHECK(e_fast < 0.13 * ln / 256.0 && e_fast_last < 0.13 * ln / 256.0, "10 %% fast: %.0f samples off (a bar's 10 %%: %.0f)", e_fast, 0.1 * ln / 256.0);
+    CHECK(still == 2u && e_still < 20.0, "from a still tape: %u, the head %.1f samples off", still, e_still);
+}
+/* SEQ A as a MOD source with its track OFF (2026-11-23, the user: "struggling with pitching from SEQ to FREEZE
+ * PITCH"; a track switched off kept time silent, but its note as a source stood still): the steps' notes still lead
+ * FRZ PITCH, a semitone a semitone, and no voice plays */
+static void test_seq_src_off(void)
+{
+    static const int8_t LINE[8] = {0, 7, 0, 5, 0, 12, 0, 3};
+    int32_t o[2u * SD_SUB];
+    SdPattern q;
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t k, done = 0, bad = 0, seen = 0, loud = 0, last = 99;
+    memset(p.mod, 0, sizeof p.mod); memset(p.mod_off, 0, sizeof p.mod_off);
+    p.mod[0].src = SD_MS_SEQA; p.mod[0].dst = SD_MD_SPITCH; p.mod[0].amt = 32767;
+    sd_engine_init(&e1);
+    sd_engine_patch(&e1, &p);
+    sd_pattern_default(&q);
+    q.len = 8;
+    for (k = 0; k < 8u; k++) {
+        q.step[k].note = (uint8_t)(57 + LINE[k]); q.step[k].type = SD_ST_NOTE; q.step[k].gate = 50;
+        q.step[k].vel = 100; q.step[k].prob = 100; q.step[k].ratchet = 1; memset(q.step[k].chord, 0, 3);
+    }
+    sd_engine_pattern_to(&e1, 0, &q);
+    e1.t[0].mute = 1;
+    e1.seq_run = 1;
+    while (done < 3u * SD_FS) {
+        run(&e1, o, SD_SUB, SD_SUB);
+        done += SD_SUB;
+        for (k = 0; k < 2u * SD_SUB; k++) loud |= o[k] > 64 || o[k] < -64;
+        if (e1.t[0].seq_on && e1.t[0].seq_step != last && e1.t[0].seq_pos_q8 > 64u * 256u) {   /* (a step in) */
+            last = e1.t[0].seq_step;
+            seen++;
+            if (e1.sp_mod != LINE[last % 8u]) bad++;
+        }
+    }
+    printf("SEQ A with its track OFF: FRZ PITCH followed %u of %u steps, no voice %s\n", seen - bad, seen, loud ? "NO" : "yes");
+    CHECK(seen >= 16u && !bad, "SEQ A OFF to FRZ PITCH: %u of %u steps wrong", bad, seen);
+    CHECK(!loud, "SEQ A OFF: a voice played");
+}
 static void test_looper(void)
 {
     test_looper_mode(0); test_looper_mode(1); test_looper_grid_mode(0); test_looper_grid_mode(1);
     test_looper_borrow_mode(0); test_looper_borrow_mode(1);
     test_looper_transport_mode(0); test_looper_transport_mode(1);
     test_looper_lock_mode(0); test_looper_lock_mode(1);
+    test_looper_clock_mode(0); test_looper_clock_mode(1);
 }
 
 /* SPACE's plate (raw and long; a prototype's LFO stuttered and clicked): its T60 at 700 Hz follows DECAY's law,
@@ -2190,12 +2325,13 @@ static double pl_band(uint32_t f0, uint32_t f1, double hz)   /* the wet's left: 
 }
 /* the room beside the frozen plate: 440 Hz into the plate, FREEZE at 1.2 s, then 660 Hz played over it (2 .. 2.5 s):
  * after it, its tail at 660 Hz with the room, none without (the plate's input closed); FREEZE let go at 3.5 s: the
- * room off again once quiet; never frozen: the room never on, the plate bit for bit */
+ * room off again once quiet (its tail as long as the plate's since 2026-11-23: by 16 s); never frozen: the room never
+ * on, the plate bit for bit */
 static void test_freeze_room(void)
 {
-    static int32_t ref[2u * 9u * SD_FS];
+    static int32_t ref[2u * 16u * SD_FS];
     SdPatch p = SD_PATCH_SINE;
-    uint32_t i, n = 9u * SD_FS, same = 1;
+    uint32_t i, n = 16u * SD_FS, same = 1;
     double with, without, at440;
     p.s_dlevel = 0; p.s_rlevel = 65535; p.s_rtone = 50000; p.s_mode = 0; p.s_decay = 52000; p.s_size = 32768;
     for (i = 0; i < n; i++) {
@@ -2223,6 +2359,88 @@ static void test_freeze_room(void)
     printf("plate: FROZEN, a note played over it: its tail %+.0f dB with the room beside (the held 440 %+.0f dB against it), "
            "none without; let go, the room off once quiet; never frozen, the plate bit for bit\n", with - without,
            at440 - with);
+}
+/* the room beside the frozen plate rings as the plate would (2026-11-23, the user: "the reverb that takes over when
+ * I freeze is not as intense"; at DECAY 90 its tail was 12 dB under the plate's 3 s on, at a small SIZE five times
+ * shorter): 50 ms of noise into the plate, and into the room beside it (frozen empty, from the start), at four
+ * DECAYs and SIZEs: its T60 (Schroeder, -5 .. -25 dB, x 3) within x 0.7 .. 1.5 of the plate's, its first 300 ms
+ * within 3 dB */
+static double pl_t60(uint32_t f0, uint32_t n, double *early)
+{
+    double tot = 0, e = 0, t5 = -1, t25 = -1;
+    uint32_t i;
+    for (i = f0; i < n; i++) tot += (double)pl_out[2u * i] * pl_out[2u * i];
+    for (i = f0; i < f0 + SD_FS * 3u / 10u; i++) e += (double)pl_out[2u * i] * pl_out[2u * i];
+    *early = 10 * log10(e / (SD_FS * 0.3) + 1e-9);
+    e = tot;
+    for (i = f0; i < n && t25 < 0; i++) {
+        double db = 10 * log10(e / tot + 1e-30);
+        if (t5 < 0 && db < -5) t5 = (double)(i - f0) / SD_FS;
+        if (db < -25) t25 = (double)(i - f0) / SD_FS;
+        e -= (double)pl_out[2u * i] * pl_out[2u * i];
+    }
+    return t5 >= 0 && t25 >= 0 ? 3 * (t25 - t5) : -1;
+}
+/* the frozen tail into the room beside it (2026-11-23, the user: "the freeze should go into the reverb that takes
+ * over"): 440 Hz into the plate, FREEZE at 1.2 s, nothing played over it: with the room beside, the held 440 also
+ * comes out of the room (what the room adds, at 440, within 15 dB of the tail itself), the whole up 2 dB at most */
+static void test_freeze_into_room(void)
+{
+    static int32_t ref[2u * 5u * SD_FS];
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t i, n = 5u * SD_FS, f0 = 3u * SD_FS, f1 = 4u * SD_FS;
+    double tail, added, up, e0 = 0, e1 = 0;
+    p.s_dlevel = 0; p.s_rlevel = 65535; p.s_rtone = 50000; p.s_mode = 0; p.s_decay = 52000; p.s_size = 49152;
+    for (i = 0; i < n; i++) {
+        double tt = (double)i / SD_FS;
+        pl_in[2u * i] = pl_in[2u * i + 1u] = tt < 1 ? (int32_t)lrint(9000 * sin(2 * M_PI * 440 * tt)) : 0;
+    }
+    pl_room = 0;
+    plate_feed(&p, n, 0, 1.2, -1);
+    memcpy(ref, pl_out, sizeof ref);
+    tail = pl_band(f0, f1, 440);
+    pl_room = 1;
+    plate_feed(&p, n, 0, 1.2, -1);
+    for (i = f0; i < f1; i++) { e0 += (double)ref[2u * i] * ref[2u * i]; e1 += (double)pl_out[2u * i] * pl_out[2u * i]; }
+    for (i = 0; i < 2u * n; i++) pl_out[i] -= ref[i];   /* (what the room adds) */
+    added = 10 * log10(pl_band(f0, f1, 440) / (tail + 1e-9) + 1e-12);
+    up = 10 * log10(e1 / (e0 + 1e-9));
+    pl_room = 0;
+    printf("plate: FROZEN, nothing played over it: the room beside it carries the held 440 Hz too, %+.1f dB against "
+           "the tail, the whole %+.1f dB\n", added, up);
+    CHECK(added > -15, "the frozen tail into the room: only %+.1f dB of it from the room", added);
+    CHECK(up > 0.1 && up < 2.0, "the frozen tail into the room: the whole %+.1f dB", up);
+}
+static void test_freeze_room_tail(void)
+{
+    static const uint16_t DS[4][2] = {{39321, 16384}, {49152, 49152}, {58982, 65535}, {63570, 32768}};
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t i, k, n = 24u * SD_FS, b0 = SD_FS / 10u, b1 = b0 + SD_FS / 20u, seed = 99;
+    double tp, tr, ep, er, worst = 1, wl = 0;
+    p.s_dlevel = 0; p.s_rlevel = 65535; p.s_rtone = 36000; p.s_mode = 0; p.s_fb = 0;
+    for (i = 0; i < n; i++) {
+        int32_t x = 0;
+        if (i >= b0 && i < b1) { seed = seed * 1664525u + 1013904223u; x = ((int32_t)(seed >> 16) - 32768) / 3; }
+        pl_in[2u * i] = pl_in[2u * i + 1u] = x;
+    }
+    printf("plate: the room beside FREEZE against the plate, T60 and the first 300 ms:");
+    for (k = 0; k < 4u; k++) {
+        p.s_decay = DS[k][0]; p.s_size = DS[k][1];
+        pl_room = 0;
+        plate_feed(&p, n, 0, -1, -1);
+        tp = pl_t60(b1 + SD_FS / 100u, n, &ep);
+        pl_room = 1;
+        plate_feed(&p, n, 0, 0.0, -1);
+        tr = pl_t60(b1 + SD_FS / 100u, n, &er);
+        printf(" DECAY %u SIZE %u: %.1f s / %.1f s, %+.1f dB;", DS[k][0] * 100u / 65535u, DS[k][1] * 100u / 65535u, tr, tp, er - ep);
+        CHECK(tp > 0 && tr > 0.7 * tp && tr < 1.5 * tp, "the room beside FREEZE, DECAY %u SIZE %u: T60 %.1f s, the plate's %.1f",
+              DS[k][0], DS[k][1], tr, tp);
+        CHECK(fabs(er - ep) < 3, "the room beside FREEZE, DECAY %u SIZE %u: %+.1f dB against the plate", DS[k][0], DS[k][1], er - ep);
+        if (tp > 0 && fabs(log(tr / tp)) > fabs(log(worst))) worst = tr / tp;
+        if (fabs(er - ep) > fabs(wl)) wl = er - ep;
+    }
+    pl_room = 0;
+    printf(" (worst x %.2f, %+.1f dB)\n", worst, wl);
 }
 static void test_plate_pitch(void)
 {
@@ -5186,7 +5404,7 @@ static void test_radar1(void)
         sp->pk = 1000u * 256u; sp->pG[0] = sp->pk; sp->panc[0] = sp->panc[1] = 0; sp->pW = 0;
         sp->prseen = e1.tur_count = 4u; e1.tur_reg = 0;
         t0 = sp->pk;
-        #define LP_TICKS(n) for (k = 0; k < (n); k++) sd_lp_plan(&e1, sp)
+        #define LP_TICKS(n) for (k = 0; k < (n); k++) sd_lp_plan(&e1, sp, 0u)
         e1.tur_count = 5u; LP_TICKS(1u);        /* a 0: the slice starts here */
         CHECK(sp->prk0 == t0 && !sp->pbl && !sp->prep, "REPEAT: a 0 moved the head (%u %u)", sp->prk0, sp->pbl);
         LP_TICKS(99u);
@@ -5247,6 +5465,8 @@ int main(void)
     test_plate_jobs();
     test_plate_pitch();
     test_freeze_room();
+    test_freeze_room_tail();
+    test_freeze_into_room();
     test_c1_halves();
     test_arp_grid();
     test_arp_tempo();
@@ -5271,6 +5491,7 @@ int main(void)
     test_space();
     test_looper();
     test_looper_wishes();
+    test_seq_src_off();
     test_mod();
     test_split_through();
     test_seq();

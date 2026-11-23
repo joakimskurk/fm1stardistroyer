@@ -4256,6 +4256,7 @@ static void pic_loop(void)
     char pd[16], *p;
     uint32_t n = sd_lp_total(&eng), w = eng.sp.lw, ln = (uint32_t)eng.sp.llen >> 8, span, spc, i, k;
     uint32_t sync = (pat.s_mode & SD_SP_SYNC) && eng.seq_run && eng.seq_len_q8, looping = eng.sp.pon && lp_on;
+    uint16_t lc = lp_hold ? C_ICE_D : C_RED;    /* (the loop held, LOOPER off: dim, its head going round in time) */
     uint32_t bar = 16u * eng.seq_len_q8 / 512u, beat = 4u * eng.seq_len_q8 / 512u;   /* (half-rate samples) */
     uint32_t now = (looping ? lp_frz_grid : eng.grid_q8) / 512u;   /* the grid's time at the head, half-rate */
     L.a = eng.lpa; L.na = eng.lpa ? eng.lpa_n : 0u; L.b = eng.lpb; L.n = L.na + (eng.lpb ? eng.lpb_n : 0u);
@@ -4299,7 +4300,7 @@ static void pic_loop(void)
         }
         for (i = 0; i < LP_COLS; i++) {         /* the tape: what it recorded, the window bright */
             int32_t x = X0 + (int32_t)i, a = lp_col[i] / 2;
-            uint16_t c = x >= xs && x <= xe ? (looping ? C_RED : lp_arm ? C_ICE : C_ICE_D) : xn >= 0 && x > xn ? C_ICE_D : C_GRID;
+            uint16_t c = x >= xs && x <= xe ? (looping ? lc : lp_arm ? C_ICE : C_ICE_D) : xn >= 0 && x > xn ? C_ICE_D : C_GRID;
             if (a) cv_line(x, SM - a, x, SM + a, c);
             else cv_pset(x, SM, c);
         }
@@ -4314,10 +4315,10 @@ static void pic_loop(void)
             }
         }
         if (xs < X0) xs = X0;
-        cv_frame(xs, SY - 1, xe - xs + 1 > 4 ? xe - xs + 1 : 4, SH + 2, looping ? C_RED : lp_arm ? C_ICE : C_GRID);
+        cv_frame(xs, SY - 1, xe - xs + 1 > 4 ? xe - xs + 1 : 4, SH + 2, looping ? lc : lp_arm ? C_ICE : C_GRID);
         if (looping) {                          /* its head, through the loop */
             int32_t xh = xs + (int32_t)((uint32_t)(xe - xs) * eng.lp_at / 4096u);
-            cv_rect(xh, SY - 3, 2, SH + 6, C_GLINT);
+            cv_rect(xh, SY - 3, 2, SH + 6, lp_hold ? C_ICE : C_GLINT);
         } else if (lp_arm) {                    /* the record head, on the right */
             cv_rect(X0 + W - 2, SY - 3, 2, SH + 6, C_RED);
         }

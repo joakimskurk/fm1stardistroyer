@@ -29,9 +29,14 @@
 #ifndef FELUCCA_UAC_48K
 #define FELUCCA_UAC_48K 1
 #endif
+#ifndef FELUCCA_UAC_MIDI_LAST
+#define FELUCCA_UAC_MIDI_LAST 0
+#endif
 #if !FELUCCA_UAC
 #undef FELUCCA_UAC_48K
 #define FELUCCA_UAC_48K 0
+#undef FELUCCA_UAC_MIDI_LAST
+#define FELUCCA_UAC_MIDI_LAST 0
 #endif
 enum { S_FADDR = 0, S_POWER = 1, S_INTRTX1 = 2, S_INTRTX2 = 3, S_INTRRX1 = 4, S_INTRRX2 = 5, S_INTRUSB = 6,
        S_INTRTX1E = 7, S_INTRTX2E = 8, S_INTRRX1E = 9, S_INTRRX2E = 10, S_INTRUSBE = 11, S_FRAME1 = 12,
@@ -173,14 +178,36 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 /* ------------------------------------------------------- descriptors --- */
 /* interfaces: 0 audio control, 1 MIDI streaming, 2 audio streaming (FELUCCA_UAC), then CDC's two.
  * bcdDevice: 3.00 MIDI, +0.01 CDC, +0.10 the audio input, +0.20 more with 48 kHz (2.5) (hosts cache descriptors
- * per version) */
+ * per version).
+ * FELUCCA_UAC_MIDI_LAST=1 (felucca-bsp cd76d43, Felucca 1.8.3, 2026-11-22: macOS 13-15 make no audio device while
+ * MIDI streaming is interface 1, between audio control and audio streaming, whatever the collection lists): 0 audio
+ * control, 1 audio streaming, 2 MIDI streaming, the collection in that order (MIDI stays in it: Linux makes its MIDI
+ * port from it); the endpoints do not move; bcdDevice +0.80 so a host never reuses the old layout */
 #define CDC_IF (2 + FELUCCA_UAC)
+#if FELUCCA_UAC_MIDI_LAST
+#define UAC_AS_IF 1u
+#define MIDI_IF 2u
+#else
 #define UAC_AS_IF 2u
+#define MIDI_IF 1u
+#endif
+#define BCD_ML (0x80 * FELUCCA_UAC_MIDI_LAST)
+#define D_MIDI                                          /* MIDI streaming: two jacks each way, EP1 OUT and IN */ \
+    9, 4, MIDI_IF, 0, 2, 1, 3, 0, 0,                                                                 \
+    7, 0x24, 1, 0x00, 0x01, 0x41, 0x00,                                                              \
+    6, 0x24, 2, 1, 1, 0,                                                                             \
+    6, 0x24, 2, 2, 2, 0,                                                                             \
+    9, 0x24, 3, 1, 3, 1, 2, 1, 0,                                                                    \
+    9, 0x24, 3, 2, 4, 1, 1, 1, 0,                                                                    \
+    9, 5, 0x01, 2, 64, 0, 0, 0, 0,                                                                   \
+    5, 0x25, 1, 1, 1,                                                                                \
+    9, 5, 0x81, 2, 64, 0, 0, 0, 0,                                                                   \
+    5, 0x25, 1, 1, 3,
 #define CFG_LEN (101 + 74 * FELUCCA_CDC + 74 * FELUCCA_UAC + 3 * FELUCCA_UAC_48K)
 #define USB_NIF (2 + FELUCCA_UAC + 2 * FELUCCA_CDC)
 #if FELUCCA_CDC
 static const uint8_t DEV_DESC[18] = {18, 1, 0x00, 0x02, 0xEF, 0x02, 0x01, 64, 0x09, 0x12, 0x01, 0x00,
-                                     0x01 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K), 0x03, 1, 2, 0, 1};   /* misc/IAD */
+                                     0x01 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K) + BCD_ML, 0x03, 1, 2, 0, 1};   /* misc/IAD */
 static const uint8_t CFG_DESC[] = {
     9, 2, CFG_LEN & 0xFF, CFG_LEN >> 8, USB_NIF, 1, 0, 0x80, 50,
     8, 0x0B, 0, 2 + FELUCCA_UAC, 1, 1, 0, 0,            /* IAD: audio + MIDI (IF 0-1, 0-2) */
@@ -189,31 +216,26 @@ static const uint8_t CFG_DESC[] = {
 #define FELUCCA_USB_PID 0x0001   /* the update loader is 0x0002 */
 #endif
 static const uint8_t DEV_DESC[18] = {18, 1, 0x10, 0x01, 0, 0, 0, 64, 0x09, 0x12, FELUCCA_USB_PID & 0xFF,
-                                     FELUCCA_USB_PID >> 8, 0x00 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K), 0x03,
+                                     FELUCCA_USB_PID >> 8, 0x00 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K) + BCD_ML, 0x03,
                                      1, 2, 0, 1};
 static const uint8_t CFG_DESC[] = {
     9, 2, CFG_LEN & 0xFF, CFG_LEN >> 8, USB_NIF, 1, 0, 0x80, 50,
 #endif
     9, 4, 0, 0, 0, 1, 1, 0, 0,
 #if FELUCCA_UAC
-    10, 0x24, 1, 0x00, 0x01, 31, 0, 2, 1, UAC_AS_IF,    /* AC header 1.00: MIDI + audio streaming */
+    10, 0x24, 1, 0x00, 0x01, 31, 0, 2, FELUCCA_UAC_MIDI_LAST ? UAC_AS_IF : MIDI_IF, FELUCCA_UAC_MIDI_LAST ? MIDI_IF : UAC_AS_IF,
+                                                        /* AC header 1.00: MIDI + audio streaming (in the
+                                                           interfaces' order) */
     12, 0x24, 2, 1, 0x03, 0x06, 0, 2, 0x03, 0x00, 0, 0, /* input terminal 1: line, 2 ch (L R) */
     9, 0x24, 3, 2, 0x01, 0x01, 0, 1, 0,                 /* output terminal 2: USB streaming, from 1 */
 #else
     9, 0x24, 1, 0x00, 0x01, 9, 0, 1, 1,
 #endif
-    9, 4, 1, 0, 2, 1, 3, 0, 0,
-    7, 0x24, 1, 0x00, 0x01, 0x41, 0x00,
-    6, 0x24, 2, 1, 1, 0,
-    6, 0x24, 2, 2, 2, 0,
-    9, 0x24, 3, 1, 3, 1, 2, 1, 0,
-    9, 0x24, 3, 2, 4, 1, 1, 1, 0,
-    9, 5, 0x01, 2, 64, 0, 0, 0, 0,
-    5, 0x25, 1, 1, 1,
-    9, 5, 0x81, 2, 64, 0, 0, 0, 0,
-    5, 0x25, 1, 1, 3,
+#if !FELUCCA_UAC_MIDI_LAST
+    D_MIDI
+#endif
 #if FELUCCA_UAC
-    9, 4, UAC_AS_IF, 0, 0, 1, 2, 0, 0,                  /* IF2 audio streaming, alt 0: no bandwidth */
+    9, 4, UAC_AS_IF, 0, 0, 1, 2, 0, 0,                  /* audio streaming, alt 0: no bandwidth */
     9, 4, UAC_AS_IF, 1, 1, 1, 2, 0, 0,                  /* alt 1: the stream */
     7, 0x24, 1, 2, 1, 0x01, 0x00,                       /* AS general: terminal 2, delay 1, PCM */
 #if FELUCCA_UAC_48K
@@ -224,6 +246,9 @@ static const uint8_t CFG_DESC[] = {
 #endif
     9, 5, 0x84, 0x05, UAC_MAXP & 0xFF, UAC_MAXP >> 8, 1, 0, 0,   /* EP4 IN isochronous async, 1 ms */
     7, 0x25, 1, 0x01, 0, 0, 0,                          /* CS endpoint: sampling frequency control */
+#endif
+#if FELUCCA_UAC_MIDI_LAST
+    D_MIDI
 #endif
 #if FELUCCA_CDC
     8, 0x0B, CDC_IF, 2, 2, 2, 1, 0,                     /* IAD: CDC ACM (IF 2-3, 3-4) */
@@ -248,7 +273,7 @@ typedef char cfg_len_ok[sizeof CFG_DESC == CFG_LEN ? 1 : -1];
  * are loaded first), so the host sees one device from the start */
 static uint8_t usb_cdc_on;
 static const uint8_t DEV_DESC_PLAIN[18] = {18, 1, 0x10, 0x01, 0, 0, 0, 64, 0x09, 0x12, 0x01, 0x00,
-                                           0x00 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K), 0x03, 1, 2, 0, 1};
+                                           0x00 + 0x10 * (FELUCCA_UAC + FELUCCA_UAC_48K) + BCD_ML, 0x03, 1, 2, 0, 1};
 #define CFG_PLAIN_LEN (CFG_LEN - 74)                    /* without the audio IAD (8) and the CDC block (66) */
 static uint8_t cfg_plain[CFG_PLAIN_LEN];
 static const uint8_t *cfg_plain_get(void)
@@ -489,7 +514,13 @@ static void ep0_service(void)
 #if FELUCCA_UAC
         uac.e0_rx = 0;
 #endif
-        return;
+#if defined(FELUCCA_LOADER) && FELUCCA_LOADER
+        return;                                         /* (the update loader as Dinghy's, byte for byte) */
+#else
+        csr = sie_rd(S_CSR0);                           /* a SETUP may be here already: its interrupt was this one
+                                                           (felucca-bsp 3c80360, #28: macOS waited for its timeout
+                                                           on 196 of 1800 requests) */
+#endif
     }
     if (csr & 0x10u) {                                  /* SetupEnd: the host abandoned the transfer */
         sie_wr(S_CSR0, 0x80);

@@ -515,6 +515,19 @@ core 0:  dry ──────────────────────�
   the sequencer as it was; looped while stopped, from its start on the one. Silent, it is there at once and fades
   in; playing, it crossfades there (~12 ms), or, in its place already, nudges. A loop carries alone with the tracks
   OFF (EDIT) or cleared (CLR), PLAY running on. `test_looper_transport`.
+- *The clock leads* (2026-11-23, the user: "it comes out of sync, out of time"; a MIDI clock's tempo read a little
+  off as LOOP took its LENGTH drifted it ~1 ms a bar): a LOOP taken synced has its LENGTH in 192nds of a 16th too,
+  and from then on the master's clock (its 192nds a tick, the remainders kept) says where its grid should be; the
+  grid slides there (16 a tick at most: 0.4 %, the head following it as it follows the grid), or, more than 64
+  samples off (a new TEMPO), is set there at its next line (the loop's start, or a bar of a longer one) and the
+  head crossfades. Within 2 samples nothing moves: at a steady tempo the loop is bit for bit as it was. START puts
+  it where the master's 16ths since LOOP put it (the same after a new TEMPO). `test_looper_clock`.
+- *LOOPER off, its loop kept* (2026-11-23, the user: "the waveform is gone when I switch it off and on again later;
+  then it should be in sync too"; on again it recorded while it waited for its line and looped what it had then,
+  half old, half new, out of time): held, LOOP fades to silence but its head goes on round (nothing recorded), so on
+  again it fades in where it is, the same loop. A LOOP taken from a still tape (LOOPER off) takes its last LENGTH at
+  once, where its end would have come round to by now. SPACE never rests while the looper records or plays (resting,
+  its tape stood still and a loop taken after it held two moments).
 - *The lock on the grid* (the user: "it can go to the nearest line, with some weighting toward what makes most sense
   musically"): synced, while the tracks play, LOOP locks on a line (`sd_lp_snap`). The lines are the loop's LENGTH
   under a bar, else the bars, from the master's one (the grid's clock time); with a shorter LENGTH the half bars and
@@ -657,9 +670,16 @@ listening rounds are in the git history.
   armed at 0 it records, silent until faded in; the FILTER -29 / -32 dB on a 440 Hz loop; R-SEND +18 dB of tail,
   D-SEND +4 dB. The picture: a tape past its head, what it records as it comes (each column the loudest of its
   samples from the memory, a frame's new ones at a time, in the pool), the grid it locks to, the LENGTH framed on it.
-- *To do (the user, 2026-11-17):* while the plate is FROZEN, the room after it in the chain, so the frozen tail goes
-  into the room too (now the room only takes what is played over the held tail, beside it). Open: the room on core 0
-  then runs on the plate's output each block (its cost to measure), and whether the room stays beside it as well.
+- *The room beside the frozen plate* (2026-11-23, the user: "the reverb that takes over when I freeze is not as
+  intense", then "the freeze should go into the reverb that takes over"; first asked 2026-11-17): it takes what is
+  played over the held tail and the frozen tail itself, as heard (its PITCH too), as the synth goes in: one room for
+  both (~+1 dB on the held tail; the plate's output read where the out reads it, `zl`/`zr`). It rings as long as the
+  plate: its line gain from the plate's T60 (its long end too) over the room's own mean line at SIZE, x 4/3 .. 0.8 by
+  SIZE and x 1.2 .. 0.8 by TONE (its short lines lose more to TONE a pass), x (1 + DECAY^4 / 2) (its few, still modes
+  let a held chord go sooner than the plate's moving ones), and a make-up over half SIZE (+4 dB at 75 %, +1.5 at 100):
+  against the plate on noise its T60 within 11 % on average (it was 80 %, five times at a small SIZE), on chords in
+  five keys 1.9 dB on average where it was 2.6 and -9.4 at worst. Only beside the plate: the room on one core (§5.5)
+  as it was. `test_freeze_room_tail`, `test_freeze_into_room`.
 
 ### 6.5 The chain and the modulation (C1)
 

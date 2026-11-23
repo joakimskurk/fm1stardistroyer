@@ -290,6 +290,8 @@ enum { SD_DX_CMP, SD_DX_LR4 };
 enum { SD_SP_SYNC = 1, SD_SP_PP = 2 };          /* s_mode's bits; 2..7: SHIMMER, 0..63 */
 #define SD_SP_SHIM(p) ((uint32_t)(p)->s_mode >> 2)
 SD_INLINE uint32_t sd_sp_div(uint32_t t) { return (t * SD_SP_NDIV) >> 16; }   /* TIME synced: its division */
+#define SD_LP_TCM 73728u                        /* the clock's 192nds counted round this: every LENGTH's two loops go
+                                                   into it (2^13 x 9) */
 #define SD_LP_NDIV 15u                          /* the looper's LENGTH synced: TIME's, then 1, 2 and 4 bars */
 SD_INLINE uint32_t sd_lp_div(uint32_t t) { return (t * SD_LP_NDIV) >> 16; }
 SD_INLINE uint32_t sd_sp_ms(uint32_t t) { return 1u + (t * 999u) / 65535u; }   /* TIME free: 1 .. 1000 ms */
@@ -757,6 +759,8 @@ typedef struct {                                /* SPACE's state */
     /* the room beside the plate while FROZEN (two cores, e->frm its memory): what is played over the held tail
        goes into the room, faded in and out over ~5 ms; let go, its tail dies away, and the room stops once quiet */
     uint8_t fr_on;
+    int16_t fr_mk;                              /* its level over the synth's way in (Q14 over x 1): a SIZE over half
+                                                   up to +2.5 dB, as loud as the plate (2026-11-23) */
     int32_t fr_ig, fr_pk;
     uint32_t fr_q;
     /* the looper (TIME's): it records what SPACE plays before the reverb (the dry and the echoes at D-LEVEL), each
@@ -797,6 +801,8 @@ typedef struct {                                /* SPACE's state */
     uint32_t pgN, pgn;
     int16_t psp, px, pxd, plev;
     uint8_t pon, pbl, prst, pdir, ppend;
+    uint8_t pclk, pcp;                          /* the master's clock leads the grid (a LOOP synced); the x 0.5
+                                                   grid's half of the clock's (which of its two loops) */
     /* RADAR 1's REPEAT: repeating; the head where RADAR's step before began (the slice), where it would be had it
        not repeated (it comes back there); RADAR's steps seen */
     uint8_t prep;
@@ -805,6 +811,13 @@ typedef struct {                                /* SPACE's state */
        parked by STOP (silent, its memory kept), and its place against the master's one known (LOOP while running) */
     uint32_t pT, pT0;
     uint8_t prun, ppark, psync;
+    /* the master's clock in 192nds of a 16th (the triplets whole: sd_lp_plan): since START (round SD_LP_TCM), and
+       at LOOP; its remainder (clock time x 192); the tape's newest sample's time (a LOOP from a still tape, LOOPER
+       off: where its end was played), in samples and in 192nds; the grid as the clock has it (2026-11-23, the user:
+       the loop came out of time), at x 1 as pG[1], and its remainder; the LENGTH in 192nds (0: free, the clock does
+       not lead) */
+    uint32_t pTc, pT0c, pCa, pTw, pTwc, pC;
+    uint16_t pCn, pCq;
     /* LOOP synced while the tracks play: its lock on the grid (sd_lp_snap): waiting for a line ahead, the clock time
        still to go (samples x 256); the samples back to a line passed, for the job */
     uint8_t pqw;
@@ -2009,16 +2022,49 @@ static void sd_lp_glide_to(SdSpace *s, int32_t to, uint32_t ticks)   /* a glide 
  * sync"): its head where it stood against the master's one. Looped while the transport ran, T samples after START,
  * its grid at the new START is where it would be T before LOOP, at x 0.5, 1 and 2 (-T x 128 << k round the loop: in
  * 32 bits, T taken round the loop first); looped while stopped, from its start on the one. Silent (parked), it is
- * there at once and fades in; playing, it crossfades there (~12 ms) */
-static void sd_lp_sync(SdSpace *s)
+ * there at once and fades in; playing, it crossfades there (~12 ms). At `now` (START: 0; a LOOP from a still tape:
+ * the transport's time, its grid as far on as its end has gone since it was played). The clock's grid from there */
+static uint32_t sd_lp_frac(const SdSpace *s, uint32_t ca, uint32_t u)   /* the clock ca / u into its 192nd: the grid's
+                                                   way over it (x 256, at x 1) */
 {
-    uint32_t ln = s->pln, a, r, k, at;
+    uint32_t f;
+    if (!s->pCq || u < 65536u) return 0u;
+    f = ca / (u >> 8);
+    return ((f < 256u ? f : 256u) * (s->pln / s->pCq)) >> 8;   /* (ln / cq < 2^19: x 256 fits) */
+}
+static void sd_lp_clk0(SdSpace *s, uint32_t f)  /* the clock's grid where the grid is (the clock f into its 192nd) */
+{
+    uint32_t ln = s->pln;
+    s->pCn = 0; s->pcp = (uint8_t)(s->pG[0] >= ln / 2u);
+    if (f > s->pG[1]) { s->pC = s->pG[1] + ln - f; s->pcp ^= 1u; } else s->pC = s->pG[1] - f;   /* (f < ln) */
+}
+static void sd_lp_clkat(SdSpace *s, uint32_t n, uint32_t f)   /* the grid n 192nds on from LOOP (n < its two loops),
+                                                   and f into the next: the loop's way over as much of its LENGTH,
+                                                   at x 0.5, 1 and 2, exact */
+{
+    uint32_t ln = s->pln, cq = s->pCq, m = n % cq, a = ln / cq, b = ln % cq, x, p;
+    s->pC = m * a + m * b / cq;                 /* (m b < cq^2 < 2^28) */
+    s->pCn = (uint16_t)(m * b % cq);
+    s->pcp = (uint8_t)(n >= cq);
+    x = s->pC + f; p = s->pcp;
+    if (x >= ln) { x -= ln; p ^= 1u; }
+    s->pG[1] = x;
+    s->pG[0] = (x + (p ? ln : 0u)) / 2u;
+    s->pG[2] = x * 2u % ln;
+}
+static void sd_lp_sync(SdSpace *s, uint32_t now, uint32_t nowc, uint32_t f)   /* (f: the clock into its 192nd) */
+{
+    uint32_t ln = s->pln, a, k, at;
     int gi = sd_lp_oct(s->pr);
-    if (!s->psync) { s->pT0 = 0; s->psync = 1; }
-    a = s->pT0 % ln;
-    for (k = 0; k < 3u; k++) {
-        r = (a * (8u << k)) % ln * 16u % ln;    /* (a x 32 < 2^30, ln x 16 < 2^29) */
-        s->pG[k] = r ? ln - r : 0u;
+    if (!s->psync) { s->pT0 = now; s->pT0c = nowc; s->psync = 1; }
+    if (s->pCq) {                               /* synced: where the master's 16ths since LOOP put it (the same
+                                                   after a new TEMPO) */
+        uint32_t m2 = 2u * s->pCq;
+        sd_lp_clkat(s, (nowc % m2 + m2 - s->pT0c % m2) % m2, f);
+    } else {
+        a = (now % ln + ln - s->pT0 % ln) % ln; /* (now - T0 round the loop) */
+        for (k = 0; k < 3u; k++) s->pG[k] = (a * (8u << k)) % ln * 16u % ln;   /* (a x 32 < 2^30, ln x 16 < 2^29) */
+        sd_lp_clk0(s, 0u);
     }
     s->panc[0] = s->panc[1] = 0;
     k = gi >= 0 ? (uint32_t)gi : 1u;
@@ -2060,30 +2106,44 @@ static int32_t sd_lp_snap(const SdEngine *e, uint32_t llen)
     return pick;
 }
 
-SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
+SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s, uint32_t lq16)   /* lq16: the LENGTH in 192nds of a 16th
+                                                   (synced), 0 free */
 {
     int32_t sp = e->lp_speed + e->lp_mtq + e->lp_orb, to, adv, bend = 0, A, gi;   /* (RADAR's semitones on the
                                                    speed set, ORBIT's step's) */
-    uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow;
+    uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow, tc, q = 0, u = e->seq_len_q8, bku = 0, ca0;
     int run = e->seq_run != 0, start = (run && !s->prun) || e->seq_started, on;
-    if (start) s->pT = 0;                       /* the transport: STOP parks the loop, START plays it in sync */
-    tnow = s->pT;
-    if (run) s->pT += 16u;
+    if (start) { s->pT = 0; s->pTc = 0; s->pCa = 0; }   /* the transport: STOP parks the loop, START plays it in
+                                                   sync */
+    tnow = s->pT; tc = s->pTc; ca0 = s->pCa;     /* (the tick's start) */
+    if (run) {
+        s->pT += 16u;
+        if (u) {                                /* the master's clock this tick, in 192nds of a 16th (its remainder
+                                                   kept: exact; a MIDI clock's pace, a new TEMPO's) */
+            s->pCa += e->clk_adv * 192u;        /* (clk_adv <= half a 16th < 2^21: x 192 fits) */
+            q = s->pCa / u; s->pCa -= q * u;
+            s->pTc = (s->pTc + q) % SD_LP_TCM;
+        }
+    }
     if (s->pon && s->prun && !run && s->loop) s->ppark = 1;
     if (!s->loop) s->ppark = 0;                 /* (LOOP off, or L-LEVEL 0: out, and it records) */
     s->prun = (uint8_t)run;
-    if (start && s->pon) sd_lp_sync(s);
+    if (start && s->pon) sd_lp_sync(s, tnow, tc, 0u);
     on = s->loop && !s->ppark;
     if (!on || s->pon || !run) s->pqw = 0;      /* (a lock waiting: LOOP off, or STOP, takes it back) */
     s->pback = 0;
-    if (on && !s->pon) {                        /* LOOP: on the grid, synced while the tracks play (sd_lp_snap) */
+    if (on && !s->pon && s->lact) {             /* LOOP: on the grid, synced while the tracks play (sd_lp_snap; a still
+                                                   tape, LOOPER off, has nothing new to wait for: at once) */
         if (s->pqw) {                           /* waiting for its line: there in this sub-block, it locks */
             if (s->pq > e->clk_adv) { s->pq -= e->clk_adv; on = 0; }
             else s->pqw = 0;
         } else {
             int32_t d = sd_lp_snap(e, (uint32_t)s->llen);
             if (d > (int32_t)e->clk_adv) { s->pq = (uint32_t)d; s->pqw = 1; on = 0; }
-            else if (d < 0) s->pback = (uint32_t)(-d) / 512u;   /* (clock time to half-rate samples) */
+            else if (d < 0) {                   /* (clock time to half-rate samples, and to 192nds) */
+                s->pback = (uint32_t)(-d) / 512u;
+                if (u >= 192u) bku = ((uint32_t)(-d) + u / 384u) / (u / 192u);
+            }
         }
     }
     sp = sp > 3072 ? 3072 : sp < -3072 ? -3072 : sp;
@@ -2096,7 +2156,8 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
         s->pG[0] = s->pG[1] = s->pG[2] = 0; s->panc[0] = s->panc[1] = 0;
         s->pdir = s->lrev; s->ppend = 0;
         s->prep = 0; s->prk0 = 0; s->prseen = e->tur_count;   /* (REPEAT from its first step) */
-        s->pT0 = tnow; s->psync = (uint8_t)run;  /* (its place against the master's one, for the next START) */
+        s->pT0 = tnow; s->pT0c = tc; s->psync = (uint8_t)run;   /* (its place against the master's one, for the
+                                                   next START) */
         if (s->pback) {                         /* its end on a line passed: the head on as far, at its speed, as if
                                                    LOOP had come there (its grid with it); if its memory holds that */
             uint32_t bk = s->pback, k3;
@@ -2107,7 +2168,17 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
                 if (s->pdir) s->pk = (s->pln - s->pk) % s->pln;   /* (REVERSE set before: as far back from its end) */
                 for (k3 = 0; k3 < 3u; k3++) s->pG[k3] = (bk * (128u << k3)) % s->pln;
                 s->pT0 = tnow > bk ? tnow - bk : 0u;
+                s->pT0c = (tc + SD_LP_TCM - bku % SD_LP_TCM) % SD_LP_TCM;
             }
+        }
+        s->pCq = (uint16_t)(s->pln == (uint32_t)s->llen && lq16 < 65536u ? lq16 : 0u);   /* (its LENGTH as set: the
+                                                   clock may lead it) */
+        sd_lp_clk0(s, sd_lp_frac(s, ca0, u));
+        if (!s->lact) {                         /* a still tape (LOOPER off, 2026-11-23): its last LENGTH, ending where
+                                                   it stopped, played where that end would have come round to by now
+                                                   (silent till the LOOPER is on: it comes in in time) */
+            s->pT0 = s->pTw; s->pT0c = s->pTwc; s->psync = 1;
+            sd_lp_sync(s, tnow, tc, sd_lp_frac(s, ca0, u));
         }
         if (s->pgn < s->pgN) sd_lp_glide_to(s, s->pgt, s->pgN - s->pgn);   /* (a glide on its way: bent now) */
     }
@@ -2181,16 +2252,49 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s)
     /* this tick's plan, for its chunks */
     s->lt.k0 = s->pk; s->lt.k1 = s->pk1; s->lt.ln = ln; s->lt.adv = A;
     s->lt.x0 = s->px; s->lt.xd = s->pbl ? s->pxd : 0;
-    s->lt.levd = (int8_t)(on ? (s->plev < 16384 ? 64 : 0) : s->pon ? -16 : 0);
+    s->lt.levd = (int8_t)(on && !e->lp_hold ? (s->plev < 16384 ? 64 : 0) : s->pon ? -16 : 0);   /* (held, LOOPER off:
+                                                   its head goes on round, silent, nothing recorded; on, it fades in
+                                                   where it is) */
     s->lt.lev0 = s->plev;
     s->lt.on = s->pon; s->lt.bl = s->pbl; s->lt.rst = s->prst; s->lt.back = s->prst ? s->pback : 0u;
     s->lti = 0;
+    if (!s->pon && s->lact) { s->pTw = s->pT; s->pTwc = s->pTc; }   /* (the tape records this tick: its newest
+                                                   sample's time) */
     if (!s->pon) return;
     /* on to the next tick */
     s->pk = sd_lp_add(s->pk, A, ln);
     if (s->pbl) s->pk1 = sd_lp_add(s->pk1, A, ln);
     if (s->prep) s->prt = sd_lp_add(s->prt % ln, A, ln);   /* (REPEAT: where it would be) */
     for (k = 0; k < 3u; k++) s->pG[k] = sd_lp_add(s->pG[k], (int32_t)(2048u << k), ln);
+    if (s->pCq && run && s->psync && !s->ppark && u >= 65536u) {   /* (a LOOP taken synced: led on, whatever TIME's
+                                                   MODE says later; a patch's FREE for a moment left the clock behind) */
+        /* the master's clock leads the grid (2026-11-23, the user: "it comes out of time"; a MIDI clock's tempo is
+           read a little off as LOOP takes its LENGTH, a new TEMPO is another): the grid's way at x 1 over this
+           tick's 192nds of the clock (the loop over its LENGTH; its remainder kept, so it never drifts), and where in
+           the 192nd the clock is. The grid slides toward that, 16 a tick at most (0.4 %, a few cents: the head
+           follows it as it follows the grid), or, more than 64 samples off, it is set there at its next line (the
+           loop's start, or a bar of a longer one; the head crossfades there). Within 2 samples: as it was */
+        uint32_t c0 = s->pC, n = s->pCn + q * ln, w, x, nb = s->pCq / 3072u, sl, t[3];
+        int32_t d, g;
+        w = n / s->pCq; s->pCn = (uint16_t)(n - w * s->pCq);   /* (q < 97, ln < 2^25: fits) */
+        w = c0 + (w < ln ? w : w % ln);
+        if (w >= ln) { w -= ln; s->pcp ^= 1u; } /* (round: the x 0.5 grid's other loop) */
+        s->pC = w;
+        x = w + sd_lp_frac(s, s->pCa, u);       /* (the clock's place in its 192nd) */
+        t[0] = (x + (s->pcp ? ln : 0u)) / 2u % ln; t[1] = x % ln; t[2] = x * 2u % ln;
+        sl = ln / (nb ? nb : 1u);
+        d = sd_lp_near(t[1], s->pG[1], ln);
+        if (d > 16384 || d < -16384) {          /* far off: there at its line */
+            if (w < c0 || c0 / sl != w / sl) for (k = 0; k < 3u; k++) s->pG[k] = t[k];
+        } else if (d > 512 || d < -512) {
+            for (k = 0; k < 3u; k++) {
+                int32_t m = (int32_t)(8u << k);
+                g = sd_lp_near(t[k], s->pG[k], ln);
+                g = g > m ? m : g < -m ? -m : g;
+                s->pG[k] = sd_lp_add(s->pG[k], g, ln);
+            }
+        }
+    }
     {
         int32_t lv = s->plev + 16 * s->lt.levd;
         s->plev = (int16_t)(lv > 16384 ? 16384 : lv < 0 ? 0 : lv);
@@ -2280,12 +2384,12 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         else for (lq = sd_sp_ms(e->lp_len) * 11290u; lq > lm; lq >>= 1) f++;
         if (lq > lm) lq = lm;
         s->llen = (int32_t)(lq / 2u);           /* (half-rate samples x 256) */
-        (void)f;                                /* (the halvings: sd_space_sync_q8's count, not kept) */
+                                                /* (f: the halvings, for the clock's LENGTH) */
         {                                       /* held: LOOP out (its own fade, ~46 ms), then silent, no recording */
             int held = e->lp_hold && !s->pon;
             s->llvl = s->larm && !held ? e->lp_lvl >> 1 : 0;   /* (armed: recording, or playing) */
-            s->loop = e->lp_on && s->larm && !e->lp_hold && (s->llvl != 0 || e->lp_arm);   /* (armed by the player:
-                                                   at L-LEVEL 0 too) */
+            s->loop = e->lp_on && s->larm && (s->llvl != 0 || e->lp_arm || e->lp_hold);   /* (armed by the player:
+                                                   at L-LEVEL 0 too; held: its head on round, silent, sd_lp_plan) */
             s->lact = (uint8_t)(s->larm && !held);
         }
         {
@@ -2294,7 +2398,11 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
             s->lds = e->lp_dsend >> 1;
         }
         s->lrev = e->lp_rev != 0;
-        sd_lp_plan(e, s);
+        {
+            uint32_t dv = sd_lp_div(e->lp_len);
+            dv = dv < SD_LP_NDIV ? dv : SD_LP_NDIV - 1u;
+            sd_lp_plan(e, s, p->s_mode & SD_SP_SYNC ? (192u * SD_SP_NUM[dv] / SD_SP_DEN[dv]) >> f : 0u);
+        }
     }
     s->dlvl = p->s_dlevel >> 1;
     s->rlvl = p->s_rlevel >> 1;
@@ -2335,6 +2443,30 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         s->rtone = 2621 + (int32_t)((p->s_rtone * 30146u) >> 16);
         s->rtone = 2 * s->rtone - ((s->rtone * s->rtone) >> 15);   /* 1 - (1 - c)^2: the same corner at half rate */
         s->rg = (int32_t)SD_SP_G[gi] + ((((int32_t)SD_SP_G[gi + 1u] - (int32_t)SD_SP_G[gi]) * (int32_t)gf) >> 9);
+        if (!s->room) {                         /* beside the frozen plate (2026-11-23, the user: "the reverb that
+                                                   takes over when I freeze is not as intense"; at DECAY 90 it died 12
+                                                   dB under the plate in 3 s, at a small SIZE five times faster): the
+                                                   plate's T60 (its long end too) over the room's own mean line at
+                                                   SIZE, so it rings as long whatever the SIZE (the room's TONE loses
+                                                   more a pass in its short lines: x 4/3 .. 0.8 from SIZE 0 to 1, x 1.2
+                                                   .. 0.8 from TONE 0 to 1, measured against the plate: within 10 %
+                                                   on average, 31 % at worst, where it was 80 % and five times) */
+            uint32_t tr = SD_PL_T60[gi] + (uint32_t)((((int32_t)SD_PL_T60[gi + 1u] - (int32_t)SD_PL_T60[gi]) * (int32_t)gf) >> 9);
+            uint32_t lus = ((1752u * (uint32_t)sz) >> 15) * 45u, sm;   /* (the mean line at half rate, us) */
+            tr = tr * (10923u - ((4369u * (uint32_t)sz) >> 15)) >> 13;
+            tr = tr * (9830u - ((3277u * (uint32_t)p->s_rtone) >> 16)) >> 13;
+            {                                   /* x (1 + DECAY^4 / 2): its modes, few and still, let a held chord go
+                                                   sooner than the plate's moving ones at the long end */
+                uint32_t d2 = ((uint32_t)p->s_decay * p->s_decay) >> 16, d4 = (d2 * d2) >> 16;
+                tr = tr * (8192u + ((4096u * d4) >> 16)) >> 13;
+            }
+            sm = lus * 31u / (tr ? tr : 1u);    /* (semitones x 256 down a pass: 60 dB over T60) */
+            s->rg = (int32_t)(sd_semis_mul(-(int32_t)(sm > 30720u ? 30720u : sm)) >> 1);
+            s->rg = s->rg > 32700 ? 32700 : s->rg;
+            s->fr_mk = (int16_t)(p->s_size <= 32768u ? 0 : p->s_size <= 49152u ? (int32_t)(p->s_size - 32768u) * 9585 / 16384 :
+                                 9585 - (int32_t)(p->s_size - 49152u) * (9585 - 3092) / 16383);   /* (0, +4 dB at 75 %,
+                                                   +1.5 dB at 100 %: where it was weakest against the plate) */
+        }
         for (k = 0; k < 4u; k++) {              /* SIZE: the lines move a sample a sub-block toward it */
             s->ftgt[k] = (SD_SP_FMAX[k] * sz) >> 15;
             if (!s->on || !s->flen[k]) s->flen[k] = s->ftgt[k];
@@ -2768,8 +2900,9 @@ SD_HOT static void sd_tur_tick(SdEngine *e, uint32_t start)
 SD_HOT static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* the step's note and its chord */
 {
     uint32_t i, n = 1, root = sd_seq_xn(e, t, st->note);
+    t->seq_note[0] = (uint8_t)root;             /* (OFF too: SEQ A and B as MOD sources follow their steps, 2026-11-23,
+                                                   the user: a track off, its line still pitching the frozen tail) */
     if (t->quiet) return;                       /* OFF (or B in MONO): it keeps time, silent */
-    t->seq_note[0] = (uint8_t)root;
     for (i = 0; i < 3u; i++)                    /* the chord: offsets from the step's note (0: none), each tone
                                                    transposed on its own (IN KEY: a minor chord may come out major) */
         if (st->chord[i]) {
@@ -3405,7 +3538,8 @@ SD_HOT static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
 
 SD_HOT static int32_t sd_seq_note_src(const SdEngine *e, uint32_t k)   /* a track as a MOD source (SEQ A, SEQ B): the
                                                    note it plays now, or its last, from its key's root, -24..24
-                                                   semitones (0: stopped, or no note yet) */
+                                                   semitones (0: stopped, or no note yet); OFF, the note its step
+                                                   would play (it keeps time) */
 {
     const SdSeqT *t = &e->t[k & 1u];
     int32_t d;
@@ -4210,10 +4344,13 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
     } else {
         e->d.on = 0;
     }
-    if (e->sm && (p->s_dlevel || p->s_rlevel || e->lp_lvl || e->lp_arm)) {   /* (the looper records while armed) */
+    if (e->sm && (p->s_dlevel || p->s_rlevel || e->lp_lvl || e->lp_arm || e->lp_hold)) {   /* (the looper records while
+                                                   armed; held, its head goes round) */
         sd_space_params(e);
         e->sp.rest = 0;
-        if (sd_engine_silent(e) && (!e->r.on || e->r.rest) && (!e->d.on || e->d.rest)) {   /* nothing comes in:
+        if (sd_engine_silent(e) && (!e->r.on || e->r.rest) && (!e->d.on || e->d.rest) && !e->sp.lact && !e->sp.pon) {
+                                                /* (never while the looper records or plays: resting, its tape stood
+                                                   still, and a loop taken after held two moments, out of time) */   /* nothing comes in:
                                                    rest once the tails have stayed under the floor for 2 s */
             e->sp.quiet = e->sp.peak < 8 ? e->sp.quiet + 1u : 0u;   /* (under 8, -72 dBFS: the tails' rounding
                                                    held 4..7 for good after a note, so SPACE never rested; 2026-11-19) */
@@ -5503,17 +5640,25 @@ SD_RAM(space) static void sd_room(SdSpace *s, SdRoomMem *rm, int32_t r, int32_t 
     }
 }
 
-/* the room beside the frozen plate, over a call's frames: what came in (in), faded in and out over ~5 ms (tg: in or
- * not), into the room at half rate (ph: the first frame's), its tail into rv */
-SD_RAM(space) static void sd_frz_room(SdSpace *s, SdRoomMem *rm, const int32_t *in, int32_t *rv, uint32_t m, uint32_t ph,
+/* the room beside the frozen plate, over a call's frames: what came in (in), and the frozen tail itself as heard (its
+ * PITCH too: the plate's out where the out reads it), as the synth goes in, the two in one room (2026-11-23, the
+ * user: "the freeze should go into the reverb that takes over"; ~+1 dB on the held tail); faded in and out over ~5 ms
+ * (tg: in, or 0; in at its level, fr_mk), into the room at half rate (ph: the first frame's), its tail into rv.
+ * (Worked out here, not in the frames' loop or its call: that loop is built twice, and the RAM code is full; the
+ * queue has taken this call's half-rate frames, so its count less theirs is where the out starts reading) */
+SD_RAM(space) SD_NOINLINE static void sd_frz_room(SdSpace *s, SdRoomMem *rm, const int32_t *in, int32_t *rv, uint32_t m, uint32_t ph,
                                       int32_t tg)
 {
-    uint32_t i;
+    uint32_t i, c, ml = s->qn - 1u - (m + ph) / 2u;
     int32_t g = s->fr_ig;
+    if (tg) tg += s->fr_mk;
     for (i = 0; i < m; i++) {
-        int32_t x = in[i];
-        if (g != tg) g += g < tg ? (g < 16384 - 75 ? 75 : 16384 - g) : (g > 75 ? -75 : -g);
-        if (g < 16384) {                        /* (64-bit: |x| reaches 2^17) */
+        int32_t x;
+        if (ph) ml++;
+        c = (ml - 6u - SD_PL_BLK) & (SD_PL_ZN - 1u);
+        x = in[i] + ((s->zl[c] + s->zr[c]) >> 2);
+        if (g != tg) g += g < tg ? (g < tg - 75 ? 75 : tg - g) : (g > 75 ? -75 : -g);
+        if (g != 16384) {                       /* (64-bit: |x| reaches 2^17, g < 2^15) */
             int64_t q = (int64_t)x * g;
             x = (int32_t)(q < 0 ? -((-q) >> 14) : q >> 14);
         }
@@ -5635,7 +5780,8 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
             sd_room(s, &mem->u.rm, (xl + xr + el + er + sd_lp_send(ll + lr, s->lrs)) >> 2, &rv[2u * i], &rv[2u * i + 1u]);   /* (the looper in as
                                                    the synth goes in) */
         } else {
-            if (frm) lo[i] = (xl + xr + el + er) >> 2;   /* FROZEN: what comes in, for the room (sd_frz_room) */
+            if (frm) lo[i] = (xl + xr + el + er) >> 2;   /* FROZEN: what comes in, for the room (sd_frz_room: the
+                                                   frozen tail with it) */
             if (ph) sd_plate_queue(e, sc, sstep);
         }
         dq += dstep;

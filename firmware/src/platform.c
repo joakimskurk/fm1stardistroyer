@@ -117,6 +117,10 @@ static volatile uint32_t fm1_ms;                /* milliseconds since power-on (
 #ifndef FELUCCA_UAC
 #define FELUCCA_UAC 1                           /* USB audio to the computer (0: MIDI only, as zp12) */
 #endif
+#ifndef FELUCCA_UAC_MIDI_LAST
+#define FELUCCA_UAC_MIDI_LAST 1                 /* MIDI the last interface: macOS 13-15 see the USB audio input (as
+                                                   Felucca 1.8.3; 0: the old layout, bcdDevice 3.20) */
+#endif
 #define FELUCCA_UART (!BOARD_SMK37)             /* the FM-1's TRS MIDI IN (SMK-37: none, PH8 is a key-matrix row) */
 #if BOARD_SMK37 && FELUCCA_UART
 #error "BOARD_SMK37: no UART MIDI IN (RX on PH8, a key-matrix row on the SMK)"

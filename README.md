@@ -121,13 +121,15 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays. TIME always
   turns from what plays (2026-11-23): up the next longer division that fits, down the next shorter, so turning it is
   always shorter one way and longer the other, never a jump back.
-- The **looper** (its own page, **LOOPER**, ARP's second: **LOOP**, **LENGTH**, **SPEED**, **L-LEVEL**; EDIT arms it; EDIT again, or LOOP's switch on HOME, turns it off with its loop **KEPT** (the top line says KEPT): it fades out, stops recording, and comes back the same when switched on; **CLEAR** on its **TOOLS** layer clears it, asked, OCT+ yes, and the delay has its whole line again) records what you hear
+- The **looper** (its own page, **LOOPER**, ARP's second: **LOOP**, **LENGTH**, **SPEED**, **L-LEVEL**; EDIT arms it; EDIT again, or LOOP's switch on HOME, turns it off with its loop **KEPT** (the top line says KEPT): it fades out and stops recording, but its head goes on round, silent and in time (the window dim on the screen), so it comes back the same loop, where it would have been, when switched on (LOOP turned on while it is off takes the loop it stopped on, in time too); **CLEAR** on its **TOOLS** layer clears it, asked, OCT+ yes, and the delay has its whole line again) records what you hear
   before the reverb, always. **LOOP** (K1, on the first layer since 2026-11-23) plays its last LENGTH round and round, while the delay goes on with what you
   play over it: a loop layer in the background. Synced, while the sequencer plays, LOOP locks on the beat: pressed a
   little late, the loop ends on the line you just passed and goes on at once; a little early, it waits for the line.
   The bar lines draw it most (a bar long: up to 60 % into the bar it takes the one just passed). It follows PLAY: **STOP** stops the loop too (it fades out and
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
-  too; looped while stopped, PLAY puts its start on the one). To play on over the loop without the sequencer, turn
+  too; looped while stopped, PLAY puts its start on the one). Taken synced, the sequencer's clock leads it from then
+  on (2026-11-23): a MIDI clock read a little off, or a little drift, is taken back unheard (the loop a few cents
+  faster or slower for a moment); a new TEMPO sets it back on its line at each bar. To play on over the loop without the sequencer, turn
   the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down, a semitone a detent (the pitch
   and the length together, as a tape's), and **REV** (TOOLS' K2) plays it backwards, its attacks turned
   into swells, before it loops or while it does. **OCTAVE** (TOOLS' K3) takes it to the next octave, and **GLIDE**
@@ -149,7 +151,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   glides there like tape), **DECAY** is its tail, 0.3 s to about 40 s, whatever the SIZE, **TONE** darkens it and
   **R-LEVEL** is how much. The echoes and the loop go into it.
 - **FREEZE** (K1 of SPACE's FREEZE layer) closes the plate's input and holds its tail as it is, for as long as you like; play
-  over it, turn K1 back and it dies away. It is the player's, not saved with the patch. **PITCH** (K2 there)
+  over it, turn K1 back and it dies away. What you play over it goes into a room beside the plate, and so does the
+  frozen tail itself (2026-11-23): one space for both, ringing as long and as loud as the plate would at that DECAY
+  and SIZE. It is the player's, not saved with the patch. **PITCH** (K2 there)
   takes the frozen tail up or down, up to an octave each way in semitones, without a break; back at 0, or the
   freeze let go, it is the plate's own again. In the matrix it is **FREEZE PITCH** (2026-11-23): SEQ A or B there at
   100 % plays the frozen tail as a melody, the track's notes from its root (with PITCH and ORBIT's, two octaves each
@@ -234,7 +238,8 @@ and framed, the one the knobs turn; its AMOUNT as a number on the hint line.
   AFTERTOUCH and RANDOM (each note). The engines feed it too: SEQ A's STEP and SEGMENT, the Reactor's STAGE,
   DISTROY's LOW and TOP BAND, TIME's ECHOES, and **SEQ A** and **SEQ B** (2026-11-23): the note the track plays, from
   its key's root; to PITCH, SPACE's FREEZE PITCH or the looper's SPEED at 100 % it follows the notes exactly, a
-  semitone a semitone (at 50 % half as far). SOURCE turns a list as DEST does, each with where it comes from.
+  semitone a semitone (at 50 % half as far); a track switched OFF still sends the notes its steps would play, so its
+  line can move the frozen tail without being heard. SOURCE turns a list as DEST does, each with where it comes from.
 - **Destinations:** 56, each named by the page its knob is on and the knob's name there, in the pages' order (and on
   each page its layers' knobs, K1–K4): PITCH; NAV (XM … WIDTH); ENV 1 and ENV 2 (ATTACK, DECAY, SUSTAIN,
   RELEASE); FILTER (CUTOFF, RES, ENV) and ENV 3; REACTOR (POS, RES, SLEW, DRIVE, FREQ, MIX); DISTROY (DRIVE, all four
@@ -720,6 +725,12 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     100 µs, never lowered; `fm1_supply_read` for the diagnosis; `fm1_clock_read`, the CPU's clock as the boot loader
     leaves it (nothing here writes it), measured at the boot (dependent adds against TIMER4) with its registers read,
     for the diagnosis.
+  - `firmware/src/usb.c` (2026-11-23, from felucca-bsp and Felucca 1.8.3): `FELUCCA_UAC_MIDI_LAST`, on in
+    `platform.c`: the interfaces audio control 0, audio streaming 1, MIDI streaming 2 (it was MIDI 1, audio
+    streaming 2: macOS 13 to 15 then show no USB audio device, MIDI still works; felucca-bsp cd76d43), the
+    collection in that order, the endpoints unmoved, bcdDevice 3.A0 (3.20 before) so a host reads the new layout;
+    and a SETUP that came while a STALL was being cleared is answered in the same pass (it waited for the host's
+    timeout: felucca-bsp 3c80360, #28). The update loader keeps Dinghy's code there, byte for byte.
   - `firmware/hal/fm1_flash_map.h`: a build-time check that both FM-1 flash parts pass.
   - `firmware/hal/fm1_audio.h` (2026-11-21, the user: "a real pop every time I switch it on"): the codec's control
     line PC6 stays low through the bring-up, so the codec settles on zeros; `fm1_audio_unmute` lets the output out
