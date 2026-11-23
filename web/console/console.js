@@ -336,7 +336,7 @@ let midi = null, usbOn = false, ask = 0;
 function ports() {
   const outs = [...midi.outputs.values()].filter((p) => PORT.test(p.name));
   [...midi.inputs.values()].filter((p) => PORT.test(p.name)).forEach((p) => {
-    p.onmidimessage = (e) => { const d = e.data; if (isFrame(d)) take(d.subarray(5, d.length - 1), 'usb'); };
+    p.onmidimessage = (e) => { const d = e.data; if (isFrame(d)) take(d.subarray(5, d.length - 1), 'usb'); else onUsbSysex(d); };
   });
   return outs;
 }
@@ -364,3 +364,107 @@ $('c-usb').addEventListener('click', async () => {
 addEventListener('pagehide', () => {
   if (midi && usbOn) [...midi.outputs.values()].filter((p) => PORT.test(p.name)).forEach((o) => { try { o.send(STOP); } catch (_) { /* */ } });
 });
+
+// ---- EDIT (2026-11-23, the user's "the knobs on the big screen, patches to and from the computer"): the patch as the
+// FM-1's knobs leave it, written a field at a time (over USB: F0 7D 53 44 09 <offset> <n> <the bytes as nibbles> F7,
+// written into the patch and handed to the engine as a knob does; nothing in the flash until SAVE on the FM-1). The
+// fields' places are the firmware's own: its WebAssembly's table (the lab's), and the FM-1 must have the same patch
+// size (asked first) or nothing is written.
+const nib = (bytes) => { const o = []; for (const b of bytes) o.push(b & 15, b >> 4); return o; };
+const unnib = (d) => { const o = new Uint8Array(d.length >> 1); for (let i = 0; i < o.length; i++) o[i] = (d[2 * i] & 15) | (d[2 * i + 1] & 15) << 4; return o; };
+let fields = null, patSize = 0, fmSize = 0, editOn = false;
+async function loadFields() {
+  if (fields) return fields;
+  const url = new URL('../app/stardistroyer.wasm' + new URL(import.meta.url).search, import.meta.url);
+  const { instance } = await WebAssembly.instantiate(await (await fetch(url)).arrayBuffer(), {});
+  const x = instance.exports, dv = new DataView(x.memory.buffer), n = x.web_nfields(), f0 = x.web_fields(), sz = x.web_field_size();
+  const m = new Uint8Array(x.memory.buffer), str = (p) => { let s = ''; while (m[p]) s += String.fromCharCode(m[p++]); return s; };
+  fields = {};
+  for (let i = 0; i < n; i++) { const b = f0 + i * sz; fields[str(dv.getUint32(b + 20, true))] = { off: dv.getUint16(b, true), type: dv.getUint8(b + 2) }; }
+  patSize = x.web_pat_size();
+  return fields;
+}
+function usbOuts() { return midi ? [...midi.outputs.values()].filter((p) => PORT.test(p.name)) : []; }
+function sendUsb(msg) { usbOuts().forEach((o) => { try { o.send(msg); } catch (_) { /* (gone) */ } }); }
+function write(off, bytes) {                     // into the patch, where the frames come from
+  if (src === 'usb') {
+    if (fmSize !== patSize) return;
+    for (let i = 0; i < bytes.length; i += 48) {
+      const c = bytes.slice(i, i + 48), o = off + i;
+      sendUsb([0xF0, 0x7D, 0x53, 0x44, 0x09, o >> 7 & 127, o & 127, c.length, ...nib(c), 0xF7]);
+    }
+  } else dispatchEvent(new CustomEvent('sd-pat-send', { detail: { type: 'pat-poke', off, bytes: Uint8Array.from(bytes) } }));
+}
+const pending = new Map();                       // (a drag: the last value of each field, sent once a frame)
+function poke(path, v) {
+  const f = fields && fields[path];
+  if (!f) return;
+  v = Math.max(0, Math.min(65535, Math.round(v)));
+  pending.set(path, [f.off, f.type >= 3 ? [v & 255, v >> 8] : [v & 255]]);   // (the lab's LAB_U16 3, LAB_U8 1)
+}
+setInterval(() => { for (const [, [off, b]] of pending) write(off, b); pending.clear(); }, 40);
+// the controls: where a pointer is on each, the value it means
+const svgPt = (svg, e) => { const r = svg.getBoundingClientRect(), k = r.width / svg.clientWidth; return [(e.clientX - r.left) / k, (e.clientY - r.top) / k]; };
+const DRAG = {
+  nav: (x, y) => { const [w, h] = SZ.nav, s = Math.min(w, h) - 24, x0 = (w - s) / 2;
+    poke('.x', (x - x0) / s * 65535); poke('.y', (1 - (y - 4) / s) * 65535); },
+  mac: (x, y) => { const [w] = SZ.mac, k = Math.floor((x - 8) / ((w - 16) / 4));
+    if (k >= 0 && k < 4 && y < 110) poke(`.mac[${k}]`, (1 - (y - 4) / 92) * 65535); },
+  dist: (x, y) => { const [w, h] = SZ.dist, lo = 40, hi = 124, xs = [0, ...st.dSplit.map((m) => w * Math.min(1, Math.max(0, (m - lo) / (hi - lo)))), w];
+    const k = xs.findIndex((v, i) => i < 4 && x >= v && x < xs[i + 1]); if (k >= 0) poke(`.d_level[${k}]`, (1 - (y - 16) / (h - 46)) * 65535); },
+  react: (x, y) => { const [w, h] = SZ.react, a = Math.atan2(y - h * .37, x - w / 2) + Math.PI / 2;
+    poke('.r_pos', ((a / (2 * Math.PI) + 1) % 1) * 1535); },
+  space: (x, y) => { poke('.s_rlevel', (1 - y / SZ.space[1]) * 65535); },
+  time: (x, y) => { poke('.s_dlevel', (1 - y / SZ.time[1]) * 65535); },
+};
+for (const id of Object.keys(DRAG)) {
+  const svg = $(id);
+  const go = (e) => { if (!editOn || !(e.buttons & 1) && e.type !== 'pointerdown') return; const [x, y] = svgPt(svg, e); DRAG[id](x, y); e.preventDefault(); };
+  svg.addEventListener('pointerdown', (e) => { if (!editOn) return; try { svg.setPointerCapture(e.pointerId); } catch (_) { /* */ } go(e); });
+  svg.addEventListener('pointermove', go);
+}
+// the patch to a file and back: its bytes as the FM-1 keeps them, with its size and name
+let wantFile = false;
+function savePatch(bytes, name) {
+  const head = new TextEncoder().encode('SDPATCH1'), nm = new TextEncoder().encode((name || 'PATCH').padEnd(8).slice(0, 8));
+  const blob = new Blob([head, Uint16Array.of(bytes.length), nm, bytes], { type: 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `${(name || 'patch').trim().toLowerCase() || 'patch'}.sdpatch`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+addEventListener('sd-pat', (e) => { if (wantFile) { wantFile = false; savePatch(e.detail.bytes, e.detail.name); } });
+function onUsbSysex(d) {                        // the FM-1's patch (0C) and its size
+  if (d.length > 8 && d[0] === 0xF0 && d[1] === 0x7D && d[2] === 0x53 && d[3] === 0x44 && d[4] === 0x0C) {
+    fmSize = (d[5] << 7) | d[6];
+    if (wantFile && d.length - 8 === 2 * fmSize) { wantFile = false; savePatch(unnib(d.subarray(7, d.length - 1)), st.name); }
+  }
+}
+const PATCH_ASK = [0xF0, 0x7D, 0x53, 0x44, 0x0B, 0xF7];
+function bar2() {                                // EDIT, PATCH → FILE, FILE → PATCH beside the sources
+  const span = document.createElement('span'); span.className = 'src';
+  span.innerHTML = '<button id="c-edit" title="Drag on NAV, the macros, DISTROY\'s bands, the Reactor\'s ring, TIME and SPACE">Edit</button>' +
+    '<button id="c-save">Patch → file</button><label class="filebtn"><input type="file" id="c-load" accept=".sdpatch">File → patch</label>';
+  document.querySelector('.top').insertBefore(span, $('c-status'));
+  $('c-edit').addEventListener('click', async () => {
+    await loadFields();
+    if (src === 'usb') sendUsb(PATCH_ASK);       // (its size first: a FM-1 with another layout is never written)
+    editOn = !editOn; $('c-edit').classList.toggle('on', editOn); stage.classList.toggle('editing', editOn);
+    say(editOn ? 'Edit: drag on NAV, the macros, DISTROY\'s bands, the Reactor\'s ring, TIME and SPACE. SAVE on the FM-1 keeps it.' : 'Edit off.');
+  });
+  $('c-save').addEventListener('click', async () => {
+    await loadFields(); wantFile = true;
+    if (src === 'usb') sendUsb(PATCH_ASK); else dispatchEvent(new CustomEvent('sd-pat-send', { detail: { type: 'pat-get' } }));
+  });
+  $('c-load').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    await loadFields();
+    const b = new Uint8Array(await f.arrayBuffer()), magic = new TextDecoder().decode(b.subarray(0, 8)), n = b[8] | b[9] << 8;
+    if (magic !== 'SDPATCH1' || n !== patSize || b.length !== 18 + n) { say(`${f.name}: not a patch of this version (its size ${n}, this one's ${patSize}).`); return; }
+    if (src === 'usb' && fmSize !== patSize) { sendUsb(PATCH_ASK); say('Asked the FM-1 for its patch size: load the file again in a moment.'); return; }
+    if (src === 'usb') write(0, Array.from(b.subarray(18)));
+    else dispatchEvent(new CustomEvent('sd-pat-send', { detail: { type: 'pat-put', bytes: b.slice(18) } }));
+    say(`${f.name} loaded into the patch now playing (SAVE on the FM-1 keeps it).`);
+  });
+}
+bar2();

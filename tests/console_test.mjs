@@ -61,6 +61,19 @@ check(st.voices.includes(60), `a key: its voice in the frame (${st.voices.join('
 x.web_midi(0x80, 60, 0, 0);
 check(st.mod.length === 8 && st.banks.length === 4 && st.seq[0].steps.length === 16 && st.orbit.steps.length === 16,
       'MOD\'s eight slots, the four banks, SEQ A\'s 16 steps and ORBIT\'s 16');
+// EDIT: a field written where the lab's table puts it (as the console does, the player's way), the frames show it
+{
+  const dv = new DataView(x.memory.buffer), m = new Uint8Array(x.memory.buffer), nf = x.web_nfields(), f0 = x.web_fields(), sz = x.web_field_size();
+  const str = (p) => { let s = ''; while (m[p]) s += String.fromCharCode(m[p++]); return s; };
+  const fl = {};
+  for (let i = 0; i < nf; i++) { const b = f0 + i * sz; fl[str(dv.getUint32(b + 20, true))] = { off: dv.getUint16(b, true), type: dv.getUint8(b + 2) }; }
+  const poke = (path, v) => { const f = fl[path]; const p = new Uint8Array(x.memory.buffer, x.web_pat(), x.web_pat_size()); p[f.off] = v & 255; if (f.type >= 3) p[f.off + 1] = v >> 8; };
+  const need = ['.x', '.y', '.mac[1]', '.d_level[0]', '.r_pos', '.s_rlevel', '.s_dlevel'];
+  check(need.every((k) => fl[k]), `the console's fields in the lab's table (${need.filter((k) => !fl[k]).join(' ') || 'all'})`);
+  poke('.mac[1]', 65535); poke('.mac[2]', 0); x.web_pat_apply();
+  run(x, 300, take);
+  check(st.mac[1] >= 126 && st.mac[2] === 0, `EDIT: MOVE written to the top, BREAK to 0, the frames show ${st.mac[1]} and ${st.mac[2]}`);
+}
 // the sound the same with the frames on as with them off (they only read)
 {
   const a = await boot(), b = await boot();

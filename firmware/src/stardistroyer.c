@@ -706,6 +706,10 @@ SD_HOT static void app_audio(int32_t *out, uint32_t n)
 #ifndef DINGHY_WEB                              /* (in a browser there is no chip to measure: CPU --) */
     if (dt > n * 1000u / 441u * SD_TICKS_PER_US * 10u) {   /* (past its period: a gap) */
         if (!demo_st) cpu_over++;
+#ifndef DINGHY_HOST
+        eng.shed = 1;                           /* (a voice let go at the next sub-block, before the brake must
+                                                   hold a block back: sd_shed) */
+#endif
         if (aud_over_n < 3u) aud_over_n++;
     } else aud_over_n = 0;
     if (cpu_frames >= SD_FS) {                  /* once a second: the worst, against one interrupt's period */
@@ -1360,7 +1364,9 @@ static const char *const CLICK_NAME[3] = {"OFF", "REC", "PLAY"};   /* (SETUP's C
                                                    whenever it plays) */
 static const char *const SLIDE_NAME[SD_SLIDES] = {"30 MS", "60 MS", "100 MS", "150 MS", "250 MS", "400 MS", "600 MS",
                                                   "1 S"};   /* (a SLIDE step's TIME, on MORE's K1) */
-static const char *const SCALE_NAME[SD_SCALES] = {"MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM"};
+static const char *const SCALE_NAME[SD_SCALES] = {"MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM",
+                                                  "LYDIAN", "MIXO", "HMINOR", "PHRDOM", "DBLHRM", "WHOLE", "HIRA",
+                                                  "BLUES"};
 static uint32_t dmod = SD_MODS;                 /* LFO's page: slots 0..7 and 10 RADAR (RADAR: MOD's, ALGORITHM picks
                                                    round the nine), 8 LFO 1, 9 LFO 2 (LFO 1 first) */
 #define DMOD_TUR (SD_MODS + 2u)
@@ -1481,7 +1487,7 @@ static const char *const ALT_NAME[SD_DSHAPES] = {"--", "KNEE", "KNEE", "SPACING"
 static const char *const BAND_NAME[4] = {"LOW", "LO-MID", "HI-MID", "TOP"};
 static const char *const MODEL_NAME[SD_RMODELS] = {"BP6", "BP12", "VBP", "KP", "AP1", "AP2"};
 static const char *const MODE_NAME[SD_MODES] = {"MONO", "DUO", "POLY"};
-static const char *const AMODE_NAME[SD_AMODES] = {"UP", "DOWN", "UP-DN", "RND", "ORDER"};
+static const char *const AMODE_NAME[SD_AMODES] = {"UP", "DOWN", "UP-DN", "RND", "ORDER", "IN", "OUT", "PEDAL", "UPx2"};
 #include "sd_gen.h"
 
 static void roles_of(const SdPatch *p, char *s)  /* "SSSC": oscillators 1..4, left to right */
@@ -1906,14 +1912,16 @@ static void draw_browse(void)                   /* over the knobs and the pictur
  * uses (ALGORITHM, 1..6). The white keys (or SELECT) pick one, and POS goes there so it is what sounds; K1 TYPE puts a vowel or a chord in it from a
  * list (as the plan's presets into a stage: 13 vowels, 13 chords on the stage's root), K2 PITCH moves it a semitone a
  * detent, K3 WIDTH spreads or closes it (F1 to F4, the steps in proportion), K4 LEVEL; GLO: F1..F4, each a semitone */
-#define RST_CHORDS 13u
+#define RST_CHORDS 18u
 #define RST_N (SD_RVOWELS + RST_CHORDS)
 #define RST_CHORD_LV 20000u                     /* (as the patches' chords: a narrow BP12 on a harmonic rings) */
 static const char *const RST_CHORD_NAME[RST_CHORDS] = {"MAJ", "MIN", "SUS2", "SUS4", "MAJ7", "MIN7", "DOM7", "ADD9",
-                                                       "MIN9", "FIFTHS", "FOURTHS", "DIM7", "AUG"};
+                                                       "MIN9", "FIFTHS", "FOURTHS", "DIM7", "AUG", "MAJ9", "MIN11",
+                                                       "PHRYG", "CLUSTER", "SUS24"};   /* (2026-11-23: five more for
+                                                   film: the dark PHRYG, a CLUSTER of seconds) */
 static const uint8_t RST_CHORD[RST_CHORDS][4] = {{0, 4, 7, 12}, {0, 3, 7, 12}, {0, 2, 7, 12}, {0, 5, 7, 12},
     {0, 4, 7, 11}, {0, 3, 7, 10}, {0, 4, 7, 10}, {0, 4, 7, 14}, {0, 3, 10, 14}, {0, 7, 12, 19}, {0, 5, 10, 15},
-    {0, 3, 6, 9}, {0, 4, 8, 12}};
+    {0, 3, 6, 9}, {0, 4, 8, 12}, {0, 4, 11, 14}, {0, 3, 10, 17}, {0, 1, 7, 12}, {0, 2, 3, 5}, {0, 2, 5, 7}};
 static const uint16_t RST_VLV[4] = SD_RLV_VOWEL;
 static uint8_t rst_cur;                         /* the stage STAGE edits (SELECT) */
 #define r_stages (page == 1u && (lay_is(1u, LR_STAGE) || lay_is(1u, LR_FREQ)))   /* (a stage's layers) */
@@ -5671,6 +5679,32 @@ static void sd_diag_service(void)
         ota_frame_done();
         return;
     }
+    if (n >= 7u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x09u) {   /* the console's EDIT: F0 7D 53
+                                                   44 09 <offset, 14 bits> <n> <n bytes, each as two nibbles, low
+                                                   first> F7, into the patch as the knobs leave it, then to the engine
+                                                   as a knob does (nothing in the flash: SAVE keeps it) */
+        uint32_t off = (uint32_t)p[4] << 7 | p[5], c = p[6];
+        if (n == 7u + 2u * c && off + c <= sizeof pat) {
+            for (i = 0; i < c; i++) ((uint8_t *)&pat)[off + i] = (uint8_t)((p[7u + 2u * i] & 15u) | (p[8u + 2u * i] & 15u) << 4);
+            gen = 0xFFFFFFFFu;
+            sd_engine_patch(&eng, &pat);       /* (the screen draws from it: its knobs show it) */
+        }
+        ota_frame_done();
+        return;
+    }
+    if (n == 4u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x0Bu) {   /* the patch asked for: F0 7D 53
+                                                   44 0C <its size, 14 bits> <its bytes as nibbles> F7 (a file of it
+                                                   on the console; the size says the layout matches) */
+        uint8_t out[8u + 2u * sizeof pat];      /* (on the stack: no RAM to spare; sent before it returns) */
+        const uint8_t *b = (const uint8_t *)&pat;
+        ota_frame_done();
+        out[0] = 0xF0u; out[1] = 0x7Du; out[2] = 0x53u; out[3] = 0x44u; out[4] = 0x0Cu;
+        out[5] = (uint8_t)(sizeof pat >> 7 & 127u); out[6] = (uint8_t)(sizeof pat & 127u);
+        for (i = 0; i < sizeof pat; i++) { out[7u + 2u * i] = b[i] & 15u; out[8u + 2u * i] = b[i] >> 4; }
+        out[7u + 2u * sizeof pat] = 0xF7u;
+        (void)ota_wire_send(out, 8u + 2u * sizeof pat);
+        return;
+    }
     if (n == 5u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x05u) {   /* the freeze log: F0 7D 53
                                                    44 05 <i> F7, record i / 2 (0 the newest), its half i & 1, answered
                                                    F0 7D 53 44 06 <n> <i, the record's words> F7 (tools/fm1_diag -l) */
@@ -6956,11 +6990,15 @@ static void app_main(void)
             }
         }
 #endif
-        {                                       /* the brake (app_audio): blocks held back, the CPU full */
-            static uint32_t held_seen, held_at;
+        {                                       /* the brake (app_audio): blocks held back, the CPU full; or, before
+                                                   it, a voice let go (sd_shed) */
+            static uint32_t held_seen, held_at, shed_seen;
             if (aud_held != held_seen && fm1_ms - held_at >= 3000u) {
                 held_seen = aud_held; held_at = fm1_ms;
                 msg("CPU FULL: TURN AN ENGINE OFF");
+            } else if (eng.shed_n != shed_seen && fm1_ms - held_at >= 3000u) {
+                shed_seen = eng.shed_n; held_at = fm1_ms;
+                msg("CPU FULL: A VOICE LET GO");
             }
         }
 #if FM1_CPU1

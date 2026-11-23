@@ -512,7 +512,9 @@ enum { SD_FT_OFF, SD_FT_LP12, SD_FT_LP24, SD_FTYPES };
                                                    ENV3, the filter is as good as open and is not run (2026-11-19: the
                                                    app's patches start there, the filter on; run always, it cost the
                                                    gate 3.5 points) */
-enum { SD_AM_UP, SD_AM_DOWN, SD_AM_UPDN, SD_AM_RND, SD_AM_ORDER, SD_AMODES };   /* the arpeggiator's orders */
+enum { SD_AM_UP, SD_AM_DOWN, SD_AM_UPDN, SD_AM_RND, SD_AM_ORDER, SD_AM_IN, SD_AM_OUT, SD_AM_PEDAL, SD_AM_UP2,
+       SD_AMODES };   /* the arpeggiator's orders (IN: from both ends to the middle; OUT: from the middle out;
+                         PEDAL: the lowest between each of the others; UPx2: up, each note twice; 2026-11-23) */
 
 /* ---- envelopes: exponential segments, a coefficient per control tick */
 enum { SD_ENV_OFF, SD_ENV_ATTACK, SD_ENV_DECAY, SD_ENV_RELEASE };
@@ -576,6 +578,7 @@ typedef struct {
     uint32_t inc_tgt;                           /* SLIDE: where the glide goes */
     uint8_t note, vel, gate, glide;
     uint8_t src;                                /* who played it: SD_SRC_* (only it turns it off) */
+    uint8_t fast;                               /* let go by the CPU (sd_shed): its level's release a short one */
     SdEnv env1, env2, env3;
     int32_t fa1[2], fa2[2], fa3[2];             /* the filter's two stages: coefficients (Q30), this sub-block */
     int32_t amp, amp_next;                      /* Q15 level at this sub-block's start, at the next one's */
@@ -914,6 +917,8 @@ typedef struct {
     uint16_t tur_reg1;                          /* its loop as it stood at its 1 (START comes back to it) */
     uint8_t tur_has1;
     uint8_t tur_div_was;                        /* (its DIV as the last sub-block had it: a turn re-places it) */
+    volatile uint8_t shed;                      /* the app's: an audio interrupt went past its period (sd_shed) */
+    volatile uint16_t shed_n;                   /* the voices let go so, since the start */
     uint8_t tur_rn;                             /* a slot sends RADAR 1 to NEXT: the Reactor's stage counts, its DIV
                                                    0 too (set at RADAR's steps) */
     uint32_t tur_pos_q8, tur_rng;
@@ -1495,6 +1500,7 @@ SD_HOT static uint32_t sd_voice_on(SdEngine *e, uint32_t note, uint32_t vel, uin
     v->inc = v->inc_tgt = sd_note_inc(note);
     v->glide = 0;
     v->gate = 1;
+    v->fast = 0;
     v->age = ++e->ages;
     e->r.note = (uint8_t)note;                  /* the Reactor's key tracking follows the last note */
     e->m_vel = (uint8_t)vel;                    /* C1: the matrix's VEL, KEY, ENV (this voice's), RAND */
@@ -3900,6 +3906,19 @@ SD_HOT SD_NOINLINE static void sd_arp_tick(SdEngine *e)            /* once a sub
     if (e->arp_mode == SD_AM_RND) {
         e->arp_rng = e->arp_rng * 1103515245u + 12345u;
         k = (e->arp_rng >> 16) % len;
+    } else if ((e->arp_mode == SD_AM_IN || e->arp_mode == SD_AM_OUT) && len > 1u) {   /* 0 5 1 4 2 3, or that
+                                                   backwards: from the ends in, from the middle out */
+        uint32_t j = e->arp_i % len, m = e->arp_mode == SD_AM_OUT ? len - 1u - j : j;
+        k = m & 1u ? len - 1u - m / 2u : m / 2u;
+        e->arp_i = (uint8_t)((j + 1u) % len);
+    } else if (e->arp_mode == SD_AM_PEDAL && len > 1u) {   /* 0 1 0 2 0 3: the lowest between each */
+        uint32_t c = 2u * (len - 1u), j = e->arp_i % c;
+        k = j & 1u ? 1u + j / 2u : 0u;
+        e->arp_i = (uint8_t)((j + 1u) % c);
+    } else if (e->arp_mode == SD_AM_UP2) {      /* 0 0 1 1 2 2 */
+        uint32_t c = 2u * len, j = e->arp_i % c;
+        k = j / 2u;
+        e->arp_i = (uint8_t)((j + 1u) % c);
     } else if (e->arp_mode == SD_AM_UPDN && len > 1u) {   /* 0 1 2 3 2 1: a cycle of 2 len - 2 */
         uint32_t c = 2u * len - 2u, j = e->arp_i % c;
         k = j < len ? j : c - j;
@@ -4012,8 +4031,29 @@ SD_HOT SD_NOINLINE static void sd_mod_snap(SdEngine *e)            /* the envelo
 
 SD_NOINLINE static void sd_sub_tick(SdEngine *e);   /* (SUB's: outside the hot section, called only while it sounds
                                                    or is to: off, the hot code is as it was in the flash cache) */
+/* The CPU over (2026-11-23, the user's "a softer brake"): an audio interrupt past its period lets a voice go before the
+ * brake (app_audio) must hold a block back: the one heard least, a released one first, in a short release; with one
+ * voice sounding, none */
+SD_HOT static void sd_shed(SdEngine *e)
+{
+    uint32_t i, n = 0, pick = SD_VOICES;
+    int32_t best = 0x7FFFFFFF;
+    for (i = 0; i < SD_VOICES; i++) {
+        const SdVoice *v = &e->voice[i];
+        int32_t w;
+        if (v->env1.stage == SD_ENV_OFF || v->fast) continue;
+        n++;
+        w = (v->env1.lvl >> 1) + (v->gate ? 0x40000000 : 0);   /* (held ones after every released one) */
+        if (w < best) { best = w; pick = i; }
+    }
+    if (n < 2u || pick >= SD_VOICES) return;
+    e->voice[pick].gate = 0;
+    e->voice[pick].fast = 1;
+    e->shed_n++;
+}
 SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, before its frames */
 {
+    if (e->shed) { e->shed = 0; sd_shed(e); }
     {                                           /* the drums: the batch's next sub-block; a new batch here, unless the
                                                    second core made it (then waited for, the rest here if it failed) */
         SdDrums *r = &e->dr;
@@ -4069,7 +4109,7 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
     for (i = 0; i < SD_VOICES; i++) {
         SdVoice *v = &e->voice[i];
         sd_env_tick(&v->env1, v->gate, e->envp[0], e->envp[1], e->envp[2],
-                    e->mode != e->mode_on && e->envp[3] > SD_MODE_REL ? SD_MODE_REL : e->envp[3]);   /* (the matrix's, a
+                    v->fast || (e->mode != e->mode_on && e->envp[3] > SD_MODE_REL) ? SD_MODE_REL : e->envp[3]);   /* (the matrix's, a
                                                    tick on; a mode waiting: a short release) */
         sd_env_tick(&v->env2, v->gate, e->envp[4], e->envp[5], e->envp[6], e->envp[7]);
         sd_env_tick(&v->env3, v->gate, e->envp[8], e->envp[9], e->envp[10], e->envp[11]);

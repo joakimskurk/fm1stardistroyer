@@ -24,7 +24,10 @@
 #define SD_SEGS 6u                              /* segments A-F */
 enum { SD_ST_NOTE, SD_ST_SLIDE, SD_ST_TIE, SD_ST_REST, SD_ST_SKIP, SD_STYPES };   /* a step's type */
 enum { SD_SO_FWD, SD_SO_REV, SD_SO_PP, SD_SO_RND, SD_SORDERS };                  /* a segment's order */
-enum { SD_SC_MINOR, SD_SC_MAJOR, SD_SC_DORIAN, SD_SC_PHRYG, SD_SC_PMIN, SD_SC_PMAJ, SD_SC_CHROM, SD_SCALES };
+enum { SD_SC_MINOR, SD_SC_MAJOR, SD_SC_DORIAN, SD_SC_PHRYG, SD_SC_PMIN, SD_SC_PMAJ, SD_SC_CHROM,
+       /* (2026-11-23: after CHROM, so a pattern's index keeps its meaning) LYDIAN, MIXOLYDIAN, HARMONIC MINOR,
+          PHRYGIAN DOMINANT, DOUBLE HARMONIC, WHOLE TONE, HIRAJOSHI, BLUES */
+       SD_SC_LYD, SD_SC_MIXO, SD_SC_HMIN, SD_SC_PHRDOM, SD_SC_DBLH, SD_SC_WHOLE, SD_SC_HIRA, SD_SC_BLUES, SD_SCALES };
 #define SD_SDIVS 12u                            /* DIV: 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2
                                                    (added after the six, so a pattern's index keeps its meaning) */
 static const uint8_t SD_SDIV_NUM[SD_SDIVS] = {1, 2, 1, 4, 2, 4, 1, 1, 3, 8, 3, 8},
@@ -130,7 +133,8 @@ static void sd_orb_tail_set(SdOrbit *o, uint32_t w, uint32_t s, int32_t x)
                             SD_ORB_LOOPS_MAX : (uint32_t)(o)->loops[(s) % SD_ORB_STEPS] : 1u)
 
 /* the scales as the semitones they hold, a bit each from the key */
-static const uint16_t SD_SCALE_MASK[SD_SCALES] = {0x5AD, 0xAB5, 0x6AD, 0x5AB, 0x4A9, 0x295, 0xFFF};
+static const uint16_t SD_SCALE_MASK[SD_SCALES] = {0x5AD, 0xAB5, 0x6AD, 0x5AB, 0x4A9, 0x295, 0xFFF,
+                                                  0xAD5, 0x6B5, 0x9AD, 0x5B3, 0x9B3, 0x555, 0x18D, 0x4E9};
 
 SD_HOT static uint32_t sd_seq_rand(uint32_t *s) { *s = *s * 1103515245u + 12345u; return *s >> 8; }   /* 24 bits */
 

@@ -75,6 +75,12 @@ DEMOS = [
      "about": "A cue in D minor at 84 BPM, big, mighty and alien: NEBULA's chords and VOYAGE's alien line far "
               "back, PULSAR's 16ths, ION's bass and ORBITAL's taiko near, MONOLITH's and DISTROY's braams, a sine "
               "under it all, the macros stepping each bar. Eight parts layered as a multitrack."},
+    {"id": "contact", "wav": "build/audio/contact/star_distroyer_contact.wav", "title": "FIRST CONTACT",
+     "about": "A cue, D minor at 72 BPM with the stranger's G sharp: a signal from far away, a ship that answers, a "
+              "pulse, the contact and what is left after it. The call D A G# is never resolved; the ship answers "
+              "D A Bb A, and at the contact sings them as one. Ten parts layered as a multitrack, each the FM-1's "
+              "own engine: the synth's patches, and its drum engine (set aside in the firmware for now) for the "
+              "heartbeat, the sonar's pings and the data's bursts."},
     {"id": "range", "wav": "build/audio/range/star_distroyer_range.wav", "title": "RANGE",
      "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DISTROY, POLY, RADAR and SPACE."},
 ]

@@ -62,21 +62,21 @@ static const SdPatch SD_PATCH_SINE = {
  * BRAAM); the sixteen new ones each have four banks of their own, moved through inside the note (COURSE, the
  * envelopes) or by the hands (the wheel, aftertouch, velocity), the Reactor swept inside the note, a snap at the
  * attack and grit in the mids, and no S&H: steps on the beat come from MOVE and RADAR when the player wants them.
- * VOWEL, FUSION, MONOLITH, ORBITAL and PRISM hold the film's and FX's last five places until those are made. The
+ * The film's and FX's last five (2026-11-23): COLOSSUS RISER DRONE TICKER WARP. The
  * demos play the set as it was before (tools/sd_demo_patches.h). The code names a patch by SD_P_*, never by number:
  * tests/sd_test.c checks each against SD_PATCH_NAME */
 enum {
     SD_P_DISTROY, SD_P_VOYAGE, SD_P_GROWL, SD_P_GRAVITY, SD_P_CHROME, SD_P_ABYSS, SD_P_NEON, SD_P_CORE, SD_P_NOVA,
     SD_P_SOLAR, SD_P_LASER, SD_P_SIGNAL, SD_P_AURORA, SD_P_NEBULA, SD_P_MASS, SD_P_OVERTONE, SD_P_HORIZON, SD_P_CHOIR,
-    SD_P_STRINGS, SD_P_STARDUST, SD_P_CIRCUIT, SD_P_PLUCKS, SD_P_PULSAR, SD_P_BRAAM, SD_P_VOWEL, SD_P_FUSION,
-    SD_P_MONOLITH, SD_P_ORBITAL, SD_P_PRISM, SD_P_COUNT
+    SD_P_STRINGS, SD_P_STARDUST, SD_P_CIRCUIT, SD_P_PLUCKS, SD_P_PULSAR, SD_P_BRAAM, SD_P_COLOSSUS, SD_P_RISER,
+    SD_P_DRONE, SD_P_TICKER, SD_P_WARP, SD_P_COUNT
 };
 #define SD_PATCHES 29u
 static const char *const SD_PATCH_NAME[SD_PATCHES] = {"DISTROY", "VOYAGE", "GROWL", "GRAVITY", "CHROME", "ABYSS",
                                                       "NEON", "CORE", "NOVA", "SOLAR", "LASER", "SIGNAL", "AURORA",
                                                       "NEBULA", "MASS", "OVERTONE", "HORIZON", "CHOIR", "STRINGS",
-                                                      "STARDUST", "CIRCUIT", "PLUCKS", "PULSAR", "BRAAM", "VOWEL",
-                                                      "FUSION", "MONOLITH", "ORBITAL", "PRISM"};
+                                                      "STARDUST", "CIRCUIT", "PLUCKS", "PULSAR", "BRAAM", "COLOSSUS",
+                                                      "RISER", "DRONE", "TICKER", "WARP"};
 /* DISTROY's splits as MIDI x 256: the pitch of hz, rounded (sd_tables.h's macros are for vowels) */
 #define SD_DHZ_200 14170u                       /* MIDI 55.35 */
 #define SD_DHZ_1200 22111u                      /* MIDI 86.37 */
@@ -94,6 +94,7 @@ static const char *const SD_PATCH_NAME[SD_PATCHES] = {"DISTROY", "VOYAGE", "GROW
 /* the new collection's: WARP at the saw (13312 the triangle, toward the pulse above it); a cutoff at a MIDI note */
 #define SD_WP_SAW 26624u
 #define SD_FC(midi) ((uint16_t)(((midi) - 16) * 65535 / 114))
+#define SD_LDIV(i) ((uint16_t)((i) * 65536u / 12u + 100u))   /* an LFO synced: 1 2 3 4 6 8 12 16 24 32 48 64 16ths */
 static const SdPatch SD_PATCH[SD_PATCHES] = {
     {   /* DISTROY (§7 STAR DISTROYER, the voice's part): four FM chains at the field's centre, the outer two (GROWL)
          * folded and squashed in the costliest kernel, the middle two (BELL, EPIANO) plain since C1: the CPU's worst
@@ -619,82 +620,154 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_LFO2, SD_MD_DSPLIT, 9830}, {SD_MS_LFO2, SD_MD_XM, 8192}},
         .lfo_shape = {SD_LS_SH, SD_LS_SAW}, .lfo_mode = {SD_LM_SYNC, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
         .lfo_rate = {100, 30000}},
-    {   /* VOWEL (§7): a saw-like voice through six vowels, A E EE AW OO ER, a stage a beat with a glide between; VBP,
-         * so RES sets the formants' width and not their loudness */
-        .trim = 2, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 14000, C_), SD_OFF, SD_OFF)), SD_CORNER_A,
-        .warp = 26624,
-        .e1_a = 5, .e1_d = 60, .e1_s = 110, .e1_r = 50, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
-        .stage = {SD_RST_VBP(SD_RV_A), SD_RST_VBP(SD_RV_E), SD_RST_VBP(SD_RV_EE), SD_RST_VBP(SD_RV_AW),
-                  SD_RST_VBP(SD_RV_OO), SD_RST_VBP(SD_RV_ER)},
-        .r_pan = {-6000, 6000, -12000, 12000}, .r_model = SD_RM_VBP, .r_res = 30000, .r_slew = 30720,
-        .r_drive = 14000, .r_mix = 36000, .r_track = SD_RT_HARM, .r_low = 24000, .r_div = 4, .r_cmode = SD_RC_FWD,
-        .r_max = 5,
-        .s_size = 60000, .s_decay = 42000, .s_rtone = 45000, .s_rlevel = 16000,
-        /* C1: harder notes ring more */
-        .mod = {{SD_MS_VEL, SD_MD_RRES, 4965}, {SD_MS_AFTER, SD_MD_RDRIVE, 9929}}, .mac4 = SD_M4_AIR},
-    {   /* FUSION (Gate D REACTOR): one patch, its stages a phoneme, a chord, a phoneme, a single high ring, a phoneme, a
-         * chord; BP12 high, DRIVE into the loops' saturation, ping-pong with a glide between */
-        .trim = -6, .bank = SD_SAME(SD_BANK(SD_OSC(1, 0, 50000, C_), SD_OSC(2, 0, 16000, C_), SD_OSC(1, 7, 20000, C_), SD_OFF)),
-        SD_CORNER_A, .warp = 30000, .dt = 8000,
-        .e1_a = 8, .e1_d = 80, .e1_s = 110, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
-        .stage = {SD_RST_VOWEL(SD_RV_A), SD_RCH(48, 26000u, 0, 7, 12, 16), SD_RST_VOWEL(SD_RV_OO),
-                  {{91 * 256u, 98 * 256u, 103 * 256u, 108 * 256u}, {40000u, 14000u, 9000u, 6000u}},
-                  SD_RST_VOWEL(SD_RV_EE), SD_RCH(48, 26000u, -2, 5, 10, 15)},
-        .r_pan = {-14000, 14000, -26000, 26000}, .r_model = SD_RM_BP12, .r_res = 40000, .r_slew = 36000,
-        .r_drive = 5500, .r_mix = 24000, .r_track = SD_RT_HARM, .r_low = 22000, .r_div = 4, .r_cmode = SD_RC_PP,
-        .r_max = 5,
-        .s_time = SD_SPMS(340u), .s_fb = 20000, .s_dtone = 30000, .s_dlevel = 12000,
-        .s_size = 46000, .s_decay = 40000, .s_rtone = 36000, .s_rlevel = 16000,
-        /* C1: the filters drifting over two bars */
-        .mod = {{SD_MS_LFO1, SD_MD_RFREQ, 2648}}, .lfo_shape = {SD_LS_SIN}, .lfo_mode = {SD_LM_SYNC},
-        .lfo_rate = {49252}, .mac4 = SD_M4_BODY},
-    {   /* MONOLITH: long notes, dry: a chain toward the triangle whose FM grows inside each note (a RAMP once a
-         * note) and whose fold rises across the loop (SEQ STEP); the warp steps on quarters; a little SOFT on the
-         * top, a small room. (Drowned in the room and a fast delay with its top gated on eighths it was unusable) */
-        .trim = 2, .bank = SD_SAME(BK_GROWL), SD_CORNER_A, .xm = 14000, .warp = 15000, .fold = 4000, .width = 24000,
-        .e1_a = 30, .e1_d = 90, .e1_s = 112, .e1_r = 60, .e2_a = 30, .e2_d = 80, .e2_s = 90, .e2_r = 60,
-        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
-        .d_type = {SD_DS_NONE, SD_DS_SOFT, SD_DS_SOFT, SD_DS_SOFT}, .d_gain = {0, 4000, 8000, 10000},
-        .d_alt = {0, 8000, 12000, 12000}, .d_level = {28000, 26000, 20000, 14000}, .d_mix = 40000, .d_tame = 16000,
-        .s_size = 30000, .s_decay = 30000, .s_rtone = 30000, .s_rlevel = 9000,
-        .mod = {{SD_MS_LFO1, SD_MD_XM, 6620}, {SD_MS_STEP, SD_MD_FOLD, 3972}, {SD_MS_LFO2, SD_MD_WARP, 2648}},
-        .lfo_shape = {SD_LS_RAMP, SD_LS_SH}, .lfo_mode = {SD_LM_ONE, SD_LM_SYNC}, .lfo_rate = {23349, 16484},
-        .mac4 = SD_M4_BODY},
-    {   /* ORBITAL: percussion with resonance: a short FM hit, its pitch falling ~150 ms, landing (RAND) anywhere in
-         * a field of a bell, a chain, glass and the odd cluster; four BP6 filters on the note's harmonics ring after it,
-         * their place a new step each 16th; the mid band crunches (HARD under 5 kHz: no fold-back)
-         */
-        .trim = -6, .bank = {BK_BELL, SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(2, 0, 16000, S_), SD_OSC(1, 0, 30000, S_),
-                                      SD_OSC(1, 0, 60000, C_), 0, 8000, 0, 0),
-                 BK_GLASS, SD_BANK(SD_OSC(5, 0, 26000, C_), SD_OSC(7, 0, 20000, C_), SD_OSC(9, 0, 14000, C_),
-                                   SD_OSC(11, 0, 10000, C_))},
-        .x = 32768, .y = 32768, .xm = 30000, .width = 40000,
-        .e1_a = 0, .e1_d = 86, .e1_s = 0, .e1_r = 70, .e2_a = 0, .e2_d = 55, .e2_s = 0, .e2_r = 50,
-        .stage = {SD_RCH(48, 22000u, 0, 12, 19, 24), SD_RCH(48, 22000u, 7, 12, 24, 31),
-                  SD_RCH(48, 22000u, 0, 7, 19, 28), SD_RCH(48, 22000u, 12, 19, 24, 36),
-                  SD_RCH(48, 22000u, 0, 12, 24, 34), SD_RCH(48, 22000u, 7, 19, 28, 36)},
-        .r_pan = {-24000, 24000, -10000, 10000}, .r_model = SD_RM_BP6, .r_res = 52000, .r_slew = 0,
-        .r_drive = 14000, .r_mix = 30000, .r_track = SD_RT_KEY | SD_RT_HARM, .r_max = 5,
-        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_CMP,
-        .d_type = {SD_DS_NONE, SD_DS_SOFT, SD_DS_HARD, SD_DS_NONE}, .d_gain = {0, 6000, 9000, 0},
-        .d_alt = {0, 10000, 20000, 0}, .d_level = {32768, 30000, 20000, 26000}, .d_mix = 44000,
-        .s_time = SD_SPDIV(4), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 20000, .s_dtone = 26000, .s_dlevel = 12000,
-        .s_size = 46000, .s_decay = 40000, .s_rtone = 34000, .s_rlevel = 12000,
-        .mod = {{SD_MS_LFO1, SD_MD_PITCH, 1324}, {SD_MS_LFO1, SD_MD_XM, 7282}, {SD_MS_RAND, SD_MD_X, 14894},
-                {SD_MS_RAND, SD_MD_Y, 14894}, {SD_MS_LFO2, SD_MD_RPOS, 13239},
-                /* the engines talking: the stage picks where it lands */
-                {SD_MS_RSTAGE, SD_MD_X, 9929}},
-        .lfo_shape = {SD_LS_SAW, SD_LS_SH}, .lfo_mode = {SD_LM_ONE, SD_LM_SYNC}, .lfo_rate = {50087, 100},
-        .mac4 = SD_M4_DROWN},
-    {   /* PRISM (cue 2's falling 16ths): SHARDS ringing longer (70 / 60), darker, its delays on dotted quarters:
-         * it cascades */
-        .trim = 21, .bank = SD_SAME(BK_GLASS),
-        .e1_a = 0, .e1_d = 70, .e1_s = 0, .e1_r = 60, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
-        SD_CORNER_A, .width = 65535,
-        .d_split = {12288, 18432, 24576}, .d_level = {32768, 32768, 32768, 32768}, .d_tame = 22000, .d_mix = 65535,
-        .s_time = 56000, .s_fb = 38000, .s_dtone = 22000, .s_dlevel = 26214, .s_size = 64000, .s_decay = 57000,
-        .s_rtone = 30000, .s_rlevel = 34000, .s_mode = SD_SP_SYNC | SD_SP_PP,
-        .mod = {{SD_MS_AFTER, SD_MD_XM, 9929}, {SD_MS_WHEEL, SD_MD_WARP, 13239}}, .mac4 = SD_M4_DROWN}
+    {   /* COLOSSUS: the wall of low brass. A a 1:1 brass FM whose index swells (ENV2 over 1.5 s), B four saws wide,
+         * C a folded growl an octave under, D a 3:1 metal brass. The Reactor three vowels OO -> AW -> A, opened by
+         * the same swell (a "waah"), the lows past it; DISTROY's low mids HARD and PHAT, the mids SOFT, the top
+         * tamed; the plate large. Velocity drives the mids, the wheel the loop's roar, aftertouch opens the vowel
+         * and moves toward B; SUB under. In MONO the note travels A -> B over three seconds; in POLY each voice A */
+        .trim = -16, .bank = {SD_BANK_OFS(SD_OSC(1, 0, 30000, S_), SD_OSC(1, 0, 44000, C_), SD_OSC(1, 6, 22000, C_),
+                                         SD_OSC(2, -5, 12000, C_), 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 30000, C_), SD_OSC(1, 9, 28000, C_), SD_OSC(1, -11, 28000, C_),
+                                         SD_OSC(2, 5, 16000, C_), 0, 14000, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 24000, S_), SD_OSC(1, 0, 40000, C_), SD_OSC(1, 4, 24000, C_),
+                                         SD_OFF, 6000, 0, 12000, 0),
+                             SD_BANK_OFS(SD_OSC(3, 0, 18000, S_), SD_OSC(1, 0, 42000, C_), SD_OSC(2, 3, 18000, C_),
+                                         SD_OFF, 4000, 0, 0, 0)},
+        .x = 0, .y = 65535, .xm = 22000, .warp = 14000, .fold = 3000, .dt = 14000, .width = 46000,
+        .course = 1, .cell_x = {0, 0, 65535, 65535}, .cell_y = {65535, 65535, 65535, 65535}, .cell_ms = {400, 2600, 4000},
+        .e1_a = 52, .e1_d = 100, .e1_s = 120, .e1_r = 92, .e2_a = 100, .e2_d = 110, .e2_s = 96, .e2_r = 90,
+        .stage = {SD_RST_VBP(SD_RV_OO), SD_RST_VBP(SD_RV_AW), SD_RST_VBP(SD_RV_A)},
+        .r_pan = {-10000, 10000, -4000, 4000}, .r_model = SD_RM_VBP, .r_res = 24000, .r_slew = 30000,
+        .r_drive = 14000, .r_mix = 34000, .r_track = 3u << 4, .r_low = 26000,
+        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
+        .d_type = {SD_DS_SOFT, SD_DS_HARD, SD_DS_SOFT, SD_DS_NONE}, .d_gain = {4000, 20000, 12000, 0},
+        .d_alt = {8000, 24000, 14000, 0}, .d_level = {32000, 30000, 22000, 7000}, .d_shape = {-12000, -16000, 0, 0},
+        .d_body = {44000, 40000, 0, 0}, .d_fb = 6000, .d_ftime = 20000, .d_spread = 16000, .d_tame = 30000,
+        .d_mix = 56000,
+        .s_size = 64000, .s_decay = 52000, .s_rtone = 28000, .s_rlevel = 20000,
+        .f_type = SD_FT_LP12, .f_cut = SD_FC(100), .f_key = 50,
+        .mod = {{SD_MS_ENV2, SD_MD_RPOS, 16000}, {SD_MS_VEL, SD_MD_DGAIN, 8000}, {SD_MS_WHEEL, SD_MD_DFB, 18000},
+                {SD_MS_AFTER, SD_MD_RPOS, 10000}, {SD_MS_AFTER, SD_MD_X, 20000}, {SD_MS_LFO1, SD_MD_DT, 4000},
+                {SD_MS_ENV2, SD_MD_FCUT, 6000}},
+        .lfo_shape = {SD_LS_SIN}, .lfo_rate = {17373 /* 0.15 Hz */},
+        .mac4 = SD_M4_BODY, .sub_lvl = 20000, .sub_src = SD_SUB_A},
+    {   /* RISER: one held note becomes the build: over four bars (a RAMP once a note, on the tempo) its pitch climbs
+         * an octave, the fold and the mids' drive with it, the Reactor's peaks sweep up and a pulse on the level
+         * steps faster on the beat, half notes to 16ths (8 6 4 3 2 1); the FM grows (ENV2); COURSE goes A (a sine and
+         * its octave) -> B (saws) -> C (high partials) -> D (bright 1:1); the echoes ping-pong in dotted eighths into a large plate. The wheel feeds the loop, aftertouch
+         * drives the Reactor. Let go: the tail falls into the room */
+        .trim = -11, .bank = {SD_BANK_OFS(SD_OSC(1, 0, 40000, C_), SD_OSC(2, 0, 20000, C_), SD_OSC(1, 7, 18000, C_),
+                                         SD_OFF, 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 28000, C_), SD_OSC(1, 12, 26000, C_), SD_OSC(1, -12, 26000, C_),
+                                         SD_OSC(2, 0, 14000, C_), 0, 16000, 0, 0),
+                             SD_BANK_OFS(SD_OSC(7, 0, 12000, S_), SD_OSC(1, 0, 36000, C_), SD_OSC(4, 5, 14000, C_),
+                                         SD_OSC(6, -4, 9000, C_), 6000, 0, 6000, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 30000, S_), SD_OSC(1, 0, 40000, C_), SD_OSC(1, 8, 20000, C_),
+                                         SD_OFF, 14000, 0, 0, 0)},
+        .x = 0, .y = 65535, .xm = 14000, .warp = 12000, .dt = 12000, .width = 52000,
+        .course = 1, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0}, .cell_ms = {2600, 3000, 2600},
+        .e1_a = 96, .e1_d = 100, .e1_s = 127, .e1_r = 104, .e2_a = 110, .e2_d = 100, .e2_s = 127, .e2_r = 100,
+        .stage = {{{14000u, 15000u, 16000u, 17000u}, {9000u, 9000u, 9000u, 9000u}}},
+        .r_pan = {-8000, 8000, -3000, 3000}, .r_model = SD_RM_BP12, .r_res = 40000, .r_slew = 20000,
+        .r_drive = 12000, .r_mix = 30000, .r_track = 1u << 4, .r_low = 24000,
+        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
+        .d_type = {SD_DS_NONE, SD_DS_SOFT, SD_DS_HARD, SD_DS_NONE}, .d_gain = {0, 10000, 14000, 0},
+        .d_alt = {0, 12000, 18000, 0}, .d_level = {32768, 30000, 22000, 8000}, .d_ftime = 8000,
+        .d_spread = 20000, .d_tame = 28000, .d_mix = 48000,
+        .s_time = SD_SPDIV(7), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 30000, .s_dtone = 24000, .s_dlevel = 12000,
+        .s_size = 64000, .s_decay = 54000, .s_rtone = 28000, .s_rlevel = 22000,
+        .mod = {{SD_MS_LFO2, SD_MD_PITCH, 16384}, {SD_MS_LFO2, SD_MD_RFREQ, 20000}, {SD_MS_LFO2, SD_MD_L1RATE, -13653},
+                {SD_MS_LFO1, SD_MD_VOL, -22000}, {SD_MS_LFO2, SD_MD_DGAIN, 8000}, {SD_MS_LFO2, SD_MD_FOLD, 10000},
+                {SD_MS_WHEEL, SD_MD_DFB, 14000}, {SD_MS_AFTER, SD_MD_RDRIVE, 14000}},
+        .lfo_shape = {SD_LS_SQR, SD_LS_RAMP}, .lfo_mode = {SD_LM_SYNC | SD_LM_KEY, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
+        .lfo_rate = {SD_LDIV(5), SD_LDIV(11)},
+        .mac4 = SD_M4_DROWN, .sub_lvl = 10000, .sub_src = SD_SUB_A},
+    {   /* DRONE: one note for minutes. COURSE round on its own (LOOP), half a minute a turn: A a soft stack, B a low
+         * folded 1:1, C hollow odd harmonics, D a distant 5:1 metal; KP combs on the octave and the fifth drifting
+         * (an LFO under a tenth of a hertz), the other drifting the fold;
+         * the lows PHAT and clean, the top dark; the plate at its largest and darkest. The wheel opens it toward C,
+         * aftertouch folds and drives it; the echoes fold the tail; SUB deep under */
+        .trim = -3, .bank = {SD_BANK_OFS(SD_OSC(1, 0, 40000, C_), SD_OSC(2, 3, 20000, C_), SD_OSC(3, -4, 12000, C_),
+                                         SD_OSC(4, 6, 6000, C_), 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 20000, S_), SD_OSC(1, 0, 42000, C_), SD_OSC(1, 5, 22000, C_),
+                                         SD_OFF, 6000, 0, 10000, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 36000, C_), SD_OSC(3, 0, 14000, C_), SD_OSC(5, 0, 9000, C_),
+                                         SD_OSC(7, 0, 6000, C_), 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(5, 3, 10000, S_), SD_OSC(1, 0, 38000, C_), SD_OSC(2, -6, 16000, C_),
+                                         SD_OFF, 4000, 0, 0, 0)},
+        .x = 0, .y = 65535, .xm = 12000, .warp = 8000, .fold = 2000, .dt = 10000, .width = 50000,
+        .course = 2, .cell_x = {0, 65535, 65535, 0}, .cell_y = {65535, 65535, 0, 0}, .cell_ms = {9000, 11000, 10000},
+        .e1_a = 100, .e1_d = 100, .e1_s = 127, .e1_r = 110, .e2_a = 20, .e2_d = 20, .e2_s = 127, .e2_r = 45,
+        .stage = {SD_RCH(36, 18000u, 0, 7, 12, 19)},
+        .r_pan = {-22000, 22000, -10000, 10000}, .r_model = SD_RM_KP, .r_res = 44000, .r_slew = 30000,
+        .r_drive = 9000, .r_mix = 24000, .r_track = SD_RT_KEY | SD_RT_HARM | 1u << 4, .r_low = 24000,
+        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
+        .d_type = {SD_DS_SOFT, SD_DS_NONE, SD_DS_SOFT, SD_DS_NONE}, .d_gain = {3000, 0, 10000, 0},
+        .d_alt = {6000, 10000, 12000, 0}, .d_level = {32768, 28000, 20000, 6000}, .d_shape = {-14000, 0, 0, 0},
+        .d_body = {44000, 0, 0, 0}, .d_tame = 24000,
+        .d_mix = 44000,
+        .s_time = SD_SPDIV(11), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 26000, .s_dtone = 18000, .s_dlevel = 9000,
+        .s_size = 65535, .s_decay = 60000, .s_rtone = 22000, .s_rlevel = 26000,
+        .mod = {{SD_MS_LFO1, SD_MD_RFREQ, 3000}, {SD_MS_LFO2, SD_MD_FOLD, 3000}, {SD_MS_WHEEL, SD_MD_X, 26000},
+                {SD_MS_AFTER, SD_MD_FOLD, 12000}, {SD_MS_AFTER, SD_MD_DGAIN, 9000}, {SD_MS_ECHO, SD_MD_FOLD, 4000},
+                {SD_MS_WHEEL, SD_MD_RRES, 8000}},
+        .lfo_shape = {SD_LS_TRI, SD_LS_SIN}, .lfo_rate = {7900 /* 0.05 Hz */, 11953 /* 0.08 Hz */},
+        .mac4 = SD_M4_DROWN, .sub_lvl = 26000, .sub_src = SD_SUB_A},
+    {   /* TICKER: the clock under a scene: a short, dry, woody-metal tick (a 7:1 and an 11:1 FM falling inside ~30
+         * ms) through one narrow resonance an octave over the note; dotted-eighth echoes, ping-pong, low. Velocity
+         * brightens the tick and rounds it (toward C, a 1:1 pulse); the wheel lets the echoes build, aftertouch
+         * rings the resonance longer. Played as 16ths with accents. Corners: A the tick, B wood, C a pulse, D a
+         * crack */
+        .trim = 11, .bank = {SD_BANK_OFS(SD_OSC(7, 0, 26000, S_), SD_OSC(1, 0, 44000, C_), SD_OSC(11, 3, 9000, S_),
+                                         SD_OSC(2, 0, 20000, C_), 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(3, 0, 22000, S_), SD_OSC(2, 0, 40000, C_), SD_OFF, SD_OFF,
+                                         0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 52000, C_), SD_OSC(2, 0, 10000, S_), SD_OSC(1, 0, 20000, C_),
+                                         SD_OFF, 0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(13, 5, 18000, S_), SD_OSC(1, 0, 40000, C_), SD_OFF, SD_OFF,
+                                         4000, 0, 6000, 0)},
+        .x = 0, .y = 65535, .xm = 20000, .width = 30000,
+        .e1_a = 0, .e1_d = 54, .e1_s = 0, .e1_r = 44, .e2_a = 0, .e2_d = 36, .e2_s = 0, .e2_r = 30,
+        .stage = {{{72u * 256u, 0u, 0u, 0u}, {22000u, 0u, 0u, 0u}}},   /* (an octave over C4: KEY moves it with the note) */
+        .r_pan = {-6000, 6000, 0, 0}, .r_model = SD_RM_BP12, .r_res = 44000, .r_slew = 0,
+        .r_drive = 12000, .r_mix = 26000, .r_track = SD_RT_KEY | 1u << 4, .r_low = 26000,
+        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
+        .d_type = {SD_DS_SOFT, SD_DS_HARD, SD_DS_SOFT, SD_DS_NONE}, .d_gain = {6000, 14000, 8000, 0},
+        .d_alt = {10000, 16000, 10000, 0}, .d_level = {32768, 30000, 24000, 10000}, .d_tame = 26000, .d_mix = 52000,
+        .s_time = SD_SPDIV(7), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 24000, .s_dtone = 26000, .s_dlevel = 14000,
+        .s_size = 30000, .s_decay = 30000, .s_rtone = 30000, .s_rlevel = 8000,
+        .mod = {{SD_MS_VEL, SD_MD_XM, 14000}, {SD_MS_VEL, SD_MD_Y, -22000}, {SD_MS_WHEEL, SD_MD_SFB, 20000},
+                {SD_MS_AFTER, SD_MD_RRES, 12000}, {SD_MS_VEL, SD_MD_E1D, 4000}, {SD_MS_VEL, SD_MD_X, 22000}},
+        .mac4 = SD_M4_AIR},
+    {   /* WARP: the jump. Each note falls from two octaves up into itself over a second and a half (ENV2) while
+         * DISTROY's loop sweeps (its TIME with it: a jet's comb) and the Reactor's allpasses (AP1) phase the other way; a
+         * saw once a note drives the nav A -> C (a sine opening into metal); the echoes ping-pong in eighths into a
+         * large plate. The wheel feeds the loop, aftertouch the echoes. Short notes zap, long ones land */
+        .trim = 6, .bank = {SD_BANK_OFS(SD_OSC(1, 0, 46000, C_), SD_OSC(2, 0, 14000, C_), SD_OFF, SD_OFF,
+                                         0, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(1, 0, 26000, S_), SD_OSC(1, 0, 40000, C_), SD_OSC(1, 9, 22000, C_),
+                                         SD_OFF, 8000, 0, 0, 0),
+                             SD_BANK_OFS(SD_OSC(5, 0, 16000, S_), SD_OSC(1, 0, 38000, C_), SD_OSC(3, 4, 12000, C_),
+                                         SD_OFF, 10000, 0, 10000, 0),
+                             SD_BANK_OFS(SD_OSC(2, 0, 22000, S_), SD_OSC(1, 0, 42000, C_), SD_OFF, SD_OFF,
+                                         6000, 0, 0, 0)},
+        .x = 0, .y = 65535, .xm = 16000, .warp = 10000, .dt = 10000, .width = 50000,
+        .e1_a = 0, .e1_d = 104, .e1_s = 100, .e1_r = 96, .e2_a = 0, .e2_d = 100, .e2_s = 0, .e2_r = 80,
+        .stage = {{{14000u, 15500u, 17000u, 18500u}, {30000u, 30000u, 30000u, 30000u}}},
+        .r_pan = {-6000, 6000, -3000, 3000}, .r_model = SD_RM_AP1, .r_res = 30000, .r_slew = 0,
+        .r_drive = 12000, .r_mix = 30000, .r_track = 1u << 4, .r_low = 24000,
+        .d_split = {SD_DHZ_200, SD_DHZ_1200, SD_DHZ_5000}, .d_xover = SD_DX_LR4,
+        .d_type = {SD_DS_NONE, SD_DS_NONE, SD_DS_HARD, SD_DS_NONE}, .d_gain = {0, 0, 14000, 0},
+        .d_alt = {0, 0, 16000, 0}, .d_level = {32768, 30000, 22000, 8000}, .d_fb = 22000, .d_ftime = 6000,
+        .d_spread = 20000, .d_tame = 28000, .d_mix = 50000,
+        .s_time = SD_SPDIV(5), .s_mode = SD_SP_SYNC | SD_SP_PP, .s_fb = 26000, .s_dtone = 24000, .s_dlevel = 11000,
+        .s_size = 60000, .s_decay = 50000, .s_rtone = 28000, .s_rlevel = 18000,
+        .mod = {{SD_MS_ENV2, SD_MD_PITCH, 32767}, {SD_MS_ENV2, SD_MD_DTIME, -20000}, {SD_MS_ENV2, SD_MD_RFREQ, 22000},
+                {SD_MS_LFO2, SD_MD_X, 30000}, {SD_MS_LFO2, SD_MD_Y, -30000}, {SD_MS_WHEEL, SD_MD_DFB, 16000},
+                {SD_MS_AFTER, SD_MD_SFB, 18000}, {SD_MS_ENV2, SD_MD_FOLD, 8000}},
+        .lfo_shape = {SD_LS_SIN, SD_LS_RAMP}, .lfo_mode = {0, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
+        .lfo_rate = {19853 /* 0.2 Hz */, SD_LDIV(7)},
+        .mac4 = SD_M4_AIR}
 };
 #ifndef SD_PATCH_WORST                           /* (a test build: -DSD_PATCH_WORST=SD_P_NOVA measures another) */
 #define SD_PATCH_WORST SD_P_DISTROY                       /* the boot patch: fm1-emu measures the worst case */

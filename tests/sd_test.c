@@ -775,7 +775,7 @@ static void test_stereo(void)
             for (k = 0; k < 5u; k++) {
                 d = fabs(k < 4u ? st_lr(&e1, &NT[k], 1) : st_lr(&e1, NT, 4));
                 if (d > worst) { worst = d; wn = SD_PATCH_NAME[pi]; }
-                if (md && k < 4u && d > wpoly && (pi == SD_P_AURORA || pi == SD_P_PRISM)) wpoly = d;
+                if (md && k < 4u && d > wpoly && pi == SD_P_AURORA) wpoly = d;
                                                 /* (WIDTH at its most, no Reactor) */
             }
         }
@@ -3683,8 +3683,8 @@ static void test_names(void)
     static const struct { uint32_t i; const char *name; } P[] = {
         PN(DISTROY), PN(VOYAGE), PN(GROWL), PN(GRAVITY), PN(CHROME), PN(ABYSS), PN(NEON), PN(CORE), PN(NOVA),
         PN(SOLAR), PN(LASER), PN(SIGNAL), PN(AURORA), PN(NEBULA), PN(MASS), PN(OVERTONE), PN(HORIZON), PN(CHOIR),
-        PN(STRINGS), PN(STARDUST), PN(CIRCUIT), PN(PLUCKS), PN(PULSAR), PN(BRAAM), PN(VOWEL), PN(FUSION),
-        PN(MONOLITH), PN(ORBITAL), PN(PRISM)};
+        PN(STRINGS), PN(STARDUST), PN(CIRCUIT), PN(PLUCKS), PN(PULSAR), PN(BRAAM), PN(COLOSSUS), PN(RISER),
+        PN(DRONE), PN(TICKER), PN(WARP)};
 #undef PN
     uint32_t k;
     CHECK(SD_P_COUNT == SD_PATCHES && sizeof P / sizeof P[0] == SD_PATCHES, "SD_P_* has %u names, the bank %u patches",
@@ -4790,7 +4790,7 @@ static void test_gain_staging(void)
     }
     for (i = 0; i < SD_PATCHES; i++) {          /* the factory's, as they are */
         Meas m = sd_loud(&e3, &m3, &SD_PATCH[i]);
-        int perc = i == SD_P_PLUCKS || i == SD_P_STARDUST || i == SD_P_PRISM;
+        int perc = i == SD_P_PLUCKS || i == SD_P_STARDUST || i == SD_P_TICKER;
         if (!perc) { lo = m.mmax < lo ? m.mmax : lo; hi = m.mmax > hi ? m.mmax : hi; }
         grx = m.gr_max > grx ? m.gr_max : grx;
         dlx = m.dlim_max > dlx ? m.dlim_max : dlx;
@@ -5019,6 +5019,74 @@ static void radar1_run(SdEngine *e1, const SdPatch *pt, const SdPattern *p, uint
     if (arp) { e1->arp_on = 1; e1->arp_div = 2; e1->arp_gate = 50; e1->arp_oct = 1; }
     e1->seq_run = 1;
 }
+/* The softer brake (2026-11-23): an interrupt past its period (e.shed) lets the voice heard least go, a released one
+   before a held one, in a short release; one voice alone is never let go */
+/* ARP's four new orders (2026-11-23): C E G B held, one octave: IN from both ends in, OUT from the middle out, PEDAL
+   the lowest between each, UPx2 each twice */
+static void test_arp_orders(void)
+{
+    static SdEngine e1;
+    static int32_t o[2u * SD_SUB];
+    static const uint8_t WANT[4][8] = {{60, 71, 64, 67, 60, 71, 64, 67}, {67, 64, 71, 60, 67, 64, 71, 60},
+                                       {60, 64, 60, 67, 60, 71, 60, 64}, {60, 60, 64, 64, 67, 67, 71, 71}};
+    static const uint8_t MODE[4] = {SD_AM_IN, SD_AM_OUT, SD_AM_PEDAL, SD_AM_UP2};
+    uint32_t m, f, n, was, ok = 1;
+    for (m = 0; m < 4u; m++) {
+        uint8_t got[8] = {0};
+        sd_engine_init(&e1);
+        e1.mode = SD_MODE_POLY;
+        sd_engine_patch(&e1, &T_GLASS);
+        for (f = 0; f < SD_FS / 20u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+        e1.arp_on = 1; e1.arp_mode = MODE[m]; e1.arp_div = 2; e1.arp_gate = 50; e1.arp_oct = 1; e1.bpm = 120;
+        sd_engine_note(&e1, 60, 100); sd_engine_note(&e1, 64, 100); sd_engine_note(&e1, 67, 100); sd_engine_note(&e1, 71, 100);
+        for (f = 0, n = 0, was = 0; f < 3u * SD_FS && n < 8u; f += SD_SUB) {
+            memset(o, 0, sizeof o);
+            sd_engine_render(&e1, o, SD_SUB);
+            if (e1.arp_playing && !was) got[n++] = e1.arp_cur;
+            was = e1.arp_playing;
+        }
+        if (memcmp(got, WANT[m], 8)) {
+            ok = 0;
+            printf("  ARP %u: %u %u %u %u %u %u %u %u\n", m, got[0], got[1], got[2], got[3], got[4], got[5], got[6], got[7]);
+        }
+    }
+    CHECK(ok, "ARP's IN, OUT, PEDAL and UPx2 not in their orders");
+    printf("arp orders: IN, OUT, PEDAL and UPx2 as written\n");
+}
+static void test_shed(void)
+{
+    static SdEngine e1;
+    static int32_t o[2u * SD_SUB];
+    SdPatch pt = T_GLASS;
+    uint32_t f, i, quiet = SD_VOICES, held = 0;
+    pt.e1_a = 0; pt.e1_s = 110; pt.e1_r = 110;  /* (a long release: the released voice would ring for seconds) */
+    sd_engine_init(&e1);
+    e1.mode = SD_MODE_POLY;
+    sd_engine_patch(&e1, &pt);
+    for (f = 0; f < SD_FS / 20u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }   /* (POLY in) */
+    sd_engine_note(&e1, 57, 100);
+    sd_engine_note(&e1, 60, 100);
+    sd_engine_note(&e1, 64, 100);
+    for (f = 0; f < SD_FS / 4u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    sd_engine_note(&e1, 60, 0);                 /* C4 released: ringing on */
+    for (f = 0; f < SD_FS / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    for (i = 0; i < SD_VOICES; i++) if (e1.voice[i].note == 60 && e1.voice[i].env1.stage == SD_ENV_RELEASE) quiet = i;
+    CHECK(quiet < SD_VOICES, "shed: the released voice not found ringing");
+    e1.shed = 1;
+    for (f = 0; f < SD_FS / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    for (i = 0; i < SD_VOICES; i++) held += e1.voice[i].gate && e1.voice[i].env1.stage != SD_ENV_OFF;
+    CHECK(quiet < SD_VOICES && e1.voice[quiet].env1.stage == SD_ENV_OFF && held == 2u && e1.shed_n == 1u,
+          "shed: the released voice not gone in 100 ms (stage %u), or a held one went (%u held, %u let go)",
+          quiet < SD_VOICES ? e1.voice[quiet].env1.stage : 9u, held, e1.shed_n);
+    sd_engine_note(&e1, 57, 0);
+    e1.shed = 1;                                /* E4 alone now held, A3 released: A3 goes */
+    for (f = 0; f < SD_FS / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    e1.shed = 1;                                /* E4 alone: kept */
+    for (f = 0; f < SD_FS / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(&e1, o, SD_SUB); }
+    for (i = 0, held = 0; i < SD_VOICES; i++) held += e1.voice[i].gate && e1.voice[i].env1.stage != SD_ENV_OFF;
+    CHECK(held == 1u && e1.shed_n == 2u, "shed: the last voice let go (%u held, %u let go)", held, e1.shed_n);
+    printf("shed: on an overrun the released voice goes in 100 ms, the held ones stay, the last one is kept\n");
+}
 static void test_radar1(void)
 {
     static SdEngine e1;
@@ -5158,6 +5226,8 @@ int main(void)
     test_nowhere();
     test_radar();
     test_radar1();
+    test_shed();
+    test_arp_orders();
     test_distroy_lite();
     test_gain_staging();
     test_sub();

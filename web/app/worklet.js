@@ -117,6 +117,14 @@ class StarDistroyer extends AudioWorkletProcessor {
     const x = this.x;
     if (!x) return;
     if (m.type === 'console') this.con = !!m.on;   // (the console page: its frames, or none)
+    else if (m.type === 'pat-poke') {           // (the console) bytes into the patch, to the engine as a knob does
+      const p = this.pat();
+      if (m.off >= 0 && m.off + m.bytes.length <= p.length) { p.set(m.bytes, m.off); x.web_pat_apply(); }
+    } else if (m.type === 'pat-get') this.port.postMessage({ type: 'pat-bytes', bytes: this.pat().slice(), name: this.str(x.web_pat_name(x.web_pat_now())) });
+    else if (m.type === 'pat-put') {             // (the console) a whole patch from a file
+      const p = this.pat();
+      if (m.bytes.length === p.length) { p.set(m.bytes); x.web_pat_apply(); }
+    }
     else if (m.type === 'lab-init') this.labInit();
     else if (m.type === 'lab-set') {             // the page's patch: into the firmware's, to the engine as a knob does
       this.pat().set(m.bytes);

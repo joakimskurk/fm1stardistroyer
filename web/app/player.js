@@ -81,6 +81,7 @@ if (ship) {
   let ac = null, node = null, gain = null, booting = false, running = false, wasmBytes = null, storeSize = 0;
   const send = (m) => node && node.port.postMessage(m);
   window.addEventListener('sd-console-want', (e) => { window.sdConsoleWants = !!e.detail; send({ type: 'console', on: !!e.detail }); });
+  window.addEventListener('sd-pat-send', (e) => send(e.detail));   // (the console: pat-poke, pat-get, pat-put)
   const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (_) { /* (a pointer that is gone already) */ } };
 
   // ---- the keys: whites in a row along the bottom, the blacks in a row over the gaps, as on the FM-1
@@ -312,6 +313,8 @@ if (ship) {
         if (m.store) { keep(m.store); flash('l-mem'); }
         if (m.pat) window.dispatchEvent(new CustomEvent('sd-lab', { detail: { type: 'lab-pat', bytes: m.pat, now: m.patNow } }));
         if (m.seq || m.play) window.dispatchEvent(new CustomEvent('sd-lab', { detail: { type: 'lab-seq', seq: m.seq, play: m.play, tur: m.tur, lp: m.lp } }));
+      } else if (m.type === 'pat-bytes') {
+        window.dispatchEvent(new CustomEvent('sd-pat', { detail: m }));   // (the console: the patch, to a file)
       } else if (m.type.startsWith('lab')) {
         window.dispatchEvent(new CustomEvent('sd-lab', { detail: m }));   // (the lab's page: web/lab/lab.js)
       } else if (m.type === 'ready') {

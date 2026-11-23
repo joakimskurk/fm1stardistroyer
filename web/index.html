@@ -482,7 +482,7 @@
   <h3 class="btnh"><span class="pbtn">ARP</span>ARP → LOOPER<span class="what">the player’s tools, kept apart from the patch</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/arp.png" width="240" height="240" alt="The ARP page" loading="lazy">
-      <figcaption><b>ARP</b>The arpeggiator, on the patterns’ grid.<dl><dt>ALGO</dt><dd>ARP (MODE: UP DOWN UP-DN RND ORDER, RATE, OCTAVES, GATE) · TOOLS (HOLD)</dd><dt>REC</dt><dd>KEEP: what it just played becomes a pattern</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
+      <figcaption><b>ARP</b>The arpeggiator, on the patterns’ grid.<dl><dt>ALGO</dt><dd>ARP (MODE: UP DOWN UP-DN RND ORDER IN OUT PEDAL UPx2, RATE, OCTAVES, GATE) · TOOLS (HOLD)</dd><dt>REC</dt><dd>KEEP: what it just played becomes a pattern</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/looper.png" width="240" height="240" alt="The LOOPER page" loading="lazy">
       <figcaption><b>LOOPER</b>Always recording what you hear; plays its last LENGTH round.<dl><dt>ALGO</dt><dd>LOOPER (LOOP LENGTH SPEED L-LEVEL) · SEND (FILTER R-SEND D-SEND) · TOOLS (GLIDE, REV, OCTAVE, CLEAR, asked)</dd><dt>EDIT</dt><dd>arms it (5 s, the delay then up to 0.5 s); again: off, its loop KEPT</dd></dl></figcaption></figure>
   </div>
@@ -501,11 +501,11 @@
     <li class="boot" title="The one it starts on">DISTROY</li><li>VOYAGE</li><li>GROWL</li><li>GRAVITY</li><li>CHROME</li>
     <li>ABYSS</li><li>NEON</li><li>CORE</li><li>NOVA</li><li>SOLAR</li><li>LASER</li><li>SIGNAL</li><li>AURORA</li>
     <li>NEBULA</li><li>MASS</li><li>OVERTONE</li><li>HORIZON</li><li>CHOIR</li><li>STRINGS</li><li>STARDUST</li>
-    <li>CIRCUIT</li><li>PLUCKS</li><li>PULSAR</li><li>BRAAM</li><li>VOWEL</li><li>FUSION</li><li>MONOLITH</li>
-    <li>ORBITAL</li><li>PRISM</li>
+    <li>CIRCUIT</li><li>PLUCKS</li><li>PULSAR</li><li>BRAAM</li><li>COLOSSUS</li><li>RISER</li><li>DRONE</li>
+    <li>TICKER</li><li>WARP</li>
   </ul>
   <p>DISTROY is the one it starts on: everything at once. Then the basses, the leads, the pads, the plucks and the
-    film. Sixteen are new: each moves inside the note, through its four banks, and the wheel, aftertouch and velocity
+    film (COLOSSUS's brass wall, RISER's build, DRONE, TICKER's clock, WARP's jump). Twenty-one are new: each moves inside the note, through its four banks, and the wheel, aftertouch and velocity
     each have a job; none steps on the beat unless you ask MOVE or RADAR to. SAVE keeps 32 patches and 32 patterns of
     your own.</p>
 
@@ -545,6 +545,10 @@
       attested by GitHub from the source.</li>
     <li><a id="dl" href="#">Download the firmware file this page installs</a> (<code>.fwsc</code>, the latest build of
       <code>main</code>), to install it another way (<code>tools/fm1_install.py</code>).</li>
+    <li>Or with <a href="https://github.com/jvitkauskas/m-flasher" target="_blank" rel="noopener">M-Flasher</a>, an app for
+      Windows, macOS and Linux: it puts the FM-1 in its USB download mode, saves the whole flash, then installs a
+      <code>.fwsc</code> (<b>Install firmware</b>, this page's file or a release's) and keeps the boot area.
+      <a href="https://github.com/jvitkauskas/m-flasher/blob/main/docs/usage.md" target="_blank" rel="noopener">Its guide</a>.</li>
     <li>Try the firmware without an FM-1: open the file in
       <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">fm1-emu</a>, the FM-1 emulator,
       in the browser.</li>

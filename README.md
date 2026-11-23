@@ -77,7 +77,7 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   **MORE** (TRACK, LOW, and **STAGES**, how many it uses, 1 to 6: POS's whole turn and the stage clock then go through
   those only, at 1 a monosynth's fixed body, nothing to copy).
 - **STAGE** edits what each stage holds: it opens on the stage POS is on, the one you hear; SELECT picks another (POS goes there, so you hear it), **K1
-  TYPE** puts one of 13 vowels or 13 chords in it from a list, **K2 PITCH** moves it, **K3 WIDTH** spreads or closes
+  TYPE** puts one of 13 vowels or 18 chords in it from a list (2026-11-23: MAJ9, MIN11, the dark PHRYG, a CLUSTER and SUS24 too), **K2 PITCH** moves it, **K3 WIDTH** spreads or closes
   it, **K4 LEVEL**; **F1-F4** its four filters one by one. The keys play all the while. SAVE keeps it with the patch.
 - The picture: the filters as peaks across the frequency range, and under them the six stages as a piano roll, each
   its four filters as notes at their pitch, the one playing red; a stage not in use is a dotted frame.
@@ -308,7 +308,8 @@ of the patch. Off until you switch it on.
   (PARTS REPEAT ORDER LENGTH) and **TOOLS** (RANDOM UNDO CLEAR DUB). No key has a job on SEQ: the keys play.
 - **SELECT** picks the step, on PARTS the part. Stopped, the step picked sounds (SELECT or its NOTE turned), so you
   hear what you edit.
-- **The key** is the master's: GLO + ALGORITHM its scale, **GLO + SELECT its root** (the hint line says SELECT ROOT
+- **The key** is the master's: GLO + ALGORITHM its scale (MINOR, MAJOR, DORIAN, PHRYG, PENTA−, PENTA+, CHROM, and since
+  2026-11-23 LYDIAN, MIXO, HMINOR, PHRDOM, DBLHRM, WHOLE, HIRA and BLUES), **GLO + SELECT its root** (the hint line says SELECT ROOT
   with GLO held). The notes stay as written. A pattern from before keeps the key it had (its step 1's note), and
   from then on writing step 1 no longer moves it.
 - **MORE**: the step's RATCHET (a SLIDE's: how long it slides) and PROB, and the note heard there: **MOVE** a step earlier or later and
@@ -391,7 +392,8 @@ of the patch. Off until you switch it on.
 <td valign="top"><img src="docs/readme/screen_arp.png" width="256" alt="ARP"></td>
 <td valign="top">
 
-**ARP**: UP, DOWN, UP-DN, RND or ORDER over 1–4 octaves, RATE 1/64 … 1/2 (triplets and dotted too), GATE and HOLD,
+**ARP**: UP, DOWN, UP-DN, RND or ORDER, and (2026-11-23) IN (from both ends in), OUT (from the middle out), PEDAL (the
+lowest between each) or UPx2 (each twice), over 1–4 octaves, RATE 1/64 … 1/2 (triplets and dotted too), GATE and HOLD,
 on the tempo. While the patterns play, ARP sits on the same grid as them, counted from START and set again by the
 master's steps, so a new TEMPO or a MIDI clock's drift never moves it off them: a hand put down just
 after a step plays at once and the next note lands on the grid; one put down later waits for the next step. Stopped,
@@ -470,7 +472,7 @@ The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/sta
 | **Lead** | `NOVA` `SOLAR` `LASER` `SIGNAL` |
 | **Pad** | `AURORA` `NEBULA` `MASS` `OVERTONE` `HORIZON` `CHOIR` `STRINGS` |
 | **Pluck** | `STARDUST` `CIRCUIT` `PLUCKS` `PULSAR` |
-| **Film** | `BRAAM` `VOWEL` `FUSION` `MONOLITH` `ORBITAL` `PRISM` |
+| **Film** | `BRAAM` `COLOSSUS` `RISER` `DRONE` `TICKER` `WARP` |
 
 DISTROY is the one it starts on: everything at once.
 
@@ -495,9 +497,21 @@ when you want them.
 - **CIRCUIT:** a sci-fi blip: metal to sine in 200 ms.
 - **PLUCKS:** each note rings out a chord in four combs; aftertouch moves the chord.
 
+The film's five (2026-11-23), made the same way:
+- **COLOSSUS:** a wall of low brass: each note swells for a second and a half and opens from OO to AH; the wheel
+  makes it roar, aftertouch opens it more.
+- **RISER:** one held note becomes the build: over four bars it climbs an octave and grows brighter and dirtier, and a
+  pulse on the beat speeds up from half notes to 16ths; let go, it falls into the room.
+- **DRONE:** one dark note for minutes: it goes round its four banks on its own, half a minute a turn, combs on the
+  octave and the fifth drifting under a metal undertone; the wheel opens it, aftertouch gives it edge.
+- **TICKER:** the clock under a scene: a short, dry tick for 16ths, the echoes in dotted eighths; velocity brightens
+  it, the wheel lets the echoes build.
+- **WARP:** the jump: each note falls from two octaves up into itself with a jet's sweep and a phaser; short notes zap,
+  long ones land.
+
 In POLY each voice keeps the bank it starts on, so the pads begin in their richest bank and move in the filter, the
-vowels and the combs; played one note at a time they travel between the banks too. VOWEL, FUSION, MONOLITH, ORBITAL
-and PRISM hold the film places until their own are made. The demos still play the patches they were made with.
+vowels and the combs; played one note at a time they travel between the banks too. The demos still play the patches
+they were made with.
 
 Two patches start from a plain FM sound and carry the Star Distroyer edge: the body stays as it was, only the top
 band is destroyed, and something steps on the beat.
@@ -545,6 +559,11 @@ of the page the FM-1 shows is lit red.
   only when the last has left (a page that stops reading stops it; the FM-1 never waits), under 192 bytes. It only
   reads: nothing is written to the FM-1.
 - **Without one:** the player under it, the firmware in the browser, hands over the same frames.
+- **Edit** (2026-11-23): drag on NAV's field, the macros, DISTROY's bands, the Reactor's ring, TIME and SPACE to set
+  the patch now playing, the FM-1's own or the player's (over USB: `F0 7D 53 44 09 <offset> <n> <bytes> F7`, written
+  into the patch as a knob does; nothing in the flash until SAVE on the FM-1). **Patch → file** saves the patch now
+  playing as a `.sdpatch` (its bytes, its size and its name), **File → patch** puts one back. Both only when the FM-1
+  has the same patch layout as the page's firmware (it says its size first: `F0 7D 53 44 0B F7`).
 
 `tests/console_test.mjs` reads the player's frames with the page's own reader (every field, every part), checks that
 they follow what plays and that the sound is the same sample for sample with them on.
@@ -566,6 +585,9 @@ of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package
    python3 tools/fm1_install.py build/stardistroyer.fwsc     # it asks before it writes
    ```
 
+   Or with [M-Flasher](https://github.com/jvitkauskas/m-flasher) (Windows, macOS, Linux): it puts the FM-1 in its USB
+   download mode, saves the whole flash, then installs the `.fwsc` (*Install firmware*), the boot area kept
+   ([its guide](https://github.com/jvitkauskas/m-flasher/blob/main/docs/usage.md)).
 3. **The way back:** install any firmware from the FM-1 Firmware Hub, or hold **OCT−** while switching on for the USB
    rescue. If even that does not start, the FM-1's own boot ROM still updates over USB
    ([FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
@@ -610,6 +632,10 @@ stock patch, the app's own controls and the voice rules.
 - **RANGE** (`range/`, ~137 s): the instrument's span in seven scenes, with every gesture listed in
   `performance.txt`.
 - **CINEMATIC** (`cine/`, ~69 s, D minor at 84 BPM): a cue, eight parts layered as a multitrack, with their stems.
+- **FIRST CONTACT** (`contact/`, ~3:35, D minor at 72 BPM, on the site): a cue, a signal from far away, a ship that
+  answers, a pulse, the contact and what is left. Ten parts layered as a multitrack (`tools/sd_contact.c`), each the
+  FM-1's own engine: the synth's patches as the demos keep them, and the drum engine (built with `SD_DRUMS=1`, off in the
+  firmware) for the heartbeat, the sonar's pings and the data's bursts.
 - **TAPESTRY** (`tapestry/`, ~88 s, D minor at 84 BPM): the looper building the bed. PRISM's falling sixteenths in
   the plate, looped, played backwards and taken down an octave; AURORA's slow line over it, FREEZE and SHIMMER on the
   plate. One pass, every gesture in `performance.txt`, the looper on the FM-1's own memory (armed before LOOP).

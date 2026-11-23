@@ -12,6 +12,7 @@ cc $CFLAGS -DSD_DRUMS=1 -o build/sd/sd_test tests/sd_test.c -lm   # (the drums' 
 cc $CFLAGS -o build/sd/sd_render tools/sd_render.c -lm
 cc $CFLAGS -o build/sd/sd_demo tools/sd_demo.c -lm
 cc $CFLAGS -o build/sd/sd_cine tools/sd_cine.c -lm
+cc $CFLAGS -DSD_DRUMS=1 -o build/sd/sd_contact tools/sd_contact.c -lm   # (FIRST CONTACT's drums: the FM-1's drum engine, set aside in the firmware)
 cc $CFLAGS -o build/sd/sd_strings tools/sd_strings.c -lm
 cc $CFLAGS -o build/sd/sd_epic tools/sd_epic.c -lm
 cc $CFLAGS -o build/sd/sd_range tools/sd_range.c -lm
@@ -82,6 +83,8 @@ mkdir -p build/audio/cine
 mkdir -p build/audio/strings
 build/sd/sd_strings build/audio/strings/strings                  # STRINGS: the cello's and the violin's scales (V4)
 build/sd/sd_cine build/audio/cine/star_distroyer_cine.wav build/audio/cine   # CINEMATIC, ~69 s, and its stems
+mkdir -p build/audio/contact
+build/sd/sd_contact build/audio/contact/star_distroyer_contact.wav   # FIRST CONTACT, ~3:35 (the site's)
 mkdir -p build/audio/epic
 build/sd/sd_epic build/audio/epic/star_distroyer_epic.wav   # the second cue, ~127 s (its stems: a second argument, a folder)
 build/sd/sd_strings piece build/audio/strings/cello_duo.wav     # the cello duo on STRINGS, ~32 s

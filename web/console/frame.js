@@ -15,7 +15,8 @@ export const DST_NAME = ["OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X"
   "P MACRO", "DRUMS", "VOLUME", "P TUNE", "FRZ PCH"];
 export const OWN_DST = ["NOTES", "ACCENTS", "ROLLS", "RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"];   // 0x80 +
 export const LSHAPE = ["SINE", "TRI", "SAW", "RAMP", "SQUARE", "S&H"];
-export const SCALE = ["MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM"];
+export const SCALE = ["MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM", "LYDIAN", "MIXO", "HMINOR",
+  "PHRDOM", "DBLHRM", "WHOLE", "HIRA", "BLUES"];
 export const ROUTE = ["1>2>3>4", "2>3>4 1>4", "1+2+3>4", "1>2 3>4", "1+2>3 4", "1 2>3>4", "1>2 3 4", "1 2 3 4"];
 export const SHAPER = ["NONE", "SOFT", "HARD", "FOLD", "CRUSH"];
 export const RMODEL = ["BP6", "BP12", "VBP", "KP", "AP1", "AP2"];
@@ -25,7 +26,7 @@ export const KEY = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 export const SPDIV = ["1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D", "1/4", "1/2T", "1/4D", "1/2"];
 export const SDIV = ["1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4", "1/64", "1/32T", "1/16D", "1/4T", "1/8D", "1/2"];
 export const STYPE = ["NOTE", "SLIDE", "TIE", "REST", "SKIP"];
-export const AMODE = ["UP", "DOWN", "UP-DN", "RND", "ORDER"];
+export const AMODE = ["UP", "DOWN", "UP-DN", "RND", "ORDER", "IN", "OUT", "PEDAL", "UPx2"];
 // the FM-1's pages (stardistroyer.c's page): where the console lights a panel
 export const PAGE = ["NAV", "REACTOR", "DISTROY", "SPACE", "MOD", "MACROS", "SEQ", "ENV", "FILTER", "ARP", "ORBIT", "TIME",
   "LOOPER", "SETUP", "DRUM", "SUB"];
