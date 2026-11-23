@@ -753,16 +753,51 @@ static void cv_box(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)   /* 
     cv_rect(x, y + 1, w, h - 2, c);
     cv_rect(x + 1, y + h - 1, w - 2, 1, c);
 }
+static void cv_edge(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t c)   /* cv_box's outline, a pixel off
+                                                   each corner (2026-11-23, the user: a button the same shape lit or
+                                                   not, the straighter one, as the page's tabs) */
+{
+    if (w < 3 || h < 3) { cv_rect(x, y, w, h, c); return; }
+    cv_rect(x + 1, y, w - 2, 1, c);
+    cv_rect(x + 1, y + h - 1, w - 2, 1, c);
+    cv_rect(x, y + 1, 1, h - 2, c);
+    cv_rect(x + w - 1, y + 1, 1, h - 2, c);
+}
+static int32_t ink_col(const char *s, uint32_t last)   /* FONT_S: the text's first inked column from its pen, or
+                                                   (last) its last: a word centred by what shows, not by its advance */
+{
+    const felucca_font_t *f = &FONT_S;
+    const char *p = s;
+    const uint8_t *gd;
+    int32_t pen = 0, gx, gy, w, bpr, step;
+    uint32_t gi;
+    if (!*s) return 0;
+    if (last) { while (p[1]) pen += f->adv[glyph(f, (uint8_t)*p++)]; }
+    gi = glyph(f, (uint8_t)*p);
+    w = f->bw[gi]; bpr = (w + 1) / 2; gd = f->data + f->off[gi];
+    step = last ? -1 : 1;
+    for (gx = last ? w - 1 : 0; gx >= 0 && gx < w; gx += step)
+        for (gy = 0; gy < (int32_t)f->h; gy++) {
+            uint32_t v = gd[gy * bpr + gx / 2];
+            if ((gx & 1) ? (v & 15u) : (v >> 4)) return pen + gx - f->pad;
+        }
+    return last ? pen + f->adv[gi] - 1 : pen;   /* (a space: its advance) */
+}
+static void btn_text(int32_t x, int32_t y, int32_t w, const char *nm, uint16_t c)   /* a button's word, its ink in
+                                                   the middle: the capitals 3 rows from the box's top and bottom */
+{
+    cv_text(x + (w - 1 - ink_col(nm, 0) - ink_col(nm, 1)) / 2, y + 1, &FONT_S, nm, c);
+}
 static uint8_t bk_led[11];                      /* the black keys' function lights, as keys_lit set them last: 0
                                                    dark, 1 a glow, 2 full (a blink: between the two) */
 static int32_t btn(int32_t x, int32_t y, int32_t w, const char *nm, uint32_t st)   /* a panel button (2026-11-22,
                                                    the user's tidier pages): its name in the middle, st 0 out (an
                                                    outline), 1 lit (red), 2 lit but its engine off (a dark red); the
-                                                   x after it */
+                                                   x after it. 16 rows, as ALGORITHM's: the same shape lit or not */
 {
-    if (st) cv_box(x, y, w, 17, st == 1u ? C_RED : C_RED_D);
-    else cv_frame(x, y, w, 17, C_ICE_D);
-    cv_text(x + (w - text_w(&FONT_S, nm)) / 2 + 1, y, &FONT_S, nm, st == 1u ? C_BG : st ? C_ICE_D : C_ICE_D);
+    if (st) cv_box(x, y, w, 16, st == 1u ? C_RED : C_RED_D);
+    else cv_edge(x, y, w, 16, C_ICE_D);
+    btn_text(x, y, w, nm, st == 1u ? C_BG : C_ICE_D);
     return x + w;
 }
 static void cv_quad_fill(const int32_t *px, const int32_t *py, uint16_t c)   /* a convex quad, by rows */
@@ -4835,20 +4870,20 @@ static void pic_orbit(void)
             uint16_t c = sel ? C_RED : curves ? C_OFF : orbp.on ? C_ICE_D : C_OFF;
             if (w < 1) w = 1;
             if (r == 2u && v == SD_DR_SONG_OFF) {   /* (the drums off there: a crossed box) */
-                cv_frame(x0, y, w, rh, c);
+                cv_edge(x0, y, w, rh, c);
                 cv_line(x0 + 1, y + 1, x0 + w - 2, y + rh - 2, c);
                 cv_line(x0 + 1, y + rh - 2, x0 + w - 2, y + 1, c);
                 continue;
             }
             if (!v) {                           /* (as it plays: a line; picked, a dark red box round it) */
-                if (sel) cv_frame(x0, y, w, rh, C_RED_D);
+                if (sel) cv_edge(x0, y, w, rh, C_RED_D);
                 cv_rect(x0, y + rh / 2, w, 1, sel ? C_RED : C_GRID);
                 continue;
             }
-            if (sel) cv_box(x0, y, w, rh, C_RED); else cv_frame(x0, y, w, rh, c);
+            if (sel) cv_box(x0, y, w, rh, C_RED); else cv_edge(x0, y, w, rh, c);   /* (the same shape picked or not) */
             if (!curves && w >= 20) {
                 char t[3] = {(char)('0' + v / 10u), (char)('0' + v % 10u), 0};
-                cv_text(x0 + 3, y - 2, &FONT_S, t, sel ? C_BG : orbp.on ? C_ICE : C_ICE_D);
+                cv_text(x0 + 3, y - 1, &FONT_S, t, sel ? C_BG : orbp.on ? C_ICE : C_ICE_D);
             }
         }
     }
@@ -5002,14 +5037,15 @@ static int32_t draw_layers(const char *const *ln, uint32_t n, uint32_t cur)   /*
                                                    the one the knobs do lit; the x after it */
 {
     uint32_t k;
-    int32_t x = 2, tw = 0, pad = 8, gap = 3;
-    for (k = 0; k < n; k++) tw += text_w(&FONT_S, ln[k]);
-    if (tw + (int32_t)n * pad + ((int32_t)n - 1) * gap > 236) pad = 6, gap = 2;   /* (DRUM's six: closer) */
+    int32_t x = 2, tw = 0, pad = 10, gap = 3;   /* (pad: the frame's two and 4 either side of the ink) */
+    for (k = 0; k < n; k++) tw += ink_col(ln[k], 1) - ink_col(ln[k], 0) + 1;
+    if (tw + (int32_t)n * pad + ((int32_t)n - 1) * gap > 236) gap = 2;   /* (five: closer) */
+    if (tw + (int32_t)n * pad + ((int32_t)n - 1) * gap > 236) pad = 8;   /* (DRUM's six: 3 either side) */
     for (k = 0; k < n; k++) {
-        int32_t w = text_w(&FONT_S, ln[k]) + pad;
+        int32_t w = ink_col(ln[k], 1) - ink_col(ln[k], 0) + 1 + pad;
         if (k == cur) cv_box(x, 0, w, 16, C_RED);
-        else cv_frame(x, 0, w, 16, C_ICE_D);
-        cv_text(x + pad / 2 + 1, 0, &FONT_S, ln[k], k == cur ? C_BG : C_ICE_D);
+        else cv_edge(x, 0, w, 16, C_ICE_D);
+        btn_text(x, 0, w, ln[k], k == cur ? C_BG : C_ICE_D);
         x += w + gap;
     }
     return x;
