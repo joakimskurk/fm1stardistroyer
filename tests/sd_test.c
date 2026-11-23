@@ -5008,6 +5008,138 @@ static void test_radar(void)
            "the pattern untouched\n", xmin, xmax);
 }
 
+/* RADAR 1 (2026-11-23, the user's "RADAR 1-4"): the bit as a source; its own DESTs on its 1s (AMOUNT +) or 0s (-):
+   RESTART, NEXT, SEQ A/B and ARP playing only there, the looper's REPEAT */
+static void radar1_run(SdEngine *e1, const SdPatch *pt, const SdPattern *p, uint32_t arp)
+{
+    sd_engine_init(e1);
+    sd_engine_patch(e1, pt);
+    if (p) sd_engine_pattern(e1, p);
+    e1->bpm = 120;
+    if (arp) { e1->arp_on = 1; e1->arp_div = 2; e1->arp_gate = 50; e1->arp_oct = 1; }
+    e1->seq_run = 1;
+}
+static void test_radar1(void)
+{
+    static SdEngine e1;
+    static int32_t o[2u * SD_SUB];
+    SdPatch pt = T_GLASS;
+    SdPattern p;
+    uint32_t k, f, last, n1, n0, bad, s;
+    pt.tur_set = 0x80u; pt.tur_ld = 5u;         /* a locked loop of 5, every 16th */
+    pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_MD_XM, 32767}; pt.xm = 16384;
+    /* the source: full on a 1, none on a 0, once its ~6 ms are past */
+    radar1_run(&e1, &pt, 0, 0);
+    for (f = 0, n1 = n0 = bad = 0; f < 4u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.tur_pos_q8 >> 8 < 300u) continue;
+        if (e1.tur_reg & 1u) { n1++; bad += e1.patch.xm < 16384u + 30000u; }
+        else { n0++; bad += e1.patch.xm != 16384u; }
+    }
+    CHECK(n1 > 100u && n0 > 100u && !bad, "RADAR 1 to XM: %u sub-blocks on a 1, %u on a 0, %u wrong", n1, n0, bad);
+    /* SEQ A on its 1s: every note it plays on a 1, none on a 0; AMOUNT - the other way; SEQ B's DEST leaves A alone */
+    sd_pattern_default(&p);
+    for (k = 0; k < 16u; k++) { p.step[k].note = 60; p.step[k].type = SD_ST_NOTE; p.step[k].gate = 50; }
+    for (s = 0; s < 3u; s++) {
+        uint32_t on1 = 0, on0 = 0, rest1 = 0, rest0 = 0;
+        pt.mod[0] = (SdModSlot){SD_MS_TUR1, (uint8_t)(SD_TD_TRIG + (s == 2u ? SD_TG_SEQB : SD_TG_SEQA)), (int16_t)(s == 1u ? -32767 : 32767)};
+        radar1_run(&e1, &pt, &p, 0);
+        for (f = 0, last = 0xFFFFFFFFu; f < 6u * SD_FS; f += SD_SUB) {
+            memset(o, 0, sizeof o);
+            sd_engine_render(&e1, o, SD_SUB);
+            if (!e1.t[0].seq_on || e1.t[0].seq_count == last) continue;
+            last = e1.t[0].seq_count;
+            if (e1.t[0].seq_note_on) { if (e1.tur_reg & 1u) on1++; else on0++; }
+            else if (e1.tur_reg & 1u) rest1++; else rest0++;
+        }
+        if (s == 0u) CHECK(on1 > 10u && !on0 && rest0 > 10u && !rest1, "SEQ A ON 1: %u notes on a 1, %u on a 0, rests %u / %u", on1, on0, rest1, rest0);
+        if (s == 1u) CHECK(on0 > 10u && !on1 && rest1 > 10u && !rest0, "SEQ A ON 0: %u notes on a 0, %u on a 1, rests %u / %u", on0, on1, rest0, rest1);
+        if (s == 2u) CHECK(on0 > 10u && on1 > 10u && !rest0 && !rest1, "SEQ B's DEST moved A: %u / %u notes, rests %u / %u", on1, on0, rest1, rest0);
+    }
+    /* ARP on its 1s */
+    pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_TD_TRIG + SD_TG_ARP, 32767};
+    radar1_run(&e1, &pt, 0, 1);
+    sd_engine_note(&e1, 60, 100);
+    sd_engine_note(&e1, 64, 100);
+    for (f = 0, n1 = n0 = 0, last = 0; f < 6u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.arp_playing && !last) { if (e1.tur_reg & 1u) n1++; else n0++; }
+        last = e1.arp_playing;
+    }
+    CHECK(n1 > 10u && !n0, "ARP ON 1: %u notes on a 1, %u on a 0", n1, n0);
+    /* RESTART: a held note's envelopes from where they are at each 1 (an 18 ms attack, a 16th 125 ms) */
+    pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_TD_TRIG + SD_TG_ENV, 32767};
+    pt.e1_a = 40; pt.e1_s = 100;
+    radar1_run(&e1, &pt, 0, 0);
+    e1.seq_run = 0;                             /* (stopped: RADAR runs on, the key held alone) */
+    sd_engine_note(&e1, 60, 100);
+    for (f = 0, n1 = n0 = bad = 0, last = e1.tur_count; f < 4u * SD_FS; f += SD_SUB) {
+        const SdVoice *v = &e1.voice[e1.m_last];
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.tur_count == last) continue;
+        last = e1.tur_count;
+        if (f < SD_FS / 2u) continue;
+        if (e1.tur_reg & 1u) { n1++; bad += v->env1.stage != SD_ENV_ATTACK || v->env1.lvl < SD_ONE / 4; }
+        else { n0++; bad += v->env1.stage == SD_ENV_ATTACK; }
+    }
+    CHECK(n1 > 5u && n0 > 5u && !bad, "RESTART ON 1: %u steps on a 1, %u on a 0, %u wrong (from where it is, not 0)", n1, n0, bad);
+    /* NEXT: the Reactor's stage a step at each 1, its DIV 0 */
+    pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_TD_TRIG + SD_TG_RNEXT, 32767};
+    pt.r_div = 0; pt.r_min = 0; pt.r_max = 5; pt.r_cmode = SD_RC_FWD;
+    radar1_run(&e1, &pt, 0, 0);
+    for (f = 0, n1 = n0 = bad = 0, last = e1.tur_count, s = e1.r.stage; f < 4u * SD_FS; f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&e1, o, SD_SUB);
+        if (e1.tur_count == last) continue;
+        last = e1.tur_count;
+        if (e1.tur_reg & 1u) { n1++; bad += e1.r.stage == s; } else { n0++; bad += e1.r.stage != s; }
+        s = e1.r.stage;
+    }
+    CHECK(n1 > 5u && n0 > 5u && !bad && e1.tur_rn, "NEXT ON 1: %u steps on a 1, %u on a 0, %u wrong", n1, n0, bad);
+    /* AMOUNT 50: about half of the 1s */
+    pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_TD_TRIG + SD_TG_ENV, 16384};
+    e1.patch = pt;
+    e1.tur_reg |= 1u;
+    for (k = 0, n1 = 0; k < 2000u; k++) { e1.tur_count = k; n1 += sd_tg_side(&e1, SD_TG_ENV) == 1u; }
+    CHECK(n1 > 800u && n1 < 1200u, "AMOUNT 50: %u of 2000 1s", n1);
+    /* REPEAT: on a 1 the slice of the step before again, on and on; at the 0 after, back where the loop had come to */
+    {
+        SdSpace *sp = &e1.sp;
+        uint32_t ln = 44100u * 256u, line, t0;
+        pt.mod[0] = (SdModSlot){SD_MS_TUR1, SD_TD_TRIG + SD_TG_LREP, 32767};
+        sd_engine_init(&e1);
+        e1.patch = e1.base = pt;                /* (as a render would have taken it) */
+        e1.seq_run = 0; e1.seq_started = 0; e1.lp_speed = 0; e1.lp_mtq = 0; e1.lp_orb = 0; e1.lp_mfree = 0;
+        sp->loop = 1; sp->pon = 1; sp->pln = ln; sp->pr = 32768; sp->psp = 0; sp->pgn = sp->pgN = 0; sp->ppend = 0;
+        sp->lrev = sp->pdir = 0; sp->pbl = 0; sp->pnud = 0; sp->plev = 16384; sp->ppark = 0; sp->prun = 0;
+        sp->pk = 1000u * 256u; sp->pG[0] = sp->pk; sp->panc[0] = sp->panc[1] = 0; sp->pW = 0;
+        sp->prseen = e1.tur_count = 4u; e1.tur_reg = 0;
+        t0 = sp->pk;
+        #define LP_TICKS(n) for (k = 0; k < (n); k++) sd_lp_plan(&e1, sp)
+        e1.tur_count = 5u; LP_TICKS(1u);        /* a 0: the slice starts here */
+        CHECK(sp->prk0 == t0 && !sp->pbl && !sp->prep, "REPEAT: a 0 moved the head (%u %u)", sp->prk0, sp->pbl);
+        LP_TICKS(99u);
+        line = t0 + 100u * 2048u;               /* (the loop's own place: 2048 a tick at x 1) */
+        e1.tur_count = 6u; e1.tur_reg = 1u; LP_TICKS(1u);   /* a 1: back to the slice */
+        CHECK(sp->prep && sp->pbl && sp->pk1 == t0 + 2048u && sp->prt == line + 2048u,
+              "REPEAT ON 1: the head to %u (want %u), the loop's place %u (want %u)", sp->pk1, t0 + 2048u, sp->prt, line + 2048u);
+        LP_TICKS(99u);
+        e1.tur_count = 7u; e1.tur_reg = 3u; LP_TICKS(1u);   /* a 1 again: the same slice, a stutter */
+        CHECK(sp->prep && sp->pbl && sp->pk1 == t0 + 2048u, "REPEAT: the second 1 not the same slice (%u)", sp->pk1);
+        LP_TICKS(99u);
+        line = t0 + 300u * 2048u;
+        e1.tur_count = 8u; e1.tur_reg = 6u; LP_TICKS(1u);   /* a 0: back to the loop's own place, in sync */
+        CHECK(!sp->prep && sp->pbl && sp->pk1 == line + 2048u, "REPEAT off: the head to %u, the loop at %u", sp->pk1, line + 2048u);
+        LP_TICKS(40u);
+        CHECK(!sp->pbl && sp->pk == sp->pG[0], "REPEAT off: not in sync after (%u, the grid %u)", sp->pk, sp->pG[0]);
+        #undef LP_TICKS
+    }
+    printf("radar 1: the bit a source; SEQ A/B, ARP on its 1s or 0s; RESTART, NEXT, REPEAT on them; AMOUNT the chance\n");
+}
+
 int main(void)
 {
     test_lut();
@@ -5025,6 +5157,7 @@ int main(void)
     test_alias();
     test_nowhere();
     test_radar();
+    test_radar1();
     test_distroy_lite();
     test_gain_staging();
     test_sub();

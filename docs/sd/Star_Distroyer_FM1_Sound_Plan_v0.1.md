@@ -584,7 +584,7 @@ bench + fm1-emu instruction count). A step is not done until both pass.
 | **HW** | First install on an FM-1 | Same renders through the real output | CPU nn % on the chip within the emu's estimate |
 | **W1** | CONSOLE: a page of the site that connects to an FM-1 and shows everything at once, a ship's console (below) | Nothing in the sound changes; what it shows follows the FM-1 within ~50 ms | Its stream < 1 % of the chip, in the main loop, never in the audio's way |
 
-Every step is done but HW (it needs an FM-1) and W1 (planned, below). What follows is what each left that later work
+Every step is done but HW (it needs an FM-1); W1 was built 2026-11-23 (below). What follows is what each left that later work
 needs: what it built and where, what was decided and why, and what bit. The day-by-day log, its measurements and the
 listening rounds are in the git history.
 
@@ -878,9 +878,15 @@ lays it out, `ui.js` draws its controls and pictures), the keys along the bottom
   builds, the table's cover, a field's effect, every factory patch and a random one through the C, the worklet's way
   back and its recording.
 
-**W1, planned: a page of the site that connects to the FM-1 and works as a big screen with an overview of
-everything, a spaceship's console in the page's design and its player's.** The next step while HW waits for the
-user's FM-1.
+**W1, built 2026-11-23: a page of the site that connects to the FM-1 and works as a big screen with an overview of
+everything, a spaceship's console in the page's design and its player's.** The user picked the layout "sound first"
+from a sheet of two: the chain across the middle, NAV left, the macros and RADAR right, the players and the matrix
+under them. Built as `web/console/` (frame.js reads, console.js draws, the player under it) on
+`firmware/src/sd_console.h` (the frame, ~150 bytes: every frame the moving parts, then one of six slow parts in turn:
+the sound's settings, MOD, SEQ A, SEQ B, ORBIT, ARP and the banks). Gates met: the sound the same sample for sample
+with it on (`tests/console_test.mjs`); fm1-live strict with USB, the stream on and off: 74.1 % and 74.4 % (no
+difference: its frame is made in the main loop, and the output's peak, the only part in the interrupt, only while
+on); the frames of the emulated FM-1 read to their end by the page; 25 a second, 6 ms after the ask.
 - *Where:* a page of its own on the site (`web/`, built by `make_site.py`, published by CI from `main`), e.g.
   `console/`, in the page's look (near black, ice-white lines, red accents, the "///" marks, Orbitron for the titles)
   and its player's console frame, wide: a ship's bridge rather than a phone screen.

@@ -47,6 +47,8 @@ run "the songs: the old ORBITs moved over, a song's pattern played" "$OUT/app_so
 run "the songs: SAVE on ORBIT, in the flash" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg2.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_iter_test" tests/app_iter_test.c
 run "2026-11-23's asks: TIME turns from what plays, SEQ A/B to a pitch exactly, SLIDE's TIME, RADAR's DIV on the beat, CLICK" "$OUT/app_iter_test" "$OUT/app_iter_test"
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_radar1_test" tests/app_radar1_test.c
+run "RADAR 1 on MOD: after RADAR, its six DESTs at the list's end, K4 ON 1 or 0" "$OUT/app_radar1_test" "$OUT/app_radar1_test" tests/scripts/rd1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_tail_test" tests/app_tail_test.c
 run "ORBIT's LOOP and FREEZE pitch: packed, old songs, the engine" "$OUT/app_tail_test" "$OUT/app_tail_test" tests/scripts/ot1.txt
 $CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum_test" tests/app_drum_test.c   # (the drums' code kept: SD_DRUMS=1)

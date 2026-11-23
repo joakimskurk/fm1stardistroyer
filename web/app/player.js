@@ -80,6 +80,7 @@ if (ship) {
   const say = (t) => { if (status) status.textContent = t; };
   let ac = null, node = null, gain = null, booting = false, running = false, wasmBytes = null, storeSize = 0;
   const send = (m) => node && node.port.postMessage(m);
+  window.addEventListener('sd-console-want', (e) => { window.sdConsoleWants = !!e.detail; send({ type: 'console', on: !!e.detail }); });
   const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch (_) { /* (a pointer that is gone already) */ } };
 
   // ---- the keys: whites in a row along the bottom, the blacks in a row over the gaps, as on the FM-1
@@ -305,6 +306,7 @@ if (ship) {
     node.port.onmessage = (e) => {
       const m = e.data;
       if (m.type === 'frame') {
+        if (m.con) window.dispatchEvent(new CustomEvent('sd-console', { detail: m.con }));   // (web/console/)
         if (m.lcd) draw(m.lcd);
         show(m);
         if (m.store) { keep(m.store); flash('l-mem'); }
@@ -321,6 +323,7 @@ if (ship) {
         lamp('l-pwr', 1);
         say('Running. Play the keys (or A–\' on the computer\'s keyboard, W E T Y U O P the black ones; Z X the octave, Space PLAY, Shift GLO).');
         window.dispatchEvent(new CustomEvent('sd-ready', { detail: { post: (msg, tr) => node.port.postMessage(msg, tr || []) } }));
+        if (window.sdConsoleWants) send({ type: 'console', on: true });   // (the console page asked before it ran)
       } else if (m.type === 'error') say(`It did not start: ${m.message}`);
     };
     const wasm = wasmBytes.slice(0);

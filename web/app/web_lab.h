@@ -305,14 +305,14 @@ WEB_EXPORT(web_nfields) uint32_t web_nfields(void) { if (!lab_n) lab_build(); re
 WEB_EXPORT(web_field_size) uint32_t web_field_size(void) { return (uint32_t)sizeof(LabField); }
 static const char *lab_dst_full(uint32_t d)     /* a destination as the FM-1's list names it: its page, its knob */
 {
-    static char full[SD_MDSTS][24];
+    static char full[SD_MDSTS][32];         /* (its page and its name: 23 at most on the FM-1, room to spare) */
     char *p = full[d];
     if (!*p) { if (DST_GRP[d] != DG_NONE) { p = put(p, DG_NAME[DST_GRP[d]]); *p++ = ' '; } p = put(p, DST_PARAM[d]); *p = 0; }
     return full[d];
 }
 static const char *lab_src_full(uint32_t m)     /* a source as the FM-1's list names it: where it comes from, its name */
 {
-    static char full[SD_MSRCS][24];
+    static char full[SD_MSRCS][32];         /* (KICK's with DRUM is 26: it ran into SNARE's at 24) */
     char *p = full[m];
     if (!*p) { if (*SRC_GRP[m]) { p = put(p, SRC_GRP[m]); *p++ = ' '; } p = put(p, SRC_PARAM[m]); *p = 0; }
     return full[m];

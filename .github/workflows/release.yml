@@ -129,10 +129,11 @@ jobs:
       - name: The engine's tests and the demos (tests/run_sd.sh)
         run: SD_ASAN=0 SD_BENCH_S=5 sh tests/run_sd.sh
 
-      - name: The player (the firmware as WebAssembly, web/app/) and its test
+      - name: The player (the firmware as WebAssembly, web/app/) and its tests (the CONSOLE's frames too)
         run: |
           APP_VER="dev-${GITHUB_SHA::7}" sh web/app/build.sh build/web/stardistroyer.wasm
           node tests/web_test.mjs build/web/stardistroyer.wasm
+          node tests/console_test.mjs build/web/stardistroyer.wasm
 
       - name: The lab (web/lab/) against the host's firmware, sample for sample, and its C export compiled
         run: |

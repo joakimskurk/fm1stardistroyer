@@ -1,0 +1,73 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Star Distroyer · CONSOLE</title>
+<meta name="description" content="Star Distroyer's console: everything an FM-1 does, at once, on a big screen. Over USB, or from the player on the page.">
+<link rel="icon" href="../screens/icon.png">
+<link rel="stylesheet" href="../app/player.css">
+<link rel="stylesheet" href="console.css">
+</head>
+<body>
+<header class="top">
+  <a href="../" class="back">/// STAR DISTROYER</a>
+  <span class="src">
+    <button id="c-usb">FM-1 over USB</button>
+    <button id="c-player">The player below</button>
+  </span>
+  <span id="c-status" class="status">Connect an FM-1 (Chrome or Edge), or turn the player on below.</span>
+</header>
+<div class="stagebox" id="stagebox"><div class="stage" id="stage">
+  <div class="bar">
+    <img src="../screens/logo.png" alt="Star Distroyer">
+    <span class="tag">CONSOLE</span>
+    <span class="pt" id="h-patch"><small>—</small>—</span>
+    <span class="lamp" id="h-play"><i></i>PLAY</span>
+    <span class="lamp" id="h-rec"><i></i>REC</span>
+    <span class="kv">TEMPO<b id="h-tempo">—</b></span>
+    <span class="kv">VOICES<b id="h-voices">—</b></span>
+    <span class="kv">KEY<b id="h-key">—</b></span>
+    <span class="kv">PAGE<b id="h-page">—</b></span>
+    <div class="right">
+      <span class="kv">CPU<b id="h-cpu">—</b></span>
+      <span class="lamp" id="h-usb"><i></i>FM-1 · USB</span>
+      <span class="lamp" id="h-player"><i></i>PLAYER</span>
+    </div>
+  </div>
+  <div class="grid">
+    <section class="p nav" data-pages="0"><span class="tag">NAV</span><span class="note" id="n-nav"></span><svg id="nav"></svg></section>
+    <section class="p chain"><span class="tag">THE CHAIN</span><span class="note">VOICE → REACTOR → DISTROY → TIME → SPACE</span>
+      <div class="row">
+        <div class="inst" data-pages="7,8,15"><span class="arrow">›</span><h4>VOICE<span id="t-voice"></span></h4><svg class="fig" id="voice"></svg><div class="cap" id="c-voice"></div></div>
+        <div class="inst" data-pages="1"><span class="arrow">›</span><h4>REACTOR<span id="t-react"></span></h4><svg class="fig" id="react"></svg><div class="cap" id="c-react"></div></div>
+        <div class="inst" data-pages="2"><span class="arrow">›</span><h4>DISTROY<span id="t-dist"></span></h4><svg class="fig" id="dist"></svg><div class="cap" id="c-dist"></div></div>
+        <div class="inst" data-pages="11,12"><span class="arrow">›</span><h4>TIME<span id="t-time"></span></h4><svg class="fig" id="time"></svg><div class="cap" id="c-time"></div></div>
+        <div class="inst" data-pages="3"><span class="arrow">›</span><h4>SPACE<span id="t-space"></span></h4><svg class="fig" id="space"></svg><div class="cap" id="c-space"></div></div>
+        <div class="inst out"><span class="arrow">›</span><h4>OUT</h4><svg class="fig" id="out"></svg><div class="cap" id="c-out"></div></div>
+      </div></section>
+    <section class="p macro" data-pages="5,13"><span class="tag">MACROS</span><span class="note" id="n-mac"></span><svg id="mac"></svg></section>
+    <section class="p seq" data-pages="6,9,10,14"><span class="tag">PLAYERS</span><span class="note" id="n-seq"></span>
+      <div class="lanes"><svg id="seqa"></svg><svg id="seqb"></svg><svg id="orbit"></svg><svg id="arp"></svg></div></section>
+    <section class="p mod" data-pages="4"><span class="tag">MOD</span><span class="note">8 SLOTS · LFO · ENV</span><svg id="mod"></svg></section>
+  </div>
+  <div class="foot">/// THE FM-1'S STATE, 25 TIMES A SECOND · NOTHING IS WRITTEN TO IT</div>
+</div></div>
+
+<main class="below">
+  <h2>No FM-1 at hand?</h2>
+  <p>The player is the firmware itself, compiled for the browser. Turn it on and play: the console above follows it as
+    it follows an FM-1.</p>
+  <div class="player">
+    <div class="ship" id="ship"></div>
+    <div class="pctl">
+      <button id="p-midi">MIDI keyboard</button>
+      <button id="p-off">Power off · on</button>
+      <button id="p-reset" title="Forget what SAVE kept in this browser, and start as from the factory">Factory reset</button>
+    </div>
+    <p class="small" id="appstatus">POWER ON starts it: the firmware loads (a third of a megabyte) and plays here.</p>
+  </div>
+  <p class="small">Over USB the console only reads: the FM-1 sends what it is doing while this page asks, and stops
+    when it is closed. It needs Chrome or Edge on a computer (Web MIDI with SysEx), as the installer does.</p>
+</main>
+<script type="module" src="console.js"></script>
+<script type="module" src="../app/player.js"></script>
+</body></html>

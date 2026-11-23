@@ -116,7 +116,8 @@ class StarDistroyer extends AudioWorkletProcessor {
     }
     const x = this.x;
     if (!x) return;
-    if (m.type === 'lab-init') this.labInit();
+    if (m.type === 'console') this.con = !!m.on;   // (the console page: its frames, or none)
+    else if (m.type === 'lab-init') this.labInit();
     else if (m.type === 'lab-set') {             // the page's patch: into the firmware's, to the engine as a knob does
       this.pat().set(m.bytes);
       x.web_pat_apply();
@@ -210,6 +211,11 @@ class StarDistroyer extends AudioWorkletProcessor {
         this.rev = rev;
         msg.lcd = new Uint16Array(x.memory.buffer, x.web_lcd(), 240 * 240).slice();
         transfer.push(msg.lcd.buffer);
+      }
+      if (this.con && x.web_con_frame) {         // (the console, web/console/) the state, as the FM-1 sends it
+        const n = x.web_con_frame();
+        msg.con = new Uint8Array(x.memory.buffer, x.web_con_ptr(), n).slice();
+        transfer.push(msg.con.buffer);
       }
       if (this.seqSent) {                        // (the lab) the sequencer, when the panel changed it; the transport
         const q = this.seqNow();

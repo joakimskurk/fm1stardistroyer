@@ -268,6 +268,9 @@
     </div>
     <p class="small" id="appstatus">POWER ON starts it: the firmware loads (a third of a megabyte) and plays here.</p>
   </div>
+  <p>The <a href="console/">CONSOLE</a> shows everything at once on one big screen, as it plays: the chain from the
+    voice to SPACE, the nav, the macros and RADAR, both tracks, ORBIT and ARP, the matrix. It follows an FM-1 over USB
+    (Chrome or Edge), or a player of its own.</p>
 
   <h2 id="start"><img src="screens/slash.png" width="68" height="28" alt="">Getting started</h2>
   <p>The first minutes, on an FM-1 or in the player above. The player's computer keys are in brackets.</p>
@@ -376,6 +379,10 @@
           with SOURCE RADAR, anywhere the matrix goes. To PITCH it is quantized to SEQ A's key first. DIV turned while it
           plays stays on the beat.</li>
         <li><b>NOTES</b> moves SEQ A's notes in the scale as they play; the pattern stays as you wrote it.</li>
+        <li><b>RADAR 1</b>, a source of its own: the bits as on and off. From it, six more DESTs act on the 1s (or the
+          0s, K4 ON): <b>RESTART</b> the held notes' envelopes, <b>NEXT</b> the Reactor's stage, <b>SEQ A</b>,
+          <b>SEQ B</b> and <b>ARP</b> play only there, <b>REPEAT</b> the looper's last slice, a stutter. AMOUNT is how
+          often.</li>
         <li>The picture: the loop as a scope, and its bits as a readout of 16 cells.</li>
       </ul></div>
   </div>
@@ -468,9 +475,9 @@
     <figure class="pg"><img class="scr" src="screens/lfo2.png" width="240" height="240" alt="The LFO 2 page" loading="lazy">
       <figcaption><b>LFO 2</b>The second, the same: two at once, at their own rates.<dl><dt>ALGO</dt><dd>LFO · MODE, as LFO 1’s</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/radar.png" width="240" height="240" alt="The RADAR page" loading="lazy">
-      <figcaption><b>RADAR</b>A loop of random bits on the beat: a stepped source.<dl><dt>K1–K4</dt><dd>SEARCH (LOCK at both ends, the most change in the middle) · LENGTH · OFFSET · DIV</dd><dt>WHERE</dt><dd>a MOD slot with SOURCE RADAR</dd><dt>SEE</dt><dd>the loop as a scope, its 16 bits</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
+      <figcaption><b>RADAR</b>A loop of random bits on the beat: a stepped source.<dl><dt>K1–K4</dt><dd>SEARCH (LOCK at both ends, the most change in the middle) · LENGTH · OFFSET · DIV</dd><dt>WHERE</dt><dd>a MOD slot with SOURCE RADAR, or RADAR 1 (its bits: RESTART, NEXT, SEQ A, SEQ B, ARP, REPEAT on the 1s or the 0s)</dd><dt>SEE</dt><dd>the loop as a scope, its 16 bits</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/mod.png" width="240" height="240" alt="The MOD page" loading="lazy">
-      <figcaption><b>MOD</b>Eight slots: any source to any destination.<dl><dt>SELECT</dt><dd>the slot</dd><dt>K1–K4</dt><dd>SOURCE · DEST (a list, in the pages’ order) · AMOUNT · OFFSET</dd><dt>SEE</dt><dd>all eight as a table, the knobs on the red row</dd></dl></figcaption></figure>
+      <figcaption><b>MOD</b>Eight slots: any source to any destination.<dl><dt>SELECT</dt><dd>the slot</dd><dt>K1–K4</dt><dd>SOURCE · DEST (a list, in the pages’ order) · AMOUNT · OFFSET (from RADAR 1 to its own: ON 1 or 0)</dd><dt>SEE</dt><dd>all eight as a table, the knobs on the red row</dd></dl></figcaption></figure>
   </div>
   <h3 class="btnh"><span class="pbtn">ARP</span>ARP → LOOPER<span class="what">the player’s tools, kept apart from the patch</span></h3>
   <div class="pages">

@@ -2,7 +2,7 @@
 
 - Bare-metal FM-1 firmware on Dinghy 0.5. The plans are in docs/sd/; the current step is the first one in the Sound
   Plan's §6 table that is not done (P0..V3, R1..R4, D1..D3, S1, C1, S2, S3, S4 and L1, the lab, are done; HW: the user has an FM-1 since 2026-11-16
-  and played it: the CPU read 90 to 100 %, the work now; then W1, the console page; the install always needs the user's go-ahead).
+  and played it: the CPU read 90 to 100 %, the work now; W1, the console page, built 2026-11-23: `sd_console.h`, `web/console/`, `tests/console_test.mjs`; the install always needs the user's go-ahead).
   Two cores again since 2026-11-19 (the plate, the drums and half of each sub-block on the second, `SD_C1_HALVES`:
   an hour on the user's FM-1 at 63 %, no misread): the crash at the boot loader's core supplies is gone
   with M-VAVE's own raised at the boot (hal/fm1_sys.h `fm1_supply_stock`; Sound Plan 6.8); SETUP's CORES (K2 on its MORE layer)

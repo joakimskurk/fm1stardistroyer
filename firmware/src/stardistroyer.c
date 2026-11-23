@@ -648,6 +648,8 @@ SD_HOT static void click_add(int32_t *out, uint32_t n)
         clk_amp = clk_amp > clk_dec ? clk_amp - clk_dec : 0u;
     }
 }
+static volatile uint32_t con_until;             /* (sd_console.h: the console's frames, while on: fm1_ms they stop at) */
+static void con_peak(const int32_t *out, uint32_t n);
 SD_HOT static void app_audio(int32_t *out, uint32_t n)
 {
     uint32_t t0 = sd_ticks(), dt;
@@ -685,6 +687,7 @@ SD_HOT static void app_audio(int32_t *out, uint32_t n)
 #endif
     if (demo_st) demo_after(out, n);
     click_add(out, n);
+    if (con_until) con_peak(out, n);            /* (the console's output level, only while its frames run) */
     dt = sd_ticks() - t0;
     if (dt > cpu_worst) cpu_worst = dt;
 #if !defined(DINGHY_HOST) && FM1_CPU1
@@ -1364,7 +1367,7 @@ static uint32_t dmod = SD_MODS;                 /* LFO's page: slots 0..7 and 10
 static const char *const SRC_NAME[SD_MSRCS] = {"OFF", "ENV1", "ENV2", "LFO1", "LFO2", "NAV X", "NAV Y", "VEL", "KEY",
                                                "WHEEL", "AFTER", "RAND", "STEP", "SEGMENT", "D LOW",
                                                "D TOP", "R STAGE", "ECHO", "ENV3", "RADAR", "KICK", "SNARE",
-                                               "SEQ A", "SEQ B"};
+                                               "SEQ A", "SEQ B", "RADAR 1"};
 /* the destinations, in the enum's order (SD_MD_*). In the list (draw_dlist): the page the knob is on (DG_*) and its
    name there; on a knob (7 characters) and in the LFOs' pictures the name alone, with the FX page's letter where
    another page has a knob of that name (R REACTOR, the band's or LP the loop on DISTROY; as the pages' R-LEVEL,
@@ -1398,9 +1401,17 @@ static const char *const DST_PARAM[SD_MDSTS] = {"OFF", "PITCH", "XM", "WARP", "F
     "LOOP TIME", "LOOP SPREAD", "TIME", "TONE", "SIZE", "TONE", "RATE", "RATE", "LOOP SPEED", "LOW SPLIT",
     "LO-MID SPLIT", "LOW DRIVE", "LO-MID DRIVE", "HI-MID DRIVE", "KICK BOOM", "SNARE SIZE", "HAT AIR",
     "PERC MACRO", "LEVEL", "VOLUME", "PERC TUNE", "FREEZE PITCH"};
-static const char *tdest_name(uint32_t d)       /* RADAR's DEST: a matrix destination, or NOTES, or the drums' */
+/* RADAR 1's own DESTs (SD_TG_*): on a knob and in MOD's table; in the list each its page and what it does there */
+static const char *const TG_NAME[SD_TGS] = {"RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"};
+static const char *const TG_GRP[SD_TGS] = {"ENV 1 2 3", "REACTOR", "SEQ A", "SEQ B", "ARP", "LOOPER"};
+static const char *const TG_PARAM[SD_TGS] = {"RESTART ON 1", "NEXT STAGE ON 1", "PLAYS ON 1", "PLAYS ON 1",
+                                             "PLAYS ON 1", "REPEATS ON 1"};
+#define TG_IS(d) ((d) >= SD_TD_TRIG && (d) < SD_TD_TRIG + SD_TGS)
+static const char *tdest_name(uint32_t d)       /* RADAR's DEST: a matrix destination, or NOTES, or the drums', or
+                                                   RADAR 1's */
 {
-    return d == SD_TD_NOTES ? "NOTES" : d == SD_TD_DACC ? "ACCENTS" : d == SD_TD_DROLL ? "ROLLS" : d < SD_MDSTS ? DST_NAME[d] : "OFF";
+    return d == SD_TD_NOTES ? "NOTES" : d == SD_TD_DACC ? "ACCENTS" : d == SD_TD_DROLL ? "ROLLS" :
+           TG_IS(d) ? TG_NAME[d - SD_TD_TRIG] : d < SD_MDSTS ? DST_NAME[d] : "OFF";
 }
 static const char *const LSHAPE_NAME[SD_LSHAPES] = {"SINE", "TRI", "SAW", "RAMP", "SQUARE", "S&H"};
 #define LMODES 10u
@@ -1529,10 +1540,20 @@ static uint32_t tdst_of(uint32_t r)
     return r < N_DST ? SD_MD_ORDER[r] : SD_DRUMS && r == N_DST ? SD_TD_DACC : SD_DRUMS && r == N_DST + 1u ? SD_TD_DROLL :
            SD_TD_NOTES;
 }
-static uint32_t dst_step(uint32_t d, int32_t e, uint32_t notes)   /* the next in the list (notes: RADAR's, with its
-                                                   own at its end) */
+#define N_T1DST (N_DST + SD_TGS)                /* (RADAR 1's list: the matrix's, then its own) */
+static uint32_t t1dst_rank(uint32_t d) { return TG_IS(d) ? N_DST + d - SD_TD_TRIG : dst_rank(d % SD_MDSTS); }
+static uint32_t t1dst_of(uint32_t r) { return r < N_DST ? SD_MD_ORDER[r] : SD_TD_TRIG + (r - N_DST) % SD_TGS; }
+static uint32_t dst_ok(uint32_t src, uint32_t d)   /* a DEST a slot from src may have (RADAR's and RADAR 1's own:
+                                                   theirs only) */
 {
-    if (notes) return tdst_of(step_mod(tdst_rank(d), e, N_TDST));
+    return d < SD_MDSTS || (src == SD_MS_TUR && (d == SD_TD_NOTES || d == SD_TD_DACC || d == SD_TD_DROLL)) ||
+           (src == SD_MS_TUR1 && TG_IS(d));
+}
+static uint32_t dst_step(uint32_t d, int32_t e, uint32_t src)   /* the next in the list (src RADAR or RADAR 1: with
+                                                   its own at its end) */
+{
+    if (src == SD_MS_TUR) return tdst_of(step_mod(tdst_rank(d), e, N_TDST));
+    if (src == SD_MS_TUR1) return t1dst_of(step_mod(t1dst_rank(d), e, N_T1DST));
     return SD_MD_ORDER[step_mod(dst_rank(d % SD_MDSTS), e, N_DST)];
 }
 static uint32_t sdiv_step(uint32_t d, int32_t e)   /* a division, e detents slower (+) or faster (-) */
@@ -1962,7 +1983,7 @@ static void rst_level(SdReactorStage *st, int32_t e)   /* the stage's level, its
  * K4). While it turns, over the knobs and the picture as PRESETS' list is: the one picked in the middle, three either
  * side, each where it comes from and its name, the place in the whole list on the right. It plays as it turns
  * (nothing to load); 1.5 s untouched, another knob, a button or another page: gone */
-enum { DL_MOD = 1, DL_TUR, DL_ORB1, DL_ORB2, DL_SRC, DL_GEN, DL_RST, DL_ALG, DL_BAND, DL_LFO, DL_COL, DL_PERC };   /* (DL_BAND: no
+enum { DL_MOD = 1, DL_TUR, DL_ORB1, DL_ORB2, DL_SRC, DL_GEN, DL_RST, DL_ALG, DL_BAND, DL_LFO, DL_COL, DL_PERC, DL_TUR1 };   /* (DL_BAND: no
                                                    longer opened, 2026-11-17: DISTROY's band moves its frame in the
                                                    picture; its place kept, the table below in step) */
 /* NAV's algorithms (SD_ALGO's order): how many oscillators are heard, and the routing, 1..4 left to right
@@ -1975,8 +1996,8 @@ static const char *const ALG_ROUTE[8] = {"1>2>3>4", "2>3>4 1>4", "1+2+3>4", "1>2
 static uint32_t dlist_kind, dlist_pg;
 static void dlist_open(uint32_t kind)
 {
-    static const uint8_t ENC[] = {0, ENC_KNOB2, ENC_KNOB3, ENC_KNOB1, ENC_KNOB3, ENC_KNOB1, ENC_KNOB4, ENC_KNOB1,
-                                  ENC_KNOB1, ENC_ALGORITHM, ENC_KNOB3, ENC_KNOB4, ENC_KNOB4};   /* (each list's knob, in DL_*'s
+    static const uint8_t ENC[] = {0, ENC_KNOB2, ENC_KNOB2, ENC_KNOB1, ENC_KNOB3, ENC_KNOB1, ENC_KNOB4, ENC_KNOB1,
+                                  ENC_KNOB1, ENC_ALGORITHM, ENC_KNOB3, ENC_KNOB4, ENC_KNOB4, ENC_KNOB2};   /* (each list's knob, in DL_*'s
                                                    order) */
     dlist_kind = kind; dlist_pg = page; dlist_at = fm1_ms ? fm1_ms : 1u;
     dlist_enc = kind < sizeof ENC ? ENC[kind] : 0xFFu;
@@ -1984,14 +2005,15 @@ static void dlist_open(uint32_t kind)
 /* the sources in the list's order: the envelopes, the LFOs and RADAR, NAV, the playing, then the engines in the
    chain's order; each where it is set or comes from, and its name there (in the enum's order) */
 static const uint8_t SRC_ORDER[SD_MSRCS] = {SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_ENV3, SD_MS_LFO1, SD_MS_LFO2,
-    SD_MS_TUR, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY, SD_MS_WHEEL, SD_MS_AFTER, SD_MS_RAND, SD_MS_SEQA,
-    SD_MS_STEP, SD_MS_SEG, SD_MS_SEQB, SD_MS_RSTAGE, SD_MS_DLOW, SD_MS_DTOP, SD_MS_ECHO, SD_MS_KICK, SD_MS_SNARE};
+    SD_MS_TUR, SD_MS_TUR1, SD_MS_NAVX, SD_MS_NAVY, SD_MS_VEL, SD_MS_KEY, SD_MS_WHEEL, SD_MS_AFTER, SD_MS_RAND,
+    SD_MS_SEQA, SD_MS_STEP, SD_MS_SEG, SD_MS_SEQB, SD_MS_RSTAGE, SD_MS_DLOW, SD_MS_DTOP, SD_MS_ECHO, SD_MS_KICK,
+    SD_MS_SNARE};
 static const char *const SRC_GRP[SD_MSRCS] = {"", "ENV", "ENV", "LFO", "LFO", "NAV", "NAV", "PLAYING", "PLAYING",
     "PLAYING", "PLAYING", "PLAYING", "SEQ A", "SEQ A", "DISTROY", "DISTROY", "REACTOR", "TIME", "FILTER", "LFO", "DRUM",
-    "DRUM", "SEQ A", "SEQ B"};
+    "DRUM", "SEQ A", "SEQ B", "LFO"};
 static const char *const SRC_PARAM[SD_MSRCS] = {"OFF", "ENV 1", "ENV 2", "LFO 1", "LFO 2", "X", "Y", "VELOCITY",
     "KEY TRACK", "WHEEL", "AFTERTOUCH", "RANDOM EACH NOTE", "STEP", "SEGMENT", "LOW BAND", "TOP BAND", "STAGE",
-    "ECHOES", "ENV 3", "RADAR", "KICK (DUCK: AMOUNT -)", "SNARE", "NOTE", "NOTE"};
+    "ECHOES", "ENV 3", "RADAR", "KICK (DUCK: AMOUNT -)", "SNARE", "NOTE", "NOTE", "RADAR 1, ON OR OFF"};
 static uint32_t src_rank(uint32_t s) { uint32_t r = 0; while (r < SD_MSRCS - 1u && SRC_ORDER[r] != s) r++; return r; }
 static uint32_t src_step(uint32_t s, int32_t e) { return SRC_ORDER[step_mod(src_rank(s % SD_MSRCS), e, N_SRC)]; }
 static uint32_t lfo_slot(uint32_t k)            /* the MOD slot LFO k (0, 1) sends from: the first going somewhere, else
@@ -2008,7 +2030,7 @@ static uint32_t mslot(void)                     /* the slot this page edits: MOD
 }
 static const char *const PC_WHAT[SD_PCS] = {"HANDS", "SKIN", "BLIPS", "PINGS", "LASER", "REVERSED"};   /* (DRUM's
                                                    fourth, its list) */
-static uint32_t dl_n(void) { return dlist_kind == DL_PERC ? SD_PCS : dlist_kind == DL_COL ? SD_ACCENTS : dlist_kind == DL_SRC ? N_SRC : dlist_kind == DL_GEN ? SD_GENS : dlist_kind == DL_RST ? RST_N : dlist_kind == DL_ALG ? SD_ALGOS : dlist_kind == DL_TUR ? N_TDST : N_DST; }
+static uint32_t dl_n(void) { return dlist_kind == DL_PERC ? SD_PCS : dlist_kind == DL_COL ? SD_ACCENTS : dlist_kind == DL_SRC ? N_SRC : dlist_kind == DL_GEN ? SD_GENS : dlist_kind == DL_RST ? RST_N : dlist_kind == DL_ALG ? SD_ALGOS : dlist_kind == DL_TUR ? N_TDST : dlist_kind == DL_TUR1 ? N_T1DST : N_DST; }
 static uint32_t dl_rank(void)                   /* the one picked: its place in the list */
 {
     uint32_t d;
@@ -2019,13 +2041,13 @@ static uint32_t dl_rank(void)                   /* the one picked: its place in 
     case DL_ALG: { uint32_t a = algo_of(&pat); return a < SD_ALGOS ? a : 0u; }
     case DL_COL: return set.accent % SD_ACCENTS;
     case DL_PERC: return set.dperc % SD_PCS;
-    case DL_TUR: d = dmod < SD_MODS ? pat.mod[dmod].dst : 0u; break;   /* (a MOD slot's from RADAR: its own three
-                                                   too) */
+    case DL_TUR: case DL_TUR1: d = dmod < SD_MODS ? pat.mod[dmod].dst : 0u; break;   /* (a MOD slot's from RADAR or
+                                                   RADAR 1: their own too) */
     case DL_ORB1: d = orbp.dst[0]; break;
     case DL_ORB2: d = orbp.dst[1]; break;
     default: d = mslot() < SD_MODS ? pat.mod[mslot()].dst : 0u;
     }
-    return dlist_kind == DL_TUR ? tdst_rank(d) : dst_rank(d % SD_MDSTS);
+    return dlist_kind == DL_TUR ? tdst_rank(d) : dlist_kind == DL_TUR1 ? t1dst_rank(d) : dst_rank(d % SD_MDSTS);
 }
 static const char *dl_item(uint32_t r, char *nm)   /* the r-th in the list: where it comes from; its name into nm */
 {
@@ -2060,7 +2082,8 @@ static const char *dl_item(uint32_t r, char *nm)   /* the r-th in the list: wher
             for (k = 0; k < SD_BANKS; k++) if (k != ebank) { *p++ = ' '; *p++ = (char)('A' + k); }
             g = "BANK";
         }
-    } else if (r >= N_DST && tdst_of(r) == SD_TD_NOTES) { p = put(p, "NOTES"); g = DG_NAME[DG_SEQ]; }
+    } else if (dlist_kind == DL_TUR1 && r >= N_DST) { p = put(p, TG_PARAM[(r - N_DST) % SD_TGS]); g = TG_GRP[(r - N_DST) % SD_TGS]; }
+    else if (r >= N_DST && tdst_of(r) == SD_TD_NOTES) { p = put(p, "NOTES"); g = DG_NAME[DG_SEQ]; }
     else if (r >= N_DST) { p = put(p, r == N_DST ? "ACCENTS ON 1" : "ROLLS ON 1"); g = DG_NAME[DG_DRUM]; }
     else { p = put(p, DST_PARAM[SD_MD_ORDER[r]]); g = DG_NAME[DST_GRP[SD_MD_ORDER[r]]]; }
     *p = 0;
@@ -2087,7 +2110,7 @@ static void draw_dlist(void)                    /* over the knobs and the pictur
             cv_text(92, y + 2, &FONT_S, nm, r == 2u || r == 4u ? C_ICE : C_ICE_D);
         }
     }
-    if (dlist_kind == DL_MOD || dlist_kind == DL_SRC || dlist_kind == DL_TUR) p = put(put_u(put(s, "MOD "), dmod + 1u), dlist_kind == DL_SRC ? " SOURCE" : " DEST");
+    if (dlist_kind == DL_MOD || dlist_kind == DL_SRC || dlist_kind == DL_TUR || dlist_kind == DL_TUR1) p = put(put_u(put(s, "MOD "), dmod + 1u), dlist_kind == DL_SRC ? " SOURCE" : " DEST");
     else if (dlist_kind == DL_LFO) p = put(put_u(put(s, "LFO "), dmod - SD_MODS + 1u), " DEST");
     else if (dlist_kind == DL_GEN) { p = put(s, "GEN ON BANK "); *p++ = (char)('A' + ebank); }
     else if (dlist_kind == DL_RST) p = put_u(put(s, "REACTOR STAGE "), rst_cur % 6u + 1u);
@@ -3775,7 +3798,9 @@ static void knobs_of(void)
             kt(0, "SOURCE", SRC_NAME[m->src % SD_MSRCS]);
             kt(1, "DEST", slot_dname(m));
             *put_sgn(t, a) = 0; kb(2, "AMOUNT", t, a);
-            if (m->dst >= SD_MDSTS) k0(3);      /* (RADAR's own three: no OFFSET, a 1 is a 1) */
+            if (TG_IS(m->dst)) kt(3, "ON", m->amt < 0 ? "0" : "1");   /* (RADAR 1's own: on its 1s or 0s, AMOUNT's
+                                                   sign) */
+            else if (m->dst >= SD_MDSTS) k0(3); /* (RADAR's own three: no OFFSET, a 1 is a 1) */
             else {
                 p = put_sgn(t, pat.mod_off[dmod]); *p++ = '%'; *p = 0;   /* OFFSET: + up only, - down only (2026-11-19) */
                 kb(3, "OFFSET", t, pat.mod_off[dmod] * 99 / 100);
@@ -4594,7 +4619,9 @@ static void pic_mod_full(void)                  /* MOD: a row a slot, its column
             if (l > h) { int32_t t2 = l; l = h; h = t2; }
             if (h - l >= 1) cv_rect(150 + l, y + 7, h - l, 3, cb);
         } else if (w) cv_rect(w > 0 ? 151 : 150 + w, y + 7, w > 0 ? w : -w, 3, cb);
-        if (m->dst < SD_MDSTS) {                /* (RADAR's own three: no OFFSET) */
+        if (TG_IS(m->dst)) cv_text(210 - text_w(&FONT_S, m->amt < 0 ? "ON 0" : "ON 1") / 2, y, &FONT_S,
+                                   m->amt < 0 ? "ON 0" : "ON 1", sel ? C_RED : C_ICE);   /* (RADAR 1's own: where) */
+        else if (m->dst < SD_MDSTS) {           /* (RADAR's own three: no OFFSET) */
             p = put_sgn(t, pat.mod_off[k]); *p++ = '%'; *p = 0;
             cv_text(210 - text_w(&FONT_S, t) / 2, y, &FONT_S, t, sel ? C_RED : pat.mod_off[k] ? C_ICE : C_ICE_D);
         }
@@ -5583,6 +5610,7 @@ static void midi_in(void)
     }
     if (clk_cue && fm1_ms - clk_cue_t > 250u) { clk_cue = 0; eng.seq_run = 1; eng.clk_start++; }   /* (no pulse) */
 }
+#include "sd_console.h"                         /* the site's CONSOLE (W1): the state a frame at a time */
 #if !defined(DINGHY_HOST)
 /* ---- the diagnosis over USB (2026-11-17, the user: "can you read what happens in the FM-1 while it is connected?").
  * F0 7D 53 44 01 F7 ("SD", 7D the non-commercial ID: never the installer's 00 59) asks; the reply is
@@ -5615,12 +5643,34 @@ static void sd_diag_send(uint32_t kind, const uint32_t *v, uint32_t k)
     out[6u + 8u * k] = 0xF7u;
     (void)ota_wire_send(out, 7u + 8u * k);
 }
+static void con_tick(void)                      /* the console's frames: 25 a second while asked, each only when
+                                                   the last has left (a host not reading: none, never a wait) */
+{
+    static uint32_t last;
+    uint8_t f[6u + SD_CON_MAX];
+    uint32_t n;
+    if (!con_until) return;
+    if ((int32_t)(fm1_ms - con_until) >= 0 || !usb.config) { con_until = 0; return; }
+    if (fm1_ms - last < 40u || so_w != so_r) return;
+    last = fm1_ms;
+    f[0] = 0xF0u; f[1] = 0x7Du; f[2] = 0x53u; f[3] = 0x44u; f[4] = 0x08u;
+    n = sd_con_frame(f + 5);
+    f[5u + n] = 0xF7u;
+    (void)ota_wire_send(f, 6u + n);
+}
 static void sd_diag_service(void)
 {
     const uint8_t *p;
     uint32_t n, v[SD_DIAG_MAXW], k = 0, i, h = 2166136261u;
     const char *nm = APP_NAME " " APP_VER;
+    con_tick();                                 /* (the console's frames, while asked) */
     if (!ota_frame_get(&p, &n)) return;
+    if (n == 5u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x07u) {   /* the console: F0 7D 53 44
+                                                   07 01 F7 frames for 3 s more, 07 00 F7 none (sd_console.h) */
+        con_until = p[4] ? (fm1_ms + 3000u) | 1u : 0u;
+        ota_frame_done();
+        return;
+    }
     if (n == 5u && p[0] == 0x7Du && p[1] == 0x53u && p[2] == 0x44u && p[3] == 0x05u) {   /* the freeze log: F0 7D 53
                                                    44 05 <i> F7, record i / 2 (0 the newest), its half i & 1, answered
                                                    F0 7D 53 44 06 <n> <i, the record's words> F7 (tools/fm1_diag -l) */
@@ -6541,11 +6591,11 @@ static void app_main(void)
                 SdModSlot *m = &pat.mod[dmod];
                 if ((e = enc_take(ENC_KNOB1)) != 0) {
                     m->src = (uint8_t)src_step(m->src, e), dlist_open(DL_SRC), changed = 1;
-                    if (m->src != SD_MS_TUR && m->dst >= SD_MDSTS) m->dst = 0;   /* (RADAR's own three: RADAR's only) */
+                    if (!dst_ok(m->src, m->dst)) m->dst = 0;   /* (RADAR's and RADAR 1's own: theirs only) */
                 }
-                if ((e = enc_take(ENC_KNOB2)) != 0) {   /* (from RADAR: its own three at the list's end) */
-                    m->dst = (uint8_t)dst_step(m->dst, e, m->src == SD_MS_TUR);
-                    dlist_open(m->src == SD_MS_TUR ? DL_TUR : DL_MOD);
+                if ((e = enc_take(ENC_KNOB2)) != 0) {   /* (from RADAR or RADAR 1: their own at the list's end) */
+                    m->dst = (uint8_t)dst_step(m->dst, e, m->src);
+                    dlist_open(m->src == SD_MS_TUR ? DL_TUR : m->src == SD_MS_TUR1 ? DL_TUR1 : DL_MOD);
                     changed = 1;
                 }
                 if ((e = enc_take(ENC_KNOB3)) != 0) {   /* a percent a detent */
@@ -6555,8 +6605,13 @@ static void app_main(void)
                     m->amt = (int16_t)(v * 32767 / 99);
                     changed = 1;
                 }
-                if ((e = enc_take(ENC_KNOB4)) != 0 && m->dst < SD_MDSTS) {   /* OFFSET: a percent a detent, -100 .. 100
-                                                   (RADAR's own three: none) */
+                if ((e = enc_take(ENC_KNOB4)) != 0 && TG_IS(m->dst)) {   /* RADAR 1's own: ON, 1 (right) or 0 (left):
+                                                   AMOUNT's sign */
+                    int32_t a = m->amt < 0 ? -m->amt : m->amt;
+                    dlist_at = 0;
+                    m->amt = (int16_t)(e > 0 ? a : -a);
+                    changed = 1;
+                } else if (e && m->dst < SD_MDSTS) {   /* OFFSET: a percent a detent, -100 .. 100 (RADAR's own: none) */
                     int32_t v = (int32_t)pat.mod_off[dmod] + enc_far(e, 200u);
                     dlist_at = 0;
                     pat.mod_off[dmod] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v);
@@ -6999,4 +7054,8 @@ static void app_main(void)
 
 #ifdef DINGHY_WEB
 #include "../../web/app/web_lab.h"              /* the lab (web/lab/): the patch opened up to the page */
+/* the console (sd_console.h, web/console/): the player's frames, as the FM-1 sends them over USB */
+static uint8_t web_con[SD_CON_MAX];
+WEB_EXPORT(web_con_ptr) uint8_t *web_con_ptr(void) { return web_con; }
+WEB_EXPORT(web_con_frame) uint32_t web_con_frame(void) { con_until = 1u; return sd_con_frame(web_con); }
 #endif

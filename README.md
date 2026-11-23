@@ -229,7 +229,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 −100 % only down, its reach on that side kept (an older save loads with every OFFSET at 0). The page is a table
 (2026-11-22): a row a slot, its columns the knobs' (SOURCE, DEST, AMOUNT as a bar, OFFSET), the slot SELECT picks red
 and framed, the one the knobs turn; its AMOUNT as a number on the hint line.
-- **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, RADAR, NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
+- **Sources:** ENV 1, ENV 2, ENV 3, LFO 1, LFO 2, RADAR, **RADAR 1** (2026-11-23: the bit of RADAR's step, a 1 full
+  and a 0 none, ~6 ms from one to the other), NAV X, NAV Y, VELOCITY, KEY TRACK, WHEEL (CC 1),
   AFTERTOUCH and RANDOM (each note). The engines feed it too: SEQ A's STEP and SEGMENT, the Reactor's STAGE,
   DISTROY's LOW and TOP BAND, TIME's ECHOES, and **SEQ A** and **SEQ B** (2026-11-23): the note the track plays, from
   its key's root; to PITCH, SPACE's FREEZE PITCH or the looper's SPEED at 100 % it follows the notes exactly, a
@@ -245,7 +246,13 @@ and framed, the one the knobs turn; its AMOUNT as a number on the hint line.
   brings up the list, as PRESETS does: the page and the knob,
   the one picked in the middle. It plays as it turns and goes after 1.5 s. ORBIT's lanes use the same list. A slot
   from RADAR has one more at its end: **NOTES** (SEQ A's notes moved in the pattern's scale as they play, ±12
-  degrees at full, the pattern never rewritten). Where RADAR goes is set here only (2026-11-21).
+  degrees at full, the pattern never rewritten). Where RADAR goes is set here only (2026-11-21). A slot from
+  **RADAR 1** has six more at its end (2026-11-23), each on RADAR's 1s (AMOUNT +) or its 0s (AMOUNT −; K4 **ON** 1
+  or 0 turns it), AMOUNT how often (99: every one): **RESTART** (the held notes' three envelopes start again from
+  where they are), **NEXT** (the Reactor's stage clock a stage on, in its range and order, its own DIV still counting
+  if set), **SEQ A**, **SEQ B** and **ARP** (they play only there, a step off it a rest), and **REPEAT** (the looper
+  plays the slice of RADAR's step before again, on and on while it stays there, a stutter; off it, back where the
+  loop had come to, in sync). The table says ON 1 or ON 0 in OFFSET's place.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars, from the one at PLAY),
   restarted by a note, or ONE cycle a note, or one cycle struck by the beat: **ON RADAR 1** or **EACH BAR**
   (2026-11-20: an envelope RADAR plays). On an LFO's own page K3 **DEST** and K4
@@ -269,7 +276,8 @@ of the patch. Off until you switch it on.
   middle to look for a pattern, then to the nearer end to keep it.
 - Its 8 newest bits are the output: a stepped value, every step a new one. **OFFSET** (K3, −100 … +100 %) moves its
   middle, as a MOD slot's OFFSET does, for everything it feeds.
-- Where it goes is **MOD**'s (2026-11-21): a slot with SOURCE RADAR, to anywhere the matrix goes, or to NOTES. To **PITCH** it is quantized first: every voice lands on a note of SEQ A's scale from its key
+- Where it goes is **MOD**'s (2026-11-21): a slot with SOURCE RADAR, to anywhere the matrix goes, or to NOTES; its
+  bits as gates and triggers from SOURCE **RADAR 1** (2026-11-23: RESTART, NEXT, SEQ A, SEQ B, ARP, REPEAT). To **PITCH** it is quantized first: every voice lands on a note of SEQ A's scale from its key
   (CHROM: whole semitones). The first EDIT, with RADAR sent nowhere yet, takes a free slot to XM at 30 % and says
   which. A patch saved before has its RADAR DEST moved into a free slot as it loads, sounding as it did.
 - The picture (2026-11-21), in two: the scope, the full height, its 1 at 12 o'clock (START plays it from there), each
@@ -520,6 +528,26 @@ compiles back to the same bytes, for every factory patch and for one with every 
 site: `tools/lab.sh` builds it from the source as it is into one file, `build/star_distroyer_lab.html` (the firmware,
 its worklet, the font and the pictures inside it; nothing fetched), and opens it. The file runs from the disk in
 Chrome, Edge or Brave and can be copied anywhere; EXPORT moves a patch between browsers.
+
+### The console
+
+The site's **CONSOLE** (`console/`, 2026-11-23) shows everything at once on one big screen, as it plays: a ship's
+bridge laid out sound first. Across the middle the chain, VOICE (the four banks' oscillators, the ones the nav is
+nearest lit) → REACTOR (its stages round a ring, where it is) → DISTROY (the four bands' levels between their splits,
+each one's shaper) → TIME (the echoes as they ring, the looper's head round its loop) → SPACE (the plate's tail,
+FREEZE and SHIMMER) → OUT (the level and the limiter); NAV's field with the dot and its trail on the left; the macros
+and RADAR's scope with its bits on the right; under them SEQ A and B with their playheads, ORBIT's song and ARP's
+run, and the matrix: each slot's source, where it goes and what it sends now, the LFOs and the envelopes. The panel
+of the page the FM-1 shows is lit red.
+- **From an FM-1:** Chrome or Edge on a computer (Web MIDI with SysEx, as the installer), *FM-1 over USB*. The page
+  asks each second (`F0 7D 53 44 07 01 F7`) and the FM-1 sends its state 25 times a second while asked
+  (`F0 7D 53 44 08 … F7`, `firmware/src/sd_console.h`): from the main loop, never the audio interrupt, each frame
+  only when the last has left (a page that stops reading stops it; the FM-1 never waits), under 192 bytes. It only
+  reads: nothing is written to the FM-1.
+- **Without one:** the player under it, the firmware in the browser, hands over the same frames.
+
+`tests/console_test.mjs` reads the player's frames with the page's own reader (every field, every part), checks that
+they follow what plays and that the sound is the same sample for sample with them on.
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 

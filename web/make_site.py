@@ -9,6 +9,8 @@ in the browser, the firmware, the demos.
                                    offered)
   audio/                           DERELICT, CINEMATIC and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
                                    and each one's spectrum as a picture (WebP), low to high, left to right
+  console/                         the CONSOLE (web/console/): everything an FM-1 does at once, over USB MIDI or from
+                                   the player under it (the app's files from ../app/)
   app/                             the player: the firmware as WebAssembly (web/app/build.sh: build/web/stardistroyer.wasm),
                                    its audio thread (worklet.js), its panel (player.js), the logo's font for the panel (and its licence)
   screens/                         the pictures (docs/readme: the logo's line, the screens, the signal flow; web/og.png
@@ -49,6 +51,7 @@ PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", H
           HERE / "app" / "player.js": "player.js", HERE / "app" / "player.css": "player.css",
           ROOT / "assets" / "fonts" / "Orbitron-VariableFont_wght.ttf": "orbitron.ttf",
           ROOT / "assets" / "fonts" / "Orbitron-OFL.txt": "orbitron-OFL.txt"}
+CONSOLE = ("index.html", "console.js", "console.css", "frame.js")   # (web/console/, as they are; stamped below)
 SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "radar", "orbit",
            "arp", "setup", "time", "sub", "lfo2", "looper", "seqb")   # (every page: CONTROLS' "The pages", 2026-11-21)
 # the demos: each one FM-1 played by one person (tools/sd_play.h's rules); ARMADA and SINGULARITY a single take each,
@@ -219,8 +222,10 @@ def main(pkg, version, out):
     name = f"stardistroyer-{re.sub(r'[^A-Za-z0-9.-]', '-', version)}.fwsc"
     if out.exists():
         shutil.rmtree(out)
-    for sub in ("firmware", "screens", "audio", "app"):
+    for sub in ("firmware", "screens", "audio", "app", "console"):
         (out / sub).mkdir(parents=True)
+    for f in CONSOLE:
+        shutil.copy(HERE / "console" / f, out / "console" / f)
     shutil.copy(pkg, out / "firmware" / name)
     for src, dst in PICTURES.items():
         shutil.copy(src, out / "screens" / dst)
@@ -256,6 +261,15 @@ def main(pkg, version, out):
     if not re.search(r'src="app/player\.js\?v=', html):
         raise SystemExit("web/index.html: the player's script not stamped")
     (out / "index.html").write_text(html, encoding="utf-8")
+    con = (out / "console" / "index.html").read_text(encoding="utf-8")   # the console: its references stamped too
+    con, nc = re.subn(r'((?:src|href)="(?:\.\./(?:screens|app)/|console\.|frame\.)[^"?]+)"', lambda m: m.group(1) + stamp + '"', con)
+    if nc < 5:
+        raise SystemExit(f"web/console/index.html: {nc} references stamped, not the five or more expected")
+    (out / "console" / "index.html").write_text(con, encoding="utf-8")
+    cjs = (out / "console" / "console.js").read_text(encoding="utf-8")
+    if cjs.count("from './frame.js';") != 1:
+        raise SystemExit("web/console/console.js: its import of frame.js not found once")
+    (out / "console" / "console.js").write_text(cjs.replace("from './frame.js';", f"from './frame.js{stamp}';"), encoding="utf-8")
     (out / ".nojekyll").write_text("")
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     print(f"site: {out}: index.html ({len(html)} B, {n} references stamped {stamp}), firmware/{name} ({len(raw)} B, {product}), "

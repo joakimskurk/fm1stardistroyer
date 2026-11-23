@@ -1,0 +1,17 @@
+# RD1 (2026-11-23, the user's "RADAR 1-4"): RADAR 1 and its own DESTs on MOD. LFO (5) three times: RADAR; EDIT (6):
+# on (a free slot to XM: 7 in DISTROY); LFO again: MOD. SELECT (0) +7: slot 8 (empty). K1 (2) +7: OFF ENV1 ENV2 ENV3 LFO1
+# LFO2 RADAR, RADAR 1; K2 (3) -1 from OFF: the list's last, REPEAT (shot 2600: the list); K3 (4) +50: AMOUNT; K4 (5)
+# -1: ON 0 (shot 4600: the slot's knobs, the table). Checked by tests/app_radar1_test.c.
+1700 btn 5
+1800 btn 5
+1900 btn 5
+2000 btn 6
+2100 btn 5
+2200 enc 0 7
+2300 enc 2 7
+2500 enc 3 -1
+2600 shot
+4300 enc 4 50
+4400 enc 5 -1
+4600 shot
+4800 end
