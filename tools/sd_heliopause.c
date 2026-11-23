@@ -221,7 +221,7 @@ static int bed_score(void)
     if (at(BAR(8))) loop_octave(0);             /* TOOLS' OCTAVE down: over the bar, onto its grid */
     /* SHIMMER and FREEZE on its plate: an octave up over the loop an octave down; the plate up */
     fx_to(PG_SPACE, BAR(9));
-    SHIMMER(26, BAR(9) + 3, BAR(10));           /* FREEZE's K3: SHIMMER 0 -> 41 % */
+    SHIMMER(26, BAR(9) + 3, BAR(10));           /* MORE's K1: SHIMMER 0 -> 41 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 62, BAR(9) + 3, BAR(10));   /* K4: R-LEVEL */
     if (at(BAR(10))) freeze_toggle();
     if (at(BAR(11))) press("LFO", PG_LFO1);     /* LFO 2 onto its SPEED: the wobble */

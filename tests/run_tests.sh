@@ -31,11 +31,11 @@ $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen
 run "the looper off keeps its loop; TOOLS' CLEAR clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_lane_test" tests/app_lane_test.c
 run "ORBIT: a lane picks its destination beside it, then its amount" "$OUT/app_lane_test" "$OUT/app_lane_test" tests/scripts/ob2.txt
-$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_layers_test" tests/app_layers_test.c
+$CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_layers_test" tests/app_layers_test.c   # (every page: the drums' too, SD_DRUMS=1)
 run "ALGORITHM's layers: every page's every layer shown, every knob there does something" "$OUT/app_layers_test" "$OUT/app_layers_test" tests/scripts/lay1.txt
-$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum4_test" tests/app_drum4_test.c
+$CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum4_test" tests/app_drum4_test.c   # (the drums' code kept: SD_DRUMS=1)
 run "DRUM: ALGORITHM the layers, the pads the drum, KIT's K4 the fourth's ENGINE" "$OUT/app_drum4_test" "$OUT/app_drum4_test" tests/scripts/dr4.txt
-$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recoff_test" tests/app_recoff_test.c
+$CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recoff_test" tests/app_recoff_test.c   # (REC on DRUM: SD_DRUMS=1)
 run "SEQ's REC ends from any page; ENV and LFO go to their pages" "$OUT/app_recoff_test" "$OUT/app_recoff_test" tests/scripts/rec3.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_recgate_test" tests/app_recgate_test.c
 run "REC writes each note's GATE from how long it was held" "$OUT/app_recgate_test" "$OUT/app_recgate_test" tests/scripts/recg.txt
@@ -45,15 +45,18 @@ run "SAVE while it plays, then STOP: in the flash" "$OUT/app_save_test" "$OUT/ap
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_song_test" tests/app_song_test.c
 run "the songs: the old ORBITs moved over, a song's pattern played" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg1.txt
 run "the songs: SAVE on ORBIT, in the flash" "$OUT/app_song_test" "$OUT/app_song_test" tests/scripts/sg2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_iter_test" tests/app_iter_test.c
+run "2026-11-23's asks: TIME turns from what plays, SEQ A/B to a pitch exactly, SLIDE's TIME, RADAR's DIV on the beat, CLICK" "$OUT/app_iter_test" "$OUT/app_iter_test"
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_tail_test" tests/app_tail_test.c
 run "ORBIT's LOOP and FREEZE pitch: packed, old songs, the engine" "$OUT/app_tail_test" "$OUT/app_tail_test" tests/scripts/ot1.txt
-$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum_test" tests/app_drum_test.c
+$CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_drum_test" tests/app_drum_test.c   # (the drums' code kept: SD_DRUMS=1)
 run "the drums: DRUM's steps, MIX, a beat loaded and saved; the saves before them kept" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr1.txt
 run "the drums: a song's step names a beat" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr2.txt
 run "the drums: a song's step turns them off" "$OUT/app_drum_test" "$OUT/app_drum_test" tests/scripts/dr3.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_rec_test" tests/app_rec_test.c
 run "REC while it plays: SEQ's keys on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec1.txt
-run "REC while it plays: DRUM's pads on the nearest step as heard" "$OUT/app_rec_test" "$OUT/app_rec_test" tests/scripts/rec2.txt
+$CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_rec_test_dr" tests/app_rec_test.c
+run "REC while it plays: DRUM's pads on the nearest step as heard (SD_DRUMS=1)" "$OUT/app_rec_test_dr" "$OUT/app_rec_test_dr" tests/scripts/rec2.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_dub_test" tests/app_dub_test.c
 run "SEQ's DUB: a key joins the step's chord, nothing taken" "$OUT/app_dub_test" "$OUT/app_dub_test" tests/scripts/dub1.txt
 $CC -DDINGHY_HOST -DDUB_UNDO -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_dub_undo_test" tests/app_dub_test.c

@@ -93,7 +93,7 @@ static void line_over(void)                     /* bars 13-20: AURORA over the b
     go_to("FX", PG_SPACE, 243);                 /* (FX: the one it showed last, round to SPACE) */
     if (at(248)) freeze_toggle();
     if (at(254)) key(69, 0);
-    SHIMMER(24, 256, 288);                      /* FREEZE's K3: SHIMMER 0 -> 38 % */
+    SHIMMER(24, 256, 288);                      /* MORE's K1: SHIMMER 0 -> 38 % */
     note(77, 256, 264); note(76, 264, 272);                         /* 17: F E */
     note(74, 272, 288);                                             /* 18: D */
     note(72, 288, 296); note(74, 296, 304);                         /* 19: C D */

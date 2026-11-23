@@ -159,9 +159,9 @@ for (let i = 0; i < 3; i++) { tap(w, BTN.FX); run(w, 150); }   // REACTOR, DISTR
 const space = top(w);
 tap(w, BTN.SEQ); run(w, 150);
 const seqA = top(w);
-for (let i = 0; i < 4; i++) { tap(w, BTN.SEQ); run(w, 150); }  // SEQ B, ORBIT, DRUM, SEQ A
+for (let i = 0; i < 3; i++) { tap(w, BTN.SEQ); run(w, 150); }  // SEQ B, ORBIT, SEQ A (DRUM out since 2026-11-23)
 check(differ(seqA, top(w)) === 0 && differ(space, seqA) > 0,
-      `SEQ goes SEQ A, SEQ B, ORBIT, DRUM, SEQ A (not back to the FX page: ${differ(seqA, top(w))}, ${differ(space, seqA)} pixels)`);
+      `SEQ goes SEQ A, SEQ B, ORBIT, SEQ A (not back to the FX page: ${differ(seqA, top(w))}, ${differ(space, seqA)} pixels)`);
 const so = stat(w);
 tap(w, BTN.OCT_UP); run(w, 150);
 const su = stat(w);
@@ -233,8 +233,7 @@ const oWait = flips();
 to(300);
 const oIn = flips();
 check(oWait >= 2 && oIn === 0, `ORBIT on while A plays: ON blinks till A's one (${oWait} flips), then lit (${oIn})`);
-tap(u, BTN.EDIT); go(100);                         // ORBIT off, (DRUM,) SEQ A
-tap(u, BTN.SEQ); go(150);
+tap(u, BTN.EDIT); go(100);                         // ORBIT off, SEQ A (DRUM between them till 2026-11-23)
 tap(u, BTN.SEQ); go(150);
 const navA = nav(u);
 for (let i = 0; i < 2; i++) { tap(u, BTN.HOME); go(150); }   // MACROS, SETUP

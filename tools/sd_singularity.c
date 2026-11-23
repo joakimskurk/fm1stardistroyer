@@ -201,7 +201,7 @@ static int score(void)
     if (at(BAR(5) + 10)) reverse_toggle();
     if (at(BAR(6))) loop_octave(0);             /* TOOLS' OCTAVE down: over the bar, onto its grid */
     fx_to(PG_SPACE, BAR(7));
-    SHIMMER(30, BAR(7) + 3, BAR(8));            /* FREEZE's K3: SHIMMER 0 -> 48 % */
+    SHIMMER(30, BAR(7) + 3, BAR(8));            /* MORE's K1: SHIMMER 0 -> 48 % */
     KNOB99(PG_SPACE, pat.s_rlevel, 74, BAR(7) + 3, BAR(8));   /* K4: R-LEVEL */
     if (at(BAR(8))) freeze_toggle();
     /* VOICES: VOWEL over the frozen glass, A and B */

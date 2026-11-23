@@ -434,7 +434,7 @@ static void drum_engine(uint32_t pc)            /* KIT's K4 on DRUM: the fourth'
                                                    K1..K4, a percent a detent) */
 
 /* The looper (2026-11-11; its own page, LOOPER, since 2026-11-14; ARP's second since 2026-11-15), the player's as the app's: LOOP
-   (TOOLS' K1), REVERSE (TOOLS' K2), GLIDE (K1, OFF or a division a detent), LENGTH (K2, a division a detent),
+   (K1, since 2026-11-23), REVERSE (TOOLS' K2), GLIDE (TOOLS' K1, OFF or a division a detent), LENGTH (K2, a division a detent),
    SPEED (K3, an eighth of a semitone a detent; TOOLS' OCTAVE, the next octave), L-LEVEL (K4: above 0
    the looper armed; 0 as the app starts).
    Its memory only when a performance asks for it (looper_mem: the FM-1's own, as the app has it since 2026-11-11:
@@ -452,7 +452,7 @@ static void loop_toggle(void)
     on_page(PG_LOOP, "LOOP off LOOPER");
     act();
     lp_on = (uint8_t)!lp_on;
-    say(lp_on ? "LOOPER TOOLS K1: LOOP ON (the last LENGTH held)" : "LOOPER TOOLS K1: LOOP OFF");
+    say(lp_on ? "LOOPER K1: LOOP ON (the last LENGTH held)" : "LOOPER K1: LOOP OFF");
 }
 static void reverse_toggle(void)
 {
@@ -472,7 +472,7 @@ static void lp_length(uint32_t d)               /* K2 on LOOPER turned to divisi
     snprintf(t, sizeof t, "LOOPER K2: LENGTH %s", N[d < SD_LP_NDIV ? d : 0]);
     say(t);
 }
-static void lp_glide_to(uint32_t d)             /* K1 on LOOPER turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
+static void lp_glide_to(uint32_t d)             /* TOOLS' K1 on LOOPER turned to GLIDE's place d (0 OFF, then LENGTH's divisions) */
 {
     static const char *const N[SD_LP_NGLIDE] = {"OFF", "1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
                                                  "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};
@@ -480,7 +480,7 @@ static void lp_glide_to(uint32_t d)             /* K1 on LOOPER turned to GLIDE'
     on_page(PG_LOOP, "GLIDE off LOOPER");
     act();
     lp_glide = (uint16_t)(d * 65536u / SD_LP_NGLIDE + (d ? 100u : 0u));
-    snprintf(t, sizeof t, "LOOPER K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
+    snprintf(t, sizeof t, "LOOPER TOOLS K1: GLIDE %s", N[d < SD_LP_NGLIDE ? d : 0]);
     say(t);
 }
 static void loop_octave(int up)                 /* TOOLS' OCTAVE on LOOPER: SPEED to the next octave */
@@ -513,7 +513,7 @@ static void freeze_toggle(void)                 /* FREEZE's K1 on SPACE */
 }
 #define SHIMMER(to, s0, s1) do { int32_t v_; on_ramp_page(PG_SPACE, s0, s1); \
     if (ramp(__LINE__, (int32_t)SD_SP_SHIM(&pat), to, s0, s1, &v_)) { \
-        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (FREEZE's K3, 0..63) */
+        pat.s_mode = (uint8_t)((pat.s_mode & 3u) | (uint32_t)v_ << 2); dirty = 1; } } while (0)   /* (SPACE MORE's K1, 0..63) */
 static void mod_slot(uint32_t k, uint8_t src, uint8_t dst, int32_t pct)   /* MOD: SELECT to slot k + 1, K1
                                                    SOURCE, K2 DEST (its list), K3 AMOUNT (a percent a detent) */
 {

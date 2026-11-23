@@ -306,7 +306,8 @@ int main(int argc, char **argv)
         if (lg) fclose(lg);
         return 0;
     }
-    printf("time      up s   CPU   mode play  core2 on/gave/cut  jobs      rejected  zero-word misreads  core2 faults  RAM code unlike (KB bits)\n");
+    printf("time      up s   CPU   mode play  core2 on/gave/cut  jobs      rejected  zero-word misreads  core2 faults  RAM code unlike (KB bits)"
+           "  worst  gaps  core2 wait\n");
     for (;;) {
         char line[256], ts[16];
         time_t now = time(NULL);
@@ -340,10 +341,13 @@ int main(int argc, char **argv)
                 up = w[W_UP], c1 = w[W_C1];
             }
             last_up = up;
-            snprintf(line, sizeof line, "%s  %6.1f  %4.1f%%  %u    %u     %u/%u/%u            %-9u %-9u %-8u (last %08X)  %-12u  %u (%08X)\n", ts,
+            snprintf(line, sizeof line, "%s  %6.1f  %4.1f%%  %u    %u     %u/%u/%u            %-9u %-9u %-8u (last %08X)  %-12u  %u (%08X)"
+                     "  %4.1f%%  %-4u  %4.1f%%\n", ts,
                      up / 1000.0, w[W_CPU] == 0xFFFFFFFFu ? 0.0 : w[W_CPU] / 10.0, w[W_MODE] & 255u, (w[W_MODE] >> 8) & 255u,
                      c1 & 255u, (c1 >> 8) & 255u, (c1 >> 16) & 255u, w[W_JOBS], w[W_REJ], w[W_PBAD], w[W_PLAST], w[W_C1F],
-                     nw > 56 ? w[53] : 0u, nw > 56 ? w[56] : 0u);
+                     nw > 56 ? w[53] : 0u, nw > 56 ? w[56] : 0u,   /* (2026-11-23: the worst since the start, the gaps,
+                                                   the wait for core 2 in the last second: the dropouts' marks) */
+                     nw > 69 ? w[67] / 10.0 : 0.0, nw > 69 ? w[68] : 0u, nw > 69 ? w[69] / 10.0 : 0.0);
         }
         fputs(line, stdout);
         fflush(stdout);

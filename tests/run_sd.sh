@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")/.."
 mkdir -p build/sd build/audio
 CFLAGS="-O2 -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ifirmware/src"
-cc $CFLAGS -o build/sd/sd_test tests/sd_test.c -lm
+cc $CFLAGS -DSD_DRUMS=1 -o build/sd/sd_test tests/sd_test.c -lm   # (the drums' code kept, tested: SD_DRUMS=1)
 cc $CFLAGS -o build/sd/sd_render tools/sd_render.c -lm
 cc $CFLAGS -o build/sd/sd_demo tools/sd_demo.c -lm
 cc $CFLAGS -o build/sd/sd_cine tools/sd_cine.c -lm
@@ -24,7 +24,7 @@ cc $CFLAGS -o build/sd/sd_armada tools/sd_armada.c -lm
 build/sd/sd_test
 if [ "${SD_ASAN:-1}" != 0 ]; then               # again with the sanitizers: overflow, a shift of a negative, memory
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \
-        -o build/sd/sd_test_asan tests/sd_test.c -lm
+        -DSD_DRUMS=1 -o build/sd/sd_test_asan tests/sd_test.c -lm
     build/sd/sd_test_asan > build/sd/sd_test_asan.txt 2>&1 || { tail -20 build/sd/sd_test_asan.txt; exit 1; }
     echo "sd_test: clean under the sanitizers"
     cc -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=undefined -Wno-unused-function -Ifirmware/src \

@@ -609,7 +609,7 @@ SD_NOINLINE static void sd_drum_begin(SdEngine *e, uint32_t n)
                                                    */
     r->b_run = (uint8_t)(e->seq_run && (a->seq_on || r->b_start));
     r->b_g = r->b_start ? 0u : e->grid_q8;
-    r->has = (uint8_t)(r->ob && (r->on || r->live || r->req || r->song_due || r->pat_seq != r->pat_taken));
+    r->has = (uint8_t)(SD_DRUMS && r->ob && (r->on || r->live || r->req || r->song_due || r->pat_seq != r->pat_taken));
 }
 SD_NOINLINE static void sd_drum_part(SdEngine *e, uint32_t j0, uint32_t j1)
 {

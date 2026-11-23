@@ -1,11 +1,11 @@
 # The README's screens (tools/make_readme_art.sh names them by their times): the splash, then each page while
 # DISTROY's loop plays, the macros up; RADAR on (to XM, 30 %, the first EDIT's MOD slot) on LFO's third page; ORBIT (SEQ's third), the song:
 # SEQ A's line saved P01 (SAVE 9 twice), SEQ B's RANDOM (ALGORITHM +4: TOOLS, K1; back to STEP) P02, ORBIT on, four steps: P01 two loops; P01 and
-# P02 +5; P01 and P02 +7, two loops; P01 -2 (SEQ A K1, SEQ B K2, LOOPS K4; ALGORITHM +1, PITCH: XPOS A K1, XPOS B K2, then -1; SELECT the step); then DRUM (SEQ again),
-# EDIT on: the beat in at the one, playing. Then the pages the README had no screen of (2026-11-21, for the site's
+# P02 +5; P01 and P02 +7, two loops; P01 -2 (SEQ A K1, SEQ B K2, LOOPS K4; ALGORITHM +1, PITCH: XPOS A K1, XPOS B K2, then -1; SELECT the step)
+# (DRUM after it till 2026-11-23: the drums out of this version, SD_DRUMS 0). Then the pages the README had no screen of (2026-11-21, for the site's
 # every page): HOME twice, SETUP; FX round to TIME (SPACE, REACTOR, DISTROY, TIME: the delay on already); ENV round to
 # SUB (FILTER, ENV, SUB), EDIT: SUB on; LFO to LFO 2 (MOD, LFO 1, LFO 2); ARP to LOOPER, EDIT arms it; SEQ to SEQ B
-# (DRUM, SEQ A, SEQ B), SEL: DUO (B plays). FILTER: on from the start (since 2026-11-19), CUTOFF down, RES up. Buttons: FX 2, SEL 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10,
+# (ORBIT, SEQ A, SEQ B), SEL: DUO (B plays). FILTER: on from the start (since 2026-11-19), CUTOFF down, RES up. Buttons: FX 2, SEL 3, ENV 4, LFO 5, EDIT 6, GLO 7, HOME 8, ARP 10,
 # SEQ 11, PLAY 12; encoders 2..5 are K1..K4 (0 SELECT, 1 ALGORITHM, 6 PRESETS). The boot shows MACROS (since
 # 2026-11-15): ENV to NAV for its screen (ENV's first since 2026-11-21: NAV, FILTER, ENV, SUB), then HOME back to MACROS. (FX: REACTOR DISTROY TIME
 # SPACE since 2026-11-21: more presses, the same pages shot.)
@@ -91,9 +91,6 @@
 16250 enc 1 -1
 16300 enc 0 -2
 17400 shot
-17500 btn 11
-17600 btn 6
-19400 shot
 19500 btn 8
 19550 btn 8
 20200 shot

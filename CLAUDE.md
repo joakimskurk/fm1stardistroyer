@@ -25,7 +25,11 @@
   (the ISR stubs, key scan, USB service are there). Flash code the audio runs every sub-block costs far more than its
   math: the drums did that first and took DISTROY's loop from 82 % to 111 %, two thirds of it the shared cache (their
   code pushed the synth's out eight times a block); now they are a batch a block ahead on the second core
-  (sd_drums.h, the plate's job). New audio work outside the RAM code: once a block, or the second core's. The SD_HOT section has 42 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
+  (sd_drums.h, the plate's job). New audio work outside the RAM code: once a block, or the second core's. On the
+  user's FM-1 (2026-11-23, `fm1_diag -w`) the drums still cost the first core ~16 points that fm1-live does not show
+  (95-104 % with SEQ A and B in POLY, 66 % in strict): they are out (`SD_DRUMS` 0, sd_engine.h), their code kept and
+  tested (`-DSD_DRUMS=1`: sd_test and the DRUM app tests). Core 2's flash work is under-read by the emulator: a change
+  there needs a device reading. The SD_HOT section has 42 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
   0xC800 next, the same cache sets), so what follows never moves with it. Compare CPU readings only at a fixed layout
   (unpinned, a few lines of UI moved it 2-4 points), and like with like (`STRICT_PROF` itself reads ~0.8 lower).
   Past 100 % the main loop starves and the watchdog restarts the FM-1 8 s later (2026-11-20, the user's freeze; one

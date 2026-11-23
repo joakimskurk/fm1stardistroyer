@@ -236,7 +236,7 @@ static int score(void)
     pot(__LINE__, 1800, 0, BAR(4));                /* MASTER: the horizon quiet, then up section by section */
     pot(__LINE__, 2100, BAR(5), BAR(9));
     fx_to(PG_SPACE, T(1, 4));                   /* (FX: REACTOR, DISTROY, SPACE) */
-    SHIMMER(24, T(2, 0), T(5, 0));              /* FREEZE's K3: SHIMMER up */
+    SHIMMER(24, T(2, 0), T(5, 0));              /* MORE's K1: SHIMMER up */
     seq_to(PG_SEQA, T(7, 0));
     if (at(T(7, 2))) pattern(0, &OSTI, "OSTINATO (the D pedal, 16ths)");   /* (in at A's one: bar 9) */
     fx_to(PG_SPACE, T(7, 4));

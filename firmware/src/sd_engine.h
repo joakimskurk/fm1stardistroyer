@@ -122,6 +122,12 @@
 
 #define SD_FS 44100u
 #define SD_SUB 32u                              /* frames per sub-block = the control period (1378 Hz) */
+#ifndef SD_DRUMS
+#define SD_DRUMS 0                              /* the drums (2026-11-23, the user: "added for fun, they must not tip the
+                                                   load over: keep the code, out of the next iteration"; on the FM-1 they
+                                                   took ~16 points of the first core, the emulator saw 0.4): 0 none play
+                                                   and no page shows them; 1 (a test build, -DSD_DRUMS=1) all as before */
+#endif
 #define SD_LIM_D 64u                            /* the output limiter's look-ahead: two sub-blocks */
 #define SD_LIM_T 27853                          /* its ceiling: 0.85 of full scale (where the shoulder starts) */
 #define SD_SUB_SHIFT 5u
@@ -326,6 +332,10 @@ enum { SD_MS_OFF, SD_MS_ENV1, SD_MS_ENV2, SD_MS_LFO1, SD_MS_LFO2, SD_MS_NAVX, SD
        SD_MS_TUR,                               /* RADAR: the shift register's 8 newest bits, a step on its clock */
        SD_MS_KICK, SD_MS_SNARE,                 /* the drums': the kick's and the snare's envelopes (a sidechain:
                                                    a negative AMOUNT ducks the DEST at each hit) */
+       SD_MS_SEQA, SD_MS_SEQB,                  /* (2026-11-23, the user: "SEQ A and B as MOD sources, e.g. to FREEZE
+                                                   PITCH; it must follow the pitch at 100 %"): the note the track plays,
+                                                   from its key's root, +-24 semitones as -1..+1; to PITCH, FRZ PITCH
+                                                   and L-SPEED a semitone a semitone at 100 %, exactly (sd_mod_tick) */
        SD_MSRCS };
 enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD_X, SD_MD_Y, SD_MD_WIDTH,
        SD_MD_RPOS, SD_MD_RFREQ, SD_MD_RRES, SD_MD_RDRIVE, SD_MD_RMIX, SD_MD_DGAIN, SD_MD_DBIAS, SD_MD_DFB,
@@ -353,6 +363,9 @@ enum { SD_MD_OFF, SD_MD_PITCH, SD_MD_XM, SD_MD_WARP, SD_MD_FOLD, SD_MD_DT, SD_MD
        SD_MD_VOL,
        /* the fourth drum's TUNE (2026-11-20: RADAR plays it, +-24 semitones at 100 %, whole ones, as at each hit) */
        SD_MD_PTUNE,
+       /* the frozen tail's PITCH (2026-11-23, the user: "I can't find FREEZE's PITCH in MOD"): +-24 semitones at 100 %,
+          whole ones, on SPACE's PITCH and ORBIT's step */
+       SD_MD_SPITCH,
        SD_MDSTS };                              /* (D HIGH: the top band's gain; D SPLIT: the upper crossover) */
 /* the destinations in the lists' order: by the page their knob is on, the pages in the chain's order (the voice, NAV,
    FILTER, ENV 3, ENV 1, ENV 2, REACTOR, DISTROY, TIME, SPACE, the LFOs: as the buttons go through them since 2026-11-21,
@@ -366,10 +379,10 @@ static const uint8_t SD_MD_ORDER[SD_MDSTS] = {
     SD_MD_DGAIN, SD_MD_DGAIN1, SD_MD_DGAIN2, SD_MD_DGAIN3, SD_MD_DHIGH, SD_MD_DBIAS, SD_MD_DSPLIT1, SD_MD_DSPLIT2,
     SD_MD_DSPLIT, SD_MD_DFB, SD_MD_DTIME, SD_MD_DSPREAD, SD_MD_DTAME, SD_MD_DMIX,
     SD_MD_STIME, SD_MD_SFB, SD_MD_SDTONE, SD_MD_SDLVL, SD_MD_LSPEED,
-    SD_MD_SSIZE, SD_MD_SDECAY, SD_MD_SRTONE, SD_MD_SRLVL,
-    SD_MD_L1RATE, SD_MD_L2RATE, SD_MD_KBOOM, SD_MD_SNSIZE, SD_MD_HAIR, SD_MD_CCROWD, SD_MD_DRLVL, SD_MD_VOL,
-    SD_MD_PTUNE};   /* (the
-    drums and VOLUME last: a turn of DEST played before lands where it did) */
+    SD_MD_SSIZE, SD_MD_SDECAY, SD_MD_SRTONE, SD_MD_SRLVL, SD_MD_SPITCH,
+    SD_MD_L1RATE, SD_MD_L2RATE, SD_MD_VOL, SD_MD_KBOOM, SD_MD_SNSIZE, SD_MD_HAIR, SD_MD_CCROWD, SD_MD_DRLVL,
+    SD_MD_PTUNE};   /* (VOLUME, then the
+    drums' six last: without them, SD_DRUMS 0, the list ends before them) */
 #define SD_MODS 8                               /* slots a patch */
 typedef struct {
     uint8_t src, dst;                           /* SD_MS_*, SD_MD_* */
@@ -884,6 +897,7 @@ typedef struct {
     volatile uint16_t tur_reg;
     uint16_t tur_reg1;                          /* its loop as it stood at its 1 (START comes back to it) */
     uint8_t tur_has1;
+    uint8_t tur_div_was;                        /* (its DIV as the last sub-block had it: a turn re-places it) */
     uint32_t tur_pos_q8, tur_rng;
     int32_t tur_out, tur_g;
     volatile uint32_t tur_count;                /* its steps so far (the screen draws its history from them) */
@@ -973,6 +987,7 @@ typedef struct {
     volatile int16_t lp_speed;
     int16_t lp_orb;                             /* ORBIT's step: the loop's pitch (semitones x 256) */
     int8_t sp_orb;                              /* ... and the frozen tail's (semitones) */
+    int8_t sp_mod;                              /* ... and the matrix's (FRZ PITCH: -24..24 semitones) */
     int32_t lp_mfree, lp_mtq;                   /* the matrix to the looper's SPEED (semitones x 256): free (on the
                                                    rate as it plays, its glide's after), RADAR's in whole semitones
                                                    (on the speed set: through GLIDE, and to the grid at an octave) */
@@ -2274,7 +2289,10 @@ SD_HOT SD_NOINLINE static void sd_space_params(SdEngine *e)
         s->g = (int32_t)(v > 16383u ? 16383u : v);
     }
     s->frz = e->sp_freeze;
-    s->pst = (int8_t)(e->sp_pitch + e->sp_orb); /* (the player's and ORBIT's step's; -12..12 where it is used) */
+    {                                           /* (the player's, ORBIT's step's and the matrix's: -24..24) */
+        int32_t ps = e->sp_pitch + e->sp_orb + e->sp_mod;
+        s->pst = (int8_t)(ps < -24 ? -24 : ps > 24 ? 24 : ps);
+    }
     if (s->frz) { s->g = 16384; s->c = 16384; s->sg = 0; }   /* FREEZE: the tail as it is, for ever (x 1 exactly:
                                                    nothing rounded off) */
     s->d2 = s->g + 2458;                        /* the second allpasses: DECAY + 0.15, 0.25 .. 0.5 */
@@ -2406,7 +2424,16 @@ static void sd_seq_steplen(SdEngine *e, SdSeqT *t)         /* this step's length
     }
 }
 
-SD_HOT static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel)   /* SLIDE: the held note glides to note */
+/* SLIDE's TIME (a SLIDE step's own, in its RATCHET's place: a SLIDE has no hits; 2026-11-23, the user: "I can hardly
+   hear the slide: should I choose its time?"): the share of the way a tick (0.73 ms) the pitch moves, Q16, most of it
+   (99 %) in about 30 (as it was: an eighth), 60, 100, 150, 250, 400, 600 and 1000 ms. Kept from 16 up (SD_SLIDE_T): a
+   SLIDE written before it, its RATCHET whatever the step had (0..3), slides as it did */
+#define SD_SLIDES 8u
+#define SD_SLIDE_T(r) ((r) > 16u ? ((r) - 15u > SD_SLIDES ? SD_SLIDES : (r) - 15u) : 1u)   /* a SLIDE's RATCHET byte: its TIME */
+#define SD_SLIDE_R(t) ((t) > 1u ? (t) + 15u : 1u)                                          /* ... and back */
+static const uint16_t SD_SLIDE_K[SD_SLIDES] = {8192, 3641, 2185, 1456, 874, 546, 364, 218};
+SD_HOT static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t vel, uint32_t time)   /* SLIDE: the
+                                                   held note glides to note, over the step's TIME (1..SD_SLIDES) */
 {
     uint32_t i;
     for (i = 0; i < e->nvoices; i++) {
@@ -2414,7 +2441,7 @@ SD_HOT static void sd_seq_glide(SdEngine *e, SdSeqT *t, uint32_t note, uint32_t 
         if (v->gate && v->note == t->seq_note[0] && v->src == t->src) {
             v->note = (uint8_t)note;
             v->inc_tgt = sd_note_inc(note);
-            v->glide = 1;
+            v->glide = (uint8_t)(time < 1u ? 1u : time > SD_SLIDES ? SD_SLIDES : time);
             e->r.note = (uint8_t)note;
             e->m_note = (uint8_t)note;
             (void)vel;
@@ -2621,13 +2648,23 @@ SD_HOT static void sd_tur_tick(SdEngine *e, uint32_t start)
 {
     const SdPatch *p = &e->patch;
     uint32_t d = SD_TUR_DIV(p), len = e->seq_len_q8 * SD_SDIV_NUM[d] / SD_SDIV_DEN[d];
-    if (!SD_TUR_ON(p)) return;
+    if (!SD_TUR_ON(p) || !e->seq_run) { e->tur_div_was = (uint8_t)d; if (!SD_TUR_ON(p)) return; }   /* (off, or
+                                                   stopped: its DIV taken as it is, no turn while it plays) */
     if (start) {                                /* (the step now is the loop's 1, the loop as it was at its 1: a
                                                    locked loop plays the same from START, 2026-11-22, the user: LOCK let
                                                    go after STOP and PLAY; it came round from wherever it stopped) */
         e->tur_pos_q8 = len; e->tur_place = 0xFFu;
         if (e->tur_has1) e->tur_reg = e->tur_reg1;
+    } else if (d != e->tur_div_was && e->seq_run && len) {   /* DIV turned while it plays (2026-11-23, the user:
+                                                   "RADAR goes out of sync if I change DIV"; its place was kept, past
+                                                   the new step's end a step at once and from there on off the beat):
+                                                   its place in the new step from the master's grid (sd_arp_tick adds
+                                                   this sub-block's later) */
+        uint32_t span = e->seq_len_q8 * 48u, g = e->grid_q8 + e->grid_adv;
+        if (span && g >= span) g %= span;
+        e->tur_pos_q8 = g % len;
     }
+    e->tur_div_was = (uint8_t)d;
     if (e->tur_pos_q8 >= len) {
         uint32_t n = SD_TUR_LEN(p), b = (e->tur_reg >> (n - 1u)) & 1u;
         e->tur_place = (uint8_t)(e->tur_place == 0xFFu || e->tur_place + 1u >= n ? 0u : e->tur_place + 1u);
@@ -2824,7 +2861,7 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
             t->seq_gate_q8 = over;
             t->seq_over_q8 = 0;
         } else if (st->type == SD_ST_SLIDE && t->seq_note_on && t->seq_nn == 1u && !st->chord[0]) {
-            sd_seq_glide(e, t, sd_seq_xn(e, t, st->note), st->vel);   /* (a single note glides; a chord plays as
+            sd_seq_glide(e, t, sd_seq_xn(e, t, st->note), st->vel, SD_SLIDE_T(st->ratchet));   /* (a single note glides; a chord plays as
                                                    a NOTE) */
             t->seq_note[0] = (uint8_t)sd_seq_xn(e, t, st->note);
         } else {
@@ -3274,10 +3311,21 @@ SD_HOT static int32_t sd_tq_snap(const SdEngine *e, uint32_t n, int32_t t)
     return best - (int32_t)n;
 }
 
+SD_HOT static int32_t sd_seq_note_src(const SdEngine *e, uint32_t k)   /* a track as a MOD source (SEQ A, SEQ B): the
+                                                   note it plays now, or its last, from its key's root, -24..24
+                                                   semitones (0: stopped, or no note yet) */
+{
+    const SdSeqT *t = &e->t[k & 1u];
+    int32_t d;
+    if (!t->seq_on || !t->seq_note[0]) return 0;
+    d = (int32_t)t->seq_note[0] - (int32_t)sd_pat_key(&t->pat);
+    return d < -24 ? -24 : d > 24 ? 24 : d;
+}
 SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
 {
     SdPatch *p = &e->patch;
     int32_t acc[SD_MDSTS], src[SD_MSRCS], m[4], mf = e->filt >> 1, semis = 0, tq = 0, lq = 0;
+    int32_t xp = 0, xs = 0, xl = 0;             /* (the tracks' notes to PITCH, FRZ PITCH, L-SPEED: semitones x 256) */
     int32_t tst = SD_TUR_ON(p) ? sd_tur_off(p, e->tur_out) : 0;   /* RADAR's step, unglided: to PITCH it is
                                                    quantized (its OFFSET in) */
     uint32_t i, k, any = 0, mon = 0;
@@ -3337,6 +3385,8 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
         }
         src[SD_MS_KICK] = e->dr.kj[e->dr.gj & 7u];   /* the drums: as they sound (the batch's sub-block) */
         src[SD_MS_SNARE] = e->dr.sj[e->dr.gj & 7u];
+        src[SD_MS_SEQA] = sd_seq_note_src(e, 0u) * 1365;   /* (+-24 semitones: +-32760) */
+        src[SD_MS_SEQB] = sd_seq_note_src(e, 1u) * 1365;
         e->lfo_out[0] = (int16_t)src[SD_MS_LFO1];
         e->lfo_out[1] = (int16_t)src[SD_MS_LFO2];
         e->m_trig = 0;
@@ -3351,6 +3401,16 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
             o = o < -100 ? -100 : o > 100 ? 100 : o;
             sv = (sv * 100 + o * 32767) / (100 + (o < 0 ? -o : o));   /* (|sum| < 2^23) */
             ts = (ts * 100 + o * 32767) / (100 + (o < 0 ? -o : o));
+        }
+        if ((s->src == SD_MS_SEQA || s->src == SD_MS_SEQB) && !p->mod_off[k] &&
+            (s->dst == SD_MD_PITCH || s->dst == SD_MD_SPITCH || s->dst == SD_MD_LSPEED)) {   /* a track's notes to a
+                                                   pitch: a semitone a semitone at 100 %, exactly (no OFFSET) */
+            int32_t q = sd_seq_note_src(e, (uint32_t)(s->src - SD_MS_SEQA)) * 256 * s->amt / 32767;
+            if (s->dst == SD_MD_PITCH) xp += q;
+            else if (s->dst == SD_MD_SPITCH) xs += q;
+            else { xl += q; mon = 1; }
+            any = 1;
+            continue;
         }
         if (s->src == SD_MS_TUR && s->dst == SD_MD_PITCH) tq += (ts * s->amt) >> 15;   /* (quantized, below) */
         else if (s->src == SD_MS_TUR && s->dst == SD_MD_LSPEED) lq += (ts * s->amt) >> 15;
@@ -3431,6 +3491,14 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
                                                    added under it at 1 / TRIM */
         e->itrim_q = e->trim_q == 32768 ? 32768 : (int32_t)((1u << 30) / (uint32_t)e->trim_q);
         acc[SD_MD_VOL] = 0;
+    }
+    {                                           /* FRZ PITCH: the frozen tail's, whole semitones, +-24 at 100 % */
+        int32_t a = acc[SD_MD_SPITCH], q;
+        a = a < -32767 ? -32767 : a > 32767 ? 32767 : a;
+        q = ((a * 24 * 256) >> 15) + xs;
+        q = q < 0 ? -((-q + 128) >> 8) : (q + 128) >> 8;
+        e->sp_mod = (int8_t)(q < -24 ? -24 : q > 24 ? 24 : q);
+        acc[SD_MD_SPITCH] = 0;
     }
     any |= (uint32_t)mf;                        /* (FILTER, the player's) */
     if (!any) { e->pmul = 65536u; e->psemis = 0; e->lp_mfree = e->lp_mtq = 0; e->lp_mon = 0; return; }   /* nothing:
@@ -3531,7 +3599,7 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
         a = a < -32767 ? -32767 : a > 32767 ? 32767 : a;
         lq = lq < -32767 ? -32767 : lq > 32767 ? 32767 : lq;
         q = (lq * 12 * 256) >> 15;
-        e->lp_mfree = (a * 12 * 256) >> 15;
+        e->lp_mfree = ((a * 12 * 256) >> 15) + xl;
         e->lp_mtq = (q < 0 ? -((-q + 128) >> 8) : (q + 128) >> 8) * 256;
         e->lp_mon = (uint8_t)mon;
         acc[SD_MD_LSPEED] = 0;
@@ -3616,6 +3684,7 @@ SD_HOT SD_NOINLINE static void sd_mod_tick(SdEngine *e)
         if (s[1] > s[2]) { t = s[1]; s[1] = s[2]; s[2] = t; }
         if (s[0] > s[1]) { t = s[0]; s[0] = s[1]; s[1] = t; }
     }
+    semis += xp;                                /* (the tracks' notes, exact) */
     e->psemis = semis;
     e->pmul = semis ? sd_semis_mul(semis) : 65536u;   /* 2^(semis / 12): octaves, semitones, cents */
 }
@@ -3913,10 +3982,13 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
     for (i = 0; i < SD_VOICES; i++) {           /* SLIDE: the increment an eighth of the way a tick (~6 ms: most
                                                    of an octave in ~30 ms, a 303's slide) */
         SdVoice *v = &e->voice[i];
-        if (v->glide) {
+        if (v->glide) {                         /* (2026-11-23, the user: "I can hardly hear SLIDE": its TIME a
+                                                   step, SD_SLIDE_K; 1 the 303's, as before, bit for bit) */
             int32_t d = (int32_t)(v->inc_tgt - v->inc);
             if (d > -16 && d < 16) { v->inc = v->inc_tgt; v->glide = 0; }
-            else v->inc += (uint32_t)(d / 8 + (d > 0 ? 1 : -1));
+            else if (v->glide <= 1u) v->inc += (uint32_t)(d / 8 + (d > 0 ? 1 : -1));
+            else v->inc += (uint32_t)((int32_t)(((int64_t)d * SD_SLIDE_K[v->glide > SD_SLIDES ? SD_SLIDES - 1u : v->glide - 1u]) >> 16) +
+                                      (d > 0 ? 1 : -1));
         }
     }
     sd_mod_tick(e);
@@ -4901,7 +4973,7 @@ SD_HOT SD_NOINLINE static void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPla
                written, so a freeze finds them full. PITCH 0, or never frozen: the plate as it was, bit for bit */
             int16_t *p0 = pm + SD_PL_PS0, *p1 = p0 + SD_PL_PSN;
             uint32_t pw = s->ppw < SD_PL_PSN ? s->ppw : 0u, ph = s->pph;
-            int32_t pg = sd_pl_q14(s->ppg, 0), st = pp->pst < -12 ? -12 : pp->pst > 12 ? 12 : pp->pst, on = pp->frz && st;
+            int32_t pg = sd_pl_q14(s->ppg, 0), st = pp->pst < -24 ? -24 : pp->pst > 24 ? 24 : pp->pst, on = pp->frz && st;
             int32_t inc = s->pinc;
             if (on) inc = ((int32_t)sd_semis_mul(st * 256) - 65536) * 64;   /* (2^r - 1) x 2^22: the window's 2^32
                                                    in 1024 samples at an octave up */
