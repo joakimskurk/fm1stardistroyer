@@ -89,21 +89,15 @@ jobs:
   # The page (GitHub Pages, https://joakimskurk.github.io/fm1stardistroyer/): Star Distroyer's page and its installer
   # in the browser (Web MIDI), with the package this run built and tested, the demos as the engine renders them
   # (tests/run_sd.sh, web/make_site.py), and the player: the firmware as WebAssembly (web/app/). From main only;
-  # Pages takes its site from GitHub Actions (Settings -> Pages).
+  # Pages takes its site from GitHub Actions (Settings -> Pages). Built and uploaded here, deployed by the next job:
+  # deploy-pages in the same job as the upload missed the artifact now and then (2026-11-24: three times in a row,
+  # "No artifacts named github-pages"); a job of its own starts once the upload is finished.
   site:
     needs: firmware
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -147,5 +141,19 @@ jobs:
         with:
           path: _site
 
+  deploy:
+    needs: site
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4
