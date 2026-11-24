@@ -91,7 +91,7 @@ build/sd/sd_strings piece build/audio/strings/cello_duo.wav     # the cello duo 
 build/sd/sd_strings piece build/audio/strings/cello_v4.wav tools/cello_v4.txt   # STRINGS is tools/cello_v4.txt:
 cmp build/audio/strings/cello_duo.wav build/audio/strings/cello_v4.wav && rm build/audio/strings/cello_v4.wav   # bit for bit
 build/sd/sd_demo build/audio/demo_star_distroyer.wav               # ~105 s of music: five parts layered
-mkdir -p build/audio/range                                          # RANGE: one FM-1 played by one person, ~135 s;
+mkdir -p build/audio/range                                          # RANGE: one FM-1 played by one person, ~2:02;
 build/sd/sd_range build/audio/range/star_distroyer_range.wav > build/audio/range/performance.txt ||   # every gesture
     { tail -5 build/audio/range/performance.txt; exit 1; }
 tail -1 build/audio/range/performance.txt                           # (it stops at one the FM-1 could not play)

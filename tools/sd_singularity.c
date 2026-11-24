@@ -238,20 +238,25 @@ static int score(void)
     if (at(BAR(13) + 6)) reverse_toggle();
     if (at(BAR(14))) loop_octave(1);            /* TOOLS' OCTAVE up: to its pitch ... */
     if (at(BAR(14) + 4)) loop_octave(1);        /* ... and on to +12 */
+    /* the wall's patterns, ready: PRESETS while it plays come in at the master's one (2026-11-19), and VOICES' A is
+       four bars, so B's bass and A's riff go in during its last pass and come in at bar 17 (off by then: heard from
+       bar 19, as the take was played on 2026-11-11; loaded in bar 17 they waited till bar 21, VOICES' notes on
+       DISTROY in between) */
+    seq_to(PG_SEQB, BAR(14) + 6);               /* (SEQ: A, the one it showed last; then B) */
+    if (at(BAR(14) + 8)) pattern(1, &BASS, "WALL B (F, 16ths)");
+    seq_to(PG_SEQA, BAR(14) + 9);               /* (SEQ B, ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
+    if (at(BAR(14) + 12)) pattern(0, &RIFF, "WALL A (F, octaves)");
     home_to(PG_MACROS, BAR(15));
-    KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(17));         /* MOVE */
-    /* the wall: A and B off (PLAY running on: the loop carries it), DISTROY, A's riff, B's bass (each in at A's one,
-       bar 18); B on in bar 18, ORBIT's song loaded and on (in at A's one, bar 19), the arp; A on at the one */
-    seq_to(PG_SEQA, BAR(17));
-    if (at(BAR(17) + 1)) track_on(0, 0);
-    seq_to(PG_SEQB, BAR(17) + 2);
-    if (at(BAR(17) + 3)) track_on(1, 0);
+    KNOB99(PG_MACROS, pat.mac[1], 50, BAR(15) + 2, BAR(16) + 8);     /* MOVE */
+    /* the wall: A and B off on VOICES' last rests (PLAY running on: the loop carries it), their wall patterns in
+       silently at the one, DISTROY; B on in bar 18, ORBIT's song loaded and on (in at A's one, bar 19), the arp; A on
+       at the one */
+    seq_to(PG_SEQA, BAR(16) + 10);
+    if (at(BAR(16) + 12)) track_on(0, 0);
+    seq_to(PG_SEQB, BAR(16) + 13);
+    if (at(BAR(16) + 14)) track_on(1, 0);
     home_to(PG_MACROS, BAR(17) + 4);
     if (at(BAR(17) + 5)) preset_user(&U03, "U03 DISTROY WET");
-    seq_to(PG_SEQB, BAR(17) + 6);               /* (SEQ: B, the one it showed last; then round to A) */
-    if (at(BAR(17) + 7)) pattern(1, &BASS, "WALL B (F, 16ths)");
-    seq_to(PG_SEQA, BAR(17) + 8);               /* (SEQ B, ORBIT, DRUM, SEQ A: DRUM SEQ's fourth since 2026-11-19) */
-    if (at(BAR(17) + 11)) pattern(0, &RIFF, "WALL A (F, octaves)");
     seq_to(PG_SEQB, BAR(17) + 14);
     if (at(BAR(18) + 1)) track_on(1, 1);
     seq_to(PG_ORB, BAR(18) + 2);

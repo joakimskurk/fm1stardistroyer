@@ -7,7 +7,7 @@ in the browser, the firmware, the demos.
                                    inlined: the installer (Web MIDI, Chrome or Edge), the demos, the controls, the links
   firmware/stardistroyer-VER.fwsc  the package the page installs (its SHA-256 in the page: a damaged download is never
                                    offered)
-  audio/                           DERELICT, CINEMATIC and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
+  audio/                           SINGULARITY and RANGE (tests/run_sd.sh's renders, the firmware's own engine), AAC,
                                    and each one's spectrum as a picture (WebP), low to high, left to right
   console/                         the CONSOLE (web/console/): everything an FM-1 does at once, over USB MIDI or from
                                    the player under it (the app's files from ../app/)
@@ -54,35 +54,20 @@ PLAYER = {ROOT / "build" / "web" / "stardistroyer.wasm": "stardistroyer.wasm", H
 CONSOLE = ("index.html", "console.js", "console.css", "frame.js")   # (web/console/, as they are; stamped below)
 SCREENS = ("splash", "nav", "macros", "reactor", "distroy", "space", "env", "filter", "lfo", "mod", "seq", "radar", "orbit",
            "arp", "setup", "time", "sub", "lfo2", "looper", "seqb")   # (every page: CONTROLS' "The pages", 2026-11-21)
-# the demos: each one FM-1 played by one person (tools/sd_play.h's rules); ARMADA and SINGULARITY a single take each,
-# DERELICT four such passes layered
+# the demos: each one FM-1 played by one person in a single take (tools/sd_play.h's rules); the others' renders stay in
+# tests/run_sd.sh (2026-11-24, the user: only SINGULARITY and a new RANGE on the page)
 DEMOS = [
-    {"id": "armada", "wav": "build/audio/armada/star_distroyer_armada.wav", "title": "ARMADA",
-     "about": "One take on one FM-1, nothing layered: D minor at 96 BPM, one theme told three times. "
-              "AURORA's chords frozen under SHIMMER; DRIVE's ostinato held by the looper under everything after it; "
-              "STRINGS with the theme, VOYAGE's counter-line over the "
-              "arp; TITAN with the theme in octaves, ORBIT stepping both tracks, then lifting it all a whole step."},
     {"id": "singularity", "wav": "build/audio/singularity/star_distroyer_singularity.wav", "title": "SINGULARITY",
      "about": "One take on one FM-1, nothing layered: F minor at 72 BPM, POLY throughout. AURORA's glass looped, "
               "played backwards and frozen; VOWEL's voices over it, RADAR moving their notes; then DISTROY's wall, "
               "ORBIT stepping the chords and the destroyed band, the loop an octave up; at the end the wall's plate "
               "frozen and the loop two octaves down."},
-    {"id": "derelict", "wav": "build/audio/derelict/star_distroyer_derelict.wav", "title": "DERELICT",
-     "about": "An overture, C minor at 84 BPM, four themes in four-bar turns: BRAAM's call; the cello far back in "
-              "its own hall; PULSAR's staccato, its nav jumping across all four banks; BEACON's high line; the "
-              "cello over the staccato; a pedal RADAR rewrites, its top band crushed. Four passes on one FM-1."},
-    {"id": "cine", "wav": "build/audio/cine/star_distroyer_cine.wav", "title": "CINEMATIC",
-     "about": "A cue in D minor at 84 BPM, big, mighty and alien: NEBULA's chords and VOYAGE's alien line far "
-              "back, PULSAR's 16ths, ION's bass and ORBITAL's taiko near, MONOLITH's and DISTROY's braams, a sine "
-              "under it all, the macros stepping each bar. Eight parts layered as a multitrack."},
-    {"id": "contact", "wav": "build/audio/contact/star_distroyer_contact.wav", "title": "FIRST CONTACT",
-     "about": "A cue, D minor at 72 BPM with the stranger's G sharp: a signal from far away, a ship that answers, a "
-              "pulse, the contact and what is left after it. The call D A G# is never resolved; the ship answers "
-              "D A Bb A, and at the contact sings them as one. Ten parts layered as a multitrack, each the FM-1's "
-              "own engine: the synth's patches, and its drum engine (set aside in the firmware for now) for the "
-              "heartbeat, the sonar's pings and the data's bursts."},
     {"id": "range", "wav": "build/audio/range/star_distroyer_range.wav", "title": "RANGE",
-     "about": "The span in seven scenes, one patch each: NAV, FILTER, REACTOR, DISTROY, POLY, RADAR and SPACE."},
+     "about": "The span in one take on one FM-1, never stopping, on the presets as they ship, each playing what it "
+              "is made for: A minor at 104 BPM. STARDUST's arp over the hands, DARK opening; GRAVITY's drop, its "
+              "filter, SUB and MOVE, two bars of it looped; SIGNAL's lead over that loop; NOVA's chords in POLY; then "
+              "COLOSSUS's low brass in long chords, ORBIT stepping them, RADAR and a crushed top band inside them; its "
+              "plate frozen, SOLAR's last notes over it."},
 ]
 # the spectrum's picture: 40 Hz .. 16 kHz on a log scale, 75 dB of range, in the screen's ice
 SPEC_W, SPEC_H, SPEC_N = 1600, 240, 8192

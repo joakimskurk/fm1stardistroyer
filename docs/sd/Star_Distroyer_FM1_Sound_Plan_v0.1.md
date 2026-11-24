@@ -754,10 +754,10 @@ Each is one FM-1 played by one person (`tools/sd_play.h`'s rules: one engine, th
 hand's speed, the voice rules; a gesture the FM-1 could not make stops the tool). DERELICT and HELIOPAUSE layer four
 such passes at fixed faders (`tools/sd_layer.h`), SINGULARITY and ARMADA (the first with the drums) a single one
 each, and the FM-1's own demos (SETUP: DEMO 1, DEMO 2, recorded by `tools/sd_demo_rec.c`); CINEMATIC is the first
-cue's multitrack, kept as it was (remade as passes it lost what it had). The page plays ARMADA, SINGULARITY, DERELICT,
-CINEMATIC and RANGE. ARMADA's lift is ORBIT's +2 with SETUP's XPOSE on CHROM: IN KEY, any shift of a progression on
+cue's multitrack, kept as it was (remade as passes it lost what it had). The page plays SINGULARITY and RANGE
+(2026-11-24; the others render still). ARMADA's lift is ORBIT's +2 with SETUP's XPOSE on CHROM: IN KEY, any shift of a progression on
 six of the minor scale's seven roots lands one chord on the diminished second degree.
-`sd_play.h`'s transposes are chromatic (as RANGE is written); a player keeping the app's IN KEY sets `e.xkey`. A loop
+`sd_play.h`'s transposes are chromatic (as the first RANGE was written); a player keeping the app's IN KEY sets `e.xkey`. A loop
 carries alone with its tracks off (EDIT), PLAY running on (STOP parks it); HELIOPAUSE's wall comes in after a STOP and
 START, so its chords start from step 1 and the loop is back in sync. Its
 RADAR DEST turns in `SD_MD_ORDER`, as the app does. A render waits for quiet: a loop left ringing (BREAK up) never

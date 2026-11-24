@@ -638,10 +638,17 @@ stock patch, the app's own controls and the voice rules.
   passes on one FM-1 layered, never more than four at once, with each pass's stem and every gesture in
   `performance.txt`.
 - **The song** (`song/`, ~3:25, D minor at 112 BPM).
-- **RANGE** (`range/`, ~137 s): the instrument's span in seven scenes, with every gesture listed in
-  `performance.txt`.
+- **RANGE** (`range/`, ~2:02, A minor at 104 BPM, on the site): the instrument's span in one take, one stem,
+  nothing layered and never stopping, on the factory presets as the FM-1 ships them (the other demos keep the set
+  they were made with), each playing what it is made for. STARDUST's arp over the hands while MORE's DARK opens;
+  GRAVITY's drop (its filter on, SUB, HOME's CUTOFF, MOVE), two bars of it (A, F) looped as the harmony under SIGNAL's
+  lead and NOVA's chords in POLY; then the loop let go and COLOSSUS's low brass in open fifths, each chord swelling
+  over two bars, ORBIT stepping them (Am F C G Am) with the nav, MOVE and BREAK, RADAR on the FOLD and the top band
+  CRUSHed inside them; the wall's plate frozen on its A, SOLAR's E B A over it. The loop is never moved off its
+  pitch: on the looper pitch is speed, and a few semitones off it is off the bar too. Every gesture in
+  `performance.txt`. (The first RANGE, seven scenes with a stop between each, is in git's history.)
 - **CINEMATIC** (`cine/`, ~69 s, D minor at 84 BPM): a cue, eight parts layered as a multitrack, with their stems.
-- **FIRST CONTACT** (`contact/`, ~3:35, D minor at 72 BPM, on the site): a cue, a signal from far away, a ship that
+- **FIRST CONTACT** (`contact/`, ~3:35, D minor at 72 BPM): a cue, a signal from far away, a ship that
   answers, a pulse, the contact and what is left. Ten parts layered as a multitrack (`tools/sd_contact.c`), each the
   FM-1's own engine: the synth's patches as the demos keep them, and the drum engine (built with `SD_DRUMS=1`, off in the
   firmware) for the heartbeat, the sonar's pings and the data's bursts.
@@ -649,7 +656,7 @@ stock patch, the app's own controls and the voice rules.
   the plate, looped, played backwards and taken down an octave; AURORA's slow line over it, FREEZE and SHIMMER on the
   plate. One pass, every gesture in `performance.txt`, the looper on the FM-1's own memory (armed before LOOP).
 - **HELIOPAUSE** (`heliopause/`, ~1:47, E minor at 80 BPM): a cue, ambient for sixteen bars, then a wall, then its
-  freeze. Everything RANGE plays (the nav and its generators, the acid with RADAR on the CUTOFF, the Reactor's vowels,
+  freeze. Everything the first RANGE played (the nav and its generators, the acid with RADAR on the CUTOFF, the Reactor's vowels,
   the arpeggiator over the chords, DISTROY's riff and macros, RADAR's NOTES, the delay's echoes) in four passes on one
   FM-1 layered, the patches saved wet, the looper as its texture: the bed's last bar held, backwards, an octave down
   under a FREEZE that SHIMMER takes an octave up, an LFO on its SPEED for a tape's wobble, then two octaves up over two

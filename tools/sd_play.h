@@ -188,6 +188,20 @@ static void preset(uint32_t i)                  /* PRESETS (not on SEQ) turned t
     snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_DPATCH_NAME[i]);
     say(t);
 }
+static void preset_factory(uint32_t i)          /* PRESETS turned to a factory patch as the FM-1 has it now
+                                                   (sd_patches.h), then EDIT: for a performance of the collection */
+{
+    char t[48];
+    if (page >= PG_SEQA) fail("PRESETS on SEQ loads a pattern, not a patch");
+    act();
+    pat = SD_PATCH[i];
+    sd_patch_levels(&pat);
+    sd_patch_macros(&pat);
+    gen = 0xFFFFFFFFu;
+    dirty = 1;
+    snprintf(t, sizeof t, "PRESETS: P%02u %s", i + 1u, SD_PATCH_NAME[i]);
+    say(t);
+}
 static void preset_user(const SdPatch *p, const char *name)   /* PRESETS past the stock ones: a place of the player's */
 {
     char t[48];
