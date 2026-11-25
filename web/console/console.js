@@ -4,7 +4,7 @@
 // (frame.js) come from an FM-1 over USB MIDI (Web MIDI with SysEx: the page asks each second, the FM-1 sends 25 a
 // second while asked) or from the player under it (the firmware in this browser, ../app/player.js). Read only.
 import { newState, decode, isFrame, ASK, STOP, SRC_NAME, dstName, LSHAPE, SCALE, ROUTE, SHAPER, RMODEL, MODE, KEY,
-         SPDIV, SDIV, AMODE, PAGE } from './frame.js';
+         SPDIV, SDIV, AMODE, PAGE, MODS } from './frame.js';
 
 const $ = (id) => document.getElementById(id);
 const ICE = '#cde6f0', DIM = '#8fa5b2', MUTE = '#546874', RED = '#eb1c1c', GRID = '#1a2530', LINE = '#2a3642', DARK = '#0d141b';
@@ -263,10 +263,10 @@ function players() {
 
 function mod() {
   const [w] = SZ.mod; let g = '';
-  (st.mod.length ? st.mod : Array(8).fill({ src: 0, dst: 0, amt: 0 })).forEach((m, i) => {
-    const y = 2 + i * 19;
+  (st.mod.length ? st.mod : Array(MODS).fill({ src: 0, dst: 0, amt: 0 })).forEach((m, i) => {
+    const y = 2 + i * 14;   // (twelve slots, 2026-11-25: the LFOs' pictures below at 172 still)
     if (!m.src && !m.dst) { g += t(0, y + 11, '--', GRID, 9) + t(78, y + 11, '--', GRID, 9); return; }
-    const own = m.dst >= 103, amt = Math.round(m.amt * 99 / 32767), v = st.slot[i] / 63;
+    const own = m.dst >= 113, amt = Math.round(m.amt * 99 / 32767), v = st.slot[i] / 63;
     g += t(0, y + 11, SRC_NAME[m.src] || '?', m.src === 24 || m.src === 19 ? ICE : DIM, 9) + t(74, y + 11, '→ ' + dstName(m.dst), ICE, 9);
     const cx = 200, bw = 64;
     g += L(cx - bw / 2, y + 7, cx + bw / 2, y + 7, GRID) + L(cx, y + 3, cx, y + 11, MUTE) +

@@ -22,7 +22,7 @@
  *        DISTROY's four bands' levels (dB + 64) and its three splits (MIDI), the echoes, the looper's head (14,
  *        0..4095 round its loop), the plate's level, the output's peaks L and R (14), the limiter's gain (0..127,
  *        127 open), the four macros, RADAR's 16 bits (7, 7, 2), its place and its value, LFO 1 and 2 (signed + 64),
- *        ENV 1-3 of the last voice, the eight slots' value now (source x AMOUNT, signed + 64), SEQ A's and B's step
+ *        ENV 1-3 of the last voice, the twelve slots' value now (source x AMOUNT, signed + 64), SEQ A's and B's step
  *        now and note now, ORBIT's step and its loops so far, ARP's note now (0 none), the wheel, aftertouch
  *  SLOW  0 the sound: the patch's number and its name (8), ALGORITHM, HOME's DARK (0..127), COURSE, the engines off,
  *        the Reactor's model, RES, MIX and stages in use, DISTROY's shapers (4), the crossover, its loop's FDBK,
@@ -30,7 +30,7 @@
  *        LEVEL, FREEZE PITCH (+ 64), the looper's LENGTH (14), SPEED (+ 64), its level, the LFOs' shapes, modes
  *        and rates (14), ENV 1-3's A D S R, RADAR's LENGTH, DIV, SEARCH and OFFSET (+ 100), the filter's type,
  *        CUTOFF and RES, SUB's level and what it follows, WIDTH, the key (0-11), the scale
- *        1 MOD: eight slots: SOURCE, DEST (a matrix one, or 100 + RADAR's own: 0x80 + n), AMOUNT (14, + 8192),
+ *        1 MOD: twelve slots: SOURCE, DEST (a matrix one, or 110 + RADAR's own: 0x80 + n), AMOUNT (14, + 8192),
  *          OFFSET (14, + 100)
  *        2, 3 SEQ A, SEQ B: on, playing in, LENGTH, DIV, the bank shown (16 steps from bank x 16), the segments
  *          and where they start (5), then the bank's 16 steps: the note, the type | (VEL / 32) << 3
@@ -38,7 +38,7 @@
  *        5 ARP: its mode, OCTAVES, DIV, how many notes, the notes (8); then each bank's four oscillators: the
  *          ratio and the level (/ 512) (4 x 4 x 2)
  */
-#define SD_CON_VER 1u
+#define SD_CON_VER 2u                          /* (2: twelve MOD slots, RADAR's own DESTs at 110, 2026-11-25) */
 #define SD_CON_MAX 180u                         /* (its bytes with F0 7D 53 44 08 and F7: 186 <= 64 packets x 3) */
 #define SD_CON_SLOWS 6u
 static uint32_t con_n;                          /* the frames made: the slow part in turn */
@@ -157,7 +157,7 @@ static uint32_t sd_con_frame(uint8_t *o0)       /* the next frame into o0 (SD_CO
         for (i = 0; i < SD_MODS; i++) {
             const SdModSlot *m = &p->mod[i];
             o = con_b(o, m->src);
-            o = con_b(o, m->dst >= 0x80u ? 100 + (m->dst - 0x80) : m->dst);
+            o = con_b(o, m->dst >= 0x80u ? 110 + (m->dst - 0x80) : m->dst);
             o = con_w(o, m->amt / 4 + 8192);
             o = con_w(o, p->mod_off[i] + 100);
         }

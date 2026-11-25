@@ -341,7 +341,7 @@
           red).</li>
         <li><b>LOOPER</b>, its own page (ARP's second): LOOP on its first layer, armed with EDIT or L-LEVEL (it borrows half the delay line: 5 s, a
           light 8-bit tape, the delay then 0.5 s), always recording what you hear, plays its last LENGTH round
-          while the delay goes on; SPEED takes it an octave up or down, as a tape's (TOOLS' OCTAVE the next octave, over
+          while the delay goes on; SPEED takes it an octave up or down, as a tape's (GLO + OCT the next octave, over
           TOOLS' GLIDE, landing on the loop's own grid), REV (TOOLS) plays it backwards; it goes into the reverb
           as the synth does. It follows PLAY: STOP stops the loop too, and PLAY starts it again in sync with the
           sequencer.</li>
@@ -358,13 +358,14 @@
       <ul>
         <li>Six macros: <b>MUTATE</b> the voice, <b>MOVE</b> the nav and the Reactor, <b>BREAK</b> the destruction,
           and a layer down <b>BODY</b>, <b>AIR</b> and <b>DROWN</b> (the room), each its own knob. 0 is the patch as programmed.</li>
-        <li>Eight modulation slots: envelopes, two LFOs, RADAR, the nav, velocity, the wheel, aftertouch, random,
+        <li>Twelve modulation slots: envelopes, two LFOs, RADAR, the nav, velocity, the wheel, aftertouch, random,
           and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
-        <li>54 destinations, from PITCH to the envelopes' times, the filter, every engine (DISTROY's DRIVE band by band
-          and each band's SPLIT too, one going through another), the looper's speed (an LFO on it a tape's wobble;
-          RADAR in semitones) and the LFOs' rates, picked from a list as DEST turns: each named by the page its knob is
-          on and the knob's name there, in the pages' order.</li>
-        <li>An LFO sends itself from its own page: K3 DEST, K4 AMOUNT (its MODE layer how it runs).</li>
+        <li>102 destinations: every knob worth patching, from PITCH to the envelopes' times, the filter, every engine
+          (DISTROY's bands one by one: DRIVE, ALT, LEVEL, PAN, SPLIT), SUB, the looper (its speed an LFO's tape wobble,
+          its level and sends), FREEZE as a gate and the frozen tail's level, SHIMMER, RADAR's SEARCH, the six macros,
+          ARP's gate, and each slot's own AMOUNT: one slot opening another, a VCA on the cable. Picked from a list as
+          DEST turns, each named by the page its knob is on and the knob's name there, in the pages' order.</li>
+        <li>An LFO's page: SHAPE, RATE, CLOCK, CYCLE; MOD sends it where it goes.</li>
       </ul></div>
   </div>
   <div class="eng">
@@ -397,8 +398,8 @@
           round again, or stop. 16 songs of your own.</li>
         <li><b>MASTER</b> (on SETUP): A or B, the track whose one leads. The other track and ORBIT switched on while
           it plays come in at its next one.</li>
-        <li><b>ARP</b> from 1/64 to 1/2, triplets and dotted, on the patterns' grid while they play. REC on ARP keeps
-          what it just played as a pattern.</li>
+        <li><b>ARP</b> from 1/64 to 1/2, triplets and dotted, on the patterns' grid while they play, and it stops
+          with STOP (a held run comes back at START). REC on ARP keeps what it just played as a pattern.</li>
         <li>The voices are shared by rules: no source cuts another's note.</li>
         <li><b>MIDI clock</b> in, over USB or the jack: the tracks, ORBIT, ARP, RADAR and the synced LFOs move by its
           pulses and never drift; START plays from step 1, STOP stops. SETUP: SYNC AUTO or INT. Without a clock in,
@@ -464,25 +465,25 @@
     <figure class="pg"><img class="scr" src="screens/env.png" width="240" height="240" alt="The ENV page" loading="lazy">
       <figcaption><b>ENV</b>ENV 1, the amp: how each note rises and falls.<dl><dt>ALGO</dt><dd>ENV 1 (ATTACK DECAY SUS RELEASE) · ENV 2, the modulation envelope (red in the picture), where MOD sends it</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/sub.png" width="240" height="240" alt="The SUB page" loading="lazy">
-      <figcaption><b>SUB</b>An oscillator under the note (or over it), kept clean: it joins after the effects.<dl><dt>K1–K4</dt><dd>SHAPE (SINE to TRI) · OCTAVE (−3 to +3 from the note) · FOLLOWS (A, B or ROOT) · LEVEL</dd><dt>SEE</dt><dd>its wave, what it follows, the note (E4 → E3)</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
+      <figcaption><b>SUB</b>An oscillator under the note (or over it), kept clean: it joins after the effects.<dl><dt>K1–K4</dt><dd>SHAPE (SINE to TRI) · OCTAVE (−3 to +3 from the note) · FOLLOWS (A, B, KEYS, ARP or ROOT: while a track plays, A and B its notes only) · LEVEL</dd><dt>SEE</dt><dd>its wave, what it follows, the note (E4 → E3)</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
   </div>
   <h3 class="btnh"><span class="pbtn">LFO</span>LFO 1 → LFO 2 → RADAR → MOD<span class="what">what moves the sound: the sources, then the matrix</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/lfo.png" width="240" height="240" alt="The LFO 1 page" loading="lazy">
-      <figcaption><b>LFO 1</b>A slow wave, sent from its own page.<dl><dt>ALGO</dt><dd>LFO (SHAPE RATE DEST AMOUNT: its first MOD slot) · MODE (CLOCK: FREE or SYNC; CYCLE: it loops on, restarts each note, one cycle a note, or one struck by RADAR’s 1 or each bar)</dd><dt>SEE</dt><dd>the wave, and where it goes</dd></dl></figcaption></figure>
+      <figcaption><b>LFO 1</b>A slow wave; MOD sends it where it goes.<dl><dt>K1–K4</dt><dd>SHAPE · RATE · CLOCK (FREE or SYNC) · CYCLE (it loops on, restarts each note, one cycle a note, or one struck by RADAR’s 1 or each bar)</dd><dt>SEE</dt><dd>the wave, and where it goes</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/lfo2.png" width="240" height="240" alt="The LFO 2 page" loading="lazy">
-      <figcaption><b>LFO 2</b>The second, the same: two at once, at their own rates.<dl><dt>ALGO</dt><dd>LFO · MODE, as LFO 1’s</dd></dl></figcaption></figure>
+      <figcaption><b>LFO 2</b>The second, the same: two at once, at their own rates.<dl><dt>K1–K4</dt><dd>as LFO 1’s</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/radar.png" width="240" height="240" alt="The RADAR page" loading="lazy">
       <figcaption><b>RADAR</b>A loop of random bits on the beat: a stepped source.<dl><dt>K1–K4</dt><dd>SEARCH (LOCK at both ends, the most change in the middle) · LENGTH · OFFSET · DIV</dd><dt>WHERE</dt><dd>a MOD slot with SOURCE RADAR, or RADAR 1 (its bits: RESTART, NEXT, SEQ A, SEQ B, ARP, REPEAT on the 1s or the 0s)</dd><dt>SEE</dt><dd>the loop as a scope, its 16 bits</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/mod.png" width="240" height="240" alt="The MOD page" loading="lazy">
-      <figcaption><b>MOD</b>Eight slots: any source to any destination.<dl><dt>SELECT</dt><dd>the slot</dd><dt>K1–K4</dt><dd>SOURCE · DEST (a list, in the pages’ order) · AMOUNT · OFFSET (from RADAR 1 to its own: ON 1 or 0)</dd><dt>SEE</dt><dd>all eight as a table, the knobs on the red row</dd></dl></figcaption></figure>
+      <figcaption><b>MOD</b>Twelve slots: any source to any destination.<dl><dt>SELECT</dt><dd>the slot</dd><dt>K1–K4</dt><dd>SOURCE · DEST (a list, in the pages’ order) · AMOUNT · OFFSET (from RADAR 1 to its own: ON 1 or 0)</dd><dt>SEE</dt><dd>eight rows of the twelve at a time, each numbered, the knobs on the red row</dd></dl></figcaption></figure>
   </div>
   <h3 class="btnh"><span class="pbtn">ARP</span>ARP → LOOPER<span class="what">the player’s tools, kept apart from the patch</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/arp.png" width="240" height="240" alt="The ARP page" loading="lazy">
       <figcaption><b>ARP</b>The arpeggiator, on the patterns’ grid.<dl><dt>ALGO</dt><dd>ARP (MODE: UP DOWN UP-DN RND ORDER IN OUT PEDAL UPx2, RATE, OCTAVES, GATE) · TOOLS (HOLD)</dd><dt>REC</dt><dd>KEEP: what it just played becomes a pattern</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/looper.png" width="240" height="240" alt="The LOOPER page" loading="lazy">
-      <figcaption><b>LOOPER</b>Always recording what you hear; plays its last LENGTH round.<dl><dt>ALGO</dt><dd>LOOPER (LOOP LENGTH SPEED L-LEVEL) · SEND (FILTER R-SEND D-SEND) · TOOLS (GLIDE, REV, OCTAVE, CLEAR, asked)</dd><dt>EDIT</dt><dd>arms it (5 s, the delay then up to 0.5 s); again: off, its loop KEPT</dd></dl></figcaption></figure>
+      <figcaption><b>LOOPER</b>Always recording what you hear; plays its last LENGTH round.<dl><dt>ALGO</dt><dd>LOOPER (LOOP LENGTH SPEED L-LEVEL) · SEND (FILTER R-SEND D-SEND) · TOOLS (GLIDE, REV, CLEAR, asked)</dd><dt>GLO + OCT</dt><dd>the loop an octave down or up</dd><dt>EDIT</dt><dd>arms it (5 s, the delay then up to 0.5 s); again: off, its loop KEPT</dd></dl></figcaption></figure>
   </div>
   <h3 class="btnh"><span class="pbtn">SEQ</span>SEQ A → SEQ B → ORBIT<span class="what">the patterns, the song</span></h3>
   <div class="pages">

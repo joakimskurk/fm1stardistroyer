@@ -4839,6 +4839,157 @@ static void test_arp_tempo(void)
     printf("arp tempo: through 120 -> 97 -> 133 -> 104 BPM, %u of A's %u steps with ARP's note\n", hits, steps);
 }
 
+/* RADAR switched on while it plays (2026-11-25, the user: "not quite on the grid"): its place in the step was where
+ * it had stopped; now it takes the master's grid, each of its 16ths with SEQ A's step, in the same sub-block */
+static void test_radar_on_in_play(void)
+{
+    static SdEngine er;
+    static int32_t o[2u * SD_SUB];
+    SdPatch p = SD_PATCH[0];
+    SdPattern pt;
+    uint32_t f, a0, c0, steps = 0, hits = 0, mine = 0;
+    p.tur_set = 50u; p.tur_ld = 0;              /* (off; DIV 1/16) */
+    sd_engine_init(&er); sd_engine_patch(&er, &p); er.bpm = 120;
+    sd_pattern_default(&pt); sd_engine_pattern(&er, &pt);
+    er.seq_run = 1;
+    run_ms(&er, 1337);                          /* (in the middle of a step) */
+    p.tur_set |= 0x80u; sd_engine_patch(&er, &p);   /* on, in PLAY */
+    run_ms(&er, 40);
+    for (f = 0; f < 4u * SD_FS; f += SD_SUB) {
+        a0 = er.t[0].seq_count; c0 = er.tur_count;
+        memset(o, 0, sizeof o);
+        sd_engine_render(&er, o, SD_SUB);
+        mine += er.tur_count != c0;
+        if (er.t[0].seq_count != a0) { steps++; hits += er.tur_count != c0; }
+    }
+    CHECK(steps >= 30u && hits == steps && mine == steps, "RADAR on in PLAY: %u of A's %u steps with its own (%u of its)",
+          hits, steps, mine);
+    printf("radar on in play: %u of A's %u steps with RADAR's, none between\n", hits, steps);
+}
+
+/* The looper with the tempo moved and LENGTH turned while it loops (2026-11-25, the user: "4 BAR, but the head plays
+ * a small part of the marked area; the looper must be fixed once and for all"): the clock set its grid back at each
+ * line while the head went on at its own pace, so a loop taken at another tempo played a piece of each bar. Now a loop
+ * taken at 120 BPM (LENGTH 4 bars: 8 s, halved to 2 to fit its memory) follows 224 as a tape (pitch with it): its head
+ * never jumps, round in the clock's two bars; LENGTH turned to a bar while it loops takes it at once */
+static void test_looper_tempo(void)
+{
+    static SdEngine el;
+    static SdSpaceMem lsm;
+    static uint8_t lmem[24576];
+    SdPatch p = SD_PATCH[0];
+    SdPattern pt;
+    uint32_t i, prev, step, smin = 4096u, smax = 0, back = 0, wraps = 0, ln2, ln1, smin1 = 4096u, smax1 = 0;
+    p.s_dlevel = 20000; p.s_rlevel = 20000;
+    sd_engine_init(&el); el.sm = &lsm; sd_engine_looper_borrow(&el, lmem, sizeof lmem); sd_engine_patch(&el, &p);
+    el.bpm = 120; sd_pattern_default(&pt); sd_engine_pattern(&el, &pt);
+    el.lp_len = SD_LPDIV(14u); el.lp_lvl = 65535; el.lp_arm = 1; el.seq_run = 1;
+    run_ms(&el, 9000); el.lp_on = 1; run_ms(&el, 1500);
+    ln2 = el.sp.pln;
+    el.bpm = 224; run_ms(&el, 1500);            /* (the new tempo: a line's correction once) */
+    prev = el.lp_at;
+    for (i = 0; i < 200u; i++) {                /* 10 s, a look each 50 ms: 2 bars at 224 are 2.14 s, 96 a look */
+        run_ms(&el, 50);
+        step = (el.lp_at - prev) & 4095u;
+        if (step > 2048u) back++;
+        else { smin = step < smin ? step : smin; smax = step > smax ? step : smax; }
+        if (el.lp_at < prev) wraps++;
+        prev = el.lp_at;
+    }
+    el.lp_len = SD_LPDIV(12u);                  /* LENGTH turned to a bar */
+    run_ms(&el, 500);
+    ln1 = el.sp.pln;
+    prev = el.lp_at;
+    for (i = 0; i < 40u; i++) {                 /* 2 s: a bar at 224 is 1.07 s, 191 a look */
+        run_ms(&el, 50);
+        step = (el.lp_at - prev) & 4095u;
+        if (step > 2048u) back++;
+        else { smin1 = step < smin1 ? step : smin1; smax1 = step > smax1 ? step : smax1; }
+        prev = el.lp_at;
+    }
+    CHECK(!back && smin >= 80u && smax <= 112u && wraps >= 4u && wraps <= 5u,
+          "the looper at a new tempo: %u steps back, %u .. %u a look (96), round %u times in 10 s (4.7)", back, smin, smax, wraps);
+    CHECK(ln1 * 2u >= ln2 - 1024u && ln1 * 2u <= ln2 + 1024u && smin1 >= 160u && smax1 <= 225u,
+          "LENGTH turned while it loops: %u of the two bars' %u, %u .. %u a look (191)", ln1, ln2, smin1, smax1);
+    printf("looper, the tempo 120 -> 224 as it loops: no step back, %u .. %u a look of 96, round %u times in 10 s; LENGTH "
+           "turned to a bar: half the two bars (%u of %u), %u .. %u a look\n", smin, smax, wraps, ln1, ln2, smin1, smax1);
+}
+
+/* DISTROY's loop let go when nothing plays (2026-11-25, the user: "overtones are sometimes left feeding in DIST"): its
+ * FDBK at the top on COLOSSUS (driven bands, PHAT) rings on by itself; a second after the last voice it is gone, and the
+ * next note has the loop back */
+static int32_t dl_peak(SdEngine *e, uint32_t ms)  /* the output's largest |sample| over the next ms */
+{
+    static int32_t o[2u * 256u];
+    uint32_t f, i;
+    int32_t pk = 0;
+    for (f = 0; f < ms * (SD_FS / 1000u); f += 256u) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(e, o, 256u);
+        for (i = 0; i < 512u; i++) { int32_t a = o[i] < 0 ? -o[i] : o[i]; if (a > pk) pk = a; }
+    }
+    return pk;
+}
+static void test_distroy_letgo(void)
+{
+    static SdEngine ed;
+    SdPatch p = SD_PATCH[SD_P_COLOSSUS];
+    int32_t ring, gone, back;
+    p.d_fb = 65535; p.s_rlevel = 0; p.s_dlevel = 0; p.r_mix = 0; p.sub_lvl = 0;   /* (DISTROY alone after the voice) */
+    sd_engine_init(&ed); sd_engine_patch(&ed, &p);
+    sd_engine_note(&ed, 43, 120); run_ms(&ed, 400); sd_engine_note(&ed, 43, 0);
+    while (!sd_engine_silent(&ed)) run_ms(&ed, 10);
+    ring = dl_peak(&ed, 300);                   /* the voice gone: the loop still rings (as it may) */
+    run_ms(&ed, 900);
+    gone = dl_peak(&ed, 500);
+    sd_engine_note(&ed, 43, 120); run_ms(&ed, 50);
+    back = ed.d.fb;
+    CHECK(gone < 8 && back > 0, "DISTROY's loop after the voices: %d ringing, %d a second on (want under 8), FB %d with "
+          "the next note", ring, gone, back);
+    printf("distroy let go: the loop %d just after the last voice, %d a second on, its FB back with a note\n", ring, gone);
+}
+
+/* STOP stops ARP (2026-11-25, the user: "the ARP must stop with STOP: it went on playing"): a held list silent while
+ * stopped, again at START; a key put down while stopped plays it */
+static uint32_t arp_ons(SdEngine *e, uint32_t ms)  /* ARP's notes begun in the next ms */
+{
+    static int32_t o[2u * SD_SUB];
+    uint32_t f, n = 0, was = e->arp_playing;
+    for (f = 0; f < ms * (SD_FS / 1000u); f += SD_SUB) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(e, o, SD_SUB);
+        n += e->arp_playing && !was;
+        was = e->arp_playing;
+    }
+    return n;
+}
+static void test_arp_stop(void)
+{
+    static SdEngine ea;
+    SdPattern p;
+    uint32_t k, run, stop, start, key;
+    sd_engine_init(&ea); sd_engine_patch(&ea, &T_GLASS);
+    ea.mode = SD_MODE_POLY; ea.bpm = 120;
+    sd_pattern_default(&p); sd_engine_pattern(&ea, &p);
+    ea.arp_div = 2; ea.arp_on = 1; ea.arp_gate = 50; ea.arp_hold = 1;
+    run_ms(&ea, 20);
+    ea.seq_run = 1;
+    for (k = 0; k < 3u; k++) sd_engine_note(&ea, 60 + 4 * k, 100);
+    run_ms(&ea, 30);
+    for (k = 0; k < 3u; k++) sd_engine_note(&ea, 60 + 4 * k, 0);   /* (HOLD: the list stays) */
+    run = arp_ons(&ea, 1000);
+    ea.seq_run = 0;                             /* STOP */
+    stop = arp_ons(&ea, 1000);
+    ea.seq_run = 1;                             /* START */
+    start = arp_ons(&ea, 1000);
+    ea.seq_run = 0; run_ms(&ea, 20);
+    sd_engine_note(&ea, 67, 100);               /* a key, stopped: it plays from the key */
+    key = arp_ons(&ea, 1000);
+    CHECK(run >= 6u && !stop && start >= 6u && key >= 6u && !ea.arp_park,
+          "ARP and STOP: %u notes a second playing, %u stopped, %u after START, %u from a key stopped", run, stop, start, key);
+    printf("arp stop: %u notes a second playing, %u after STOP, %u after START, %u from a key stopped\n", run, stop, start, key);
+}
+
 /* MIDI clock out (the app sends clko_*): 24 a quarter while the FM-1 keeps the tempo, a START with the master's
  * one (its pulse the first), none while a clock comes in */
 static void test_clock_out(void)
@@ -4998,7 +5149,8 @@ static void test_sub(void)
     for (i = 0; i < 2u * n; i++) same &= a[i] == b[i];
     CHECK(same, "SUB at LEVEL 0 changed the sound");
     off = sub_bin(a + SD_FS / 4u, n / 2u, f60 / 2.0);
-    p.sub_shape = 0; p.sub_src = SD_SUB_A; p.sub_lvl = 65535;
+    p.sub_shape = 0; p.sub_src = SD_SUB_KEYS; p.sub_lvl = 65535;   /* (the keys: A and B their tracks' only since
+                                                   2026-11-25) */
     sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
     on = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0);
     sin3 = sub_bin(b + SD_FS / 4u, n / 2u, f60 * 1.5);
@@ -5025,11 +5177,29 @@ static void test_sub(void)
         root = sub_bin(b + SD_FS / 4u, n / 2u, 440.0 * pow(2.0, ((int)r - 69) / 12.0));
         CHECK(root > -16.0, "SUB ROOT: %.1f dBFS at MIDI %u (the key's root under E4, an octave down)", root, r);
     }
-    p.sub_src = SD_SUB_B;                       /* B: SEQ B's, silent under the hand's A */
+    p.sub_src = SD_SUB_B;                       /* B: SEQ B's, silent under the keys */
     sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run(&e1, b, n, 256);
     bsil = sub_bin(b + SD_FS / 4u, n / 2u, f60 / 2.0);
-    CHECK(bsil < off + 3.0, "SUB on B sounds under the hand's (A's) note: %.1f dBFS", bsil);
-    p.sub_src = SD_SUB_A;                       /* the note let go: it dies away with it */
+    CHECK(bsil < off + 3.0, "SUB on B sounds under the keys' note: %.1f dBFS", bsil);
+    {                                           /* who SUB follows (2026-11-25, the user: "SUB on A lay under all I
+                                                   played on the keys"): A while SEQ A plays its notes only (and the
+                                                   keys REC writes into it), stopped the keys too; KEYS, ARP */
+        SdVoice v;
+        uint32_t ok = 1;
+        memset(&v, 0, sizeof v);
+        sd_engine_init(&e1);
+        v.src = SD_SRC_HAND; ok &= (uint32_t)sd_sub_hears(&e1, SD_SUB_A, &v);   /* stopped: the keys, as before */
+        e1.seq_run = 1; e1.t[0].seq_on = 1;
+        ok &= (uint32_t)!sd_sub_hears(&e1, SD_SUB_A, &v);   /* A playing: not the keys */
+        e1.rec_trk = 0; ok &= (uint32_t)sd_sub_hears(&e1, SD_SUB_A, &v);   /* but the keys REC writes into A */
+        e1.rec_trk = 0xFF; v.src = SD_SRC_A; ok &= (uint32_t)sd_sub_hears(&e1, SD_SUB_A, &v);
+        ok &= (uint32_t)!sd_sub_hears(&e1, SD_SUB_KEYS, &v);
+        v.src = SD_SRC_ARP; ok &= (uint32_t)(!sd_sub_hears(&e1, SD_SUB_A, &v) && sd_sub_hears(&e1, SD_SUB_ARP, &v));
+        v.src = SD_SRC_HAND; ok &= (uint32_t)(sd_sub_hears(&e1, SD_SUB_KEYS, &v) && !sd_sub_hears(&e1, SD_SUB_B, &v) &&
+                                             !sd_sub_hears(&e1, SD_SUB_ARP, &v));
+        CHECK(ok, "SUB follows the wrong voices (A while SEQ A plays, KEYS, ARP)");
+    }
+    p.sub_src = SD_SUB_KEYS;                    /* the note let go: it dies away with it */
     sd_engine_init(&e1); sd_engine_patch(&e1, &p); sd_engine_note(&e1, 60, 100); run_ms(&e1, 300);
     sd_engine_note(&e1, 60, 0); run_ms(&e1, 2000); run(&e1, b, n / 4u, 256);
     tail = sub_bin(b, n / 4u, f60 / 2.0);
@@ -5612,6 +5782,10 @@ int main(void)
     test_c1_halves();
     test_arp_grid();
     test_arp_tempo();
+    test_arp_stop();
+    test_distroy_letgo();
+    test_looper_tempo();
+    test_radar_on_in_play();
     test_clock_out();
     test_pingpong();
     test_clock();

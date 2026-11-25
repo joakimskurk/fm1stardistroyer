@@ -37,7 +37,8 @@
  *              step, DRUM's step, REACTOR's stage (STAGE, F1-F4), DISTROY's band, NAV's bank, MOD's slot, SETUP's
  *              freeze log, SAVE's place; elsewhere nothing      SEL the voices: MONO -> DUO -> POLY (lit: DUO or POLY)
  *   OCT- OCT+  the keys' octave, on every page, REC or not; a question (PRESETS' list, SAVE, CLEAR): OCT+ yes, OCT-
- *              no; on SEQ, GLO + OCT the track's transpose an octave (as GLO + a key)
+ *              no; on SEQ, GLO + OCT the track's transpose an octave (as GLO + a key); on LOOPER the loop's SPEED
+ *              to the next octave (as till 2026-11-22, TOOLS' K3 between)
  *   PLAY       the patterns on / off   REC recording into the track SEQ edits
  *              (ENV a TIE, LFO a REST); what is heard is written: a key under the track's transpose (GLO + a key,
  *              ORBIT's XPOSE) goes in back by it, so the step plays the key's note (sd_seq_rec_note)
@@ -110,9 +111,9 @@
  *              FILTER (a lowpass left, a highpass right, none in
  *              the middle), R-SEND, D-SEND. EDIT arms it, at any L-LEVEL (0: it records, silent), or turns it off with
  *              its loop KEPT (lp_hold: faded out, not recording, the same loop back when on; 2026-11-21). TOOLS: GLIDE
- *              (how long a new SPEED takes: OFF at once), REV (it plays it backwards), OCTAVE (SPEED to the next
- *              octave down or up, over GLIDE, OFF: at once, the loop landing on its own grid), CLEAR (asked, OCT+ yes:
- *              the delay's line whole again). Armed, it borrows the delay
+ *              (how long a new SPEED takes: OFF at once), REV (it plays it backwards), CLEAR (asked, OCT+ yes: the
+ *              delay's line whole again). GLO + OCT: SPEED to the next octave down or up, over GLIDE (OFF: at once),
+ *              the loop landing on its own grid (TOOLS' K3 OCTAVE from 2026-11-23 till 25). Armed, it borrows the delay
  *              line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the
  *              delay then 0.5 s. An engine off (EDIT), ARP or RADAR off, the LOOPER disarmed: its knobs grey, the
  *              hint line says OFF where the row leaves room (not SEQ's pages: a part is written while it is off).
@@ -121,10 +122,10 @@
  *   ENV        ENV 1 (the level): ATTACK DECAY SUS RELEASE; ENV 2 (the FM's amount)
  *   FILTER     a lowpass on each voice: FILTER: CUTOFF RES ENV (ENV 3's depth) KEY; ENV 3; MORE: TYPE LP12 / LP24,
  *              VEL
- *   LFO 1, 2   LFO: SHAPE RATE DEST AMOUNT: DEST and AMOUNT its first MOD slot's (a free one the first time, +30 %;
- *              DEST OFF lets it go); MODE: K1 CLOCK (FREE or SYNC), K2 CYCLE (LOOPS, NOTE: restarts each note, ONCE: one
- *              cycle a note, KICK SNARE RADAR 1 BAR: one cycle struck by it, synced), the picture says it whole; the
- *              picture: where the matrix sends it
+ *   LFO 1, 2   one layer (2026-11-25): SHAPE RATE CLOCK (FREE or SYNC) CYCLE (LOOPS, NOTE: restarts each note,
+ *              ONCE: one cycle a note, KICK SNARE RADAR 1 BAR: one cycle struck by it, synced); where it goes is MOD's
+ *              (its DEST and AMOUNT here, its first slot's, till 2026-11-25, its MODE a second layer); the picture:
+ *              where the matrix sends it
  *   RADAR      a loop of random steps (RADAR in the code: tur_*, SD_TUR_*), a modulation source of the patch: a
  *              loop of bits on the tempo. LFO's third tab (LFO 1, LFO 2, RADAR, MOD; for a day
  *              on 2026-11-19 MOD's ninth, by ALGORITHM: the user found it gone).
@@ -144,7 +145,7 @@
  *              jump to the next (as it sounds), the sweep where it is, a gauge of the value now; beside it the loop's
  *              bits as a matrix of lamps, its 16 places in four rows (the 1 top left, the place now red, past LENGTH
  *              a dot, a bit CHANGE flipped this pass a red pip)
- *   MOD        the slot SELECT picks (1..8): SOURCE DEST AMOUNT. SOURCE (22, a list as it turns: by where each comes
+ *   MOD        the slot SELECT picks (1..12; eight rows shown, each numbered): SOURCE DEST AMOUNT. SOURCE (22, a list as it turns: by where each comes
  *              from, the envelopes, the LFOs and RADAR, NAV, the playing, the engines, the drums). DEST (here and on
  *              ORBIT's lanes; from RADAR also ACCENTS, ROLLS and NOTES at the list's end): 60, by
  *              the page their knob is on and its name there, in the pages' order (on each its layers' K1..K4): the
@@ -1232,7 +1233,12 @@ static void patch_load(uint32_t i, SdPatch *p)
         p->f_cut = SD_FCUT_OPEN;
     }
 }
+#if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
 static SdPatch pat;                             /* the patch as the knobs left it (not saved: PRESETS reloads it) */
+#else
+static SdPatch pat __attribute__((section(".pool")));   /* (in the pool since 2026-11-25: twelve MOD slots, the RAM's
+                                                   .bss full) */
+#endif
 static uint32_t ebank, gen = 0xFFFFFFFFu, gen_seed = 1;   /* the edited bank; the last generator (K4, GLO) */
 static uint32_t page = 5u;                      /* 0 NAV, 1 REACTOR, 2 DISTROY, 3 SPACE, 4 MOD, 5 HOME (the macros:
                                                    the boot's page), 6 SEQ, 7 ENV, 8 FILTER, 9 ARP: each its button's */
@@ -1400,34 +1406,46 @@ static const char *const SRC_NAME[SD_MSRCS] = {"OFF", "ENV1", "ENV2", "LFO1", "L
    another page has a knob of that name (R REACTOR, the band's or LP the loop on DISTROY; as the pages' R-LEVEL,
    D-LEVEL and L-LEVEL, R- the reverb on SPACE, D- the delay and L- the looper on TIME); in ORBIT's lanes three
    letters */
-static const char *const DST_NAME[SD_MDSTS] = {"OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X", "NAV Y",
-                                               "WIDTH", "R POS", "R FREQ", "R RES", "R DRIVE", "R MIX", "DRV ALL",
-                                               "BIAS", "LP FDBK", "LP TAME", "LP MIX", "D-FDBK", "D-LEVEL", "R-LEVEL",
-                                               "R-DECAY", "DRV TOP", "SPL HM", "CUTOFF", "F RES", "E1 ATK", "E1 DEC",
-                                               "E1 SUS", "E1 REL", "E2 ATK", "E2 DEC", "E2 SUS", "E2 REL", "E3 ATK",
-                                               "E3 DEC", "E3 SUS", "E3 REL", "F ENV", "R SLEW", "LP TIME", "LP SPRD",
-                                               "D-TIME", "D-TONE", "R-SIZE", "R-TONE", "L1 RATE", "L2 RATE", "L-SPEED",
-                                               "SPL LOW", "SPL LM", "DRV LOW", "DRV LM", "DRV HM", "BOOM", "SIZE", "AIR",
-                                               "P MACRO", "DRUMS", "VOLUME", "P TUNE", "FRZ PCH"};
+static const char *const DST_NAME[SD_MDSTS] = {
+    "OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X", "NAV Y", "WIDTH", "R POS", "R FREQ", "R RES", "R DRIVE",
+    "R MIX", "DRV ALL", "BIAS", "LP FDBK", "LP TAME", "LP MIX", "D-FDBK", "D-LEVEL", "R-LEVEL", "R-DECAY", "DRV TOP",
+    "SPL HM", "CUTOFF", "F RES", "E1 ATK", "E1 DEC", "E1 SUS", "E1 REL", "E2 ATK", "E2 DEC", "E2 SUS", "E2 REL",
+    "E3 ATK", "E3 DEC", "E3 SUS", "E3 REL", "F ENV", "R SLEW", "LP TIME", "LP SPRD", "D-TIME", "D-TONE", "R-SIZE",
+    "R-TONE", "L1 RATE", "L2 RATE", "L-SPEED", "SPL LOW", "SPL LM", "DRV LOW", "DRV LM", "DRV HM", "BOOM", "SIZE",
+    "AIR", "P MACRO", "DRUMS", "VOLUME", "P TUNE", "FRZ PCH", "FREEZE", "FRZ LVL", "SHIMMER", "L-LEVEL", "L FILT",
+    "L RSEND", "L DSEND", "R LOW", "LVL LOW", "LVL LM", "LVL HM", "LVL TOP", "PAN LOW", "PAN LM", "PAN HM",
+    "PAN TOP", "ALT LOW", "ALT LM", "ALT HM", "ALT TOP", "DYN ALL", "BDY ALL", "F KEY", "SUB LVL", "SUB SHP",
+    "SEARCH", "RDR OFS", "MUTATE", "MOVE", "BREAK", "M BODY", "M AIR", "DROWN", "GATE", "AMT 1", "AMT 2", "AMT 3",
+    "AMT 4", "AMT 5", "AMT 6", "AMT 7", "AMT 8", "AMT 9", "AMT 10", "AMT 11", "AMT 12"};
 /* the destinations' list (as PRESETS' list: easier to see and hit): each its page and its knob's name there, in
    SD_MD_ORDER (the pages' order, and on each its knobs': K1..K4, then GLO's) */
 enum { DG_NONE, DG_VOICE, DG_NAV, DG_ENV1, DG_ENV2, DG_FILT, DG_ENV3, DG_REACT, DG_DEST, DG_SPACE, DG_TIME, DG_LFO1,
-       DG_LFO2, DG_SEQ, DG_DRUM, DG_SYNTH };
+       DG_LFO2, DG_SEQ, DG_DRUM, DG_SYNTH, DG_SUB, DG_LOOP, DG_RADAR, DG_MOD, DG_MACRO, DG_ARP };
 static const char *const DG_NAME[] = {"", "VOICE", "NAV", "ENV 1", "ENV 2", "FILTER", "ENV 3", "REACTOR", "DISTROY",
-                                      "SPACE", "TIME", "LFO 1", "LFO 2", "SEQ A", "DRUM", "SYNTH"};
-static const uint8_t DST_GRP[SD_MDSTS] = {DG_NONE, DG_VOICE, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV,
-    DG_REACT, DG_REACT, DG_REACT, DG_REACT, DG_REACT, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_TIME,
-    DG_TIME, DG_SPACE, DG_SPACE, DG_DEST, DG_DEST, DG_FILT, DG_FILT, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV2,
-    DG_ENV2, DG_ENV2, DG_ENV2, DG_ENV3, DG_ENV3, DG_ENV3, DG_ENV3, DG_FILT, DG_REACT, DG_DEST, DG_DEST, DG_TIME,
-    DG_TIME, DG_SPACE, DG_SPACE, DG_LFO1, DG_LFO2, DG_TIME, DG_DEST, DG_DEST, DG_DEST, DG_DEST,
-    DG_DEST, DG_DRUM, DG_DRUM, DG_DRUM, DG_DRUM, DG_DRUM, DG_SYNTH, DG_DRUM, DG_SPACE};
-static const char *const DST_PARAM[SD_MDSTS] = {"OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "X", "Y", "WIDTH",
-    "POS", "FREQ", "RES", "DRIVE", "MIX", "ALL DRIVE", "ALL BIAS", "LOOP FDBK", "LOOP TAME", "LOOP MIX", "FDBK",
-    "D-LEVEL", "R-LEVEL", "DECAY", "TOP DRIVE", "HI-MID SPLIT", "CUTOFF", "RES", "ATTACK", "DECAY", "SUSTAIN",
-    "RELEASE", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ENV", "SLEW",
-    "LOOP TIME", "LOOP SPREAD", "TIME", "TONE", "SIZE", "TONE", "RATE", "RATE", "LOOP SPEED", "LOW SPLIT",
-    "LO-MID SPLIT", "LOW DRIVE", "LO-MID DRIVE", "HI-MID DRIVE", "KICK BOOM", "SNARE SIZE", "HAT AIR",
-    "PERC MACRO", "LEVEL", "VOLUME", "PERC TUNE", "FREEZE PITCH"};
+                                      "SPACE", "TIME", "LFO 1", "LFO 2", "SEQ A", "DRUM", "SYNTH", "SUB", "LOOPER",
+                                      "RADAR", "MOD", "MACROS", "ARP"};
+static const uint8_t DST_GRP[SD_MDSTS] = {
+    DG_NONE, DG_VOICE, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_NAV, DG_REACT, DG_REACT, DG_REACT,
+    DG_REACT, DG_REACT, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_TIME, DG_TIME, DG_SPACE, DG_SPACE, DG_DEST,
+    DG_DEST, DG_FILT, DG_FILT, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV1, DG_ENV2, DG_ENV2, DG_ENV2, DG_ENV2, DG_ENV3,
+    DG_ENV3, DG_ENV3, DG_ENV3, DG_FILT, DG_REACT, DG_DEST, DG_DEST, DG_TIME, DG_TIME, DG_SPACE, DG_SPACE, DG_LFO1,
+    DG_LFO2, DG_LOOP, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DRUM, DG_DRUM, DG_DRUM, DG_DRUM, DG_DRUM,
+    DG_SYNTH, DG_DRUM, DG_SPACE, DG_SPACE, DG_SPACE, DG_SPACE, DG_LOOP, DG_LOOP, DG_LOOP, DG_LOOP, DG_REACT, DG_DEST,
+    DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST, DG_DEST,
+    DG_DEST, DG_FILT, DG_SUB, DG_SUB, DG_RADAR, DG_RADAR, DG_MACRO, DG_MACRO, DG_MACRO, DG_MACRO, DG_MACRO, DG_MACRO,
+    DG_ARP, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD, DG_MOD};
+static const char *const DST_PARAM[SD_MDSTS] = {
+    "OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "X", "Y", "WIDTH", "POS", "FREQ", "RES", "DRIVE", "MIX",
+    "ALL DRIVE", "ALL BIAS", "LOOP FDBK", "LOOP TAME", "LOOP MIX", "FDBK", "D-LEVEL", "R-LEVEL", "DECAY",
+    "TOP DRIVE", "HI-MID SPLIT", "CUTOFF", "RES", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ATTACK", "DECAY",
+    "SUSTAIN", "RELEASE", "ATTACK", "DECAY", "SUSTAIN", "RELEASE", "ENV", "SLEW", "LOOP TIME", "LOOP SPREAD", "TIME",
+    "TONE", "SIZE", "TONE", "RATE", "RATE", "LOOP SPEED", "LOW SPLIT", "LO-MID SPLIT", "LOW DRIVE", "LO-MID DRIVE",
+    "HI-MID DRIVE", "KICK BOOM", "SNARE SIZE", "HAT AIR", "PERC MACRO", "LEVEL", "VOLUME", "PERC TUNE",
+    "FREEZE PITCH", "FREEZE GATE", "FREEZE LEVEL", "SHIMMER", "L-LEVEL", "FILTER", "R-SEND", "D-SEND", "LOW",
+    "LOW LEVEL", "LO-MID LEVEL", "HI-MID LEVEL", "TOP LEVEL", "LOW PAN", "LO-MID PAN", "HI-MID PAN", "TOP PAN",
+    "LOW ALT", "LO-MID ALT", "HI-MID ALT", "TOP ALT", "ALL DYNAMIC", "ALL BODY", "KEY", "LEVEL", "SHAPE", "SEARCH",
+    "OFFSET", "MUTATE", "MOVE", "BREAK", "BODY", "AIR", "DROWN", "GATE", "AMOUNT 1", "AMOUNT 2", "AMOUNT 3",
+    "AMOUNT 4", "AMOUNT 5", "AMOUNT 6", "AMOUNT 7", "AMOUNT 8", "AMOUNT 9", "AMOUNT 10", "AMOUNT 11", "AMOUNT 12"};
 /* RADAR 1's own DESTs (SD_TG_*): on a knob and in MOD's table; in the list each its page and what it does there */
 static const char *const TG_NAME[SD_TGS] = {"RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"};
 static const char *const TG_GRP[SD_TGS] = {"ENV 1 2 3", "REACTOR", "SEQ A", "SEQ B", "ARP", "LOOPER"};
@@ -1464,12 +1482,13 @@ static const char *const LDIV_NAME[SD_LFO_DIVS] = {"1/16", "1/8", "1/8D", "1/4",
 static const char *const DIV_NAME[SD_LP_NDIV] = {"1/32", "1/16T", "1/16", "1/8T", "1/16D", "1/8", "1/4T", "1/8D",
                                                  "1/4", "1/2T", "1/4D", "1/2", "1 BAR", "2 BAR", "4 BAR"};   /* (the
                                                    last three the looper's LENGTH only) */
-static const char *const SUB_NAME[SD_SUBS] = {"A", "B", "ROOT"};   /* (what SUB follows) */
+static const char *const SUB_NAME[SD_SUBS] = {"A", "B", "ROOT", "KEYS", "ARP"};   /* (what SUB follows) */
+static const uint8_t SUB_ORDER[SD_SUBS] = {SD_SUB_A, SD_SUB_B, SD_SUB_KEYS, SD_SUB_ARP, SD_SUB_ROOT};   /* (as shown) */
 /* each page's layers (pg_lay), in its row's order */
 static const char *const LY_NAV[3] = {"TONE", "X/Y", "ROUTE"}, *const LY_REAC[5] = {"REACT", "TONE", "STAGE", "F1-F4", "MORE"},
                          *const LY_DIST[4] = {"BAND", "SHAPE", "MIX", "LOOP"}, *const LY_SPACE[3] = {"PLATE", "FREEZE", "MORE"},
                          *const LY_TIME[2] = {"DELAY", "MODE"}, *const LY_FILT[3] = {"FILTER", "ENV 3", "MORE"},
-                         *const LY_ENV[2] = {"ENV 1", "ENV 2"}, *const LY_LFO[2] = {"LFO", "MODE"},
+                         *const LY_ENV[2] = {"ENV 1", "ENV 2"},
                          *const LY_ARP[2] = {"ARP", "TOOLS"}, *const LY_LOOP[3] = {"LOOPER", "SEND", "TOOLS"},
                          *const LY_ORB[5] = {"SONG", "PITCH", "LANE", "MACRO", "SETUP"},
                          *const LY_DRUM[6] = {"DRUM", "TONE", "MORE", "MIX", "KIT", "TOOLS"},
@@ -1481,7 +1500,8 @@ static uint32_t lay_names(const char *const **nm)   /* the page's layers: how ma
     case 1: *nm = LY_REAC; return 5;
     case 2: *nm = LY_DIST; return 4;
     case 3: *nm = LY_SPACE; return 3;
-    case 4: if (dmod >= SD_MODS && dmod != DMOD_TUR) { *nm = LY_LFO; return 2; } break;   /* (the LFOs; RADAR, MOD: one) */
+    case 4: break;                              /* (the LFOs, RADAR, MOD: one each; an LFO's MODE on its K3 K4 since
+                                                   2026-11-25, its DEST and AMOUNT MOD's) */
     case 5: *nm = LY_MAC; return 2;
     case 6: *nm = SL_NAME; return SL_N;
     case 7: *nm = LY_ENV; return 2;
@@ -1599,7 +1619,8 @@ static uint32_t led_at;                         /* the key and button lights: wh
 #define GL_TAP_MS 400u
 static uint8_t gl_latch, gl_used;
 static uint32_t gl_at;
-static uint32_t glo_here(void) { return page == 5u || page == 6u || page == 10u || page == 14u; }
+static uint32_t glo_here(void) { return page == 5u || page == 6u || page == 10u || page == 14u || page == PAGE_LOOP; }
+                                                /* (LOOPER: GLO + OCT the loop's octave, again since 2026-11-25) */
 static uint32_t shift(void) { return glo_here() && (gl_latch || (fm1_in.buttons >> BTN_GLO & 1u)); }
 static uint32_t dlist_at, dlist_enc = 0xFFu;    /* the knobs' list (draw_dlist): when it opened, the encoder it is on */
 static int32_t enc_take(uint32_t e)             /* an encoder's detents: one turned while GLO is down makes it no tap;
@@ -1616,6 +1637,7 @@ static int32_t enc_take(uint32_t e)             /* an encoder's detents: one tur
     return v;
 }
 static uint8_t sp_frz;                          /* SPACE's FREEZE (its FREEZE layer's K1): the player's, not the patch's */
+#define FRZ_SHOWN (sp_frz || eng.sp_mfz)        /* (FREEZE as heard: the player's, or a MOD slot's gate, 2026-11-25) */
 static int8_t sp_pitch;                         /* its PITCH (K2 there), -12 .. 12: the frozen tail's; the player's */
 /* LOOPER, the player's (not saved with the patch): LOOP and REVERSE (TOOLS), LENGTH (a division, synced whatever
    TIME's MODE: 2026-11-24), its speed (semitones x 256), its level */
@@ -1643,8 +1665,8 @@ static uint16_t home_filt;                      /* HOME's DARK (MORE's K4; FILTE
 static uint16_t lp_filt = 32768u, lp_rsend = 65535u, lp_dsend;   /* LOOPER's SEND: FILTER (none in the middle),
                                                    R-SEND (whole: as it always went into the reverb), D-SEND (none) */
 static int16_t lp_speed;
-static void lp_octave(uint32_t up)              /* TOOLS' OCTAVE on LOOPER: SPEED to the next octave (-12 0 +12), over
-                                                   GLIDE (GLO + OCT till 2026-11-22) */
+static void lp_octave(uint32_t up)              /* GLO + OCT on LOOPER: SPEED to the next octave (-12 0 +12), over
+                                                   GLIDE (TOOLS' K3 from 2026-11-23 till 25) */
 {
     int32_t v = lp_speed;
     v = up ? (v < 0 ? 0 : 3072) : (v > 0 ? 0 : -3072);
@@ -2867,7 +2889,11 @@ static void orb_knobs(void)
             orb_hold_step(s);
             sd_orb_tail_set(&orbp, k - 2u, s, sd_orb_tail(&orbp, k - 2u, s) + e);
         } else if (l == LO_LANE && !(k & 1u)) { /* DEST 1, DEST 2: where each lane goes (its list) */
-            orbp.dst[k >> 1] = (uint8_t)dst_step(orbp.dst[k >> 1], e, 0);
+            {                                   /* (past the slots' AMOUNTs: the matrix runs before ORBIT's lanes) */
+                uint32_t d = dst_step(orbp.dst[k >> 1], e, 0), n = 0;
+                while (d >= SD_MD_AMT1 && d < SD_MDSTS && n++ < SD_MODS) d = dst_step(d, e < 0 ? -1 : 1, 0);
+                orbp.dst[k >> 1] = (uint8_t)d;
+            }
             dlist_open(k ? DL_ORB2 : DL_ORB1);
         } else if (l == LO_LANE) {              /* LANE 1, LANE 2: -100..100 % at the step (its DEST first) */
             if (!orbp.dst[k >> 1]) { msg(k >> 1 ? "K3 FIRST: WHERE IT GOES" : "K1 FIRST: WHERE IT GOES"); changed = 0; continue; }
@@ -3717,7 +3743,7 @@ static void knobs_of(void)
             ku(0, "SIZE", q99(pat.s_size)); ku(1, "DECAY", q99(pat.s_decay)); ku(2, "TONE", q99(pat.s_rtone));
             ku(3, "R-LEVEL", q99(pat.s_rlevel));
         } else if (l == 1u) {
-            kbt(0, "FREEZE", sp_frz ? "ON" : "OFF", sp_frz ? 1u : 0u);
+            kbt(0, "FREEZE", FRZ_SHOWN ? "ON" : "OFF", FRZ_SHOWN ? 1u : 0u);
             if (sp_pitch) *put_sgn(t, sp_pitch) = 0; else *put(t, "0") = 0;
             kb(1, "PITCH", t, sp_pitch * 99 / 12);   /* (the frozen tail's: while FREEZE holds it) */
             k0(2); k0(3);
@@ -3738,14 +3764,12 @@ static void knobs_of(void)
         ku(1, "FDBK", q99(pat.s_fb)); ku(2, "TONE", q99(pat.s_dtone)); ku(3, "D-LEVEL", q99(pat.s_dlevel));
         break;
     case PAGE_LOOP:                             /* LOOPER: LOOP LENGTH SPEED L-LEVEL; SEND: FILTER R-SEND D-SEND; TOOLS:
-                                                   GLIDE REV OCTAVE CLEAR */
+                                                   GLIDE REV CLEAR (the octave GLO + OCT again since 2026-11-25) */
         if (l == LL_TOOLS) {
-            int32_t o = lp_speed / 3072;
             *put_glide(t) = 0; kt(0, "GLIDE", t);
             kbt(1, "REV", lp_rev ? "ON" : "OFF", lp_rev ? 1u : 0u);
-            if (o) *put_sgn(t, o) = 0; else *put(t, "0") = 0;
-            kb(2, "OCTAVE", t, o * 99);
-            kbt(3, "CLEAR", "CLEAR", lp_clr_at ? 1u : 0u);
+            kbt(2, "CLEAR", "CLEAR", lp_clr_at ? 1u : 0u);   /* (K3, as SEQ's TOOLS' CLEAR) */
+            k0(3);
             break;
         }
         if (l == LL_SEND) {
@@ -3810,18 +3834,14 @@ static void knobs_of(void)
             p = put_sgn(t, pat.tur_off); *p++ = '%'; *p = 0; kb(2, "OFFSET", t, pat.tur_off * 99 / 100);
             kt(3, "DIV", SDIV_NAME[SD_TUR_DIV(&pat)]);   /* (its clock: ALGORITHM's before 2026-11-19, GLO + K2's
                                                    till 2026-11-21) */
-        } else if (dmod >= SD_MODS && l == 1u) {   /* an LFO's MODE (the picture says it whole) */
-            uint32_t m = lmode_of(pat.lfo_mode[dmod - SD_MODS]);   /* (CLOCK: FREE or SYNC; CYCLE: when it starts) */
-            kbt(0, "CLOCK", m & 1u || m >= 6u ? "SYNC" : "FREE", m & 1u || m >= 6u ? 1u : 0u);
-            kt(1, "CYCLE", LCYC_NAME[lcyc_of(m)]);
-            k0(2); k0(3);
-        } else if (dmod >= SD_MODS) {           /* an LFO: SHAPE RATE, DEST AMOUNT (its slot's) */
-            uint32_t k = dmod - SD_MODS, s = lfo_slot(k);
+        } else if (dmod >= SD_MODS) {           /* an LFO: SHAPE RATE, CLOCK CYCLE (its MODE; where it goes is MOD's,
+                                                   2026-11-25, the user: "no DEST and AMOUNT of its own here") */
+            uint32_t k = dmod - SD_MODS, m = lmode_of(pat.lfo_mode[k]);   /* (CLOCK: FREE or SYNC; CYCLE: when it
+                                                   starts) */
             kt(0, "SHAPE", LSHAPE_NAME[pat.lfo_shape[k] % SD_LSHAPES]);
             *put_rate(t, k) = 0; kt(1, "RATE", t);
-            kt(2, "DEST", s < SD_MODS ? DST_NAME[pat.mod[s].dst % SD_MDSTS] : "OFF");
-            if (s < SD_MODS) { int32_t a = amt99(pat.mod[s].amt); *put_sgn(t, a) = 0; kb(3, "AMOUNT", t, a); }
-            else kt(3, "AMOUNT", "-");
+            kbt(2, "CLOCK", m & 1u || m >= 6u ? "SYNC" : "FREE", m & 1u || m >= 6u ? 1u : 0u);
+            kt(3, "CYCLE", LCYC_NAME[lcyc_of(m)]);
         } else {                                /* a slot */
             const SdModSlot *m = &pat.mod[dmod];
             int32_t a = amt99(m->amt);
@@ -4203,14 +4223,14 @@ static void pic_space(void)                     /* SPACE: the plate's tail (the 
     uint32_t tail;
     int32_t x, h;
     cv_line(X0, Y0 + H, X0 + W - 1, Y0 + H, C_GRID);
-    tail = sp_frz ? 0xFFFFFFFFu : SD_PL_T60[pat.s_decay >> 9];   /* T60, ms (FREEZE: for ever) */
+    tail = FRZ_SHOWN ? 0xFFFFFFFFu : SD_PL_T60[pat.s_decay >> 9];   /* T60, ms (FREEZE: for ever) */
     h = (int32_t)(pat.s_rlevel * (uint32_t)(H - 6) >> 16);
     for (x = 0; x < W; x++) {
         int32_t tt = x * 4000 / W, y = tail == 0xFFFFFFFFu ? h : h - (int32_t)((int64_t)h * tt / (int32_t)tail);
         if (y > 0) cv_rect(X0 + x, Y0 + H - y, 1, y, C_FILL);
         if (y > 0) cv_rect(X0 + x, Y0 + H - y, 1, 1, C_RED_D);
     }
-    if (sp_frz) {                               /* FREEZE: its tag over the tail */
+    if (FRZ_SHOWN) {                            /* FREEZE: its tag over the tail */
         cv_box(X0 + W - 60, 0, 60, 16, C_RED);
         cv_text(X0 + W - 56, 1, &FONT_S, "FREEZE", C_BG);
     }
@@ -4433,13 +4453,20 @@ static void pic_sub(void)                       /* its shape in a frame, the wid
         py = y;
     }
     cv_text(6, 88, &FONT_S, "FOLLOWS", C_ICE_D);
-    for (k = 0, x = 66; k < SD_SUBS; k++) x = btn(x, 87, k == 2u ? 40 : 20, SUB_NAME[k], k == src ? (on ? 1u : 2u) : 0u) + 4;
-    if (on && eng.sub_note) {                   /* the note now, beside the one it follows (an arrow between) */
+    for (k = 0, x = 10 + text_w(&FONT_S, "FOLLOWS"); k < SD_SUBS; k++) {   /* (five since 2026-11-25: each as wide as
+                                                   its name, after the legend) */
+        uint32_t s = SUB_ORDER[k];
+        int32_t w = text_w(&FONT_S, SUB_NAME[s]) + 6;
+        x = btn(x, 87, w < 16 ? 16 : w, SUB_NAME[s], s == src ? (on ? 1u : 2u) : 0u) + 2;
+    }
+    if (on && eng.sub_note) {                   /* the note now, beside the one it follows (an arrow between): in the
+                                                   frame's top right, where the wave is at its middle (the row below
+                                                   holds five buttons since 2026-11-25) */
         p = put_note(t, eng.sub_from); *p = 0;
-        cv_text(166, 88, &FONT_S, t, C_ICE_D);
-        cv_line(193, 96, 200, 96, C_ICE_D); cv_line(197, 93, 200, 96, C_ICE_D); cv_line(197, 99, 200, 96, C_ICE_D);
+        cv_text(166, 4, &FONT_S, t, C_ICE_D);
+        cv_line(193, 12, 200, 12, C_ICE_D); cv_line(197, 9, 200, 12, C_ICE_D); cv_line(197, 15, 200, 12, C_ICE_D);
         p = put_note(t, eng.sub_note); *p = 0;
-        cv_text(204, 88, &FONT_S, t, C_RED);
+        cv_text(204, 4, &FONT_S, t, C_RED);
     }
 }
 
@@ -4450,8 +4477,6 @@ static void pic_lfo(uint32_t k)                 /* its cycle in a frame, the wid
     int32_t x = 30;
     cv_frame(4, 0, 232, 84, C_ICE_D);
     draw_lfo_wave(k, 8, 4, 224, 76);
-    if (pg_lay[4] == 1u) { cv_text(6, 88, &FONT_S, LMODE_SAY[lmode_of(pat.lfo_mode[k])], C_ICE); return; }   /* (MODE:
-                                                   what it does, whole) */
     cv_text(6, 88, &FONT_S, "TO", C_ICE_D);
     for (i = 0; i < SD_MODS; i++) {
         const SdModSlot *m = &pat.mod[i];
@@ -4462,7 +4487,7 @@ static void pic_lfo(uint32_t k)                 /* its cycle in a frame, the wid
         x = cv_text(x, 88, &FONT_S, dn, C_ICE) + 10;
         n++;
     }
-    if (!n) cv_text(30, 88, &FONT_S, "NOTHING  K3: DEST", C_ICE_D);
+    if (!n) cv_text(30, 88, &FONT_S, "NOTHING: MOD SENDS IT", C_ICE_D);   /* (its DEST is MOD's since 2026-11-25) */
 }
 
 /* RADAR, in two (2026-11-21, the user: "on the RADAR page the visuals, in two: the radar first,
@@ -4541,8 +4566,8 @@ static void pic_tur(void)
     cv_line(CX - RO + 6, CY, CX + RO - 6, CY, C_GRID);   /* the crosshair */
     cv_line(CX, CY - RO + 6, CX, CY + RO - 6, C_GRID);
     cv_rect(CX - 1, CY - 1, 3, 3, C_ICE_D);
-    cv_rect(CX - 1, CY - RO, 3, 7, on ? C_ICE : C_ICE_D);   /* the loop's 1, at 12 o'clock: a mark and its number */
-    cv_text(CX + 4, CY - RO + 1, &FONT_S, "1", on ? C_ICE : C_ICE_D);
+    cv_rect(CX - 1, CY - RO, 3, 7, on ? C_ICE : C_ICE_D);   /* the loop's 1, at 12 o'clock: a mark (its number gone,
+                                                   2026-11-25, the user) */
     if (on) {                                   /* the sweep turning through the step (where RADAR's clock is in it),
                                                    its trail fading behind it over 36 degrees */
         static const uint8_t TR[20] = {0, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};   /* (fainter:
@@ -4615,6 +4640,7 @@ static void pic_tur(void)
  * "the picture is the knobs", what a knob sets in one place): MOD's slots as a patch bay, SETUP's choices as panel
  * buttons. 0 .. H_LIST from the knobs' top, in two strips as the lists (draw_frame) */
 static uint32_t page_full(void) { return (page == 4u && dmod < SD_MODS) || page == PAGE_SETUP; }
+#define MOD_ROWS 8u                             /* (MOD's table: the rows the screen holds) */
 static void put7(char *t, const char *s) { uint32_t n = 0; while (s && *s && n < 7u) { *t++ = *s++; n++; } *t = 0; }
 static void pic_mod_full(void)                  /* MOD: a row a slot, its columns the knobs' (SOURCE DEST AMOUNT OFFSET,
                                                    their names on top as the knobs'): its source, where it goes, its
@@ -4622,18 +4648,24 @@ static void pic_mod_full(void)                  /* MOD: a row a slot, its column
                                                    slot picked red and framed (the knobs turn it), an empty one -- */
 {
     static const char *const HD[4] = {"SOURCE", "DEST", "AMOUNT", "OFFSET"};
+    static uint32_t top;                        /* (the first row shown: eight of the twelve, 2026-11-25, the list
+                                                   moving as SELECT leaves it; each row its slot's number, right) */
     uint32_t k;
     char t[12], *p;
+    if (dmod < SD_MODS) { if (dmod < top) top = dmod; if (dmod >= top + MOD_ROWS) top = dmod + 1u - MOD_ROWS; }
+    if (top > SD_MODS - MOD_ROWS) top = SD_MODS - MOD_ROWS;
     for (k = 0; k < 4u; k++) {
         cv_text(30 + (int32_t)k * 60 - text_w(&FONT_S, HD[k]) / 2, 0, &FONT_S, HD[k], C_ICE_D);
         if (k) cv_line((int32_t)k * 60, 18, (int32_t)k * 60, 150, C_GRID);
     }
-    for (k = 0; k < SD_MODS; k++) {
+    for (k = top; k < top + MOD_ROWS; k++) {
         const SdModSlot *m = &pat.mod[k];
-        int32_t y = 20 + (int32_t)k * 16, a = amt99(m->amt), w = a * 22 / 99;
+        int32_t y = 20 + (int32_t)(k - top) * 16, a = amt99(m->amt), w = a * 22 / 99;
         uint32_t use = m->src && m->dst && m->amt, sel = k == dmod;
         uint16_t c = sel ? C_RED : use ? C_ICE : C_ICE_D, cb = sel ? C_RED : a < 0 ? C_ICE_D : C_ICE;
         if (sel) cv_frame(0, y - 1, 240, 17, C_RED);
+        *put_u(t, k + 1u) = 0;
+        cv_text(237 - text_w(&FONT_S, t), y, &FONT_S, t, sel ? C_RED : C_GRID);   /* (its number: AMT n's n) */
         if (!m->src && !m->dst) {
             cv_text(22, y, &FONT_S, "--", sel ? C_RED : C_GRID);
             cv_text(82, y, &FONT_S, "--", sel ? C_RED : C_GRID);
@@ -4836,6 +4868,18 @@ static void pic_setup_full(void)                /* SETUP: each knob's choices as
         else if (cpu_max) { p = put(put_u(put(s, "MAX "), (cpu_max + 5u) / 10u), "%"); *p = 0; }
         else *s = 0;
         if (*s) cv_text(80, 128, &FONT_S, s, cpu_over ? C_RED : C_ICE_D);
+#if defined(FELUCCA_UAC) && FELUCCA_UAC && !defined(DINGHY_HOST) && !defined(DINGHY_WEB)
+        if (uac.starts) {                       /* USB audio, once a computer or an iPad has recorded (2026-11-25, the
+                                                   user: "recording from the iPad distorts a little"): the rate it
+                                                   took, and the stream's gaps since the start in red (a ring empty or
+                                                   full, a frame with no packet) */
+            uint32_t g = uac.underruns + uac.overruns + uac.missed;
+            p = put(s, uac.r48 ? "USB 48K" : "USB 44K");
+            if (g) { *p++ = ' '; p = put_u(p, g > 999u ? 999u : g); }
+            *p = 0;
+            cv_text(140, 128, &FONT_S, s, g ? C_RED : C_ICE_D);
+        }
+#endif
         if (frz_n) { p = put_u(put(s, "LOG "), frz_n); *p = 0; cv_text(232 - text_w(&FONT_S, s), 128, &FONT_S, s, C_RED); }   /* (a
                                                    freeze kept: SELECT, or TOOLS' LOG, shows it) */
     } else {                                    /* GLO: the battery's volts */
@@ -5284,6 +5328,10 @@ static void draw_hint(void)
         else { hint_algo(a, 1); hint_x = HINT_R; hint_c("SELECT", "ROOT", C_RED); }   /* (GLO + SELECT) */
         return;
     }
+    if (shift() && page == PAGE_LOOP) {         /* GLO held on LOOPER: OCT the loop's octave (2026-11-25) */
+        hint_c("OCT", "OCTAVE", C_RED);
+        return;
+    }
     if (shift() && (page == PAGE_ORB || page == PAGE_DRUM)) {   /* GLO held: the white keys the steps (DRUM: GLO +
                                                    SELECT the drum) */
         hint_c("KEYS", "STEPS", C_RED);
@@ -5300,9 +5348,9 @@ static void draw_hint(void)
             case 3:                             /* SPACE: FREEZE's lamp (its layer's K1, there its button) */
                 if (off) { hint_two("OFF:", "EDIT ON"); break; }
                 if (lay()) break;
-                cv_box(HINT_R, 3, 8, 8, sp_frz ? C_RED : C_GRID);
-                if (sp_frz) cv_rect(HINT_R + 2, 5, 2, 2, C_GLINT);
-                cv_text(HINT_R + 11, 0, &FONT_S, "FREEZE", sp_frz ? C_ICE : C_ICE_D);
+                cv_box(HINT_R, 3, 8, 8, FRZ_SHOWN ? C_RED : C_GRID);
+                if (FRZ_SHOWN) cv_rect(HINT_R + 2, 5, 2, 2, C_GLINT);
+                cv_text(HINT_R + 11, 0, &FONT_S, "FREEZE", FRZ_SHOWN ? C_ICE : C_ICE_D);
                 break;
             case PAGE_TIME: {                   /* TIME: past its line, what it plays (TIME red) */
                 char pd[12];
@@ -5320,6 +5368,10 @@ static void draw_hint(void)
             return;
         }
         if (off) { hint("OFF:", "EDIT TURNS IT ON"); return; }
+        if (page == 4u && dmod >= SD_MODS && dmod != DMOD_TUR) {   /* an LFO: what CLOCK and CYCLE make it, in words
+                                                   (its MODE layer's picture said it till 2026-11-25) */
+            cv_text(6, 0, &FONT_S, LMODE_SAY[lmode_of(pat.lfo_mode[dmod - SD_MODS]) % LMODES], C_ICE);
+        }
         if (page == 4u && dmod < SD_MODS) {     /* MOD: the slot SELECT picks, its amount (the table has its bar) */
             p = put(a, "SLOT "); *put_u(p, dmod + 1u) = 0;
             hint("SELECT", a);
@@ -5951,21 +6003,27 @@ static void app_main(void)
     }
     set.dpad = 0;
     accent_set(set.accent);
-    if (slot_load(0, &upat, sizeof upat)) {    /* (or as saved before HOME's MORE, 2026-11-23, before SUB, 2026-11-21, before TRIM and the make-ups' mark, before
-                                                   RADAR's OFFSET, 2026-11-21, or before MOD's OFFSETs, 2026-11-19: each
-                                                   patch that less the fields at its end, moved to its place, those 0) */
+    if (slot_load(0, &upat, sizeof upat)) {    /* (or as saved with eight MOD slots, before 2026-11-25; before HOME's MORE,
+                                                   2026-11-23, before SUB, 2026-11-21, before TRIM and the make-ups' mark,
+                                                   before RADAR's OFFSET, 2026-11-21, or before MOD's OFFSETs, 2026-11-19:
+                                                   each patch that less the fields at its end, those 0; then its bytes
+                                                   moved to their places, slots 9..12 and their OFFSETs between, 0) */
         const uint32_t po = (uint32_t)__builtin_offsetof(UserPatches, p), sz = (uint32_t)sizeof(SdPatch);
-        const uint32_t OLD[5] = {sz - 2u, sz - 6u, sz - 8u, sz - 10u, sz - 10u - SD_MODS};
+        const uint32_t ns = (SD_MODS - 8u) * (uint32_t)sizeof(SdModSlot), s8 = sz - ns - (SD_MODS - 8u);
+        const uint32_t OLD[6] = {s8, s8 - 2u, s8 - 6u, s8 - 8u, s8 - 10u, s8 - 18u};
+        const uint32_t a = (uint32_t)__builtin_offsetof(SdPatch, mod) + 8u * (uint32_t)sizeof(SdModSlot);
+        const uint32_t b = (uint32_t)__builtin_offsetof(SdPatch, mod_off) - ns + 8u;   /* (in the eight's layout) */
         uint8_t *z = (uint8_t *)&upat;
         uint32_t v;
-        for (v = 0; v < 5u && slot_load(0, &upat, po + UPATCHES * OLD[v]); v++) ;
-        if (v < 5u) {
+        for (v = 0; v < 6u && slot_load(0, &upat, po + UPATCHES * OLD[v]); v++) ;
+        if (v < 6u) {
             for (k = UPATCHES; k-- > 0u;) {     /* (the last first, back to front: the new place lies above) */
-                uint8_t *d = z + po + k * sz;
+                uint8_t q[sizeof(SdPatch)], *d = z + po + k * sz;
                 const uint8_t *s = z + po + k * OLD[v];
                 uint32_t i;
-                for (i = OLD[v]; i-- > 0u;) d[i] = s[i];
-                for (i = OLD[v]; i < sz; i++) d[i] = 0;
+                for (i = 0; i < sz; i++) q[i] = 0;
+                for (i = 0; i < OLD[v]; i++) q[i < a ? i : i < b ? i + ns : i + ns + (SD_MODS - 8u)] = s[i];
+                for (i = 0; i < sz; i++) d[i] = q[i];
             }
         } else {
             for (k = 0; k < sizeof upat; k++) z[k] = 0;
@@ -6486,6 +6544,12 @@ static void app_main(void)
             eng.t[seq_trk].xpose_next = (int8_t)x;
             b &= ~(1u << BTN_OCT_DOWN | 1u << BTN_OCT_UP);
         }
+        if (page == PAGE_LOOP && shift() && b & (1u << BTN_OCT_DOWN | 1u << BTN_OCT_UP)) {   /* GLO + OCT on LOOPER:
+                                                   SPEED to the next octave (2026-11-25, the user: "I can't use GLO +
+                                                   OCT any more"), over GLIDE, on the loop's grid */
+            lp_octave((b & (1u << BTN_OCT_UP)) != 0u);
+            b &= ~(1u << BTN_OCT_DOWN | 1u << BTN_OCT_UP);
+        }
         if (b & (1u << BTN_OCT_DOWN) && oct > -2) { set.oct = (uint8_t)(oct - 1); dirty = 1; t_change = fm1_ms; }
         if (b & (1u << BTN_OCT_UP) && oct < 2) { set.oct = (uint8_t)(oct + 1); dirty = 1; t_change = fm1_ms; }
         {
@@ -6575,7 +6639,11 @@ static void app_main(void)
                     changed = 1;
                 }
                 if ((e = enc_take(ENC_KNOB3)) != 0) {   /* FOLLOWS: A, B, ROOT (ALGORITHM's till 2026-11-22) */
-                    pat.sub_src = (uint8_t)step_mod(pat.sub_src % SD_SUBS, e, SD_SUBS);
+                    {                           /* (in SUB_ORDER) */
+                        uint32_t r = 0;
+                        while (r + 1u < SD_SUBS && SUB_ORDER[r] != pat.sub_src % SD_SUBS) r++;
+                        pat.sub_src = SUB_ORDER[step_mod(r, e, SD_SUBS)];
+                    }
                     changed = 1;
                 }
                 if ((e = enc_take(ENC_KNOB4)) != 0) pat.sub_lvl = knob_q(pat.sub_lvl, e), changed = 1;
@@ -6642,6 +6710,8 @@ static void app_main(void)
                     set.bpm = (uint8_t)(t < 40 ? 40 : t > 240 ? 240 : t);
                     eng.bpm = set.bpm;
                     dirty = 1;
+                    if (eng.sp.pon) msg("LOOP PITCH FOLLOWS TEMPO");     /* (a loop playing follows a new TEMPO
+                                                   as a tape, 2026-11-25, the user: "say so on SETUP") */
                 }
                 if ((e = enc_take(ENC_KNOB2)) != 0 && set.xchrom != (v = (uint8_t)(e > 0))) set.xchrom = v, dirty = 1;
                 if ((e = enc_take(ENC_KNOB3)) != 0 && set.master != (v = (uint8_t)(e > 0))) set.master = v, dirty = 1;
@@ -6719,24 +6789,10 @@ static void app_main(void)
                     pat.mod_off[dmod] = (int8_t)(v < -100 ? -100 : v > 100 ? 100 : v);
                     changed = 1;
                 }
-            } else if (page == 4u && l == 1u) { /* an LFO's MODE */
+            } else if (page == 4u) {            /* an LFO: SHAPE RATE, CLOCK CYCLE (its MODE; DEST and AMOUNT are MOD's
+                                                   since 2026-11-25) */
                 uint32_t lk = dmod - SD_MODS;
                 uint32_t m = lmode_of(pat.lfo_mode[lk]), c = lcyc_of(m), sy = m & 1u || m >= 6u, m0 = m;
-                if ((e = enc_take(ENC_KNOB1)) != 0) {   /* CLOCK: a turn right SYNC, left FREE (struck by KICK, SNARE,
-                                                   RADAR, the bar: synced) */
-                    if (c >= 3u) msg("STRUCK BY A BEAT: SYNCED");
-                    else m = lmode_at(c, e > 0);
-                }
-                if ((e = enc_take(ENC_KNOB2)) != 0) {   /* CYCLE: LOOPS NOTE ONCE KICK SNARE RADAR 1 BAR (no drums:
-                                                   KICK and SNARE not in the turn) */
-                    uint32_t v = SD_DRUMS || c < 3u ? c : c < 5u ? 3u : c - 2u;
-                    v = step_lim(v, e, SD_DRUMS ? 7u : 5u);
-                    m = lmode_at(SD_DRUMS || v < 3u ? v : v + 2u, sy);
-                }
-                if (m != m0) pat.lfo_mode[lk] = LMODE_BITS[m % LMODES], changed = 1;
-                (void)enc_take(ENC_KNOB3); (void)enc_take(ENC_KNOB4);
-            } else if (page == 4u) {            /* an LFO: SHAPE RATE DEST AMOUNT (MODE its second layer) */
-                uint32_t lk = dmod - SD_MODS, s = lfo_slot(lk);
                 if ((e = enc_take(ENC_KNOB1)) != 0) pat.lfo_shape[lk] = (uint8_t)step_mod(pat.lfo_shape[lk] % SD_LSHAPES, e, SD_LSHAPES), changed = 1;
                 if ((e = enc_take(ENC_KNOB2)) != 0) {
                     if (pat.lfo_mode[lk] & SD_LM_SYNC) {   /* a division a detent */
@@ -6748,36 +6804,18 @@ static void app_main(void)
                     }
                     changed = 1;
                 }
-                if ((e = enc_take(ENC_KNOB3)) != 0) {   /* DEST: its slot's, a free one the first time (+30 %);
-                                                   OFF lets the slot go */
-                    uint32_t i;
-                    if (s == SD_MODS)
-                        for (i = 0; i < SD_MODS; i++)
-                            if (!pat.mod[i].src) {
-                                s = i;
-                                pat.mod[i].src = (uint8_t)(lk ? SD_MS_LFO2 : SD_MS_LFO1);
-                                pat.mod[i].dst = 0;
-                                pat.mod[i].amt = (int16_t)(30 * 32767 / 99);
-                                break;
-                            }
-                    if (s == SD_MODS) msg("MOD FULL: 8 SLOTS IN USE");
-                    else {
-                        pat.mod[s].dst = (uint8_t)dst_step(pat.mod[s].dst, e, 0);
-                        if (!pat.mod[s].dst) { pat.mod[s].src = SD_MS_OFF; pat.mod[s].amt = 0; pat.mod_off[s] = 0; }
-                        dlist_open(DL_LFO);
-                        changed = 1;
-                    }
+                if ((e = enc_take(ENC_KNOB3)) != 0) {   /* CLOCK: a turn right SYNC, left FREE (struck by KICK, SNARE,
+                                                   RADAR, the bar: synced) */
+                    if (c >= 3u) msg("STRUCK BY A BEAT: SYNCED");
+                    else m = lmode_at(c, e > 0);
                 }
-                if ((e = enc_take(ENC_KNOB4)) != 0) {   /* AMOUNT: a percent a detent */
-                    if (s == SD_MODS) msg("K3 FIRST: WHERE IT GOES");
-                    else {
-                        int32_t v = amt99(pat.mod[s].amt) + enc_far(e, 198u);
-                        dlist_at = 0;
-                        v = v < -99 ? -99 : v > 99 ? 99 : v;
-                        pat.mod[s].amt = (int16_t)(v * 32767 / 99);
-                        changed = 1;
-                    }
+                if ((e = enc_take(ENC_KNOB4)) != 0) {   /* CYCLE: LOOPS NOTE ONCE KICK SNARE RADAR 1 BAR (no drums:
+                                                   KICK and SNARE not in the turn) */
+                    uint32_t v = SD_DRUMS || c < 3u ? c : c < 5u ? 3u : c - 2u;
+                    v = step_lim(v, e, SD_DRUMS ? 7u : 5u);
+                    m = lmode_at(SD_DRUMS || v < 3u ? v : v + 2u, sy);
                 }
+                if (m != m0) pat.lfo_mode[lk] = LMODE_BITS[m % LMODES], changed = 1;
             } else if (page == 3u) {            /* SPACE: the plate; FREEZE: FREEZE PITCH; MORE: SHIMMER */
                 if (l == 2u) {
                     if ((e = enc_take(ENC_KNOB1)) != 0) {
@@ -6796,7 +6834,7 @@ static void app_main(void)
                     if ((e = enc_take(ENC_KNOB2)) != 0) {   /* PITCH: the frozen tail, -12 .. 12 semitones */
                         int32_t ps = sp_pitch + e;
                         sp_pitch = (int8_t)(ps < -12 ? -12 : ps > 12 ? 12 : ps);
-                        if (!sp_frz) msg("PITCH: WHILE FROZEN");
+                        if (!FRZ_SHOWN) msg("PITCH: WHILE FROZEN");
                     }
                     (void)enc_take(ENC_KNOB3); (void)enc_take(ENC_KNOB4);
                 } else {
@@ -6806,18 +6844,18 @@ static void app_main(void)
                     if ((e = enc_take(ENC_KNOB4)) != 0) pat.s_rlevel = knob_q(pat.s_rlevel, e), changed = 1;
                 }
             } else if (page == PAGE_LOOP && l == LL_TOOLS) {   /* LOOPER's TOOLS: GLIDE (how long a new SPEED
-                                                   takes), REV (it plays it backwards), OCTAVE (SPEED to the next
-                                                   octave, -12 0 +12, over GLIDE), CLEAR (asked, OCT+ yes); a turn
-                                                   right on (up), left off (down) */
+                                                   takes), REV (it plays it backwards), CLEAR (asked, OCT+ yes); a turn
+                                                   right on, left off. The octave: GLO + OCT (TOOLS' K3 from 2026-11-23
+                                                   till 25: "pitch and octave both on it, and GLO + OCT gone") */
                 if ((e = enc_take(ENC_KNOB1)) != 0) lp_glide_turn(e);
                 if ((e = enc_take(ENC_KNOB2)) != 0 && lp_rev != (uint8_t)(e > 0)) {
                     lp_rev = (uint8_t)(e > 0);
                     msg(lp_rev ? "REVERSE: THE LOOP BACKWARDS" : "REVERSE OFF");
                 }
-                if ((e = enc_take(ENC_KNOB3)) != 0) lp_octave(e > 0);
-                if ((e = enc_take(ENC_KNOB4)) != 0) {
+                if ((e = enc_take(ENC_KNOB3)) != 0) {
                     if (lp_arm || lp_hold) lp_clr_at = fm1_ms ? fm1_ms : 1u; else msg("NO LOOP TO CLEAR");
                 }
+                (void)enc_take(ENC_KNOB4);
             } else if (page == PAGE_LOOP && l == LL_SEND) {   /* LOOPER's SEND: FILTER (left a lowpass, right a
                                                    highpass, none in the middle: it stops there), R-SEND, D-SEND */
                 if ((e = enc_take(ENC_KNOB1)) != 0) {

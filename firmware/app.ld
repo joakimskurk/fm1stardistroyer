@@ -6,7 +6,8 @@
  * is busy: the flash driver; the second core's idle loop, .c1_text; then the app's hot audio code, .ram_audio,
  * which may call into XIP: the audio never runs while the flash is off); 0x01C07F00..0x01C08000 is crt0's STATUS.
  * RAM  : .data/.bss (96 KiB)
- * POOL : big zero-initialised buffers (FX lines, canvases), section .pool
+ * POOL : big zero-initialised buffers (FX lines, canvases), section .pool (2 KB more since 2026-11-25, from the
+ *        main stack's bottom: twelve MOD slots; the stack 22 KB, ~2 KB of it used: Optimizing notes)
  * STACKS with 256-byte guard bands; NOINIT survives resets and UBOOT entry.
  * 0x01C7FD50.. is reserved: boot_info, boot-state mailbox, vector table. */
 MEMORY
@@ -14,7 +15,7 @@ MEMORY
     XIP    (rx)  : ORIGIN = 0x02000120, LENGTH = 0x8DFBC
     RAMTEXT (rwx): ORIGIN = 0x01C00000, LENGTH = 0x7F00
     RAM    (rwx) : ORIGIN = 0x01C08000, LENGTH = 96K
-    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x54000
+    POOL   (rw)  : ORIGIN = 0x01C20000, LENGTH = 0x54800
     NOINIT (rw)  : ORIGIN = 0x01C7C000, LENGTH = 0x3D50
 }
 SECTIONS
@@ -23,6 +24,7 @@ SECTIONS
               *fm1_isr.o(.text*) *(.text.fm1_alnk0_irq) *(.text.fm1_timer5_irq) *(.text.fm1__frame) *(.text.fm1__keys)
               *(.text.fm1__sr_word) *(.text.fm1__led_lines) *(.text.fm1__p33_xfer) *(.text.fm1__p33_op) *(.text.uac_service)
               *(.text.sie_rd) *(.text.sie_wr) *(.text.e0_chunk) *(.text.e0_send) *(.text.fm1_cpu1_run)
+              *(.text.uac_render_start) *(.text.uac_tap) *(.text.uac_tap48) *(.text.uac_packet)
               _sd_hot_end = .; . = _sd_hot + 0xA800; *(.rodata) *(.rodata.cst*) . = ALIGN(4); *(.rodata*) . = ALIGN(4); *(.text*)
               . = ALIGN(4); _etext = .; } > XIP
                                                 /* (memcpy and memset first: the RAM code calls them directly, and a
@@ -38,7 +40,9 @@ SECTIONS
                                                    flash code (the ISR stubs, the key scan, the USB service, core 2's
                                                    run) sits in it too, after SD_HOT: in .text it moved with every
                                                    string and UI line, and a UI-only change read 54.9 -> 58.1 %; here
-                                                   55.5 against 54.8 %) */
+                                                   55.5 against 54.8 %). The USB audio's taps too (2026-11-25: they run
+                                                   in the audio interrupt each sub-block, the 48 kHz resampler with
+                                                   them, while a computer or an iPad records) */
     .ram_text : { _rt_start = .; KEEP(*(.ram_text*)) . = ALIGN(4); _c1_start = .; KEEP(*(.c1_text*)) . = ALIGN(4);
                  _c1_end = .; _ra_start = .;
                  *(.ram_audio*) . = ALIGN(4); _ra_end = .; _rt_end = .; } > RAMTEXT AT > XIP
@@ -48,7 +52,7 @@ SECTIONS
     .bss (NOLOAD) : { _bss_start = .; *(.bss*) *(.sbss*) *(COMMON) . = ALIGN(4); _bss_end = .; } > RAM
     .pool (NOLOAD) : { _pool_start = .; *(.pool*) . = ALIGN(4); _pool_end = .; } > POOL
     .noinit (NOLOAD) : { *(.noinit*) } > NOINIT
-    _guard0 = 0x01C74000; _ustack_lo = 0x01C74100; _ustack_top = 0x01C7A000;
+    _guard0 = 0x01C74800; _ustack_lo = 0x01C74900; _ustack_top = 0x01C7A000;
     _guard1 = 0x01C7A000; _sstack_lo = 0x01C7A100; _sstack_top = 0x01C7C000;
     /DISCARD/ : { *(.comment) *(.note*) }
 }

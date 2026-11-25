@@ -5,7 +5,7 @@
 // voice, a MOD slot, the sound with the frames on the same as with them off); and frame.js's names are stardistroyer.c's.
 //   node tests/console_test.mjs build/web/stardistroyer.wasm
 import { readFileSync } from 'node:fs';
-import { newState, decode, SRC_NAME, DST_NAME, LSHAPE, SCALE, ROUTE } from '../web/console/frame.js';
+import { newState, decode, SRC_NAME, DST_NAME, LSHAPE, SCALE, ROUTE, MODS } from '../web/console/frame.js';
 
 const [wasmPath] = process.argv.slice(2);
 if (!wasmPath) { console.error('usage: node tests/console_test.mjs WASM'); process.exit(2); }
@@ -59,8 +59,8 @@ x.web_midi(0x90, 60, 100, 0);
 run(x, 200, take);
 check(st.voices.includes(60), `a key: its voice in the frame (${st.voices.join(' ')})`);
 x.web_midi(0x80, 60, 0, 0);
-check(st.mod.length === 8 && st.banks.length === 4 && st.seq[0].steps.length === 16 && st.orbit.steps.length === 16,
-      'MOD\'s eight slots, the four banks, SEQ A\'s 16 steps and ORBIT\'s 16');
+check(st.mod.length === MODS && MODS === 12 && st.banks.length === 4 && st.seq[0].steps.length === 16 && st.orbit.steps.length === 16,
+      'MOD\'s twelve slots, the four banks, SEQ A\'s 16 steps and ORBIT\'s 16');
 // EDIT: a field written where the lab's table puts it (as the console does, the player's way), the frames show it
 {
   const dv = new DataView(x.memory.buffer), m = new Uint8Array(x.memory.buffer), nf = x.web_nfields(), f0 = x.web_fields(), sz = x.web_field_size();

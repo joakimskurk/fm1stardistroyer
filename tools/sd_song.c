@@ -22,8 +22,8 @@
  *   BUILD    8   GROWL (the same line, still evolving): the lowpass on, closed, then opened all the way, RES up
  *   (break)      SEL to POLY, CHORDS, the last chorus's pattern
  *   CHORUS   16  again, BREAK's grit, MOVE; at bar 9 both tracks up a tone (E minor)
- *   OUTRO    8   SEQ B off, the arpeggiator on (HOLD, E G B E) over the chords, the echoes up, MASTER down; PLAY
- *                stops, the arp alone, then off */
+ *   OUTRO    8   SEQ B off, the arpeggiator on (HOLD, E G B E) over the chords, the echoes up, MASTER down; SEQ A
+ *                off, the arp alone, then off, and PLAY stops (since 2026-11-25 STOP stops the ARP too) */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -259,10 +259,16 @@ static int outro(double s0)                     /* the arp over the chords (E mi
     KNOB99(PG_SPACE, pat.s_dlevel, 60, S(80), S(100));  /* TIME's K4: D-LEVEL */
     pot(__LINE__, 1500, S(64), S(150));
     KNOB99(PG_SPACE, pat.s_fb, 22, S(156), S(172));    /* the echoes let go */
-    if (at(S(128))) play(0);                    /* the chords stop; the arp plays on, alone */
+    if (at(S(118))) press("SEQ", PG_SEQB);      /* (SEQ: back to its page last seen, B; then ORBIT, DRUM, A) */
+    if (at(S(120))) press("SEQ", PG_ORB);
+    if (at(S(122))) press("SEQ", PG_DRUM);
+    if (at(S(124))) press("SEQ", PG_SEQA);
+    if (at(S(128))) track_on(0, 0);             /* the chords stop; the arp plays on, alone (STOP would stop it too) */
+    if (at(S(150))) press("FX", PG_SPACE);      /* (back to the echoes) */
     if (at(S(174))) press("ARP", PG_ARP);
     if (at(S(176))) { act(); e.arp_on = 0; say("EDIT: ARP OFF"); }
-    return q >= S(176);
+    if (at(S(177))) play(0);
+    return q >= S(177);
 }
 #undef S
 

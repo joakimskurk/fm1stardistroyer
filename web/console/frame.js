@@ -3,17 +3,21 @@
 // CONSOLE: a frame of the FM-1's state (firmware/src/sd_console.h's sd_con_frame, field for field in its order) into
 // one state object that keeps the slow parts between their turns. Over USB MIDI the frame comes as
 // F0 7D 53 44 08 <frame> F7; from the page's player as the frame alone. tests/console_test.mjs reads the player's.
-export const VER = 1;
+export const VER = 2;                     // (2: twelve MOD slots, RADAR's own DESTs at 110)
 // the names the FM-1's screen uses (stardistroyer.c's lists; tests/console_test.mjs checks them against it)
 export const SRC_NAME = ["OFF", "ENV1", "ENV2", "LFO1", "LFO2", "NAV X", "NAV Y", "VEL", "KEY", "WHEEL", "AFTER", "RAND",
   "STEP", "SEGMENT", "D LOW", "D TOP", "R STAGE", "ECHO", "ENV3", "RADAR", "KICK", "SNARE", "SEQ A", "SEQ B", "RADAR 1"];
-export const DST_NAME = ["OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X", "NAV Y", "WIDTH", "R POS", "R FREQ",
-  "R RES", "R DRIVE", "R MIX", "DRV ALL", "BIAS", "LP FDBK", "LP TAME", "LP MIX", "D-FDBK", "D-LEVEL", "R-LEVEL",
-  "R-DECAY", "DRV TOP", "SPL HM", "CUTOFF", "F RES", "E1 ATK", "E1 DEC", "E1 SUS", "E1 REL", "E2 ATK", "E2 DEC", "E2 SUS",
-  "E2 REL", "E3 ATK", "E3 DEC", "E3 SUS", "E3 REL", "F ENV", "R SLEW", "LP TIME", "LP SPRD", "D-TIME", "D-TONE", "R-SIZE",
-  "R-TONE", "L1 RATE", "L2 RATE", "L-SPEED", "SPL LOW", "SPL LM", "DRV LOW", "DRV LM", "DRV HM", "BOOM", "SIZE", "AIR",
-  "P MACRO", "DRUMS", "VOLUME", "P TUNE", "FRZ PCH"];
-export const OWN_DST = ["NOTES", "ACCENTS", "ROLLS", "RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"];   // 0x80 +
+export const DST_NAME = ["OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X", "NAV Y", "WIDTH", "R POS",
+  "R FREQ", "R RES", "R DRIVE", "R MIX", "DRV ALL", "BIAS", "LP FDBK", "LP TAME", "LP MIX", "D-FDBK", "D-LEVEL",
+  "R-LEVEL", "R-DECAY", "DRV TOP", "SPL HM", "CUTOFF", "F RES", "E1 ATK", "E1 DEC", "E1 SUS", "E1 REL", "E2 ATK",
+  "E2 DEC", "E2 SUS", "E2 REL", "E3 ATK", "E3 DEC", "E3 SUS", "E3 REL", "F ENV", "R SLEW", "LP TIME", "LP SPRD",
+  "D-TIME", "D-TONE", "R-SIZE", "R-TONE", "L1 RATE", "L2 RATE", "L-SPEED", "SPL LOW", "SPL LM", "DRV LOW", "DRV LM",
+  "DRV HM", "BOOM", "SIZE", "AIR", "P MACRO", "DRUMS", "VOLUME", "P TUNE", "FRZ PCH", "FREEZE", "FRZ LVL", "SHIMMER",
+  "L-LEVEL", "L FILT", "L RSEND", "L DSEND", "R LOW", "LVL LOW", "LVL LM", "LVL HM", "LVL TOP", "PAN LOW", "PAN LM",
+  "PAN HM", "PAN TOP", "ALT LOW", "ALT LM", "ALT HM", "ALT TOP", "DYN ALL", "BDY ALL", "F KEY", "SUB LVL", "SUB SHP",
+  "SEARCH", "RDR OFS", "MUTATE", "MOVE", "BREAK", "M BODY", "M AIR", "DROWN", "GATE", "AMT 1", "AMT 2", "AMT 3",
+  "AMT 4", "AMT 5", "AMT 6", "AMT 7", "AMT 8", "AMT 9", "AMT 10", "AMT 11", "AMT 12"];
+export const OWN_DST = ["NOTES", "ACCENTS", "ROLLS", "RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"];   // 0x80 + (110 + in a frame)
 export const LSHAPE = ["SINE", "TRI", "SAW", "RAMP", "SQUARE", "S&H"];
 export const SCALE = ["MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM", "LYDIAN", "MIXO", "HMINOR",
   "PHRDOM", "DBLHRM", "WHOLE", "HIRA", "BLUES"];
@@ -29,7 +33,8 @@ export const AMODE = ["UP", "DOWN", "UP-DN", "RND", "ORDER", "IN", "OUT", "PEDAL
 // the FM-1's pages (stardistroyer.c's page): where the console lights a panel
 export const PAGE = ["NAV", "REACTOR", "DISTROY", "SPACE", "MOD", "MACROS", "SEQ", "ENV", "FILTER", "ARP", "ORBIT", "TIME",
   "LOOPER", "SETUP", "DRUM", "SUB"];
-export const dstName = (d) => d >= 100 ? OWN_DST[d - 100] || "?" : DST_NAME[d] || "?";
+export const MODS = 12;
+export const dstName = (d) => d >= 110 ? OWN_DST[d - 110] || "?" : DST_NAME[d] || "?";
 
 export function newState() {
   return { ok: false, frames: 0, slow: [false, false, false, false, false, false], seq: [{ steps: [] }, { steps: [] }],
@@ -64,7 +69,7 @@ export function decode(b, st) {
   st.radar = u() | (u() << 7) | (u() << 14); st.radarPlace = u(); st.radarOut = u();
   st.lfo = [s(), s()];
   st.env = [u(), u(), u()];
-  st.slot = []; for (let k = 0; k < 8; k++) st.slot.push(s());
+  st.slot = []; for (let k = 0; k < MODS; k++) st.slot.push(s());
   st.step = [u(), 0]; st.note = [u(), 0]; st.step[1] = u(); st.note[1] = u();
   st.orbStep = u(); st.orbLoops = u(); st.arpNote = u(); st.wheel = u(); st.after = u();
   if (u() !== slow) return false;
@@ -82,7 +87,7 @@ export function decode(b, st) {
     st.key = u(); st.scale = u();
   } else if (slow === 1) {
     st.mod = [];
-    for (let k = 0; k < 8; k++) st.mod.push({ src: u(), dst: u(), amt: (w() - 8192) * 4, off: w() - 100 });
+    for (let k = 0; k < MODS; k++) st.mod.push({ src: u(), dst: u(), amt: (w() - 8192) * 4, off: w() - 100 });
   } else if (slow === 2 || slow === 3) {
     const t = st.seq[slow - 2];
     t.on = u(); t.in = u(); t.len = u(); t.div = u(); t.bank = u(); t.segs = u();

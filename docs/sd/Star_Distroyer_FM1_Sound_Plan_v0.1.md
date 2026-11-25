@@ -364,6 +364,13 @@ band ─► DYNAMICS: PHAT ↔ SHARP (SHAPE) and its threshold (BODY), a gain fr
 FB is bounded below 1.0 in the table; a DC blocker and the soft clip sit inside the loop; a safety limiter after
 TAME stays inaudible until the system is already unstable (spec §4.7). Memory: 2 × 882 × 2 B ≈ 3.5 KB.
 
+FB below 1 does not hold the loop's gain below 1: a band's DRIVE and PHAT's lift of a quiet tail multiply it, and for
+a small signal the loop could pass unity and ring on by itself with no note (2026-11-25, the user: "overtones are
+sometimes left feeding in DIST, on other patches too, and my own with much distortion"; over USB, COLOSSUS: a tone on
+the right at -34 dBFS and growing, no voice). So the loop lets go when nothing plays: once no voice has sounded for
+`SD_DQ_HOLD` sub-blocks (0.74 s) its FB fades to 0 over `SD_DQ_FADE` (0.37 s), whatever the patch; the next note has
+it back at once (`test_distroy_letgo`: FDBK at the top on COLOSSUS rang at -7 dBFS a second on, now silent).
+
 ### 5.4 TAME
 
 Bypass at zero, then a tilt toward a 2-pole lowpass with a little resonance at the top of the range. One SVF per
@@ -507,6 +514,15 @@ core 0:  dry ──────────────────────�
   once it is let go, till SPACE rests) at the inverse. REVERSE (GLO + ALGORITHM, now on LOOPER) turns its head
   round: it plays the loop backwards, before it loops or while it does, round
   its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
+- *The tempo and LENGTH while it loops* (2026-11-25, the user: "4 BAR, but the head plays a small part of the marked
+  area; the looper must be fixed once and for all"; over USB: 224 BPM, the head round 0.6 .. 0.8 of the loop and back
+  each bar): the clock led the grid at the tempo of the moment while the head went on at the pace it was taken at, so
+  after a new TEMPO the grid was set back on its line at each bar, and the head with it. Now the tape follows the
+  tempo: the head's way and the grid's are scaled by the 16th then over the 16th now (`pU0`, x 0.25 .. 4; past that
+  it plays as it is, not led), its pitch with it, as a tape on a clock. LENGTH's knob turned while it loops (its
+  division, `sd_lp_knob`, not the halving a tempo makes) gives the loop the new length at once: its end where LOOP
+  left it, longer reaching back into what it recorded before, at its own tempo, halved till its memory holds it; the
+  head and the grid where the clock has them since LOOP (`test_looper_tempo`).
 - *Its grid* (an octave finds it again, over a glide or at once: GLO + OCT the octave, GLIDE on LOOPER's K1, MODE on
   TIME's ALGORITHM; where a glide cannot get there, a crossfade into its place). Core 0 plans the head a tick (16 of its samples) at a time, the job reads where it says (a tick's start
   and its way: what it reads stays inside the loop). The loop's grid is its own: where it would read had it played
@@ -708,6 +724,18 @@ listening rounds are in the git history.
   (`SD_MD_ORDER`) name each by the page its knob is on and the knob's name there (REACTOR POS, TIME D-LEVEL), the
   pages in the chain's order and on each its knobs' (K1..K4, then GLO's): the delay under TIME with the looper's
   SPEED, not under SPACE; the first 24 (OFF .. ENV 3) where they were, so a DEST turn played before lands there.
+- *Twelve slots, every knob* (2026-11-25, the user: "everything a modular synth nerd would modulate: every point
+  patchable"; "room for more mod banks? 12 is enough"): `SD_MODS` 12, SdPatch 500 B; the app moves an older save's
+  bytes to their places, slots 9..12 and their OFFSETs 0 (the 2 KB the saved patches and the knobs' copy need: the
+  pool's, from the main stack's bottom). 46 new destinations, 102 in the list with the drums out: the patch's own
+  fields where the engine reads them each tick after the matrix (REACTOR's LOW; DISTROY's bands' LEVEL, PAN, ALT,
+  all four's DYNAMIC and BODY; the filter's KEY; SUB's LEVEL and SHAPE: `sd_mod_restore` puts them back), the
+  engine's own beside the player's knobs (FREEZE as a gate over half, `frz_on` the player's or the matrix's; FRZ LVL,
+  the frozen tail's level down only, a chunk's gain in the plate's job; SHIMMER; the looper's L-LEVEL, FILTER, R-SEND,
+  D-SEND, never its arming; RADAR's SEARCH and OFFSET, a tick late as they are read before the matrix; ARP's GATE),
+  the six macros (added to their knobs before they act), and each slot's AMOUNT (AMT n: the slots to an AMOUNT run
+  first, then the rest at their amounts so moved; a slot at 0 % opened by another is a VCA). ORBIT's lanes skip the
+  AMOUNTs (they come after the matrix).
 - *LFOs:* six shapes, free or synced, KEY, and ONE (one cycle a note, unipolar: a SAW a ramp down inside the note).
 - *The macros:* MUTATE (XM WP FD DT, gentle: past it the saw edges alias), MOVE (the nav and POS stepping on the beat,
   glided ~10 ms; since 2026-11-23 the cutoff and XM ride the nav too), BREAK (DISTROY weighted toward the top band,
@@ -747,8 +775,11 @@ listening rounds are in the git history.
   sounding as it did (`sd_patch_levels`; every factory patch within 0.3 dB but for its TRIM). `test_gain_staging`
   holds it.
 - *SUB* (2026-11-21, the user: "a sub osc that can follow A, B or the root, always an octave under"; "a little more
-  fill at the bottom"): one oscillator an octave under the lowest note held on its side (A: the keys, SEQ A, the ARP;
-  B: SEQ B; ROOT: the key's root at or under A's note), at that voice's own envelope, glide and PITCH; clean after the
+  fill at the bottom"): one oscillator an octave under the lowest note held on its side (A: while SEQ A plays its
+  notes only, and the keys REC writes into it, stopped the keys and the ARP too, so a patch played on the keys sounds
+  as made; B: SEQ B; KEYS: the keys, and the track REC writes them into; ARP: its notes; ROOT: the key's root at or
+  under the lowest of the keys, SEQ A and the ARP. Till 2026-11-25 A followed the keys over a playing SEQ A, and the
+  user found it under everything they played: `sd_sub_hears`), at that voice's own envelope, glide and PITCH; clean after the
   FX, mono, before the limiter; SHAPE a sine to a triangle; OCTAVE -3..+3 from the note (-1 by default; the user,
   later that day: "choose the octave, +/- 3"; in the patch's spare byte, so every save loads as before), a fundamental
   past 4 kHz an octave down till it is not; LEVEL. Table-free; its sub-block's frames made at the tick,

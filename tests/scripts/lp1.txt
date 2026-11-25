@@ -1,8 +1,8 @@
 # LP1 (2026-11-21): the looper off keeps its loop. PLAY (12); ARP twice (10): LOOPER; EDIT (6) arms it; K1 (2) +1:
 # LOOP held (LOOPER's K1 since 2026-11-23, TOOLS' till then; ALGORITHM alone till 2026-11-22); ALGORITHM (1) +2: TOOLS; HOME (8), GLO (7) + G3 (key 2, LOOP's switch):
 # off, its loop kept (silent, not recording, the delay's half still lent); again: on, the same loop back; ARP
-# (LOOPER, TOOLS kept), K4 (5) +1: CLEAR THE LOOP?, OCT+ (1): cleared, the memory back to the delay (GLO + EDIT till
-# 2026-11-22). Checked by tests/app_loop_test.c.
+# (LOOPER, TOOLS kept), K3 (4) +1 (K4 till 2026-11-25): CLEAR THE LOOP?, OCT+ (1): cleared, the memory back to the delay
+# (GLO + EDIT till 2026-11-22). Checked by tests/app_loop_test.c.
 1700 btn 12
 1800 btn 10
 1900 btn 10
@@ -19,6 +19,6 @@
 9150 keys 0
 9200 btnup 7
 11000 btn 10
-11300 enc 5 1
+11300 enc 4 1
 11600 btn 1
 14000 end

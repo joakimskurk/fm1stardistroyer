@@ -141,7 +141,8 @@ how it behaves; how it got there is in the git history.
   DOWN UP-DN RND ORDER over 1–4 octaves, RATE 1/64 .. 1/2 (triplets, dotted), GATE, HOLD (ALGORITHM). It takes one voice.
 - *On the grid* (`grid_q8`): while the patterns play, ARP's steps fall on the clock time since the master's START
   (within 48 sixteenths, where every division fits), in the same sub-block as SEQ's; a hand under a quarter of a step
-  after a point plays at once, later it waits for the next. Stopped, ARP runs from the key. The master sets the grid
+  after a point plays at once, later it waits for the next. Stopped, ARP runs from the key; STOP parks it
+  (2026-11-25, the user: "it went on playing"): silent, a held list kept, again from its first note at START or at a key. The master sets the grid
   at each pair's first step (`grid_to`: its steps as 16ths at the tempo now, and how far into the step; SWING moves
   only the second): counted in samples alone, a tempo that moved (TEMPO, a MIDI clock's drift) left ARP, and the
   looper's grid, off the steps till a START (2026-11-19, the user; `test_arp_tempo`: 0 of 147 steps after a change
