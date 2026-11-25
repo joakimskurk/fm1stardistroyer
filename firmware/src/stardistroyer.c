@@ -112,7 +112,7 @@
  *              the middle), R-SEND, D-SEND. EDIT arms it, at any L-LEVEL (0: it records, silent), or turns it off with
  *              its loop KEPT (lp_hold: faded out, not recording, the same loop back when on; 2026-11-21). TOOLS: GLIDE
  *              (how long a new SPEED takes: OFF at once), REV (it plays it backwards), CLEAR (asked, OCT+ yes: the
- *              delay's line whole again). GLO + OCT: SPEED to the next octave down or up, over GLIDE (OFF: at once),
+ *              delay's line whole again), TEMPO (a new TEMPO under a loop: BEATS its pitch kept, TAPE with it). GLO + OCT: SPEED to the next octave down or up, over GLIDE (OFF: at once),
  *              the loop landing on its own grid (TOOLS' K3 OCTAVE from 2026-11-23 till 25). Armed, it borrows the delay
  *              line's second half (5.1 s with the RAM's last 24 KB, mono mu-law), the
  *              delay then 0.5 s. An engine off (EDIT), ARP or RADAR off, the LOOPER disarmed: its knobs grey, the
@@ -1642,6 +1642,8 @@ static int8_t sp_pitch;                         /* its PITCH (K2 there), -12 .. 
 /* LOOPER, the player's (not saved with the patch): LOOP and REVERSE (TOOLS), LENGTH (a division, synced whatever
    TIME's MODE: 2026-11-24), its speed (semitones x 256), its level */
 static uint8_t lp_on, lp_rev;
+static uint8_t lp_tape;                         /* TOOLS' K4 (2026-11-25): a new TEMPO under a loop, BEATS (0: its pitch
+                                                   kept, its 16ths taken on the new tempo's) or TAPE (its pitch with it) */
 static uint8_t lp_arm;                          /* armed (EDIT on LOOPER): it records, whatever L-LEVEL (2026-11-17,
                                                    the user: a loop taken at the bottom, then faded in) */
 static uint8_t lp_hold;                         /* switched off, its loop kept (eng.lp_hold): EDIT (or HOME's LOOP)
@@ -2630,7 +2632,7 @@ static void clear_all(void)
     pat.course = 0;
     sd_engine_patch(&eng, &pat);
     eng.arp_on = 0;
-    lp_on = 0; lp_rev = 0; lp_arm = 0; lp_hold = 0; lp_clr_at = 0; lp_speed = 0; lp_filt = 32768u; lp_rsend = 65535u; lp_dsend = 0;
+    lp_on = 0; lp_rev = 0; lp_tape = 0; lp_arm = 0; lp_hold = 0; lp_clr_at = 0; lp_speed = 0; lp_filt = 32768u; lp_rsend = 65535u; lp_dsend = 0;
     sp_frz = 0; sp_pitch = 0;
     for (k = 0; k < SD_DRS * SD_DR_STEPS; k++) sd_dr_step_set(&set.dpat, k / SD_DR_STEPS, k % SD_DR_STEPS, SD_DS_OFF);
     for (k = 0; k < SD_DRS; k++) dr_row_plain(k);
@@ -3764,12 +3766,12 @@ static void knobs_of(void)
         ku(1, "FDBK", q99(pat.s_fb)); ku(2, "TONE", q99(pat.s_dtone)); ku(3, "D-LEVEL", q99(pat.s_dlevel));
         break;
     case PAGE_LOOP:                             /* LOOPER: LOOP LENGTH SPEED L-LEVEL; SEND: FILTER R-SEND D-SEND; TOOLS:
-                                                   GLIDE REV CLEAR (the octave GLO + OCT again since 2026-11-25) */
+                                                   GLIDE REV CLEAR TEMPO (the octave GLO + OCT again since 2026-11-25) */
         if (l == LL_TOOLS) {
             *put_glide(t) = 0; kt(0, "GLIDE", t);
             kbt(1, "REV", lp_rev ? "ON" : "OFF", lp_rev ? 1u : 0u);
             kbt(2, "CLEAR", "CLEAR", lp_clr_at ? 1u : 0u);   /* (K3, as SEQ's TOOLS' CLEAR) */
-            k0(3);
+            kbt(3, "TEMPO", lp_tape ? "TAPE" : "BEATS", lp_tape ? 1u : 0u);   /* (how a loop follows a new TEMPO) */
             break;
         }
         if (l == LL_SEND) {
@@ -6712,8 +6714,9 @@ static void app_main(void)
                     set.bpm = (uint8_t)(t < 40 ? 40 : t > 240 ? 240 : t);
                     eng.bpm = set.bpm;
                     dirty = 1;
-                    if (eng.sp.pon) msg("LOOP PITCH FOLLOWS TEMPO");     /* (a loop playing follows a new TEMPO
-                                                   as a tape, 2026-11-25, the user: "say so on SETUP") */
+                    if (eng.sp.pon) msg(lp_tape ? "LOOP PITCH FOLLOWS TEMPO" : "LOOP KEEPS ITS PITCH: BEATS");   /* (a
+                                                   loop playing follows a new TEMPO as LOOPER's TOOLS say, 2026-11-25,
+                                                   the user: "say so on SETUP") */
                 }
                 if ((e = enc_take(ENC_KNOB2)) != 0 && set.xchrom != (v = (uint8_t)(e > 0))) set.xchrom = v, dirty = 1;
                 if ((e = enc_take(ENC_KNOB3)) != 0 && set.master != (v = (uint8_t)(e > 0))) set.master = v, dirty = 1;
@@ -6846,8 +6849,8 @@ static void app_main(void)
                     if ((e = enc_take(ENC_KNOB4)) != 0) pat.s_rlevel = knob_q(pat.s_rlevel, e), changed = 1;
                 }
             } else if (page == PAGE_LOOP && l == LL_TOOLS) {   /* LOOPER's TOOLS: GLIDE (how long a new SPEED
-                                                   takes), REV (it plays it backwards), CLEAR (asked, OCT+ yes); a turn
-                                                   right on, left off. The octave: GLO + OCT (TOOLS' K3 from 2026-11-23
+                                                   takes), REV (it plays it backwards), CLEAR (asked, OCT+ yes), TEMPO
+                                                   (BEATS or TAPE); a turn right on, left off. The octave: GLO + OCT (TOOLS' K3 from 2026-11-23
                                                    till 25: "pitch and octave both on it, and GLO + OCT gone") */
                 if ((e = enc_take(ENC_KNOB1)) != 0) lp_glide_turn(e);
                 if ((e = enc_take(ENC_KNOB2)) != 0 && lp_rev != (uint8_t)(e > 0)) {
@@ -6857,7 +6860,10 @@ static void app_main(void)
                 if ((e = enc_take(ENC_KNOB3)) != 0) {
                     if (lp_arm || lp_hold) lp_clr_at = fm1_ms ? fm1_ms : 1u; else msg("NO LOOP TO CLEAR");
                 }
-                (void)enc_take(ENC_KNOB4);
+                if ((e = enc_take(ENC_KNOB4)) != 0 && lp_tape != (uint8_t)(e > 0)) {   /* TEMPO: right TAPE, left BEATS */
+                    lp_tape = (uint8_t)(e > 0);
+                    msg(lp_tape ? "TAPE: PITCH FOLLOWS TEMPO" : "BEATS: PITCH KEPT");
+                }
             } else if (page == PAGE_LOOP && l == LL_SEND) {   /* LOOPER's SEND: FILTER (left a lowpass, right a
                                                    highpass, none in the middle: it stops there), R-SEND, D-SEND */
                 if ((e = enc_take(ENC_KNOB1)) != 0) {
@@ -7079,6 +7085,7 @@ static void app_main(void)
         eng.lp_filt = lp_filt; eng.lp_rsend = lp_rsend; eng.lp_dsend = lp_dsend;
         eng.lp_on = lp_on;
         eng.lp_rev = lp_rev;
+        eng.lp_tape = lp_tape;
 #if !defined(DINGHY_HOST) && defined(SD_RAM2) && SD_RAM2
         {                                       /* the RAM2 test: what it found, once after the splash */
             static uint8_t r2_said;

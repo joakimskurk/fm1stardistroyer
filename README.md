@@ -129,9 +129,11 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   waits, kept), and **PLAY** starts it again in sync, where it stood against the one (a MIDI clock's START and STOP
   too; looped while stopped, PLAY puts its start on the one). Taken synced, the sequencer's clock leads it from then
   on (2026-11-23): a MIDI clock read a little off, or a little drift, is taken back unheard (the loop a few cents
-  faster or slower for a moment); a new **TEMPO** while it loops it follows as a tape would (2026-11-25: its pitch
-  with it, up to two octaves either way; before, it jumped back on its line at each bar and played only a piece of
-  it), and **LENGTH** turned while it loops it takes at once, reaching back into what it recorded before LOOP
+  faster or slower for a moment); a new **TEMPO** while it loops it follows as TOOLS' K4 **TEMPO** says (2026-11-25;
+  before, it jumped back on its line at each bar and played only a piece of it): **BEATS** (first) keeps its pitch
+  and takes each of its 16ths again where the new tempo puts it (slower: a little of each 16th's start twice;
+  faster: each 16th's end cut), **TAPE** follows as a tape would, its pitch with it, up to two octaves either way
+  (SETUP says which as you turn TEMPO under a loop), and **LENGTH** turned while it loops it takes at once, reaching back into what it recorded before LOOP
   (halved till its memory holds it, as LOOP does). To play on over the loop without the sequencer, turn
   the tracks OFF (EDIT) or clear them (CLR). **SPEED** takes it up to an octave up or down, a semitone a detent (the pitch
   and the length together, as a tape's), and **REV** (TOOLS' K2) plays it backwards, its attacks turned

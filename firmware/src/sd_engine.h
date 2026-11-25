@@ -878,6 +878,7 @@ typedef struct {                                /* SPACE's state */
     /* LOOP synced while the tracks play: its lock on the grid (sd_lp_snap): waiting for a line ahead, the clock time
        still to go (samples x 256); the samples back to a line passed, for the job */
     uint8_t pqw;
+    uint8_t pbi;                                /* BEATS: the loop's 16th the grid is in (a new one: the head to it) */
     uint32_t pq, pback;
 } SdSpace;
 
@@ -1094,6 +1095,9 @@ typedef struct {
                                                    rate as it plays, its glide's after), RADAR's in whole semitones
                                                    (on the speed set: through GLIDE, and to the grid at an octave) */
     uint8_t lp_mon;                             /* a slot sends to it free (the grid then follows its wobble) */
+    volatile uint8_t lp_tape;                   /* how a loop follows a new tempo (2026-11-25, the user: "the loop's pitch
+                                                   moves with the BPM"): 0 BEATS, its pitch kept, its 16ths taken again
+                                                   on the clock's; 1 TAPE, its pitch with the tempo */
     volatile uint16_t lp_glide;                 /* GLIDE: how long a new speed takes; 0 at once, else a
                                                    division synced (sd_lp_glide_div), or free 0 .. 4000 ms */
     uint8_t *lpa, *lpb;                         /* its memory's two pieces (lpb may be NULL) */
@@ -2225,7 +2229,7 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s, uint32_t lq16)   /* lq16:
 {
     int32_t sp = e->lp_speed + e->lp_mtq + e->lp_orb, to, adv, bend = 0, A, gi;   /* (RADAR's semitones on the
                                                    speed set, ORBIT's step's) */
-    uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow, tc, q = 0, u = e->seq_len_q8, bku = 0, ca0, tr = 65536u, lead = 1;
+    uint32_t ticks = sd_lp_glide_ticks(e), ln, k, tnow, tc, q = 0, u = e->seq_len_q8, bku = 0, ca0, tr = 65536u, lead = 1, beats, beat;
     int run = e->seq_run != 0, start = (run && !s->prun) || e->seq_started, on;
     if (start) { s->pT = 0; s->pTc = 0; s->pCa = 0; }   /* the transport: STOP parks the loop, START plays it in
                                                    sync */
@@ -2334,6 +2338,10 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s, uint32_t lq16)   /* lq16:
         if (r >= 16384u && r <= 262144u) tr = r;
         else lead = 0;                          /* (too far: as it plays, not led) */
     }
+    beats = !e->lp_tape && (tr > 65536u + 256u || tr < 65536u - 256u);   /* BEATS (LOOPER's TOOLS, 2026-11-25):
+                                                   the head at its own speed, its pitch kept; at an octave it is taken to
+                                                   the grid at each of the loop's 16ths (below). Within 0.4 % (a MIDI
+                                                   clock read a little off, 7 cents at most): as a tape, unheard */
     adv = s->pr >> 4;                           /* 16 samples at the speed, x 256 */
     if (s->pgn < s->pgN) {                      /* gliding: its way and its bend to the tick's end (each a sum from
                                                    its start, so the whole is exact) */
@@ -2376,7 +2384,8 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s, uint32_t lq16)   /* lq16:
         if (s->pW > (int32_t)ln || s->pW < -(int32_t)ln) s->pW %= (int32_t)ln;   /* (round the loop) */
         adv = w;
     }
-    if (tr != 65536u) adv = (int32_t)(((int64_t)adv * tr) >> 16);   /* (the tempo moved since LOOP: the tape with it) */
+    if (tr != 65536u && !beats) adv = (int32_t)(((int64_t)adv * tr) >> 16);   /* (TAPE: the tempo moved since LOOP,
+                                                   the tape with it) */
     A = (s->pdir ? -adv : adv) + bend;
     if (s->pnud) { int32_t d = s->pnud > 16 ? 16 : s->pnud < -16 ? -16 : s->pnud; A += d; s->pnud -= d; }
     if (s->pon && e->tur_count != s->prseen) { /* RADAR 1's REPEAT, at RADAR's steps: on its side the slice of the
@@ -2455,13 +2464,21 @@ SD_HOT static void sd_lp_plan(SdEngine *e, SdSpace *s, uint32_t lq16)   /* lq16:
     if (s->pbl && (s->px = (int16_t)(s->px + s->pxd > 32767 ? 32767 : s->px + s->pxd)) >= 32767) {
         s->pk = s->pk1; s->pbl = 0; s->px = 0;  /* the crossfade done: the second head is the head */
     }
-    if (!s->pbl && !s->prep && s->pgn >= s->pgN && !s->ppend && gi >= 0 && s->lrev == s->pdir) {   /* at an octave, settled:
-                                                   its grid's place */
+    {                                           /* the loop's 16th (its LENGTH's, of the clock) the grid is in now */
+        uint32_t n16 = s->pCq / 192u, bi = s->pG[1] / (ln / (n16 ? n16 : 1u));   /* (ln >= 512: ln / 64 > 0) */
+        beat = bi != s->pbi;
+        s->pbi = (uint8_t)bi;
+    }
+    if (!s->pbl && !s->prep && s->pgn >= s->pgN && !s->ppend && gi >= 0 && s->lrev == s->pdir && (!beats || beat)) {
+                                                /* at an octave, settled: its grid's place (BEATS at another tempo: at
+                                                   each 16th, the slice the clock has come to, its pitch its own) */
         int32_t R = sd_lp_near(sd_lp_add(sd_lp_grid(s, (uint32_t)gi, 0), s->pW, ln), s->pk, gi ? ln : ln / 2u);
-        if (R > 1024 || R < -1024) {            /* a crossfade over: GLIDE long, at least a 16th of the loop */
+        if (R > 1024 || R < -1024) {            /* a crossfade over: GLIDE long, at least a 16th of the loop (BEATS:
+                                                   ~12 ms, as RADAR's REPEAT) */
             uint32_t xf = ln / 16u / 4096u;
             xf = xf > ticks ? xf : ticks;
             xf = xf < 28u ? 28u : xf;
+            if (beats) xf = 16u;
             s->pk1 = sd_lp_add(s->pk, R, ln);
             s->pbl = 1; s->px = 0;
             s->pxd = (int16_t)(32767u / xf ? 32767u / xf : 1u);

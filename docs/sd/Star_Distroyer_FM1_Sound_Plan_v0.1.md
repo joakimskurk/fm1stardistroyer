@@ -519,7 +519,11 @@ core 0:  dry ──────────────────────�
   each bar): the clock led the grid at the tempo of the moment while the head went on at the pace it was taken at, so
   after a new TEMPO the grid was set back on its line at each bar, and the head with it. Now the tape follows the
   tempo: the head's way and the grid's are scaled by the 16th then over the 16th now (`pU0`, x 0.25 .. 4; past that
-  it plays as it is, not led), its pitch with it, as a tape on a clock. LENGTH's knob turned while it loops (its
+  it plays as it is, not led), its pitch with it, as a tape on a clock: **TAPE** (LOOPER's TOOLS, K4). **BEATS** (the
+  first, 2026-11-25, the user: "the loop's pitch changes with the BPM"): the grid follows the tempo the same way, the
+  head keeps its own speed (its pitch), and at an octave each 16th of the loop the grid comes into (`pbi`, of its
+  LENGTH's) takes the head to it over ~12 ms (as RADAR's REPEAT): slower, a little of each 16th's start twice;
+  faster, each one's end cut; another SPEED plays free, as it would at any tempo (`test_looper_beats`). LENGTH's knob turned while it loops (its
   division, `sd_lp_knob`, not the halving a tempo makes) gives the loop the new length at once: its end where LOOP
   left it, longer reaching back into what it recorded before, at its own tempo, halved till its memory holds it; the
   head and the grid where the clock has them since LOOP (`test_looper_tempo`).

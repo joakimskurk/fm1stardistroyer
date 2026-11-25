@@ -4884,6 +4884,7 @@ static void test_looper_tempo(void)
     sd_engine_init(&el); el.sm = &lsm; sd_engine_looper_borrow(&el, lmem, sizeof lmem); sd_engine_patch(&el, &p);
     el.bpm = 120; sd_pattern_default(&pt); sd_engine_pattern(&el, &pt);
     el.lp_len = SD_LPDIV(14u); el.lp_lvl = 65535; el.lp_arm = 1; el.seq_run = 1;
+    el.lp_tape = 1;                             /* (TAPE: the head at the tempo's pace; BEATS: test_looper_beats) */
     run_ms(&el, 9000); el.lp_on = 1; run_ms(&el, 1500);
     ln2 = el.sp.pln;
     el.bpm = 224; run_ms(&el, 1500);            /* (the new tempo: a line's correction once) */
@@ -4913,6 +4914,59 @@ static void test_looper_tempo(void)
           "LENGTH turned while it loops: %u of the two bars' %u, %u .. %u a look (191)", ln1, ln2, smin1, smax1);
     printf("looper, the tempo 120 -> 224 as it loops: no step back, %u .. %u a look of 96, round %u times in 10 s; LENGTH "
            "turned to a bar: half the two bars (%u of %u), %u .. %u a look\n", smin, smax, wraps, ln1, ln2, smin1, smax1);
+}
+
+/* BEATS and TAPE (LOOPER's TOOLS K4, 2026-11-25, the user: "the loop's pitch changes with the BPM"): a bar's loop taken
+ * at 120, the tempo then 90. BEATS: the head at its own speed (its pitch), taken to the grid at each of the loop's 16ths,
+ * never more than a third of one off it (120 / 90 - 1), round with the clock (and at 160: a quarter, 1 - 120 / 160);
+ * TAPE: the head at 3/4 of its speed, on the grid all the while */
+static void test_looper_beats(void)
+{
+    static SdEngine el;
+    static SdSpaceMem lsm;
+    static uint8_t lmem[24576];
+    SdPatch p = SD_PATCH[0];
+    SdPattern pt;
+    static const uint8_t BPM2[3] = {90, 90, 160}, TAPE[3] = {0, 1, 0};
+    uint32_t mode, i, own[3], ticks[3], jumps[3], rounds[3], far[3], sl[3], was, prev;
+    p.s_dlevel = 20000; p.s_rlevel = 20000;
+    for (mode = 0; mode < 3u; mode++) {
+        sd_engine_init(&el); el.sm = &lsm; sd_engine_looper_borrow(&el, lmem, sizeof lmem); sd_engine_patch(&el, &p);
+        el.bpm = 120; sd_pattern_default(&pt); sd_engine_pattern(&el, &pt);
+        el.lp_len = SD_LPDIV(12u); el.lp_lvl = 65535; el.lp_arm = 1; el.seq_run = 1; el.lp_tape = TAPE[mode];
+        run_ms(&el, 6000); el.lp_on = 1; run_ms(&el, 1000);
+        el.bpm = BPM2[mode]; run_ms(&el, 3000); /* (the new tempo: the clock's line once) */
+        own[mode] = ticks[mode] = jumps[mode] = rounds[mode] = far[mode] = 0;
+        sl[mode] = el.sp.pln / 16u;
+        was = el.sp.pbl; prev = el.lp_at;
+        for (i = 0; i < 1600u; i++) {           /* 8 s, a look each 5 ms: 48 16ths at 90, 3 rounds (85 and 5 at 160) */
+            uint32_t hd;
+            int32_t d;
+            run_ms(&el, 5);
+            hd = el.sp.pbl ? el.sp.pk1 : el.sp.pk;
+            d = sd_lp_near(el.sp.pG[1], hd, el.sp.pln);
+            d = d < 0 ? -d : d;
+            if ((uint32_t)d > far[mode]) far[mode] = (uint32_t)d;
+            ticks[mode]++;
+            if (el.sp.lt.adv == (TAPE[mode] ? 3072 : 4096)) own[mode]++;
+            if (el.sp.pbl && !was) jumps[mode]++;
+            was = el.sp.pbl;
+            if (prev > 3072u && el.lp_at < 1024u) rounds[mode]++;
+            prev = el.lp_at;
+        }
+    }
+    CHECK(own[0] * 10u >= ticks[0] * 9u && jumps[0] >= 40u && jumps[0] <= 52u && far[0] * 5u < sl[0] * 2u && rounds[0] == 3u,
+          "BEATS at a new tempo: the head at its own speed %u of %u looks, %u slices taken (48), at most %u off the grid "
+          "(a 16th %u: 1/3 of it, 120 / 90 - 1), round %u times (3)", own[0], ticks[0], jumps[0], far[0], sl[0], rounds[0]);
+    CHECK(own[1] * 10u >= ticks[1] * 9u && jumps[1] == 0u && far[1] < 1024u && rounds[1] == 3u,
+          "TAPE at a new tempo: the head at 3/4 %u of %u looks, %u slices taken (none), at most %u off the grid, round %u "
+          "times (3)", own[1], ticks[1], jumps[1], far[1], rounds[1]);
+    CHECK(own[2] * 10u >= ticks[2] * 9u && jumps[2] >= 78u && jumps[2] <= 88u && far[2] * 10u < sl[2] * 3u && rounds[2] == 5u,
+          "BEATS at a faster tempo: the head at its own speed %u of %u looks, %u slices taken (85), at most %u off the grid "
+          "(a 16th %u: a quarter of it), round %u times (5)", own[2], ticks[2], jumps[2], far[2], sl[2], rounds[2]);
+    printf("looper, 120 -> 90 BPM: BEATS its pitch kept, %u slices taken in 8 s, never %u%% of a 16th off the grid, round "
+           "%u times; TAPE at 3/4, no slice, round %u times; BEATS at 160: %u slices, %u%% at most, round %u times\n",
+           jumps[0], far[0] * 100u / sl[0], rounds[0], rounds[1], jumps[2], far[2] * 100u / sl[2], rounds[2]);
 }
 
 /* DISTROY's loop let go when nothing plays (2026-11-25, the user: "overtones are sometimes left feeding in DIST"): its
@@ -5785,6 +5839,7 @@ int main(void)
     test_arp_stop();
     test_distroy_letgo();
     test_looper_tempo();
+    test_looper_beats();
     test_radar_on_in_play();
     test_clock_out();
     test_pingpong();
