@@ -2,8 +2,6 @@
 > host mode and the docs beside this file. Its examples name `dinghy.c`, which is `firmware/src/stardistroyer.c` here.
 > Star Distroyer's own README is [../README.md](../README.md).
 
-<p align="center"><img src="../assets/logo.svg" width="96" alt="Dinghy"></p>
-
 # Dinghy
 
 **The smallest firmware for the M-VAVE FM-1 to build your own on.**

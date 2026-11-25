@@ -22,7 +22,7 @@ works: `./build.sh` and `tests/run_host.sh` (see the [README](../README.md)).
 - The update loader's screen (FM-1) shows `SCREEN_NAME` in `SCREEN_COLOUR` (RGB565), both in `tools/build.py`.
 - Your data: a `STORE_MAGIC` of your own in `firmware/src/store.h`, so your firmware never reads another Dinghy fork's
   settings as its own; for the SMK-37 also `DATA_FAMILY` in `tools/build.py` (the store's owner tag, 1..7 of A-Z 0-9).
-- Make your own logo; `assets/logo.svg` is Dinghy's.
+- Make your own logo; Dinghy's (the designburg signet, in Dinghy's own repository) marks Dinghy only.
 
 ## 3. Your package identity
 
