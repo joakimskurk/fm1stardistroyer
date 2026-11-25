@@ -821,7 +821,8 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Credits and licence
 
-Star Distroyer is by [joakimskurk](https://github.com/joakimskurk). It is built on
+Star Distroyer is by [joakimskurk](https://github.com/joakimskurk), inspired by some of my favourite Eurorack modules
+and concepts. It is built on
 [Dinghy](https://github.com/zvenson/dinghy) by zvenson, which is based on
 [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (Hügelton Instruments), with its platform as
 [SLOOP](https://github.com/isod89/sloop-fm1) (isod89) carries it. The logo's letters are
