@@ -31,10 +31,8 @@ feeding a plate. Around them
 are a modulation matrix with RADAR (a loop of random steps), six macros, a two-track step sequencer with segments, and an
 arpeggiator. 29 patches come with it, and 32 places of your own.
 
-> **Status:** the second beta, [0.3-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta). Each version is
-> played on an FM-1, and everything here also runs on the host (the same C, the sound as WAV, the screen as images) and
-> in the FM-1 emulator. Install it only if you are ready to take the way back (Install, below). What you save
-> may not load in the next beta: the saves can change until 1.0.
+> **Status:** beta, [0.4-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.4-beta), tested on the FM-1.
+> Install it only if you are ready to take the way back (Install, below). Saves may change before 1.0.
 
 <p align="center">
   <img src="docs/readme/chain.svg" width="880" alt="The signal chain: KEYS and MIDI, SEQ A and B, and ARP play the voices; VOICE into REACTOR into DISTROY into TIME and SPACE, to the stereo out; the modulation matrix with RADAR and six macros reach every engine">
@@ -605,7 +603,7 @@ they follow what plays and that the sound is the same sample for sample with the
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
-The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.3-beta): `stardistroyer-0.3-beta.fwsc` is the FM-1's (the `-smk37` packages are the
+The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.4-beta): `stardistroyer-0.4-beta.fwsc` is the FM-1's (the `-smk37` packages are the
 SMK-37's, not yet tried on one). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
 of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
 `tools/fm1_install.py`. Either way, installing it is on you.
@@ -628,7 +626,7 @@ of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package
    ([FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter)).
 
 The package accepts both FM-1 flash chips: the first units' Puya P25Q80 (0x856014) and the UC25HQ80 (0xB36014) in
-units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.3-beta: `FM-1_96203`).
+units sold since autumn 2026. A development build identifies as `FM-1_96200`, a release X.Y as `FM-1_962XY` (0.4-beta: `FM-1_96204`).
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Build from source
 
