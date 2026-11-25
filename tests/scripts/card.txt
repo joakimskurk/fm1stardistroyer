@@ -1,5 +1,5 @@
-# The Firmware Hub's card (docs/card.png, fmhub.json): DISTROY on the NAV page, the loop playing.
-# tools/make_card.sh turns the last shot into the 240x240 PNG. Buttons: PLAY 12.
-1700 btn 12
-3000 shot
-3500 end
+# The Firmware Hub's card (docs/card.png, fmhub.json): the splash, its shooting star on the way (as the README's
+# screen_splash.png; the NAV page with the loop playing till 2026-11-25, the user: "the splash as the card").
+# tools/make_card.sh turns the last shot into the 240x240 PNG.
+700 shot
+900 end

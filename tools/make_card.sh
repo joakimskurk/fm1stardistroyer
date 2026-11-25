@@ -13,7 +13,7 @@ from PIL import Image
 shot = sorted(Path("build/host").glob("stardistroyer-*.png"), key=lambda p: int(p.stem.split("-")[-1]))[-1]
 Image.open(shot).resize((240, 240), Image.NEAREST).save("docs/card.png", optimize=True)   # run_host.sh doubles it
 j = json.loads(Path("fmhub.json").read_text())
-assert set(j) <= {"what", "author", "kinds", "play", "editor", "cheat", "image", "color"}, "fmhub.json: an unknown field"
+assert set(j) <= {"what", "author", "kinds", "play", "editor", "cheat", "image", "color", "sounds"}, "fmhub.json: an unknown field"
 w = j["what"]
 assert 20 <= len(w) <= 300 and not re.search(r"<|>|https?:|www\.|`", w), f"fmhub.json: what ({len(w)} characters)"
 assert 2 <= len(j.get("author", "xx")) <= 60
