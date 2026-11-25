@@ -311,7 +311,12 @@ enum { SD_PL_IN0, SD_PL_A1 = 4, SD_PL_D1 = 6, SD_PL_A2 = 8, SD_PL_D2 = 10, SD_PL
 #define SD_PL_SMIN 22938                        /* SIZE: 0.35 .. 1.75 x, Q16 */
 #define SD_PL_SMAX 114688
 #define SD_PL_BLK 128u                          /* a job: 128 plate samples (256 frames: an audio half on the FM-1);
-                                                   its output heard a block later (5.8 ms on the wet) */
+                                                   the looper's output heard a block later, the plate's two (11.6 ms
+                                                   on the wet: SD_PL_LAT) */
+#define SD_PL_LAT (2u * SD_PL_BLK)              /* (2026-11-25: a block later, the first core waited for the plate in
+                                                   every other interrupt, up to 20 % of it on the FM-1 at a heavy
+                                                   load; a block more, and the job has a whole block. The looper's
+                                                   part of the job comes first, its mark lpq: its timing as it was) */
 #define SD_PL_ZN 512u                           /* the outputs' ring (a power of two) */
 #define SD_PL_CH 24u                            /* the chunks' ring: a tick's settings each, two blocks of them */
 #define SD_SP_RFN (1452u + 1668u + 1862u + 2028u)   /* the room's lines, each its longest + 1, at half rate (rings of
@@ -752,6 +757,8 @@ typedef struct {                                /* SPACE's state */
                                                    to half rate */
     int32_t qfm[4u * SD_PL_BLK];
     uint32_t qn, qpost, qdone, qpw, qb0[2], qb1[2];   /* (qb: each block in flight, its chunks qb0 .. qb1) */
+    volatile uint32_t lpq;                      /* the job's first part done (the looper's out, the plate's way in):
+                                                   its block + 1 (the job's to write) */
     SdPlateP qp[SD_PL_CH];
     int32_t zl[SD_PL_ZN], zr[SD_PL_ZN];
     /* the room (one core): its write places, the tone lowpasses, the lines' lengths moving to their targets, the
@@ -1052,6 +1059,7 @@ typedef struct {
        once. The job is sd_plate_job */
     int (*pl_post)(void *e, uint32_t b);
     int (*pl_join)(void *e);
+    int (*lp_join)(void *e);                    /* waits for the block's first part (sp.lpq): 0, or -1 (then pl_join) */
     /* the drums' batch on the second core (the app's sd_c1_job, dr.ext): dr_wait waits till it has done what is
        asked (SD_DR_DONE) and returns 0, or -1 (late, or the core gone): the rest here. NULL: here, always */
     int (*dr_wait)(void *e, uint32_t want);
@@ -5548,21 +5556,25 @@ SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32
 {
     SdSpace *s = &e->sp;
     uint32_t c = s->qb0[b & 1u], end = s->qb1[b & 1u], k, qm = 4u * SD_PL_BLK - 1u;
-    int32_t pin[16], yo[32], lg = s->lgq ? (int32_t)(s->lgq > 16384u ? 16384u : s->lgq < 64u ? 64u : s->lgq) << 4 : 16384;
+    int32_t pin[16], lg = s->lgq ? (int32_t)(s->lgq > 16384u ? 16384u : s->lgq < 64u ? 64u : s->lgq) << 4 : 16384;
     SdLpMem L;
     int lp;
     L.a = la; L.na = la ? na : 0u; L.b = lb; L.n = L.na + (lb ? nbb : 0u);
     lp = la && L.n > SD_LP_XF + 64u && L.n <= SD_LP_NMAX;
     if (end - c > SD_PL_CH) c = end - SD_PL_CH; /* (a count read wrong: at most the ring) */
-    for (k = c; k != end; k++) {
+    for (k = c; k != end; k++) {                /* first: each chunk's frames through the half-bands in, the looper and
+                                                   its out (heard a block later: the first core waits for this part,
+                                                   lpq), and the plate's way in (put back in the queue's mono at its
+                                                   first frame, read by then; the queue's other block is the first
+                                                   core's) */
         const SdPlateP *pp = &s->qp[k % SD_PL_CH];
         uint32_t i, n = pp->n <= 16u ? pp->n : 16u, z = SD_PL_ZN - 1u;
         int lq = lp && (pp->llvl || pp->larm || pp->lt.on);   /* (armed at L-LEVEL 0: it records) */
         for (i = 0; i < n; i++) {               /* the frames of sample m (2m, 2m + 1) through the half-bands in; the
                                                    looper; the plate's input: the dry, the echoes, the looper (as the
                                                    synth goes in: mono, x 1/8) */
-            uint32_t f = (2u * (pp->m0 + i)) & qm, j, w = s->hxw & 31u;
-            int32_t xl = 0, xm;
+            uint32_t f = (2u * (pp->m0 + i)) & qm, f0 = f, j, w = s->hxw & 31u, q = (pp->m0 + i) & z;
+            int32_t xl = 0, xm, pi, yl = 0, yr = 0;
             for (j = 0; j < 2u; j++, f = (f + 1u) & qm, w = (w + 1u) & 31u) {
                 s->hx[w] = s->qfl[f] + s->qfr[f];   /* (the looper's: mono, the two sides' mean) */
                 s->hxm[w] = sd_td_clip(s->qfm[f]);
@@ -5570,27 +5582,31 @@ SD_HOT static void sd_plate_job_at(SdEngine *e, int16_t *pm, uint8_t *la, uint32
             s->hxw = (uint8_t)w;
             xm = sd_hb_down(s->hxm, w);
             if (lq) xl = sd_hb_down(s->hx, w);
-            yo[2u * i] = yo[2u * i + 1u] = 0;
-            pin[i] = sd_td_clip(xm);
+            pi = sd_td_clip(xm);
             if (lq) {                           /* the looper, armed or playing only (2026-11-17: `lp` stood here, so
                                                    it recorded in every job, into the delay's second half while the
                                                    delay had its whole line: the looper unarmed no longer borrows it) */
-                sd_lp_step(s, &L, xl, &pp->lt, (uint32_t)pp->li0 + i, pp->lt.rst && !i, pp->llvl,
-                           &yo[2u * i], &yo[2u * i + 1u]);
+                sd_lp_step(s, &L, xl, &pp->lt, (uint32_t)pp->li0 + i, pp->lt.rst && !i, pp->llvl, &yl, &yr);
                 if (!i) sd_lp_fset(s, pp->lff); /* (its FILTER: worked out here, as its knob changes) */
-                yo[2u * i] = yo[2u * i + 1u] = sd_lp_flt(yo[2u * i], s->lfm, s->lfa, s->lfs);   /* (mono: its FILTER) */
+                yl = yr = sd_lp_flt(yl, s->lfm, s->lfa, s->lfs);   /* (mono: its FILTER) */
                 {                               /* (into the reverb at the TRIM ratio it is heard at: lgq) */
-                    int32_t q = sd_lp_send((sd_td_clip(yo[2u * i]) + sd_td_clip(yo[2u * i + 1u])) >> 3, pp->lrs);
-                    pin[i] += lg == 16384 ? q : (int32_t)(((int64_t)q * lg) >> 14);
+                    int32_t q = sd_lp_send((sd_td_clip(yl) + sd_td_clip(yr)) >> 3, pp->lrs);
+                    pi += lg == 16384 ? q : (int32_t)(((int64_t)q * lg) >> 14);
                 }
             }
+            s->qfm[f0] = pi;
+            s->yl[q] = (int16_t)(sd_td_clip(yl) >> 1);   /* the looper's out to its ring (x 1/2: 16 bits) */
+            s->yr[q] = (int16_t)(sd_td_clip(yr) >> 1);
         }
+    }
+    SD_BARRIER();
+    s->lpq = b + 1u;                            /* (the first core: the looper's out is there) */
+    SD_BARRIER();
+    for (k = c; k != end; k++) {                /* then the plate, chunk by chunk */
+        const SdPlateP *pp = &s->qp[k % SD_PL_CH];
+        uint32_t i, n = pp->n <= 16u ? pp->n : 16u;
+        for (i = 0; i < n; i++) pin[i] = s->qfm[(2u * (pp->m0 + i)) & qm];
         sd_plate_blk(s, pm, pp, pp->G != 0, pin);
-        for (i = 0; i < n; i++) {               /* the looper's out to its ring (x 1/2: 16 bits) */
-            uint32_t q = (pp->m0 + i) & z;
-            s->yl[q] = (int16_t)(sd_td_clip(yo[2u * i]) >> 1);
-            s->yr[q] = (int16_t)(sd_td_clip(yo[2u * i + 1u]) >> 1);
-        }
     }
 }
 
@@ -5673,21 +5689,30 @@ SD_RAM(plate) static void sd_plate_drop(SdEngine *e, uint32_t b)
     }
 }
 /* the plate's jobs, in order: block b waits for b - 1 (they share its lines). Without hooks (a computer: the host,
- * the page's player) each runs here at once; with them (the FM-1) a block not handed over or not back is dropped */
+ * the page's player) each runs here at once; with them (the FM-1) a block not handed over or not back is dropped.
+ * SPACE waits only for a job's first part (sd_plate_lp_join); the job itself before the next is handed over */
 SD_RAM(plate) static void sd_plate_join(SdEngine *e)
 {
     SdSpace *s = &e->sp;
     if (s->qdone == s->qpost) return;
     if (e->pl_join && e->pl_join(e) != 0) sd_plate_drop(e, s->qpost - 1u);
     s->qdone = s->qpost;
+    s->lpq = s->qpost;                          /* (done, or dropped: neither waits again) */
 }
-static void sd_plate_post(SdEngine *e, uint32_t b)
+/* SPACE's wait, before its frames: for the block's first part only (the looper's out; the job hands it over a fraction
+ * into its run). Not back in time (the app's hook) or no hook: the whole job, as before */
+SD_HOT SD_NOINLINE static void sd_plate_lp_join(SdEngine *e)
+{
+    if (!e->lp_join || e->lp_join(e) != 0) SD_FAR(sd_plate_join)(e);
+}
+SD_HOT SD_NOINLINE static void sd_plate_post(SdEngine *e, uint32_t b)   /* (once a block: from the flash, the RAM
+                                                   code is full) */
 {
     SdSpace *s = &e->sp;
-    sd_plate_join(e);
+    SD_FAR(sd_plate_join)(e);
     s->qpost = b + 1u;
     if (!e->pl_post) { sd_plate_job(e, b); s->qdone = b + 1u; }
-    else if (!e->pl_post(e, b)) { sd_plate_drop(e, b); s->qdone = b + 1u; }
+    else if (!e->pl_post(e, b)) { SD_FAR(sd_plate_drop)(e, b); s->qdone = s->lpq = b + 1u; }
 }
 /* a plate sample queued (the decimated input x, at frame scale sc, SIZE's step sstep): into the tick's chunk (a new
  * one at a tick or a block), and at a block's end the block handed over */
@@ -5718,7 +5743,7 @@ SD_INLINE void sd_plate_queue(SdEngine *e, int32_t sc, int32_t sstep)
     s->qn = m + 1u;
     if (!((m + 1u) % SD_PL_BLK)) {              /* a block's end: handed over */
         s->qb1[(m / SD_PL_BLK) & 1u] = s->qpw;
-        sd_plate_post(e, m / SD_PL_BLK);
+        SD_FAR(sd_plate_post)(e, m / SD_PL_BLK);
     }
 }
 /* the room (one core): a sample at half rate of the dry and the echoes, through four diffusers into a 4-line FDN
@@ -5786,7 +5811,7 @@ SD_RAM(space) SD_NOINLINE static void sd_frz_room(SdSpace *s, SdRoomMem *rm, con
     for (i = 0; i < m; i++) {
         int32_t x;
         if (ph) ml++;
-        c = (ml - 6u - SD_PL_BLK) & (SD_PL_ZN - 1u);
+        c = (ml - 6u - SD_PL_LAT) & (SD_PL_ZN - 1u);
         x = (gi == 1024 ? in[i] : (in[i] >> 4) * gi >> 6) + ((s->zl[c] + s->zr[c]) >> 2);   /* (|in| < 2^18: >> 4
                                                    first, x 2^14 fits) */
         if (g != tg) g += g < tg ? (g < tg - 75 ? 75 : tg - g) : (g > 75 ? -75 : -g);
@@ -5824,7 +5849,8 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
     int lp;
     L.a = e->lpa; L.na = e->lpa ? e->lpa_n : 0u; L.b = e->lpb; L.n = sd_lp_total(e);
     lp = room && e->lpa && L.n > SD_LP_XF + 64u;   /* (one core: the looper here) */
-    if (!room) sd_plate_join(e);                /* (the block heard here: done) */
+    if (!room && s->lpq != s->qpost) SD_FAR(sd_plate_lp_join)(e);   /* (the looper's out heard here: there; the
+                                                   plate's a block later, SD_PL_LAT: its job joined by then) */
     if (s->loop) s->lhear = 24u * SD_PL_BLK;    /* (looping: on, and 3072 frames after: its fade, 2048, and the ring's
                                                    block) */
     ml = s->qn - 1u;
@@ -5925,16 +5951,16 @@ SD_INLINE void sd_space_loop(SdEngine *e, const int32_t *in, int32_t *out, uint3
         if (!room) {
             if (!ph) {
                 uint32_t c = ml - 6u - SD_PL_BLK;
-                al = sd_hb_mid(s->zl, c);
-                ar = sd_hb_mid(s->zr, c);
+                al = sd_hb_mid(s->zl, c - SD_PL_BLK);
+                ar = sd_hb_mid(s->zr, c - SD_PL_BLK);
                 if (s->lhear) lr = ll = sd_hb_mid16(s->yl, c) * lq >> 10;   /* (x TRIM then / now, lgq: |x| ~ 2^16,
                                                    lq <= 2^14; the loop is mono, yr as yl) */
             } else {
                 uint32_t c;
                 ml++;
                 c = (ml - 6u - SD_PL_BLK) & z;
-                al = s->zl[c];
-                ar = s->zr[c];
+                al = s->zl[(c - SD_PL_BLK) & z];   /* (the plate's: SD_PL_LAT) */
+                ar = s->zr[(c - SD_PL_BLK) & z];
                 if (s->lhear) lr = ll = s->yl[c] * lq >> 9;
             }
             if (s->lhear) s->lhear--;

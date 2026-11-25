@@ -433,6 +433,21 @@ SD_HOT static int sd_c1_join(void *e)           /* the block back: its own mark,
     eng.sp_room = 1;
     return -1;
 }
+SD_HOT static int sd_c1_lpjoin(void *e)         /* SPACE, before its frames: the job's first part (the looper's out, the
+                                                   plate's way in: sp.lpq), handed over a fraction into the job; the
+                                                   job itself is joined a block on (SD_PL_LAT). -1: not in time, or the
+                                                   core gone: then sd_c1_join, the whole job (as before 2026-11-25) */
+{
+    uint32_t t0 = fm1_ticks();
+    (void)e;
+    for (;;) {
+        fm1_cpu1_check();
+        if (eng.sp.lpq == eng.sp.qpost) { c1_wait += fm1_ticks() - t0; return 0; }
+        if (!fm1_cpu1_on || (uint32_t)(fm1_ticks() - t0) >= 1500u * FM1_TICKS_PER_US) break;
+    }
+    c1_wait += fm1_ticks() - t0;
+    return -1;
+}
 #endif
 
 /* ---- the audio's load: ticks of the timer (FM1_TICKS_PER_US a microsecond) per interrupt */
@@ -491,6 +506,7 @@ static void eng_setup(void)
     eng.pl_post = sd_c1_post;                   /* (before SPACE has its memory: no block ever runs here) */
     eng.pl_join = sd_c1_join;
 #if FM1_CPU1
+    eng.lp_join = sd_c1_lpjoin;                 /* (SPACE: the job's first part, the looper's out) */
 #if SD_C1_HALVES
     eng.c1_post = sd_c1_hpost;                 /* (the first core's half of each sub-block: beside it) */
     eng.c1_join = sd_c1_hjoin;

@@ -442,8 +442,13 @@ in (the dry + the echoes, mono) ─► half-band ↓2 ─► lowpass ─► 4 di
 
 - *Jobs:* the plate's input is queued at half rate, with each tick's settings in a chunk (`SdPlateP`: its lengths,
   taps, gains and SIZE's glide as core 0 left them). At the end of each block of 128 samples (256 frames, one audio
-  interrupt) the block is handed to the second core (`pl_post`), which runs it between interrupts; the next
-  interrupt waits for it (`pl_join`) before it reads its outputs, a block late. Run later or at once (a computer: the
+  interrupt) the block is handed to the second core (`pl_post`), which runs it between interrupts. The job does the
+  looper's part first (the half-bands in, the looper, the plate's way in) and marks it (`sp.lpq`), then the plate:
+  the next interrupt waits only for that mark (`lp_join`) and hears the looper a block late, the plate two blocks
+  late (`SD_PL_LAT`, 11.6 ms on the wet); the whole job is joined (`pl_join`) before the next is handed over. (Until
+  2026-11-25 SPACE waited for the whole job: on the user's FM-1 the job takes ~1.4 ms, and the first core waited
+  9-19 % of every interrupt at a heavy load, 98-105 % with skipped blocks; now under 1 %, 85-93 %.) Run later or at
+  once (a computer: the
   host, the page's player): the same sound bit for bit (`test_plate_jobs`). On the FM-1 the plate never runs on core
   0 (core 0 keeps the original sound): a block not handed over or not back is dropped, its tail fading out over the block (`sd_plate_drop`), and the room plays from the next tick.
 - *The platform:* `firmware/hal/fm1_cpu1.h`, `fm1_cpu1.S`, `fm1_cpu1_stop.h`, taken from felucca-bsp (MPL-2.0) and

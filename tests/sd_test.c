@@ -2419,6 +2419,8 @@ static void test_looper(void)
  * while a chord rings (a tape) leaves no click in the wet; FREEZE holds the tail's level and keeps new notes out;
  * SHIMMER at its most on the longest DECAY still dies away */
 static int32_t pl_out[2u * 32u * SD_FS], pl_in[2u * 32u * SD_FS];
+#define PL_LATE (2u * (SD_PL_LAT - SD_PL_BLK))  /* frames: the plate's block more (2026-11-25), its wet the same sound
+                                                   that much later (the click count's windows where they stood) */
 static int8_t pl_pitch;                         /* SPACE's PITCH for plate_feed */
 static SdRoomMem pl_frm;                        /* the room beside the frozen plate, for plate_feed (pl_room) */
 static int pl_room;
@@ -2655,11 +2657,12 @@ static void test_plate(void)
         pl_in[2u * i] = pl_in[2u * i + 1u] = (int32_t)lrint(v);
     }
     plate_feed(&p, 12u * SD_FS, 1, -1, -1);
-    for (i = 3u * SD_FS; i + 2u < 12u * SD_FS; i++) {   /* the second difference 8 x over its 10 ms round it */
+    for (i = 3u * SD_FS + PL_LATE; i + 2u < 12u * SD_FS; i++) {   /* the second difference 8 x over its 10 ms round
+                                                   it (from where it stood before the plate's extra block: PL_LATE) */
         static double r2[441];
         double hh = pl_out[2u * (i + 2u)] - 2.0 * pl_out[2u * (i + 1u)] + pl_out[2u * i], loc = 0;
         uint32_t j;
-        if (i % 441u == 0u || i == 3u * SD_FS) {
+        if ((i - PL_LATE) % 441u == 0u || i == 3u * SD_FS + PL_LATE) {
             for (j = 0; j < 441u && i + j + 2u < 12u * SD_FS; j++) {
                 double q = pl_out[2u * (i + j + 2u)] - 2.0 * pl_out[2u * (i + j + 1u)] + pl_out[2u * (i + j)];
                 r2[j] = q * q;
