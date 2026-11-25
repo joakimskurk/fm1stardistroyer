@@ -103,9 +103,11 @@
  *              0..99, s_mode's top bits; off FREEZE's layer since 2026-11-23, the user: "it does nothing while frozen")
  *   TIME       the delay: DELAY: TIME FDBK TONE D-LEVEL; MODE: K1 FREE or SYNC, K2 PING-PONG
  *   LOOPER     the looper (the player's, not the patch's; always recording what SPACE hears before the reverb):
- *              LOOPER: LOOP (it stops and plays its last LENGTH round, at its SPEED, +-12 semitones; into the
+ *              LOOPER: LOOP (it stops and plays its last LENGTH round, at its SPEED, +-12 semitones, at the level
+ *              it was heard at whatever patch comes (its TRIM; 2026-11-24); into the
  *              reverb as the synth goes; the delay goes on; on this layer since 2026-11-23, the user: "LOOP on
- *              LOOPER, GLIDE can move") LENGTH SPEED L-LEVEL; SEND: FILTER (a lowpass left, a highpass right, none in
+ *              LOOPER, GLIDE can move") LENGTH (a division, synced whatever TIME's MODE) SPEED L-LEVEL; SEND:
+ *              FILTER (a lowpass left, a highpass right, none in
  *              the middle), R-SEND, D-SEND. EDIT arms it, at any L-LEVEL (0: it records, silent), or turns it off with
  *              its loop KEPT (lp_hold: faded out, not recording, the same loop back when on; 2026-11-21). TOOLS: GLIDE
  *              (how long a new SPEED takes: OFF at once), REV (it plays it backwards), OCTAVE (SPEED to the next
@@ -1599,8 +1601,8 @@ static int32_t enc_take(uint32_t e)             /* an encoder's detents: one tur
 }
 static uint8_t sp_frz;                          /* SPACE's FREEZE (its FREEZE layer's K1): the player's, not the patch's */
 static int8_t sp_pitch;                         /* its PITCH (K2 there), -12 .. 12: the frozen tail's; the player's */
-/* LOOPER, the player's (not saved with the patch): LOOP and REVERSE (TOOLS), LENGTH (as TIME: ms, or a division with
-   SYNC), its speed (semitones x 256), its level */
+/* LOOPER, the player's (not saved with the patch): LOOP and REVERSE (TOOLS), LENGTH (a division, synced whatever
+   TIME's MODE: 2026-11-24), its speed (semitones x 256), its level */
 static uint8_t lp_on, lp_rev;
 static uint8_t lp_arm;                          /* armed (EDIT on LOOPER): it records, whatever L-LEVEL (2026-11-17,
                                                    the user: a loop taken at the bottom, then faded in) */
@@ -1618,7 +1620,7 @@ static void lp_clear(void)                      /* the loop let go: the memory b
     lp_arm = 0; lp_hold = 0; lp_on = 0; lp_clr_at = 0;
     msg(eng.lp_borrow ? "LOOP CLEARED: DELAY 1 S" : "LOOP CLEARED");
 }
-static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl = 52300u;   /* (1/8, or 334 ms free;
+static uint16_t lp_len = (uint16_t)(5u * 65536u / SD_LP_NDIV + 100u), lp_lvl = 52300u;   /* (1/8;
                                                    L-LEVEL 79: only its level now, EDIT arms it) */
 static uint16_t home_filt;                      /* HOME's DARK (MORE's K4; FILTER on K4 2026-11-19): every cutoff down, 0
                                                    open (eng.filt; the player's, not the patch's: kept as patches change) */
@@ -2172,12 +2174,13 @@ static char *put_time(char *p)                  /* TIME: a division, or ms */
     p = put_u(p, sd_sp_ms(pat.s_time));
     return put(p, "ms");
 }
-static uint32_t time_fold(uint32_t d, uint32_t t, uint32_t lim, char *played)   /* a TIME (or LENGTH: its division d,
-                                                   its value t) longer than its line at this tempo: the halvings the
-                                                   engine takes (sd_space_sync_q8), and what it plays (into played) */
+static uint32_t time_fold(uint32_t d, uint32_t t, uint32_t lim, char *played, uint32_t sync)   /* a TIME (or LENGTH:
+                                                   its division d, its value t; synced, or ms) longer than its line at
+                                                   this tempo: the halvings the engine takes (sd_space_sync_q8), and
+                                                   what it plays (into played) */
 {
     uint32_t f = 0, k;
-    if (pat.s_mode & SD_SP_SYNC) {
+    if (sync) {
         sd_space_sync_q8(eng.tempo_q8, d, &f, lim);
         for (k = 0; k < f; k++) d = sd_sp_half(d);
         if (played) *put(played, DIV_NAME[d]) = 0;
@@ -2219,8 +2222,9 @@ static uint32_t div_turn(uint32_t d, int32_t e, uint32_t n, uint32_t lim)   /* a
     for (; e < 0 && d; e++) d--;
     return d;
 }
-static uint32_t sp_fold(char *played) { return time_fold(sd_sp_div(pat.s_time), pat.s_time, dl_lim(), played); }
-static uint32_t lp_fold(char *played) { return time_fold(sd_lp_div(lp_len), lp_len, lp_lim(), played); }
+static uint32_t sp_fold(char *played) { return time_fold(sd_sp_div(pat.s_time), pat.s_time, dl_lim(), played, pat.s_mode & SD_SP_SYNC); }
+static uint32_t lp_fold(char *played) { return time_fold(sd_lp_div(lp_len), lp_len, lp_lim(), played, 1u); }   /* (LENGTH:
+                                                   always synced) */
 static char *put_glide(char *p)                 /* GLIDE: OFF, a division, or ms */
 {
     uint32_t d = sd_lp_glide_div(lp_glide), ms = sd_lp_glide_ms(lp_glide);
@@ -2241,11 +2245,9 @@ static void lp_glide_turn(int32_t e)            /* the looper's GLIDE (TOOLS, K1
         lp_glide = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
     }
 }
-static char *put_len(char *p)                   /* LENGTH: a division, or ms */
+static char *put_len(char *p)                   /* LENGTH: a division, whatever TIME's MODE (2026-11-24, the user) */
 {
-    if (pat.s_mode & SD_SP_SYNC) return put(p, DIV_NAME[sd_lp_div(lp_len)]);
-    p = put_u(p, sd_sp_ms(lp_len));
-    return put(p, "ms");
+    return put(p, DIV_NAME[sd_lp_div(lp_len)]);
 }
 
 
@@ -4233,7 +4235,7 @@ static void pic_time(void)                      /* TIME: the echoes falling by F
  * its samples, read from the looper's memory a frame's new ones at a time), the grid it locks to over it (while the
  * tracks play, synced: the master's bars bright, the beats dim), the LENGTH LOOP takes framed with its ends on that
  * grid (the last whole one; the one coming dim). LOOP: the tape stops, the loop it holds red, its head running
- * through. Free or stopped: no grid, LOOP takes the last LENGTH where it is pressed, a second a mark */
+ * through. Stopped: no grid, LOOP takes the last LENGTH where it is pressed, a second a mark */
 #define LP_COLS 228u
 #if defined(DINGHY_HOST) && (defined(__APPLE__) || defined(DINGHY_WEB))
 static uint8_t lp_col[LP_COLS];                 /* each column's loudest, 0..54 (the strip's half height x 2) */
@@ -4259,7 +4261,8 @@ static void pic_loop(void)
     SdLpMem L;
     char pd[16], *p;
     uint32_t n = sd_lp_total(&eng), w = eng.sp.lw, ln = (uint32_t)eng.sp.llen >> 8, span, spc, i, k;
-    uint32_t sync = (pat.s_mode & SD_SP_SYNC) && eng.seq_run && eng.seq_len_q8, looping = eng.sp.pon && lp_on;
+    uint32_t sync = eng.seq_run && eng.seq_len_q8, looping = eng.sp.pon && lp_on;   /* (LENGTH synced always: the
+                                                   grid while the tracks play) */
     uint16_t lc = lp_hold ? C_ICE_D : C_RED;    /* (the loop held, LOOPER off: dim, its head going round in time) */
     uint32_t bar = 16u * eng.seq_len_q8 / 512u, beat = 4u * eng.seq_len_q8 / 512u;   /* (half-rate samples) */
     uint32_t now = (looping ? lp_frz_grid : eng.grid_q8) / 512u;   /* the grid's time at the head, half-rate */
@@ -6828,14 +6831,10 @@ static void app_main(void)
                         lp_on = (uint8_t)(e > 0);
                         msg(lp_on ? (lp_arm ? "LOOP: THE LAST LENGTH HELD" : "LOOP: LOOPER OFF, EDIT ARMS") : "LOOP OFF");
                     }
-                    if ((e = enc_take(ENC_KNOB2)) != 0) {   /* LENGTH: as TIME, a division a detent synced */
-                        if (pat.s_mode & SD_SP_SYNC) {
-                            uint32_t d = div_turn(sd_lp_div(lp_len), e, SD_LP_NDIV, lp_lim());
-                            lp_len = (uint16_t)(d * 65536u / SD_LP_NDIV + 100u);
-                        } else {
-                            int32_t t = (int32_t)lp_len + enc_far(e, 256u) * 256;
-                            lp_len = (uint16_t)(t < 0 ? 0 : t > 65535 ? 65535 : t);
-                        }
+                    if ((e = enc_take(ENC_KNOB2)) != 0) {   /* LENGTH: a division a detent, synced whatever
+                                                   TIME's MODE (2026-11-24, the user: a FREE patch made 2 BAR 868 ms) */
+                        uint32_t d = div_turn(sd_lp_div(lp_len), e, SD_LP_NDIV, lp_lim());
+                        lp_len = (uint16_t)(d * 65536u / SD_LP_NDIV + 100u);
                     }
                     if ((e = enc_take(ENC_KNOB3)) != 0) {   /* SPEED: a semitone a detent (2026-11-17, the user: "in
                                                    semitones, not cents"), -12 .. +12 */

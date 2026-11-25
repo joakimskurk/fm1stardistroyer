@@ -232,14 +232,14 @@ function build() {
     b.append(echoGraph(() => (seq ? seq.set[LS.BPM] : 120)),
       row('', knob('.s_time', 'TIME', { fmt: (v) => (bit('.s_mode', 0) ? SDIV[(v * 12) >> 16] : `${1 + Math.floor((v * 999) / 65535)} ms`) }),
         knob('.s_fb', 'FDBK'), knob('.s_dtone', 'TONE'), knob('.s_dlevel', 'LEVEL'),
-        toggle('.s_mode', 'SYNC', { bits: [0, 1], title: 'TIME (and the looper\'s LENGTH and GLIDE) on the tempo' }), toggle('.s_mode', 'PING-PONG', { bits: [1, 1] })));
+        toggle('.s_mode', 'SYNC', { bits: [0, 1], title: 'TIME (and the looper\'s GLIDE) on the tempo; the looper\'s LENGTH always is' }), toggle('.s_mode', 'PING-PONG', { bits: [1, 1] })));
     if (seq) {                                   // the looper: the player's (not the patch's), as GLO on TIME sets it
       const sync = () => bit('.s_mode', 0);
       b.append(loopGraph(() => lpNow, () => ({ lvl: seq.set[LS.LLVL] })),
         row('', toggle(null, 'LOOP', { src: ls(LS.LOOP, 'LOOP', 0, 1), title: 'LOOP: the last LENGTH round and round (L-LEVEL above 0 arms it)' }),
           toggle(null, 'REV', { src: ls(LS.REV, 'REVERSE', 0, 1), title: 'REVERSE: the loop backwards' }),
           knob(null, 'L-LEVEL', { src: ls(LS.LLVL, 'L-LEVEL', 0, 65535, p99), title: 'L-LEVEL: above 0 the looper armed (it borrows the delay line\'s second half: the delay 0.5 s)' }),
-          knob(null, 'LENGTH', { src: ls(LS.LLEN, 'LENGTH', 0, 65535, (v) => (sync() ? LDIV15[(v * 15) >> 16] : `${1 + Math.floor((v * 999) / 65535)} ms`)) }),
+          knob(null, 'LENGTH', { src: ls(LS.LLEN, 'LENGTH', 0, 65535, (v) => LDIV15[(v * 15) >> 16]), title: 'LENGTH: a division of the tempo, whatever TIME\'s MODE' }),
           knob(null, 'SPEED', { src: ls(LS.LSPEED, 'SPEED', -3072, 3072, (v) => `${v >= 0 ? '+' : ''}${(v / 256).toFixed(1)} st`, true, 0), title: 'SPEED: −12 .. +12 semitones (double-click: as recorded)' }),
           knob(null, 'GLIDE', { src: ls(LS.LGLIDE, 'GLIDE', 0, 65535, (v) => (sync() ? ((v * 16) >> 16 ? LDIV15[((v * 16) >> 16) - 1] : 'OFF') : v ? `${Math.round((v * 4000) / 65535)} ms` : 'OFF')) })));
     }

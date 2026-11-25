@@ -143,8 +143,13 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   stops the tape and its head runs through the loop, red. Armed, it borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
   rate in 8 bits (mu-law: a light tape), while the delay keeps the first half, 0.5 s (a longer division plays at half,
   TIME red); let go, the delay has its whole second again. Arming or letting go fades the echoes out and in, the
-  line cleared. LENGTH synced reaches 4 bars, and turns as TIME does, from what it plays, never past what it holds (the
-  end of LOOPER's scale). It is the
+  line cleared. **LENGTH** is always in time (2026-11-24), whatever TIME's MODE: 1/32 … 4 bars of the tempo, so a new
+  patch with TIME FREE leaves it as it was (it read 2 BAR as 868 ms there before). It reaches 4 bars, and turns as
+  TIME does, from what it plays, never past what it holds (the end of LOOPER's scale). A loop keeps the level it had
+  when you took it, whatever patch you load over it (2026-11-24): each patch has its own **TRIM** in the output, so
+  before, a loop taken under STARDUST fell 19 dB when GRAVITY came, and one taken under GRAVITY came back 12 dB
+  louder under SIGNAL. Its R-SEND and D-SEND go with it; GLIDE still follows TIME's MODE, and an octave lands on the
+  loop's grid again under any patch. It is the
   player's, not saved with the patch.
 - **SPACE** is the reverb, a **plate**: four diffusers into a tank of two branches in a figure of eight, its lines
   gently moving, so a long tail stays alive and never rings metallic. **SIZE** stretches it 0.35–1.75 x (turned, it
@@ -153,7 +158,9 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **FREEZE** (K1 of SPACE's FREEZE layer) closes the plate's input and holds its tail as it is, for as long as you like; play
   over it, turn K1 back and it dies away. What you play over it goes into a room beside the plate, and so does the
   frozen tail itself (2026-11-23): one space for both, ringing as long and as loud as the plate would at that DECAY
-  and SIZE. It is the player's, not saved with the patch. **PITCH** (K2 there)
+  and SIZE. It is the player's, not saved with the patch, and the frozen tail keeps the level it had whatever patch
+  you load over it (its TRIM, 2026-11-24; the new patch's R-LEVEL is still its level); let go, it dies away from
+  there, and what you play after goes into the plate as loud as ever. **PITCH** (K2 there)
   takes the frozen tail up or down, up to an octave each way in semitones, without a break; back at 0, or the
   freeze let go, it is the plate's own again. In the matrix it is **FREEZE PITCH** (2026-11-23): SEQ A or B there at
   100 % plays the frozen tail as a melody, the track's notes from its root (with PITCH and ORBIT's, two octaves each

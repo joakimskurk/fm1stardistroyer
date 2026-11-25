@@ -491,9 +491,15 @@ core 0:  dry ──────────────────────�
   recording and its last LENGTH goes round from its start, faded in over 12 ms, crossfaded where it comes round (the
   10 ms before its start fade in: they run on into it), at its SPEED (-12 .. +12 semitones, an eighth a detent: the
   pitch and the length together, a tape's, gliding), held; off, it fades out over 46 ms and records again. LENGTH
-  as TIME (free 1 ms .. 1 s, or synced, 1/32 .. 1/2 and 1, 2 and 4 bars), halved until it fits its memory (red, and
-  the hint says what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono,
-  the same share), so R-LEVEL is its send too. REVERSE (GLO + ALGORITHM, now on LOOPER) turns its head
+  always synced, whatever TIME's MODE (2026-11-24, the user: a patch with TIME FREE turned a held 2 BAR into 868 ms;
+  free ms is gone from it), 1/32 .. 1/2 and 1, 2 and 4 bars, halved until it fits its memory (red, and the hint says
+  what plays). L-LEVEL is its level out; it goes into the reverb's way in as the synth goes (mono, the same share), so
+  R-LEVEL is its send too. Its level is the one it was heard at, whatever patch comes (2026-11-24): the output's
+  limiter carries each patch's TRIM, so core 0 plays the loop at TRIM then / TRIM now (after its ring, so past full
+  scale fits), its sends with it; the limiter takes each TRIM two ticks late, with the frames made under it, a step
+  at once, each block's peak weighed at its own (`test_looper_patch_change`). A FREEZE held over a patch change
+  keeps its tail's level the same way: R-LEVEL at the ratio, the synth into the room beside it (and into the plate
+  once it is let go, till SPACE rests) at the inverse. REVERSE (GLO + ALGORITHM, now on LOOPER) turns its head
   round: it plays the loop backwards, before it loops or while it does, round
   its start through the same crossfade (one curve either way). The player's, not saved (as FREEZE).
 - *Its grid* (an octave finds it again, over a glide or at once: GLO + OCT the octave, GLIDE on LOOPER's K1, MODE on

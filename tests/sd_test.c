@@ -30,6 +30,7 @@
 #include <string.h>
 #define SD_CENSUS 1                            /* the ceilings counted (test_headroom); the sound the same */
 #include "sd_engine.h"
+#define SD_LPDIV(d) ((uint16_t)((d) * 65536u / SD_LP_NDIV + 100u))   /* the looper's LENGTH at division d (as the app sets it) */
 #include "sd_gen.h"
 #include "../tools/sd_loud.h"
 #include "../tools/sd_demo_patches.h"            /* the set before the collection: the engine's tests on VOWEL,
@@ -1706,7 +1707,7 @@ static void tl_feed(int32_t *outbuf, uint32_t frames, uint16_t rlvl, uint16_t dl
     e1.sm = &tsm;
     e1.sp_room = space_one;
     sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
-    e1.lp_len = SD_SPMS(500u); e1.lp_lvl = 65535;
+    e1.lp_len = SD_LPDIV(8u);   /* (1/4: 500 ms at 120 BPM; LENGTH synced always) */ e1.lp_lvl = 65535;
     e1.bpm = 120;
     sd_seq_retime(&e1);
     e1.patch = p;
@@ -1896,7 +1897,7 @@ static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, 
     e1.sm = &tsm;
     e1.sp_room = space_one;
     sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
-    e1.lp_len = SD_SPMS(500u);
+    e1.lp_len = SD_LPDIV(8u);   /* (1/4: 500 ms at 120 BPM; LENGTH synced always) */
     e1.bpm = 120;
     sd_seq_retime(&e1);
     e1.patch = p;
@@ -1930,7 +1931,7 @@ static double lw_rms(uint8_t arm, uint16_t lvl0, uint16_t filt, uint16_t rs, uin
     sd_engine_init(&e1);
     e1.sm = &tsm;
     sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
-    e1.lp_len = SD_SPMS(300u);
+    e1.lp_len = SD_LPDIV(6u);   /* (1/4T: 333 ms) */
     e1.bpm = 120;
     sd_seq_retime(&e1);
     e1.patch = p;
@@ -1996,7 +1997,9 @@ static void test_looper_transport_mode(uint32_t one)
            "the head at %u of %u (-T round the loop: %u), %.2f dB of before, the largest step %d (the sine's own %d)\n",
            mode, parked, before, tl_pk, tl_pk_ln, want, 20 * log10(back / before), st, s0);
     CHECK(parked < before * 0.001, "STOP: the loop still sounds (%.0f against %.0f)", parked, before);
-    CHECK(tl_pk == want, "START: the head at %u, not %u", tl_pk, want);
+    CHECK(abs((int)tl_pk - (int)want) <= (int)(tl_pk_ln / 768u), "START: the head at %u, not %u", tl_pk, want);   /* (LENGTH
+                                                   synced, 2026-11-24: placed by the master's clock, to its 192nd of
+                                                   a 16th, 768 of a quarter) */
     CHECK(fabs(20 * log10(back / before)) < 0.5, "START: the loop back at %.2f dB", 20 * log10(back / before));
     CHECK(st <= s0 + s0 / 8, "START: a step of %d (the sine's own %d)", st, s0);
     /* LOOP while stopped (at 1.03 s; START at 2.0 s): it plays, then START crossfades it to its start on the one */
@@ -2007,7 +2010,8 @@ static void test_looper_transport_mode(uint32_t one)
     printf("looper (%s), looped while stopped: START at 2 s crossfades it to its start (the second head at %u), the "
            "largest step %d (the sine's own %d: two heads at equal power, x 1.5 at most)\n", mode, tl_pk1, st, s0);
     CHECK(tl_pk1 == 0u, "looped while stopped, START: the second head at %u, not its start", tl_pk1);
-    CHECK(st <= s0 + s0 / 2, "looped while stopped, START: a step of %d (the sine's own %d)", st, s0);
+    CHECK(st <= s0 + s0 / 2 + s0 / 10, "looped while stopped, START: a step of %d (the sine's own %d)", st, s0);   /* (x 1.5
+                                                   where the heads meet in phase, and the fade's own slope) */
     tl_play[0] = tl_play[1] = tl_play[2] = 99;
     tl_pk_b = 0xFFFFFFFFu;
 }
@@ -2130,13 +2134,15 @@ static void test_looper_lock_mode(uint32_t one)
            mode, lq_b, (uint32_t)ceil(5.0 * F / SD_SUB));
     CHECK(lq_b + 1u >= (uint32_t)ceil(5.0 * F / SD_SUB) && lq_b <= (uint32_t)ceil(5.0 * F / SD_SUB) + 1u && lq_back == 0u,
           "a quarter: locked at block %u (back %u)", lq_b, lq_back);
-    /* free, and stopped: where it is pressed, as before */
+    /* TIME FREE: on the grid all the same (LENGTH synced whatever TIME's MODE, 2026-11-24); stopped: where it is
+       pressed */
     lq_feed(o, 6u * F, 4.09, BAR, 0, 1);
     st = lq_back; s0 = lq_b;
     lq_feed(o, 6u * F, 4.09, BAR, 1, 0);
-    printf("looper (%s), free: locked at block %u, back %u; stopped: block %u, back %u (pressed %u)\n", mode, s0, st,
-           lq_b, lq_back, press);
-    CHECK(s0 == press && st == 0u && lq_b == press && lq_back == 0u, "free or stopped: not where it was pressed");
+    printf("looper (%s), TIME FREE: locked at block %u, back %.1f ms; stopped: block %u, back %u (pressed %u)\n", mode,
+           s0, st / 22.05, lq_b, lq_back, press);
+    CHECK(s0 == press && fabs(st / 22.05 - 90.0) < 1.0, "TIME FREE: not on the grid (block %u, back %u)", s0, st);
+    CHECK(lq_b == press && lq_back == 0u, "stopped: not where it was pressed");
     space_one = 0;
 }
 /* The loop in time with the master's clock (2026-11-23, the user: "it comes out of sync, out of time; and the
@@ -2273,6 +2279,131 @@ static void test_seq_src_off(void)
     CHECK(seen >= 16u && !bad, "SEQ A OFF to FRZ PITCH: %u of %u steps wrong", bad, seen);
     CHECK(!loud, "SEQ A OFF: a voice played");
 }
+/* The looper and FREEZE held over a patch change (2026-11-24, the user: "it falls out of its system"). The output's
+ * limiter carries each patch's TRIM, and the looper and the reverb come before it: a loop taken under STARDUST (+8.5
+ * dB) fell 19 dB as GRAVITY (-10.5 dB, its TIME FREE) loaded, and its 1 BAR became 868 ms. Held over that change,
+ * at 120 BPM with the transport running: the loop keeps its level (within 0.5 dB), its length, and no blip where the
+ * patch changes (against the same take with no change, ~1 % at most); a FREEZE held over it keeps its level too (the
+ * two patches' SPACE the same but TIME's MODE: TRIM alone differs); and under GRAVITY an octave down over GLIDE (its
+ * TIME FREE: GLIDE in ms) and back, the loop is on its grid again, bit for bit as if it had never moved */
+static SdRoomMem hp_frm;
+static int32_t hp_o[3][2u * 16u * SD_FS];
+static uint8_t hp_one;                          /* one core: the room in the plate's place, the looper on core 0 */
+static void hp_take(int32_t *o, int change, int frz, int glide)   /* change 2: GRAVITY itself, its wet off */
+{
+    SdPatch A = SD_PATCH[SD_P_STARDUST], B;
+    uint32_t F = SD_FS, f = 0;
+    A.s_mode |= SD_SP_SYNC;
+    A.s_dlevel = 0; A.s_rlevel = frz ? 40000 : 0;   /* (the loop alone, no wet; the frozen tail alone) */
+    A.s_fb = 0;
+    A.e1_r = A.e2_r = 0;                        /* (its note gone soon after the key: only the loop, the tail heard) */
+    B = A;                                      /* STARDUST as GRAVITY's TRIM and TIME FREE: the rest the same */
+    B.trim = SD_PATCH[SD_P_GRAVITY].trim;
+    B.s_mode = (uint8_t)(A.s_mode & ~SD_SP_SYNC);
+    if (change == 2) { B = SD_PATCH[SD_P_GRAVITY]; B.s_mode &= (uint8_t)~SD_SP_SYNC; B.s_dlevel = B.s_rlevel = 0; }
+    memset(&tsm, 0, sizeof tsm); memset(&hp_frm, 0, sizeof hp_frm); memset(tl_mem, 0, sizeof tl_mem);
+    sd_engine_init(&e1);
+    e1.sm = &tsm; e1.frm = &hp_frm;
+    e1.sp_room = hp_one;
+    sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
+    e1.bpm = 120;
+    sd_engine_patch(&e1, &A);
+    e1.seq_run = 1;                             /* (SEQ A's first pattern plays, its steps rests from LOOP on: then only
+                                                   the loop, or the frozen tail, is heard) */
+    if (!frz) { e1.lp_len = SD_LPDIV(12u); e1.lp_lvl = 32768; e1.lp_arm = 1; e1.lp_rsend = 0; e1.lp_dsend = 0; }
+    e1.lp_glide = 9000;                         /* (under A a division, under B ms) */
+    memset(o, 0, 2u * 16u * F * sizeof *o);
+    for (f = 0; f < 16u * F; f += SD_SUB) {
+        double s = (double)f / F;
+        if (f == (uint32_t)(4.0 * F / SD_SUB) * SD_SUB) {
+            uint32_t k, t;
+            for (t = 0; t < 2u; t++) for (k = 0; k < SD_PSTEPS; k++) e1.t[t].pat.step[k].type = SD_ST_REST;
+            if (!frz) e1.lp_on = 1;             /* LOOP on the bar line: the second bar held */
+        }
+        if (frz && f == (uint32_t)(3.0 * F / SD_SUB) * SD_SUB) e1.sp_freeze = 1;
+        if (change && f == (uint32_t)(10.25 * F / SD_SUB) * SD_SUB) sd_engine_patch(&e1, &B);   /* (the loop sounding) */
+        e1.lp_speed = (int16_t)(glide && s >= 10.5 && s < 12.5 ? -3072 : 0);
+        sd_engine_render(&e1, o + 2u * f, SD_SUB);
+    }
+}
+static double hp_rms(const int32_t *o, double t0, double t1)
+{
+    double e = 0;
+    uint32_t i, a = (uint32_t)(t0 * SD_FS), b = (uint32_t)(t1 * SD_FS);
+    for (i = a; i < b; i++) e += (double)o[2u * i] * o[2u * i] + (double)o[2u * i + 1u] * o[2u * i + 1u];
+    return sqrt(e / (2.0 * (b - a))) + 1e-9;
+}
+static int32_t hp_diff(const int32_t *x, const int32_t *y, double t0, double t1)
+{
+    int32_t m = 0;
+    uint32_t i;
+    for (i = (uint32_t)(t0 * SD_FS) * 2u; i < (uint32_t)(t1 * SD_FS) * 2u; i++) {
+        int32_t d = x[i] - y[i];
+        d = d < 0 ? -d : d;
+        m = d > m ? d : m;
+    }
+    return m;
+}
+static void test_looper_patch_change(void)
+{
+    if (SD_PATCH[SD_P_STARDUST].trim - SD_PATCH[SD_P_GRAVITY].trim < 30)
+        printf("(the test wants STARDUST's TRIM far over GRAVITY's: %d and %d)\n", SD_PATCH[SD_P_STARDUST].trim,
+               SD_PATCH[SD_P_GRAVITY].trim);
+    double l0, l1, r1, f0, f1, g0;
+    int32_t pk = 0, blip, fblip, gd;
+    uint32_t i, ln_c, ln_r, len_c, len_r;
+    hp_take(hp_o[0], 0, 0, 0);                  /* STARDUST throughout */
+    ln_r = e1.sp.pln; len_r = (uint32_t)e1.sp.llen;
+    hp_take(hp_o[1], 1, 0, 0);                  /* GRAVITY from 10 s */
+    ln_c = e1.sp.pln; len_c = (uint32_t)e1.sp.llen;
+    for (i = 2u * 8u * SD_FS; i < 2u * 10u * SD_FS; i++) pk = abs(hp_o[0][i]) > pk ? abs(hp_o[0][i]) : pk;
+    l0 = hp_rms(hp_o[1], 8.0, 10.0); l1 = hp_rms(hp_o[1], 12.0, 14.0); r1 = hp_rms(hp_o[0], 12.0, 14.0);
+    blip = hp_diff(hp_o[1], hp_o[0], 10.15, 10.45);
+    printf("the looper over a patch change (STARDUST, then it at GRAVITY's TRIM, TIME FREE): its level %+.2f dB (%+.2f against no change), "
+           "its loop %.3f s (%.3f), its LENGTH %.3f s (%.3f), the change %d against the loop's peak %d\n",
+           20 * log10(l1 / l0), 20 * log10(l1 / r1), ln_c / 256.0 / 22050, ln_r / 256.0 / 22050,
+           len_c / 256.0 / 22050, len_r / 256.0 / 22050, blip, pk);
+    CHECK(l0 > 300, "the looper over a patch change: the loop is not heard (%.0f)", l0);
+    CHECK(fabs(20 * log10(l1 / l0)) < 0.5 && fabs(20 * log10(l1 / r1)) < 0.5, "the looper over a patch change: %+.2f dB",
+          20 * log10(l1 / l0));
+    CHECK(ln_c == ln_r && len_c == len_r && fabs(ln_c / 256.0 / 22050 - 2.0) < 0.001, "the looper over a patch change: "
+          "the loop %u, LENGTH %u (want %u, %u: 1 BAR)", ln_c, len_c, ln_r, len_r);
+    CHECK(blip <= pk / 100 + 2, "the looper over a patch change: a blip of %d where it changes (its peak %d)", blip, pk);
+    hp_take(hp_o[2], 2, 0, 0);                  /* GRAVITY itself (its own sound, its matrix: the loop alone heard) */
+    g0 = hp_rms(hp_o[2], 12.0, 14.0);
+    printf("the looper over a change to GRAVITY itself: its level %+.2f dB\n", 20 * log10(g0 / l0));
+    CHECK(fabs(20 * log10(g0 / l0)) < 0.5, "the looper over a change to GRAVITY: %+.2f dB", 20 * log10(g0 / l0));
+    hp_take(hp_o[2], 1, 0, 1);                  /* ... and an octave down over GLIDE and back under it */
+    gd = hp_diff(hp_o[2], hp_o[1], 15.0, 16.0);
+    g0 = hp_rms(hp_o[2], 11.5, 12.4);
+    printf("the looper under GRAVITY (TIME FREE), an octave down over GLIDE and back: on its grid again, %d off the loop "
+           "that never moved (%.0f while down)\n", gd, g0);
+    CHECK(gd == 0 && g0 > 300, "the looper back from an octave under another patch: %d off its grid", gd);
+    hp_take(hp_o[0], 0, 1, 0);                  /* FREEZE, STARDUST throughout */
+    hp_take(hp_o[1], 1, 1, 0);                  /* ... GRAVITY from 10 s */
+    f0 = hp_rms(hp_o[1], 8.0, 10.0); f1 = hp_rms(hp_o[1], 11.0, 13.0); r1 = hp_rms(hp_o[0], 11.0, 13.0);
+    fblip = hp_diff(hp_o[1], hp_o[0], 10.15, 10.45);
+    pk = 0;
+    for (i = 2u * 8u * SD_FS; i < 2u * 10u * SD_FS; i++) pk = abs(hp_o[0][i]) > pk ? abs(hp_o[0][i]) : pk;
+    printf("FREEZE over a patch change (STARDUST, then at GRAVITY's TRIM): the held tail %+.2f dB against no change (%+.2f against "
+           "before), the change %d against its peak %d\n", 20 * log10(f1 / r1), 20 * log10(f1 / f0), fblip, pk);
+    CHECK(f0 > 100, "FREEZE over a patch change: no tail (%.0f)", f0);
+    CHECK(fabs(20 * log10(f1 / r1)) < 0.5, "FREEZE over a patch change: the held tail %+.2f dB", 20 * log10(f1 / r1));
+    CHECK(fblip <= pk / 100 + 2, "FREEZE over a patch change: a blip of %d where it changes (its peak %d)", fblip, pk);
+    hp_one = 1;                                 /* one core: the looper on core 0, into the room */
+    hp_take(hp_o[0], 0, 0, 0);
+    hp_take(hp_o[1], 1, 0, 0);
+    l0 = hp_rms(hp_o[1], 8.0, 10.0); l1 = hp_rms(hp_o[1], 12.0, 14.0);
+    blip = hp_diff(hp_o[1], hp_o[0], 10.15, 10.45);
+    pk = 0;
+    for (i = 2u * 8u * SD_FS; i < 2u * 10u * SD_FS; i++) pk = abs(hp_o[0][i]) > pk ? abs(hp_o[0][i]) : pk;
+    printf("the looper over a patch change, one core: its level %+.2f dB, the change %d against its peak %d\n",
+           20 * log10(l1 / l0), blip, pk);
+    CHECK(l0 > 300 && fabs(20 * log10(l1 / l0)) < 0.5, "the looper over a patch change, one core: %+.2f dB",
+          20 * log10(l1 / l0));
+    CHECK(blip <= pk / 100 + 2, "the looper over a patch change, one core: a blip of %d (its peak %d)", blip, pk);
+    hp_one = 0;
+}
 static void test_looper(void)
 {
     test_looper_mode(0); test_looper_mode(1); test_looper_grid_mode(0); test_looper_grid_mode(1);
@@ -2280,6 +2411,7 @@ static void test_looper(void)
     test_looper_transport_mode(0); test_looper_transport_mode(1);
     test_looper_lock_mode(0); test_looper_lock_mode(1);
     test_looper_clock_mode(0); test_looper_clock_mode(1);
+    test_looper_patch_change();
 }
 
 /* SPACE's plate (raw and long; a prototype's LFO stuttered and clicked): its T60 at 700 Hz follows DECAY's law,
