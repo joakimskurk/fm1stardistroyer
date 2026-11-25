@@ -22,8 +22,6 @@ Dinghy is based on [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshi
 platform as [SLOOP](https://github.com/isod89/sloop-fm1) (isod89) carries it: it keeps that platform and throws away the
 rest. The smallest boat of the family, after the felucca and the sloop.
 
-<p align="center"><img src="screen.png" width="240" alt="Dinghy's screen: the name, the note played, a keyboard with the keys that sound"></p>
-
 > **Status: 0.5.** 0.5 runs on newer FM-1s too: their flash chip, the UC25HQ80 (0xB36014), beside the Puya (0x856014);
 > before, a firmware built on Dinghy saved to RAM only on them. Dinghy's platform runs on the FM-1 in VIBE FM Link
 > (zvenson/vibe-link), tested there on 7.11.2026. 0.3 was tested on the FM-1: the install, MIDI in (pitch exact, 4 voices), USB audio at

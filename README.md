@@ -750,7 +750,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   [make it yours](docs/MAKE-IT-YOURS.md).
 - **Departures from Dinghy 0.5's own files:**
   - `assets/logo.svg`, `logo.png`: Dinghy's logo (all rights reserved, not under the GPL) is not in this repository,
-    nor in `docs/DINGHY.md`. The JieLi files in the package come with their licence's text, `LICENSES/Apache-2.0.txt`.
+    nor in `docs/DINGHY.md`, and neither is its screen's picture (`docs/screen.png`). The JieLi files in the package come with their licence's text, `LICENSES/Apache-2.0.txt`.
   - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host and in the browser.
   - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`;
     the crash screen shows the whole record for 20 s (the guards' causes, SP, the last branches, the second core's
