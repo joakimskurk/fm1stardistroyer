@@ -56,7 +56,7 @@
   .tabs a.on { color: #fff; background: var(--red); clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 100%, 0 100%); }
   .panel > h2:first-child { margin-top: 30px; }
   .panel, .panel [id] { scroll-margin-top: 56px; }   /* (a link's jump lands under the tabs, not behind them) */
-  .panel > .notes:first-child { margin-top: 26px; }
+  .panel > .hero:first-child { margin-top: 26px; }
   .chain + .eng { border-top: 0; }
   @media (max-width: 600px) {
     .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-bottom: 8px; }
@@ -78,6 +78,7 @@
   .testers { margin: 0; padding: 12px 16px; border-left: 4px solid var(--ice); background: var(--panel); font-size: 15px;
              line-height: 1.5; }
   .testers b { color: var(--ice); }
+  #install .testers { margin: 22px 0 8px; }
   .hero { display: grid; grid-template-columns: repeat(3, minmax(0, 240px)); gap: 16px; justify-content: center;
           margin: 32px 0 28px; }
   .hero img, .scr { display: block; width: 100%; height: auto; border: 1px solid var(--line2); background: var(--bg); }
@@ -210,12 +211,6 @@
   </nav>
 
   <section class="panel" id="overview" role="tabpanel">
-  <div class="notes">
-    <p class="testers" role="note"><b>Testers wanted.</b> Have an FM-1, and know how to get it back (below the Install
-      button)? Play Star Distroyer on yours, and tell how it went in an
-      <a href="https://github.com/joakimskurk/fm1stardistroyer/issues/new?title=Tried+on+an+FM-1">issue on GitHub</a>:
-      what worked, what did not, what the screen showed, and how it sounded.</p>
-  </div>
 
 
   <div class="hero">
@@ -534,6 +529,10 @@
     <b>OCT−</b> while switching it on: it starts in the USB rescue, where an installer always works. To go back, install
     any firmware from the FM-1 Firmware Hub, or the official one with M-VAVE's own updater M-UPGRADE. Both FM-1 flash
     chips are supported. Installing firmware is at your own risk.</p>
+  <p class="testers" role="note"><b>Testers wanted.</b> Have an FM-1, and know how to get it back (above)? Play Star
+    Distroyer on yours, and tell how it went in an
+    <a href="https://github.com/joakimskurk/fm1stardistroyer/issues/new?title=Tried+on+an+FM-1">issue on GitHub</a>:
+    what worked, what did not, what the screen showed, and how it sounded.</p>
 
   <h2><img src="screens/slash.png" width="68" height="28" alt="">More</h2>
   <ul class="links">
