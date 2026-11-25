@@ -5758,7 +5758,8 @@ static void midi_in(void)
 #define SD_DIAG_MAXW 121u
 _Static_assert(1u + 6u + 2u * (sizeof(fm1_dump_t) / 4u) <= SD_DIAG_MAXW, "the second page holds both records");
 #else
-#define SD_DIAG_MAXW 72u
+#define SD_DIAG_MAXW 96u                       /* (the status page is 90 words since 2026-11-25, 82 since the 22nd:
+                                                   72 overran v and out on the one-core builds, the SMK-37's too) */
 #endif
 static void sd_diag_send(uint32_t kind, const uint32_t *v, uint32_t k)
 {
@@ -5926,6 +5927,7 @@ static void sd_diag_service(void)
     v[k++] = boot_run.c1;
     v[k++] = boot_run.stop_ms;                  /* its last STOP, ms, */
     v[k++] = boot_run.play_ms;                  /* after how long a PLAY */
+    for (i = 0; i < 8u; i++) v[k++] = recovery_seen[i];   /* (2026-11-25) the two looks for OCT- at the start */
     sd_diag_send(0x02u, v, k);
 }
 #endif

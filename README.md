@@ -755,7 +755,12 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     own), not only the vector, PC and RETS for 8 s; that second core's record is also kept through the restart
     (`fm1_c1_last`, `.noinit`), and `platform_poll` lets the app see a SysEx first (`APP_SYSEX_HOOK`: the
     diagnosis below), before the installer's handshake. At the boot it asks the app how many cores (`APP_CORES`:
-    SETUP's CORES) and, for two, raises the core supplies before the second core starts.
+    SETUP's CORES) and, for two, raises the core supplies before the second core starts. OCT- for the USB rescue is
+    looked for twice (2026-11-25, a user's FM-1 started as ever with it held): at power-on, and again once the LCD and
+    the inputs are set up as they play, before the second core, the audio and USB; `firmware/src/recovery.c`'s
+    `recovery_key` keeps what each look read (`recovery_seen`) for the diagnosis below. `recovery_main` first
+    finishes the screen's last transfer (`lcd_sync`): after the second look it found one pending, its SPI reset
+    cleared the flag, and the panel's first command waited for it until the watchdog sent the FM-1 to ROM.
   - `firmware/hal/fm1_sys.h`: `fm1_supply_stock`, the core supplies (VDC14 and SYSVDD, P3_ANA_CON6 and CON9) raised
     to M-VAVE's own (V15: 7 and 15, 1.60 and 1.38 V, as found by fc79 in the stock firmware,
     [charlesvestal/fm1-x0x#21](https://github.com/charlesvestal/fm1-x0x/issues/21)), VDC14 first, a level each

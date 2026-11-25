@@ -44,7 +44,11 @@ static const char *const NAME[] = {
     "last run: the watchdog restarted it (1)", "last run: where the main loop stood (1 loop 2 input 21-25 a save "
     "30 settings 50 drawing 51 drawn 99 end)", "last run: main loop's last pass (ms)", "last run: audio's last (ms)",
     "last run: page", "last run: buttons", "last run: CPU (0.1 %)", "last run: blocks held", "last run: core 2",
-    "last run: its last STOP (ms)", "last run: PLAY before it (ms)"};
+    "last run: its last STOP (ms)", "last run: PLAY before it (ms)",
+    "OCT- at power-on: buttons", "OCT- at power-on: rows seen (OCT- col | OCT+ col << 8 | any key << 16)",
+    "OCT- at power-on: frames", "OCT- at power-on: TIMER4 at it",
+    "OCT- second look: buttons", "OCT- second look: rows seen (OCT- col | OCT+ col << 8 | any key << 16)",
+    "OCT- second look: frames", "OCT- second look: TIMER4 at it"};
 #define NNAME ((int)(sizeof NAME / sizeof NAME[0]))
 /* the second page: the watch, then each core's record (hal/fm1_cpu1.h's fm1_dump_t, 57 words) */
 static const char *const NAME2[] = {"page", "watch: CPU0's windows", "watch: core 2's windows", "watch: DMA's windows",

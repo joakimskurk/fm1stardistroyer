@@ -487,7 +487,7 @@ void fm1_cstart(void)
     fm1_mailbox_clear();
     fm1_guard_enable(FM1_GUARD_STACK | FM1_GUARD_WRITE | FM1_GUARD_BUS | FM1_GUARD_PC);
     fm1_boot.p3_rst = (uint8_t)p3;
-    if (boot_mode == BOOT_RECOVERY || recovery_key())
+    if (boot_mode == BOOT_RECOVERY || recovery_key(recovery_seen))
         recovery_main();                        /* OCT- at power-on: the USB rescue */
 #if BOARD_SMK37
     smk_jedec = FL_FAR(fl_jedec_ram)();         /* (the panel check shows it: units may carry another part) */
@@ -500,6 +500,10 @@ void fm1_cstart(void)
     lcd_fill(0, 0, 240, 240, C_BLACK);
     fm1_input_init();
     fm1_adc_init();
+    if (recovery_key(recovery_seen + 4))        /* OCT- held: a second look, with the LCD and the inputs as they play
+                                                   (2026-11-25, a user's FM-1 started as ever with OCT- held at
+                                                   power-on); before the second core, the audio and USB */
+        recovery_main();
 #if BOARD_SMK37
     smk_trim_read();                            /* (after fm1_input_init: it sets the defaults first) */
     smk_owner_check();
