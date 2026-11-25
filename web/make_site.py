@@ -251,6 +251,12 @@ def main(pkg, version, out):
     html, n = re.subn(r'((?:src|href)="(?:screens|app)/[^"?]+)"', lambda m: m.group(1) + stamp + '"', html)
     if not re.search(r'src="app/player\.js\?v=', html):
         raise SystemExit("web/index.html: the player's script not stamped")
+    og = "?v=" + hashlib.sha256((HERE / "og.png").read_bytes()).hexdigest()[:10]   # the link preview by its own hash:
+    #   a chat app keeps a card by the picture's address, so a new picture gets a new one (2026-11-25, the user: the
+    #   old preview was still shown); the same picture, the same address, so a card is not fetched for nothing
+    html, no = re.subn(r'(<meta property="og:image" content="[^"?]+/screens/og\.png)"', lambda m: m.group(1) + og + '"', html)
+    if no != 1:
+        raise SystemExit("web/index.html: og:image not found once")
     (out / "index.html").write_text(html, encoding="utf-8")
     con = (out / "console" / "index.html").read_text(encoding="utf-8")   # the console: its references stamped too
     con, nc = re.subn(r'((?:src|href)="(?:\.\./(?:screens|app)/|console\.|frame\.)[^"?]+)"', lambda m: m.group(1) + stamp + '"', con)

@@ -1,7 +1,11 @@
 {
   "what": "A starship FM synth: four banks of four oscillators morphed on an X/Y nav field, a morphing resonator, multiband destruction, a delay, a tape looper and a plate reverb. 29 patches, MONO, DUO or POLY, a two-track step sequencer with chords, ORBIT and RADAR, and an arpeggiator.",
   "author": "joakimskurk",
-  "kinds": ["synth"],
+  "kinds": [
+    "synth"
+  ],
+  "play": "https://joakimskurk.github.io/fm1stardistroyer/#play",
   "image": "docs/card.png",
-  "color": "#FF1400"
+  "color": "#FF1400",
+  "sounds": "own"
 }

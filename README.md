@@ -603,8 +603,8 @@ they follow what plays and that the sound is the same sample for sample with the
 
 ## <img src="docs/readme/slash.png" height="14" alt=""> Install
 
-The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.4-beta): `stardistroyer-0.4-beta.fwsc` is the FM-1's (the `-smk37` packages are the
-SMK-37's, not yet tried on one). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
+The beta is on [GitHub](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.4-beta): `stardistroyer-0.4-beta.fwsc`, the FM-1's (the SMK-37's are
+not released: not yet tried on one; build them yourself, below). [The page](https://joakimskurk.github.io/fm1stardistroyer/) installs the latest build
 of `main` from the browser (Chrome or Edge, over USB MIDI); or build the package yourself (below) and install it with
 `tools/fm1_install.py`. Either way, installing it is on you.
 

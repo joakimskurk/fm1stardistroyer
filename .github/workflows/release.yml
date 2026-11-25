@@ -51,16 +51,16 @@ jobs:
       - name: Host tests
         run: sh tests/run_tests.sh
 
-      - name: Release packages (tags only)
+      # A release carries the FM-1's package only (2026-11-25, the user: one file; the SMK-37's are built above, as a
+      # check, but not tried on one): stardistroyer-X.Y.fwsc, and its SHA256SUMS
+      - name: Release package (tags only)
         if: github.ref_type == 'tag'
         run: |
           V="${GITHUB_REF_NAME#v}"
-          BOARD=smk37 sh build.sh --release "$V"
-          BOARD=smk37 MODEL=elite sh build.sh --release "$V"
-          BOARD=smk37 MODEL=mke sh build.sh --release "$V"
           sh build.sh --release "$V"
-          ls -l build/stardistroyer-"$V"*.fwsc
-          (cd build && sha256sum stardistroyer-"$V"*.fwsc > SHA256SUMS)
+          ls -l build/stardistroyer-"$V".fwsc
+          (cd build && sha256sum stardistroyer-"$V".fwsc > SHA256SUMS)
+          echo "PKG=build/stardistroyer-$V.fwsc" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -72,16 +72,16 @@ jobs:
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: build/stardistroyer-[0-9]*.fwsc
+          subject-path: ${{ env.PKG }}
 
-      # (the release builds only, not the dev ones: stardistroyer-smk37.fwsc. No comment inside the files block below:
-      # it would be read as part of the pattern, and the release would get only SHA256SUMS, as Dinghy's v0.5 did)
+      # (the FM-1's release build only. No comment inside the files block below: it would be read as part of the
+      # pattern, and the release would get only SHA256SUMS, as Dinghy's v0.5 did)
       - name: Release (tags only)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/stardistroyer-[0-9]*.fwsc
+            ${{ env.PKG }}
             build/SHA256SUMS
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
