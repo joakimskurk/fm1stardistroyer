@@ -5455,6 +5455,22 @@ SD_INLINE void sd_pl_put(int16_t *b, uint32_t n, uint32_t *w, int32_t v)
     *w = *w + 1u < n ? *w + 1u : 0u;
 }
 SD_INLINE int32_t sd_pq(int32_t a, int32_t g) { return sd_tz(a * g, 14); }   /* a (|a| < 2^17) x g (Q14, <= 1) */
+/* FROZEN (f), the tank's stores and allpasses round to the nearest, not toward zero: at x 1 exactly a tail lost a
+ * bit a store and a little an allpass each pass, so a quiet one died out (2026-11-26, the user: "even a frozen
+ * reverb slowly dies"; STARDUST gone in a minute, others 1-2 dB in 30 s). To the nearest, halves to even (the
+ * store) or away from zero, alike either side (the products): nothing drifts, nothing is lost on average. Let go,
+ * toward zero again, and the tail dies as it should */
+SD_INLINE int16_t sd_sp_store_f(int32_t v, int32_t f)
+{
+    if (f && (uint32_t)(v + 49152) < 98305u) { int32_t q = v >> 1; return (int16_t)(q + (v & q & 1)); }
+    return sd_sp_store(v);
+}
+SD_INLINE int32_t sd_pq_f(int32_t a, int32_t g, int32_t f)
+{
+    int32_t t = a * g;
+    if (!f) return sd_tz(t, 14);
+    return t < 0 ? -((-t + 8192) >> 14) : (t + 8192) >> 14;
+}
 SD_INLINE int32_t sd_pl_clip(int32_t v) { return SD_SOFT(5u, v, 73728, 24575); }   /* (the store's
                                                    ceiling: rounded from 2.25 x toward 3 x, before a product) */
 /* the half rate's way in and out: a 23-tap half-band (Q14; every other tap 0, the centre a half): flat to 8 kHz,
@@ -5575,27 +5591,27 @@ SD_HOT SD_NOINLINE static void sd_plate_blk(SdSpace *s, int16_t *pm, const SdPla
         uint32_t ld1 = sd_pl_d(pp->di[d1], d1), la2 = sd_pl_d(pp->di[a2], a2);
         uint32_t ma = pp->ma[k] >> 8 < na1 - 3u ? pp->ma[k] : 256u, mb = G ? ma - SD_PL_LEN(SD_PL_BASE[a1], pp->snext) : 0u;
         int16_t *ba1 = pm + SD_PL_PO[a1], *bd1 = pm + SD_PL_PO[d1], *ba2 = pm + SD_PL_PO[a2], *bd2 = pm + SD_PL_PO[d2];
-        int32_t lp = sd_pl_clip(s->lp[k]), c = sd_pl_q14(pp->c, 0), gd2 = sd_pl_q14(pp->d2, -16384);
+        int32_t lp = sd_pl_clip(s->lp[k]), c = sd_pl_q14(pp->c, 0), gd2 = sd_pl_q14(pp->d2, -16384), fz = pp->frz;
         int32_t prev = sd_pl_clip(s->fbk[k ^ 1u]);
         for (i = 0; i < n; i++) {
             int32_t t = sd_pl_clip(v[i] + prev), z, vv;
             prev = fk[k ^ 1u][i];
             z = sd_pl_rdq(ba1, na1, wa1, G ? SD_PL_LEN(SD_PL_BASE[a1], sch[i]) + mb : ma);
-            vv = sd_pl_clip(t + sd_pq(z, -11469));   /* -0.70: the published plate's sign */
-            ba1[wa1] = sd_sp_store(vv);
+            vv = sd_pl_clip(t + sd_pq_f(z, -11469, fz));   /* -0.70: the published plate's sign */
+            ba1[wa1] = sd_sp_store_f(vv, fz);
             wa1 = wa1 + 1u < na1 ? wa1 + 1u : 0u;
-            t = z - sd_pq(vv, -11469);
-            bd1[wd1] = sd_sp_store(t);          /* the delay */
+            t = z - sd_pq_f(vv, -11469, fz);
+            bd1[wd1] = sd_sp_store_f(t, fz);    /* the delay */
             wd1 = wd1 + 1u < nd1 ? wd1 + 1u : 0u;
             t = G ? sd_pl_rdq(bd1, nd1, wd1, SD_PL_LEN(SD_PL_BASE[d1], sch[i])) : (int32_t)bd1[SD_PL_IDX(wd1, ld1, nd1)] * 2;
             lp += sd_pq(t - lp, c);             /* the damping: a lowpass, toward zero (a feedback's) */
             t = sd_pq(lp, g);
             z = G ? sd_pl_rdq(ba2, na2, wa2, SD_PL_LEN(SD_PL_BASE[a2], sch[i])) : (int32_t)ba2[SD_PL_IDX(wa2, la2, na2)] * 2;
-            vv = sd_pl_clip(t + sd_pq(z, gd2));
-            ba2[wa2] = sd_sp_store(vv);
+            vv = sd_pl_clip(t + sd_pq_f(z, gd2, fz));
+            ba2[wa2] = sd_sp_store_f(vv, fz);
             wa2 = wa2 + 1u < na2 ? wa2 + 1u : 0u;
-            t = z - sd_pq(vv, gd2);
-            bd2[wd2] = sd_sp_store(t);          /* the last delay (its end read ahead, above) */
+            t = z - sd_pq_f(vv, gd2, fz);
+            bd2[wd2] = sd_sp_store_f(t, fz);    /* the last delay (its end read ahead, above) */
             wd2 = wd2 + 1u < nd2 ? wd2 + 1u : 0u;
         }
         s->lp[k] = lp;

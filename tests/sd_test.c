@@ -2463,6 +2463,25 @@ static double pl_band(uint32_t f0, uint32_t f1, double hz)   /* the wet's left: 
     }
     return e;
 }
+/* A frozen tail holds (2026-11-26, the user: "even a frozen reverb slowly dies"): a chord at -37 dBFS into the plate,
+ * FREEZE at 1.5 s; its level at 4-5 s and at 30-31 s within 1 dB (rounded toward zero in the tank it lost 4 dB by 30
+ * s and was gone in 1.5 min; quieter ones in seconds); let go at 31 s, it dies as before */
+static void test_freeze_quiet(void)
+{
+    SdPatch p = SD_PATCH[SD_P_GRAVITY];
+    uint32_t i, F = SD_FS;
+    double a, b, c;
+    p.s_rlevel = 65535; p.s_decay = 40000; p.s_size = 40000; p.s_dlevel = 0;
+    memset(pl_in, 0, sizeof pl_in);
+    for (i = 0; i < (uint32_t)(1.2 * F); i++) {
+        double t = (double)i / F, v = 1500 * (sin(2 * M_PI * 220 * t) + sin(2 * M_PI * 277 * t) + sin(2 * M_PI * 330 * t));
+        pl_in[2 * i] = pl_in[2 * i + 1] = (int32_t)v;
+    }
+    pl_pitch = 0; pl_room = 0;
+    plate_feed(&p, 32u * F, 0, 1.5, 31.0);
+    a = pl_db(4 * F, 5 * F); b = pl_db(30 * F, 31 * F); c = pl_db(31.8 * F, 32 * F);
+    CHECK(fabs(b - a) < 1.0 && b - c > 6.0, "a frozen tail: %.1f dB at 4 s, %.1f at 30 s, %.1f let go", a, b, c);
+}
 /* the room beside the frozen plate: 440 Hz into the plate, FREEZE at 1.2 s, then 660 Hz played over it (2 .. 2.5 s):
  * after it, its tail at 660 Hz with the room, none without (the plate's input closed); FREEZE let go at 3.5 s: the
  * room off again once quiet (its tail as long as the plate's since 2026-11-23: by 16 s); never frozen: the room never
@@ -5900,6 +5919,7 @@ int main(void)
     test_plate_jobs();
     test_plate_pitch();
     test_freeze_room();
+    test_freeze_quiet();
     test_freeze_room_tail();
     test_freeze_into_room();
     test_c1_halves();

@@ -53,7 +53,8 @@
 - `tests/run_sd.sh` runs the tests twice, the second time under ASan/UBSan: a signed overflow there is a bug on
   the FM-1 too (it found MIX's), so keep it clean.
 - In a feedback loop, round toward zero (`t < 0 ? -((-t) >> n) : t >> n`), never a bare `>>`: its floor holds a
-  loop at -1 or a small DC for ever (R2 found two).
+  loop at -1 or a small DC for ever (R2 found two). The one exception: a loop held at x 1 on purpose (the plate
+  FROZEN) rounds to the nearest, or it dies (`sd_pq_f`, 2026-11-26).
 - Only edit Dinghy's own files (`platform.c`, `gfx.c`, `hal/`, `loader/`, `tools/build.py`) when the task needs it,
   and list the departure in README.md.
 - Audio (`sd_engine_render`): no float, no 64-bit division, no flash, no loop whose length a parameter sets; fixed

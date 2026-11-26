@@ -657,6 +657,10 @@ listening rounds are in the git history.
   nearest harmonic of the note (its level x 0.59). A POLY voice is −6 dB.
 - *Bit:* a shift's floor held a loop at −1 for ever (round toward zero in every loop, CLAUDE.md); MIX's product
   overflowed 32 bits (now 64; the tests run under the sanitizers since); the Reactor rests when silent.
+  The one exception (2026-11-26): the plate FROZEN, at x 1 exactly, rounds its tank's stores and allpasses to the
+  nearest (`sd_sp_store_f`, `sd_pq_f`); toward zero it lost a bit a store, and a frozen tail died (−37 dBFS gone in
+  1.5 min, −24 dBFS −13 dB in 5); to the nearest it holds, a very quiet one gathering a little noise
+  (`test_freeze_quiet`). Let go, toward zero again.
 
 ### 6.3 DISTROY (D1–D3)
 
