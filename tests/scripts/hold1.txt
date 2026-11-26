@@ -1,0 +1,51 @@
+# HOLD (2026-11-25, the user: "I hold a chord and change a note: the others stop where it stops"; "recording chords is
+# hard"). POLY (SEL 3 twice), SEQ A (11); TOOLS (ALGORITHM +4), REC POLY (K4 +1, from MONO), CLEAR (K3) and OCT+ (1): empty; TRACK (ALGORITHM -2),
+# LENGTH 64 (K1); STEP (ALGORITHM -2). PLAY (12), REC (13). C4 E4 G4 (keys 7, 11, 14) held half a second, then G4 up and
+# A4 (16) down together, held, all up: a NOTE C E G, its TIEs, then a HOLD C E A. Four times C4 then E4 60 ms after it,
+# each at another place in the step: a chord C E each time (the chord window), never E alone. C E G, then G up: a HOLD
+# C E in the next TIE's place. Twice C4 held, D4 (key 9) down, C4 up 40 ms after it (the trim, 2026-11-26): D alone in
+# its step, never C with D. C E G tapped for 60 ms: still a chord (keys down together are never trimmed). REC off; the
+# shot shows them. tests/app_hold_test.c checks the steps.
+1800 btn 3
+2000 btn 3
+2200 btn 11
+2300 enc 1 4
+2350 enc 5 1
+2400 enc 4 1
+2500 btn 1
+2550 enc 1 -2
+2600 enc 2 48
+2650 enc 1 -2
+2700 btn 12
+2800 btn 13
+3000 keys 0x4880
+3500 keys 0x10880
+4000 keys 0
+4600 keys 0x80
+4660 keys 0x880
+4900 keys 0
+5131 keys 0x80
+5191 keys 0x880
+5430 keys 0
+5662 keys 0x80
+5722 keys 0x880
+5960 keys 0
+6193 keys 0x80
+6253 keys 0x880
+6490 keys 0
+6800 keys 0x4880
+7300 keys 0x880
+7800 keys 0
+8000 keys 0x80
+8250 keys 0x280
+8290 keys 0x200
+8550 keys 0
+8710 keys 0x80
+8960 keys 0x280
+9000 keys 0x200
+9260 keys 0
+9500 keys 0x4880
+9560 keys 0
+9900 btn 13
+10100 shot
+10200 end

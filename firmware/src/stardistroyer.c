@@ -161,7 +161,7 @@
  *              the key
  *   SEQ A, B   two tracks on the one sound, each its pattern and LENGTH (a melody and a bass line). ALGORITHM picks
  *              what the knobs do, a row of buttons on the hint line (2026-11-22, the user: no key has a job on SEQ):
- *              STEP the step SELECT picks, NOTE VEL GATE TYPE (NOTE SLIDE TIE REST SKIP); MORE its RATCHET PROB, and
+ *              STEP the step SELECT picks, NOTE VEL GATE TYPE (NOTE HOLD SLIDE TIE REST SKIP); MORE its RATCHET PROB, and
  *              the note heard there: MOVE (a step earlier or later: a join stays a join, another note's place never
  *              taken) LENGTH (how many steps it holds, its TIEs; sd_note_move, sd_note_resize); TRACK LENGTH DIV SWING
  *              XPOSE; PARTS the pattern's parts (SELECT the part, framed, the rest dim): PARTS (how many, 1..6, even)
@@ -170,8 +170,9 @@
  *              or KEEP, and back) CLEAR (asked: OCT+ yes) DUB (REC adds, takes nothing). Stopped, REC off: the step
  *              picked sounds (aud_step). The keys play; GLO + a key (every one) transposes, GLO + ALGORITHM the SCALE,
  *              GLO + SELECT the ROOT (the key's own, root_own; the notes as written). REC: keys held together, a
- *              chord; playing, a key held on writes a TIE into each step it is held over (a new key while one is
- *              held: the next note, legato, unless in the same step: a chord); DUB: a key on a step with a note joins
+ *              chord; playing, a key held on writes a TIE into each step it is held over; keys within 70 ms of the
+ *              chord's first its chord (REC_CHORD_MS), a new key while others are held a HOLD with them (MONO: the
+ *              next note, legato), a chord's key let go a HOLD of the rest; DUB: a key on a step with a note joins
  *              its chord (as the voices allow), on an empty one it is the note
  *   ORBIT      the song: 1..16 steps on the white keys (GLO), each LOOPS loops of the master; the step SELECT (or GLO
  *              + its key) picks: SONG K1 SEQ A, K2 SEQ B (the pattern there), K3 DRUMS (the beat there, D01..D16, or
@@ -1018,8 +1019,8 @@ static uint16_t knob_q(uint16_t v, int32_t e)
 
 /* ---- MIDI in: from the main loop, and from app_idle while the screen draws (idle_ok) */
 static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate, ahold, xchrom, sync_int, master, accent,
-                one_core, song, drum, dpad; SdDrumKit dkit; SdDrumPat dpat; SdDrumMore dmore; uint8_t dperc, click; } set =
-    {0, 120, SD_PATCH_WORST, SD_MODE_MONO, 0, SD_AM_UP, 2, 1, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, {{{{0}}}}, {{{0}}}, {{{0}}}, 0, 0};   /* (xchrom: the transposes
+                one_core, song, drum, dpad; SdDrumKit dkit; SdDrumPat dpat; SdDrumMore dmore; uint8_t dperc, click, rec_poly; } set =
+    {0, 120, SD_PATCH_WORST, SD_MODE_MONO, 0, SD_AM_UP, 2, 1, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, {{{{0}}}}, {{{0}}}, {{{0}}}, 0, 0, 0};   /* (xchrom: the transposes
                                                    in semitones; 0, the default, IN KEY: in SEQ A's scale. sync_int: a
                                                    MIDI clock not heard; 0, the default, AUTO: one leads when it
                                                    comes. master: the track whose one leads, 0 A, 1 B. one_core:
@@ -1030,7 +1031,9 @@ static struct { uint8_t oct, bpm, patch, mode, pattern, amode, adiv, aoct, agate
                                                    start. dmore: the steps' ROLL and PROB, dperc the fourth's ENGINE
                                                    (2026-11-20: after the rest, so a record from before still loads).
                                                    click: SETUP's CLICK, 0 OFF, 1 REC, 2 PLAY (2026-11-23, in the
-                                                   pad byte: a record from before has it OFF) */
+                                                   pad byte: a record from before has it OFF). rec_poly: SEQ's REC
+                                                   (TOOLS' K4), 0 MONO (the default, 2026-11-26, the user: one note a
+                                                   step, a line as before HOLD), 1 POLY (chords, HOLD, the window) */
                                                 /* kept in flash; DISTROY first: the costliest patch, so fm1-emu
                                                    measures it. patch: the factory's SD_PATCHES, then the user's */
 _Static_assert(sizeof set + STORE_FOOT <= SECTOR_MAX, "a sector holds the settings (and its copy's number)");
@@ -1279,7 +1282,7 @@ enum { SL_STEP, SL_MORE, SL_TRACK, SL_PARTS, SL_TOOLS, SL_N };
 static const char *const SL_NAME[SL_N] = {"STEP", "MORE", "TRACK", "PARTS", "TOOLS"};
 static uint32_t seq_layer;                      /* STEP: NOTE VEL GATE TYPE; MORE: RATCHET PROB MOVE LENGTH; TRACK:
                                                    LENGTH DIV SWING XPOSE; PARTS: PARTS REPEAT ORDER LENGTH (SELECT the
-                                                   part); TOOLS: RANDOM UNDO CLEAR DUB */
+                                                   part); TOOLS: RANDOM UNDO CLEAR REC (MONO POLY DUB) */
 #define seq_segmode (seq_layer == SL_PARTS)     /* (read only: the parts' layer) */
 #define seq_more (seq_layer == SL_MORE)         /* (read only: the step's second layer) */
 static uint8_t seq_dub;                         /* TOOLS' DUB: REC adds to the steps, takes nothing (the player's) */
@@ -1382,7 +1385,12 @@ static void frz_add(uint32_t kind, const LastRun *run, const uint32_t *crash)   
     frz_top = r.seq;
     if (frz_n < FRZ_RECS) frz_n++;
 }
-static const char *const STYPE_NAME[SD_STYPES] = {"NOTE", "SLIDE", "TIE", "REST", "SKIP"};
+#ifdef DINGHY_WEB
+static const char *const STYPE_NAME[SD_STYPES] = {"NOTE", "SLIDE", "TIE", "REST", "SKIP"};   /* (the lab's: web_lab.h) */
+#endif
+static const char *const TYPE_SHOWN[SD_STYPES + 1u] = {"NOTE", "HOLD", "SLIDE", "TIE", "REST", "SKIP"};   /* (TYPE's
+                                                   knob: HOLD a NOTE with SD_HOLD, after NOTE) */
+static uint32_t type_shown(const SdStep *s) { return s->type == SD_ST_NOTE ? (s->prob & SD_HOLD ? 1u : 0u) : s->type % SD_STYPES + 1u; }
 static const char *const SORDER_NAME[SD_SORDERS] = {"FWD", "REV", "P-P", "RND"};
 static const char *const SORDER_GLYPH[SD_SORDERS] = {"", "<", "<>", "?"};
 static const char *const SDIV_NAME[SD_SDIVS] = {"1/32", "1/16T", "1/16", "1/8T", "1/8", "1/4", "1/64", "1/32T",
@@ -1695,6 +1703,7 @@ static uint32_t dr_step, dr_rec;                /* the step picked (SELECT); REC
 static uint32_t dr_roll_at, dr_back_at;         /* TOOLS: the last RANDOM, UNDO (as SEQ's) */
 static uint8_t dr_mute;                         /* bit d: drum d's steps silent (its black key; not kept) */
 static uint8_t dr_dirty, dr_keep_on;            /* a change to keep (the main loop saves the settings); the demo's */
+static uint8_t set_dirty;                       /* a setting changed outside the main loop (SEQ's REC): kept */
 static SdDrumPat dr_undo;
 static SdDrumMore dr_undo_m;
 static uint32_t dr_rng = 0x6D2B79F5u;
@@ -2390,6 +2399,24 @@ static const SdStep *seq_heard(const SdPattern *p, uint32_t i)   /* the step who
 }
 static uint32_t rec_at = 0xFFu, rec_n;         /* REC: the step the held keys write, its notes so far */
 static uint32_t rec_tie_at = 0xFFu;             /* REC, playing: the last step a held key wrote (its NOTE or a TIE) */
+#define REC_CHORD_MS 70u                        /* REC: keys within this of the chord's first are its chord, whatever
+                                                   step the clock has come to (2026-11-25, the user: a chord split over
+                                                   two steps, its first key before a step's middle, the rest after) */
+static uint8_t rec_hr[4], rec_hn;               /* REC: the keys held, as written (a HOLD writes what is still held) */
+static uint32_t rec_hr_ms[4];                   /* ... and when each went down */
+#define REC_TRIM_MS 100u                        /* REC POLY: a key held from before (REC_CHORD_MS or more before the new
+                                                   one) let go within this of a new key is a change, not a chord: it
+                                                   leaves the new key's step (2026-11-26, the user: "trim a tiny overlap
+                                                   as you change") */
+static uint8_t rec_trim_at = 0xFFu, rec_trim_new; /* REC: the step a key while others were held went to, that key */
+static uint32_t rec_trim_ms;                    /* ... when it went down */
+static uint8_t rec_pend[4], rec_pend_n, rec_pend_v, rec_pend_from, rec_pend_trk, rec_pend_hold;   /* REC, playing: the
+                                                   next step's notes, waiting for it (rec_pend_take) */
+static uint32_t rec_pend_ms;                    /* (when its key went down: the trim's) */
+static uint32_t seq_notes_of(const SdStep *st, uint8_t *ns);
+static uint8_t rec_shrunk;                      /* REC, playing: a key of the chord let go, others held: the next step a
+                                                   HOLD of what is left */
+static uint32_t rec_chord_ms;                   /* REC: when the chord (or its HOLD) began */
 static uint32_t rec_joins(void)                 /* a key now joins the held one's chord: stopped, or playing while
                                                    its step still plays (later it is the next note: legato) */
 {
@@ -2414,6 +2441,7 @@ static void seq_write_v(uint32_t note, uint32_t type, uint32_t vel)   /* REC: a 
         else seq_chord(note);
         return;
     }
+    s->prob = (uint8_t)SD_PROB(s);              /* (no HOLD: rec_hold_write writes those) */
     if (type == SD_ST_NOTE) {
         s->note = (uint8_t)note; s->vel = (uint8_t)(vel < 1u ? 1u : vel > 127u ? 127u : vel);
         s->chord[0] = s->chord[1] = s->chord[2] = 0;
@@ -2434,6 +2462,7 @@ static void seq_chord(uint32_t note)            /* REC: a key while another is h
     int32_t d = (int32_t)note - (int32_t)s->note;
     uint32_t n = voices_n(), other = trk_need(seq_trk ^ 1u) + (eng.arp_on ? 1u : 0u);
     if (rec_n >= 4u || !d || d < -127 || d > 127) return;
+    if (!set.rec_poly && !seq_dub) { msg("REC MONO: ONE NOTE A STEP"); return; }   /* (TOOLS' K4: POLY for chords) */
     if (rec_n + 1u + other > n) {               /* wider than the voices left for it */
         msg(n == 1u ? "MONO: ONE NOTE A STEP" : "CHORD FULL: NO VOICE LEFT");
         return;
@@ -2443,8 +2472,88 @@ static void seq_chord(uint32_t note)            /* REC: a key while another is h
     seq_push();
 }
 static uint32_t rec_down_ms, rec_ties;           /* REC, playing: when the key went down; the TIEs it wrote since */
+static void rec_held_add(uint32_t n)
+{
+    uint32_t i;
+    for (i = 0; i < rec_hn; i++) if (rec_hr[i] == n) return;
+    if (rec_hn < 4u) { rec_hr_ms[rec_hn] = fm1_ms; rec_hr[rec_hn++] = (uint8_t)n; }
+}
+static void rec_trim_mark(uint32_t at, uint32_t n, uint32_t ms)   /* REC POLY: key n, others held, went into step at */
+{
+    rec_trim_at = (uint8_t)(at < SD_PSTEPS ? at : 0xFFu); rec_trim_new = (uint8_t)n; rec_trim_ms = ms;
+}
+static uint32_t rec_trim_drop(uint32_t n)       /* the trim: note n out of rec_trim_at's notes (not its only one) */
+{
+    SdStep *s = &seqp.step[rec_trim_at];
+    uint8_t ns[4], kp[4];
+    uint32_t c = seq_notes_of(s, ns), i, k = 0, lo = 0;
+    if (s->type != SD_ST_NOTE) return 0;
+    for (i = 0; i < c; i++) if (ns[i] != n) kp[k++] = ns[i];
+    if (k == c || !k) return 0;
+    for (i = 1; i < k; i++) if (kp[i] < kp[lo]) lo = i;
+    s->note = kp[lo];
+    s->chord[0] = s->chord[1] = s->chord[2] = 0;
+    for (i = 0, c = 0; i < k; i++) if (i != lo && c < 3u) s->chord[c++] = (int8_t)(kp[i] - kp[lo]);
+    if (rec_at == rec_trim_at) rec_n = k;
+    seq_push();
+    return 1;
+}
+static void rec_up(uint32_t n)                  /* REC: a key up (as written) */
+{
+    uint32_t i, down;
+    for (i = 0; i < rec_hn && rec_hr[i] != n; i++) {}
+    if (i == rec_hn) {                          /* (not written yet: waiting for its step) */
+        for (i = 0; i < rec_pend_n && rec_pend[i] != n; i++) {}
+        if (i < rec_pend_n && rec_pend_n > 1u && set.rec_poly && fm1_ms - rec_pend_ms < REC_TRIM_MS) {
+            for (; i + 1u < rec_pend_n; i++) rec_pend[i] = rec_pend[i + 1u];   /* (let go as the next came: not its chord) */
+            rec_pend_n--;
+        }
+        return;
+    }
+    down = rec_hr_ms[i];
+    rec_hn--; rec_hr[i] = rec_hr[rec_hn]; rec_hr_ms[i] = rec_hr_ms[rec_hn];
+    if (set.rec_poly && !seq_dub && rec_trim_at < SD_PSTEPS && n != rec_trim_new && fm1_ms - rec_trim_ms < REC_TRIM_MS &&
+        rec_trim_ms - down >= REC_CHORD_MS && rec_trim_drop(n)) return;   /* (the trim: a change) */
+    if (rec_hn && eng.seq_run && rec_at != 0xFFu && !seq_dub) rec_shrunk = 1;   /* (others held: they hold on alone) */
+}
+static uint32_t rec_hold_room(void)             /* the voices a HOLD of the track may take (REC MONO: one, no HOLD) */
+{
+    uint32_t n = voices_n(), o = trk_need(seq_trk ^ 1u) + (eng.arp_on ? 1u : 0u);
+    if (!set.rec_poly && !seq_dub) return 1u;
+    return n > o ? n - o : 0u;
+}
+static void rec_hold_write(uint32_t vel, uint32_t tie, uint32_t newn, uint32_t ms)   /* REC, playing: the keys held as a
+                                                   HOLD on the step playing
+                                                   (sd_seq.h: what the step before had goes on), the lowest its note, as
+                                                   many as the voices left, the newest kept first. tie: in a TIE's place
+                                                   (a key let go), its length counted on from the chord's */
+{
+    uint32_t at = eng.t[seq_trk].seq_shown, room = rec_hold_room(), i, k, n = 0, lo = 0;
+    uint8_t nn[4];
+    SdStep *s;
+    if (at >= SD_PSTEPS) at = 0;
+    s = &seqp.step[at];
+    for (i = rec_hn; i-- > 0u && n < room && n < 4u; ) nn[n++] = rec_hr[i];
+    if (!n) return;
+    for (k = 1; k < n; k++) if (nn[k] < nn[lo]) lo = k;
+    s->note = nn[lo];
+    s->vel = (uint8_t)(vel < 1u ? 1u : vel > 127u ? 127u : vel);
+    s->chord[0] = s->chord[1] = s->chord[2] = 0;
+    for (i = 0, k = 0; k < n; k++)
+        if (k != lo && i < 3u && nn[k] != nn[lo] && nn[k] - nn[lo] <= 127) s->chord[i++] = (int8_t)(nn[k] - nn[lo]);
+    s->type = SD_ST_NOTE;
+    s->prob = (uint8_t)(SD_PROB(s) | SD_HOLD);
+    if (s->ratchet > SD_RATCHET_MAX) s->ratchet = 1;
+    rec_at = at; rec_tie_at = at;
+    rec_n = 1u + (s->chord[0] != 0) + (s->chord[1] != 0) + (s->chord[2] != 0);
+    rec_chord_ms = fm1_ms; rec_shrunk = 0;
+    if (tie) rec_ties++;
+    else { rec_down_ms = fm1_ms; rec_ties = 0; rec_trim_mark(at, newn, ms); }   /* (newn, its key at ms: the trim) */
+    seq_push();
+}
 static void seq_keys_up(void)                   /* REC, step recording: every key up, the next step */
 {
+    rec_hn = 0; rec_shrunk = 0;
     if (rec_at == 0xFFu) return;
     if (eng.seq_run && rec_at < SD_PSTEPS && rec_tie_at != 0xFEu) {   /* playing: its last step's GATE as long as the
                                                    key was held (2026-11-22, the user: "record the gate's length in
@@ -2463,7 +2572,6 @@ static void seq_keys_up(void)                   /* REC, step recording: every ke
  * the one playing, or the next when it was past the middle (a little early for the next step lands on it, not a
  * whole step before). The next step's notes wait till it begins, then are written: it sounds now (the key), and the
  * step does not play it a second time this round */
-static uint8_t rec_pend[4], rec_pend_n, rec_pend_v, rec_pend_from, rec_pend_trk;
 static void rec_pend_take(void)                 /* each pass: the next step begun, its notes written */
 {
     uint32_t i, n = rec_pend_n;
@@ -2471,28 +2579,45 @@ static void rec_pend_take(void)                 /* each pass: the next step begu
     if (!seq_rec || !eng.seq_run || seq_trk != rec_pend_trk) { rec_pend_n = 0; return; }
     if (eng.t[seq_trk].seq_shown == rec_pend_from) return;
     rec_pend_n = 0;
-    seq_write_v(rec_pend[0], SD_ST_NOTE, rec_pend_v);
-    for (i = 1; i < n; i++) seq_chord(rec_pend[i]);
+    if (rec_pend_hold && rec_hn > n && rec_hold_room() >= 2u) rec_hold_write(rec_pend_v, 0, rec_pend[0], rec_pend_ms);   /* (keys held from
+                                                   before: they go on, a HOLD) */
+    else {
+        seq_write_v(rec_pend[0], SD_ST_NOTE, rec_pend_v);
+        for (i = 1; i < n; i++) seq_chord(rec_pend[i]);
+    }
     if (!fm1_in.notes && !midi_hn) seq_keys_up();   /* (let go already: the next key is a note of its own) */
 }
 static void rec_live(uint32_t note, uint32_t vel, uint32_t others)   /* REC: a key (MIDI's too) into the steps;
                                                    others: keys held with it (a chord) */
 {
     const SdSeqT *t = &eng.t[seq_trk];
-    if (!others) { rec_down_ms = fm1_ms; rec_ties = 0; }   /* (how long it is held: its GATE) */
+    if (!others) { rec_down_ms = rec_chord_ms = fm1_ms; rec_ties = 0; rec_hn = 0; rec_shrunk = 0; }   /* (how long
+                                                   it is held: its GATE) */
+    rec_held_add(note);
     rec_pend_take();
+    if (others && rec_at != 0xFFu && !rec_pend_n && fm1_ms - rec_chord_ms < REC_CHORD_MS && (set.rec_poly || seq_dub)) {   /* the chord window (POLY):
+                                                   its chord, on its step */
+        seq_chord(note);
+        rec_trim_mark(rec_at, note, fm1_ms);
+        return;
+    }
     if (eng.seq_run && (rec_pend_n || t->seq_pos_q8 >= t->seq_step_q8 / 2u + rec_ahead() * 256u)) {
         if (rec_pend_n && others) {             /* (the next step's chord) */
-            if (rec_pend_n < 4u) rec_pend[rec_pend_n++] = (uint8_t)note;
+            if (rec_pend_n < 4u) { rec_pend[rec_pend_n++] = (uint8_t)note; rec_pend_ms = fm1_ms; }
         } else {
             rec_pend[0] = (uint8_t)note; rec_pend_n = 1;
             rec_pend_v = (uint8_t)vel;
             rec_pend_from = t->seq_shown;
             rec_pend_trk = (uint8_t)seq_trk;
+            rec_pend_hold = (uint8_t)(others && rec_at != 0xFFu && !seq_dub);
+            rec_pend_ms = fm1_ms;
         }
         return;
     }
-    if (rec_joins() && others) seq_chord(note);
+    if (rec_joins() && others) { seq_chord(note); rec_trim_mark(rec_at, note, fm1_ms); }
+    else if (others && eng.seq_run && rec_at != 0xFFu && !seq_dub && rec_hold_room() >= 2u) rec_hold_write(vel, 0, note, fm1_ms);
+                                                /* (a later step, keys held: they go on, the new one with them: a
+                                                   HOLD; before 2026-11-25 the next note alone, the others cut) */
     else seq_write_v(note, SD_ST_NOTE, vel);
 }
 
@@ -3041,7 +3166,14 @@ static void seq_knobs(void)
             seq_back_at = fm1_ms ? fm1_ms : 1u;
         }
         if ((e = enc_take(ENC_KNOB3)) != 0) seq_clr_at = fm1_ms ? fm1_ms : 1u;   /* CLEAR: asked, OCT+ yes */
-        if ((e = enc_take(ENC_KNOB4)) != 0) seq_dub = e > 0;   /* DUB: a turn right on, left off */
+        if ((e = enc_take(ENC_KNOB4)) != 0) {   /* REC: MONO (one note a step, legato), POLY (chords, HOLD), DUB (it
+                                                   adds; DUB's on/off till 2026-11-26): MONO and POLY kept */
+            uint32_t v = seq_dub ? 2u : set.rec_poly ? 1u : 0u, w = step_lim(v, e, 3u);
+            if (w != v) {
+                seq_dub = (uint8_t)(w == 2u);
+                if (w < 2u && set.rec_poly != (w == 1u)) { set.rec_poly = (uint8_t)(w == 1u); set_dirty = 1; }
+            }
+        }
     } else if (seq_segmode) {
         uint8_t bd[SD_SEGS + 1u];
         uint32_t sc = sd_seg_bounds(&seqp, bd), g = seq_dseg < sc ? seq_dseg : sc - 1u;
@@ -3085,8 +3217,8 @@ static void seq_knobs(void)
             changed = 1;
         }
         if ((e = enc_take(ENC_KNOB2)) != 0) {
-            int32_t q = ((int32_t)st->prob + 2) / 5 * 5 + e * 5;
-            st->prob = (uint8_t)(q < 0 ? 0 : q > 100 ? 100 : q);
+            int32_t q = ((int32_t)SD_PROB(st) + 2) / 5 * 5 + e * 5;
+            st->prob = (uint8_t)((st->prob & SD_HOLD) | (uint32_t)(q < 0 ? 0 : q > 100 ? 100 : q));
             changed = 1;
         }
         if ((e = enc_take(ENC_KNOB3)) != 0) {   /* MOVE: the note heard at the step, a step a detent (sd_note_move) */
@@ -3137,7 +3269,9 @@ static void seq_knobs(void)
             changed = 1;
         }
         if ((e = enc_take(ENC_KNOB4)) != 0) {
-            uint32_t ty = step_mod(st->type % SD_STYPES, e, SD_STYPES);
+            uint32_t v = step_mod(type_shown(st), e, SD_STYPES + 1u), ty = v ? v - 1u : 0u;   /* (NOTE HOLD SLIDE
+                                                   TIE REST SKIP: HOLD a NOTE with its bit) */
+            st->prob = (uint8_t)(SD_PROB(st) | (v == 1u ? SD_HOLD : 0u));
             if (ty != SD_ST_SLIDE && st->ratchet > SD_RATCHET_MAX) st->ratchet = 1;   /* (RATCHET and a SLIDE's TIME
                                                    share a byte: a TIME, from 17, is no RATCHET; a RATCHET 1..3 a SLIDE
                                                    reads as its first TIME, and keeps) */
@@ -3969,12 +4103,12 @@ static void knobs_of(void)
         break;
     }
     default:                                    /* SEQ A, B: the layer's (ALGORITHM) */
-        if (seq_layer == SL_TOOLS) {            /* RANDOM UNDO CLEAR DUB, each a button: lit as it acts, UNDO's dim
+        if (seq_layer == SL_TOOLS) {            /* RANDOM UNDO CLEAR REC, each a button: lit as it acts, UNDO's dim
                                                    with nothing to take back, CLEAR's while it asks, DUB's ON lit */
             kbt(0, "RANDOM", "ROLL", seq_roll_at && fm1_ms - seq_roll_at < 300u ? 1u : 0u);
             kbt(1, "UNDO", "BACK", seq_back_at && fm1_ms - seq_back_at < 300u ? 1u : seq_has_undo ? 2u : 0u);
             kbt(2, "CLEAR", "CLEAR", seq_clr_at ? 1u : 0u);
-            kbt(3, "DUB", seq_dub ? "ON" : "OFF", seq_dub ? 1u : 0u);
+            kbt(3, "REC", seq_dub ? "DUB" : set.rec_poly ? "POLY" : "MONO", seq_dub ? 1u : 0u);
         } else if (seq_layer == SL_TRACK) {
             seq_l2_knobs();
         } else if (seq_segmode) {
@@ -3990,7 +4124,7 @@ static void knobs_of(void)
             if (seq_more) {
                 if (st->type == SD_ST_SLIDE) kt(0, "SLIDE", SLIDE_NAME[SD_SLIDE_T(st->ratchet) - 1u]);
                 else { p = put(t, "x"); *put_u(p, st->ratchet < 1u ? 1u : st->ratchet) = 0; kt(0, "RATCHET", t); }
-                p = put_u(t, st->prob); *p++ = '%'; *p = 0; kx(1, "PROB", t, st->prob * 99u / 100u);
+                p = put_u(t, SD_PROB(st)); *p++ = '%'; *p = 0; kx(1, "PROB", t, SD_PROB(st) * 99u / 100u);
                 {                               /* the note heard here: where it starts, how many steps it holds */
                     int32_t s0 = sd_note_at(&seqp, seq_cur);
                     if (s0 < 0) { k0(2); k0(3); }
@@ -4005,7 +4139,7 @@ static void knobs_of(void)
                 *put_note(t, hs->note) = 0; kt(0, "NOTE", t);
                 *put_u(t, hs->vel) = 0; kx(1, "VEL", t, hs->vel * 99u / 127u);
                 p = put_u(t, st->gate); *p++ = '%'; *p = 0; kx(2, "GATE", t, st->gate * 99u / SD_GATE_MAX);
-                kt(3, "TYPE", STYPE_NAME[st->type % SD_STYPES]);
+                kt(3, "TYPE", TYPE_SHOWN[type_shown(st)]);
             }
         }
         break;
@@ -4331,8 +4465,12 @@ static void pic_loop(void)
     {   /* the window LOOP takes (or holds): its ends on the tape, columns back from the head */
         int32_t xe, xs, xn = -1, q;
         if (looping) {                          /* the loop it holds: ending at lbase, as long as it was taken */
-            uint32_t pl = eng.sp.pln >> 8 ? eng.sp.pln >> 8 : ln, back = (lp_cw + n - eng.sp.lbase % n) % n;
-            xe = X0 + W - 1 - (int32_t)(back / spc);
+            uint32_t pl = eng.sp.pln >> 8 ? eng.sp.pln >> 8 : ln, ahead = (eng.sp.lbase % n + n - lp_cw) % n;
+            xe = X0 + W - 1 - (ahead < n / 2u ? 0 : (int32_t)((n - ahead) / spc));   /* (its end past the last
+                                                   column: at the head. The columns lag the write head by up to one,
+                                                   and LOOP taken on a line ahead ends right at it: taken as all the
+                                                   tape back, the window went off the left, a 4 px sliver there;
+                                                   2026-11-25, the user: "the marked loop suddenly super thin") */
             xs = xe - (int32_t)(pl / spc);
         } else if (sync) {                      /* the last whole one on its grid (the loop's lines, a bar at most) */
             uint32_t g = ln < bar ? ln : bar, since = g ? now % g : 0u;
@@ -4800,7 +4938,9 @@ static void pic_setup_full(void)                /* SETUP: each knob's choices as
 #endif
     char s[16], *p;
     for (k = 0; k < 4u; k++) {
-        const char *nm = tl ? TN[k] : !l2 ? NM[k] : k == 0u ? "SYNC" : k == 1u && cores ? "CORES" : 0;
+        const char *nm = tl ? TN[k] : !l2 ? NM[k] : k == 0u ? "SYNC" : k == 1u ? (cores ? "CORES" : 0) :
+                         k == 2u ? "CLICK" : 0;   /* (CLICK's name over its buttons: 2026-11-25, the user: "nothing
+                                                   above them says what they choose") */
         if (k) cv_line((int32_t)k * 60, 18, (int32_t)k * 60, 90, C_GRID);
         if (nm) cv_text(30 + (int32_t)k * 60 - text_w(&FONT_S, nm) / 2, 0, &FONT_S, nm, C_ICE_D);
     }
@@ -4916,7 +5056,23 @@ static void pic_arp(void)                       /* the run: three notes over OCT
     cv_text(6, 0, &FONT_S, s, eng.arp_on ? C_RED : C_ICE_D);
 }
 
-static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the bank's steps as towers, the keys */
+static uint16_t c_dim(uint16_t c, uint32_t a)    /* c at a / 256 of its light (toward black) */
+{
+    uint32_t r = (c >> 11) * a >> 8, g = ((c >> 5) & 63u) * a >> 8, b = (c & 31u) * a >> 8;
+    return (uint16_t)((r > 31u ? 31u : r) << 11 | (g > 63u ? 63u : g) << 5 | (b > 31u ? 31u : b));
+}
+static uint32_t seq_notes_of(const SdStep *st, uint8_t *ns)   /* a step's notes as written: its own, then its chord's */
+{
+    uint32_t n = 1, i;
+    ns[0] = st->note;
+    for (i = 0; i < 3u; i++)
+        if (st->chord[i]) {
+            int32_t c = (int32_t)st->note + st->chord[i];
+            if (c >= 0 && c <= 127) ns[n++] = (uint8_t)c;
+        }
+    return n;
+}
+static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the bank's steps as lines, the keys */
 {
     uint8_t bd[SD_SEGS + 1u];
     uint32_t sc = sd_seg_bounds(&seqp, bd), k, lo = 127, hi = 0, play = eng.seq_run ? eng.t[seq_trk].seq_shown : 0xFFu;
@@ -4931,62 +5087,132 @@ static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the 
         cv_rect(8 + (int32_t)k * 3 + (int32_t)(k / 16u) * 3, 0, 2, k < seqp.len ? 4 : 2, c);
     }
     cv_rect(8 + (int32_t)seq_bank * 51, 6, 48, 1, C_RED);   /* the bank on the keys */
-    for (k = 0; k < 16u; k++) {
-        const SdStep *st = &seqp.step[seq_bank * 16u + k];
-        uint32_t nt;
-        if (seq_bank * 16u + k >= seqp.len || st->type >= SD_ST_REST) continue;
-        nt = seq_heard(&seqp, seq_bank * 16u + k)->note;   /* (a TIE: the note it holds) */
-        if (nt < lo) lo = nt;
-        if (nt > hi) hi = nt;
+    for (k = 0; k < 16u; k++) {                 /* the range: every note heard in the bank, a chord's too */
+        uint32_t i = seq_bank * 16u + k, nn, j;
+        uint8_t ns[4];
+        if (i >= seqp.len || seqp.step[i].type >= SD_ST_REST) continue;
+        nn = seq_notes_of(seq_heard(&seqp, i), ns);   /* (a TIE: the notes it holds) */
+        for (j = 0; j < nn; j++) { if (ns[j] < lo) lo = ns[j]; if (ns[j] > hi) hi = ns[j]; }
     }
     if (hi < lo) lo = hi = 45;
-    if (hi - lo < 12u) { lo = lo > 6u ? lo - 6u : 0u; hi = lo + 12u; }
+    lo = lo > 0u ? lo - 1u : 0u; hi = hi < 125u ? hi + 2u : 127u;
+    if (hi - lo < 12u) { uint32_t m = (lo + hi) / 2u; lo = m > 6u ? m - 6u : 0u; hi = lo + 12u; }
     {                                           /* (2026-11-22, the user took the sheet: the line under only when it
-                                                   says something, REC, GLO, TOOLS, a lock, CLR; else the towers take
+                                                   says something, REC, GLO, TOOLS, a lock, CLR; else the notes take
                                                    its room) */
         uint32_t line = seq_rec || shift() || lock || seq_clr_at;
         tb = seq_segmode ? 60 : line ? 78 : 96;
         ts = seq_segmode ? 24u : line ? 40u : 56u;
     }
-    for (k = 0; k < 16u; k++) {                 /* towers as high as the note; TIE a bridge, SLIDE a ramp, REST a dot */
-        uint32_t i = seq_bank * 16u + k, seg = sd_seg_of(&seqp, i);
-        const SdStep *st = &seqp.step[i];
-        int32_t x = 9 + (int32_t)k * 14, base = tb, h;
-        uint16_t c = i == play ? C_RED : C_ICE;
-        uint32_t dim = seq_segmode && seg != (seq_dseg < sc ? seq_dseg : sc - 1u);   /* (SEGMENTS: not the part picked) */
-        if (i >= seqp.len) { cv_rect(x + 4, base - 1, 4, 1, C_GRID); continue; }
-        if (i == bd[seg] && sc > 1u) {          /* a segment starts here: its letter and order */
-            p = s;
-            *p++ = (char)('A' + seg);
-            p = put(p, SORDER_GLYPH[seqp.seg_order[seg] % SD_SORDERS]);
-            *p = 0;
-            cv_line(x - 2, 10, x - 2, base, seq_segmode ? C_ICE : C_GRID);
-            cv_text(x, 8, &FONT_S, s, seq_segmode && seg == seq_dseg ? C_RED : C_ICE_D);
+    {   /* The notes as lines (2026-11-25, the user picked the sheet's C3: "much cooler", no keyboard: it spans octaves):
+         * each note a line at its pitch, as long as it sounds (its GATE, or on into a TIE or a HOLD that keeps it), lit
+         * where it starts, fading as it is held; the step's note ice, a chord's red, a soft step dimmer. Behind them the
+         * key's notes as faint lanes, its root's brighter. Playing: the step that plays lit, the rest dimmer, a red line
+         * going through it. TIE: the notes go on; SLIDE a ramp in; REST a dot; SKIP a cross; PROB a red dot over */
+        int32_t top = tb - (int32_t)ts - 10, bot = tb - 1, span = bot - 3 - top, n, x;
+        uint32_t kr = sd_pat_key(set.xchrom ? &seqp : key_pat()) % 12u, run = play < SD_PSTEPS, lp, j;
+        uint8_t rn[8], rx[8], nr = 0;           /* the lines going on: their notes, where they began */
+#define SQ_Y(nt) (bot - 3 - (int32_t)(((int32_t)(nt) - (int32_t)lo) * span / (int32_t)(hi - lo)))
+        for (n = (int32_t)lo; n <= (int32_t)hi; n++) {   /* the key's lanes (CHROM: its root's only) */
+            uint32_t root = (uint32_t)n % 12u == kr;
+            if (!root && (set.xchrom || !key_has((uint32_t)n) || span < 3 * (int32_t)(hi - lo))) continue;
+            for (x = 7; x < 233; x += root ? 1 : 3) cv_pset(x, SQ_Y(n) + 1, root ? c_dim(C_ICE_D, 96u) : C_GRID);
         }
-        {
-            uint32_t nt = seq_heard(&seqp, i)->note;   /* (a TIE as high as the note it holds) */
-            h = 4 + (int32_t)((nt < lo ? 0u : nt - lo) * ts / (hi - lo));
-        }
-        switch (st->type) {
-        case SD_ST_REST: cv_rect(x + 5, base - 2, 2, 2, C_ICE_D); break;
-        case SD_ST_SKIP: cv_line(x + 2, base - 6, x + 9, base - 1, C_RED_D); cv_line(x + 9, base - 6, x + 2, base - 1, C_RED_D); break;
-        case SD_ST_TIE: cv_rect(x - 3, base - h + 2, 15, 2, c); cv_rect(x + 2, base - h + 4, 8, h - 4, C_GRID); break;
-        default: {                              /* as wide as its GATE: 100 % the whole step */
-            uint32_t g = st->gate < 1u ? 1u : st->gate > SD_GATE_MAX ? SD_GATE_MAX : st->gate;
-            int32_t w = 2 + (int32_t)(g * 12u / 100u);
-            cv_box(x + 1, base - h, w, h, i == play ? C_RED : dim ? C_GRID : st->vel >= 110u ? C_ICE : C_ICE_D);
-            if (st->type == SD_ST_SLIDE) cv_line(x - 3, base - h + 6, x + 1, base - h, C_RED);
-            if (st->type == SD_ST_NOTE && st->ratchet > 1u) {   /* RATCHET: the tower cut in its hits */
-                int32_t r;
-                for (r = 1; r < (int32_t)(st->ratchet > SD_RATCHET_MAX ? SD_RATCHET_MAX : st->ratchet); r++)
-                    cv_rect(x + 1, base - h + h * r / (int32_t)st->ratchet, w, 1, C_BG);
+        for (k = 0; k < 16u; k++) {
+            uint32_t i = seq_bank * 16u + k, seg = sd_seg_of(&seqp, i), nn, pn = 0, xn = 0, hold;
+            const SdStep *st = &seqp.step[i], *hs;
+            uint8_t ns[4], pv[4], nx[4];
+            uint32_t dim = seq_segmode && seg != (seq_dseg < sc ? seq_dseg : sc - 1u);   /* (PARTS: not the part
+                                                   picked) */
+            uint32_t lit = !run || i == play;
+            x = 9 + (int32_t)k * 14;
+            if (i >= seqp.len) { cv_rect(x + 4, bot - 1, 4, 1, C_GRID); continue; }
+            if (i == bd[seg] && sc > 1u) {      /* a segment starts here: its letter and order */
+                p = s;
+                *p++ = (char)('A' + seg);
+                p = put(p, SORDER_GLYPH[seqp.seg_order[seg] % SD_SORDERS]);
+                *p = 0;
+                cv_line(x - 2, 10, x - 2, bot, seq_segmode ? C_ICE : C_GRID);
+                cv_text(x, 8, &FONT_S, s, seq_segmode && seg == seq_dseg ? C_RED : C_ICE_D);
             }
-            if (st->prob < 100u) cv_rect(x + 5, base - h - 4, 2, 2, C_RED);   /* PROB: a red dot over it */
-            if (st->chord[0]) cv_rect(x + 1, base - h - 2, w, 1, C_RED);   /* a chord: a red cap */
-            break;
+            if (st->type == SD_ST_REST) { cv_rect(x + 5, bot - 2, 2, 2, C_ICE_D); nr = 0; continue; }
+            if (st->type == SD_ST_SKIP) {
+                cv_line(x + 2, bot - 6, x + 9, bot - 1, C_RED_D); cv_line(x + 9, bot - 6, x + 2, bot - 1, C_RED_D);
+                continue;
+            }
+            hs = seq_heard(&seqp, i);
+            nn = seq_notes_of(hs, ns);
+            hold = st->type == SD_ST_TIE || SD_IS_HOLD(st);
+            if (hold && i > 0u && seqp.step[i - 1u].type < SD_ST_REST) pn = seq_notes_of(seq_heard(&seqp, i - 1u), pv);
+            if (i + 1u < seqp.len) {            /* what the next step keeps of these */
+                const SdStep *nx_st = &seqp.step[i + 1u];
+                if (nx_st->type == SD_ST_TIE) { for (j = 0; j < nn; j++) nx[j] = ns[j]; xn = nn; }
+                else if (SD_IS_HOLD(nx_st)) xn = seq_notes_of(nx_st, nx);
+            }
+            {                                   /* the lines going on that this step does not keep: ended */
+                uint32_t a, b, m = 0;
+                for (a = 0; a < nr; a++) {
+                    for (b = 0; b < nn && !(hold && ns[b] == rn[a]); b++) {}
+                    if (b < nn) { rn[m] = rn[a]; rx[m] = rx[a]; m++; }
+                }
+                nr = (uint8_t)m;
+            }
+            for (j = 0; j < nn; j++) {
+                uint32_t g = st->gate < 1u ? 1u : st->gate > SD_GATE_MAX ? SD_GATE_MAX : st->gate, a, cont = 0, on = 0;
+                int32_t y = SQ_Y(ns[j]), xs, xe, xx, r0 = x + 1;
+                uint16_t col = j ? C_RED : C_ICE, hi_c = j ? C_GLINT : C_WHITE;
+                for (a = 0; a < pn; a++) if (pv[a] == ns[j]) cont = 1;
+                if (st->type == SD_ST_TIE && i > 0u && seqp.step[i - 1u].type < SD_ST_REST) cont = 1;
+                for (a = 0; a < xn; a++) if (nx[a] == ns[j]) on = 1;
+                for (a = 0; a < nr && rn[a] != ns[j]; a++) {}
+                if (cont && a < nr) r0 = rx[a];
+                else if (cont) r0 = x - 20;     /* (begun before this bank) */
+                if (a == nr && nr < 8u) { rn[nr] = ns[j]; rx[nr] = (uint8_t)(r0 < 0 ? 0 : r0); nr++; }
+                else if (a < nr && !cont) rx[a] = (uint8_t)r0;
+                xs = cont ? x - 2 : x + 1;
+                xe = on ? x + 11 : x + 2 + (int32_t)(g * 9u / 100u);
+                for (xx = xs; xx <= xe; xx++) {   /* its line: a glow over and under, a lit edge, fading as it is held */
+                    int32_t d = (xx - r0) * 86 / 100;
+                    uint32_t f = 256u - (uint32_t)(d < 0 ? 0 : d > 86 ? 86 : d);
+                    if (hs->vel < 110u) f = f * 225u >> 8;
+                    if (!lit) f = f * 200u >> 8;
+                    if (dim) { cv_rect(xx, y, 1, 4, C_GRID); continue; }
+                    cv_pset(xx, y - 1, c_dim(col, f * 90u >> 8));
+                    cv_pset(xx, y, run && lit ? c_dim(hi_c, f) : c_dim(col, f + 40u > 256u ? 256u : f + 40u));
+                    cv_pset(xx, y + 1, c_dim(col, f));
+                    cv_pset(xx, y + 2, c_dim(col, f));
+                    cv_pset(xx, y + 3, c_dim(col, f * 150u >> 8));
+                    cv_pset(xx, y + 4, c_dim(col, f * 50u >> 8));
+                }
+                if (!cont && !dim) {            /* where it starts: a lamp */
+                    cv_rect(x + 1, y - 1, 3, 6, lit ? col : c_dim(col, 200u)); cv_rect(x + 2, y, 1, 4, lit ? hi_c : col);
+                    if (st->type == SD_ST_SLIDE && i > 0u && seqp.step[i - 1u].type < SD_ST_REST)
+                        cv_line(x - 3, SQ_Y(seq_heard(&seqp, i - 1u)->note) + 1, x + 1, y + 1, C_RED);   /* (the ramp
+                                                   in) */
+                }
+                if (!on && !dim) cv_rect(xe + 1, y, 1, 4, c_dim(col, 90u));
+                if (!j && st->type == SD_ST_NOTE && st->ratchet > 1u && !SD_IS_HOLD(st)) {   /* RATCHET: cut in its
+                                                   hits */
+                    uint32_t r, rr = st->ratchet > SD_RATCHET_MAX ? SD_RATCHET_MAX : st->ratchet, b2;
+                    for (r = 1; r < rr; r++)
+                        for (b2 = 0; b2 < nn; b2++) cv_rect(x + 1 + 11 * (int32_t)r / (int32_t)rr, SQ_Y(ns[b2]) - 1, 1, 6, C_BG);
+                }
+            }
+            if (SD_PROB(st) < 100u && st->type <= SD_ST_SLIDE) {   /* PROB: a red dot over its top note */
+                int32_t yt = bot;
+                for (j = 0; j < nn; j++) if (SQ_Y(ns[j]) < yt) yt = SQ_Y(ns[j]);
+                cv_rect(x + 5, yt - 5, 2, 2, C_RED);
+            }
+            if (i == seq_cur && !seq_segmode) cv_frame(x - 2, top - 5, 15, bot - top + 7, C_RED);
         }
+        if (run && !seq_segmode && play / 16u == seq_bank) {   /* playing: the red line through its step */
+            const SdSeqT *tt = &eng.t[seq_trk];
+            lp = (tt->seq_step_q8 >> 8) ? (tt->seq_pos_q8 >> 8) * 12u / (tt->seq_step_q8 >> 8) : 0u;
+            x = 9 + (int32_t)(play % 16u) * 14 + (int32_t)(lp > 12u ? 12u : lp);
+            cv_rect(x - 1, top - 3, 3, bot - top + 4, c_dim(C_RED, 80u));
+            cv_rect(x, top - 3, 1, bot - top + 4, C_RED);
         }
-        if (i == seq_cur && !seq_segmode) cv_frame(x - 1, tb - (int32_t)ts - 10, 14, (int32_t)ts + 12, C_RED);
+#undef SQ_Y
     }
     if (seq_segmode) {                          /* the part picked framed (as far as this bank shows it); then how
                                                    the parts play, in turn: each its letter, its order, its repeats
@@ -5015,8 +5241,9 @@ static void pic_seq(void)                       /* SEQ, RADAR: the pattern, the 
     }
     if (seq_rec) {                              /* REC (or DUB) STEP or LIVE, the two buttons a TIE and a REST */
         int32_t x = cv_text(6, 86, &FONT_S, seq_dub ? "DUB" : "REC", C_RED);
+        if (!seq_dub) x = cv_text(x + 8, 86, &FONT_S, set.rec_poly ? "POLY" : "MONO", C_RED);   /* (TOOLS' K4) */
         x = cv_text(x + 8, 86, &FONT_S, eng.seq_run ? "LIVE" : "STEP", C_ICE);
-        cv_text(x + 16, 86, &FONT_S, "ENV TIE  LFO REST", C_ICE_D);
+        if (x + 12 + text_w(&FONT_S, "ENV TIE LFO REST") <= 234) cv_text(x + 12, 86, &FONT_S, "ENV TIE LFO REST", C_ICE_D);
         return;
     }
     if (shift()) { p = put(s, "KEYS TRANSPOSE"); lc = C_RED; }   /* GLO: every key transposes (their lights) */
@@ -5722,6 +5949,7 @@ static void midi_note(uint32_t n, uint32_t v)
         }
     } else {
         sd_engine_note(&eng, n, 0);
+        if (seq_rec && (*w & bit)) rec_up(sd_seq_rec_note(&eng, &eng.t[seq_trk], n));
         if (*w & bit) { *w &= ~bit; midi_hn--; }
         if (seq_rec && !midi_hn && !fm1_in.notes) seq_keys_up();   /* every key up: the next step */
     }
@@ -5968,6 +6196,11 @@ static void app_main(void)
     }
 #endif
     k = !settings_load(&set, sizeof set);       /* (the drums' kit and beat in it) */
+    if (!k && !settings_load(&set, (uint32_t)((uint8_t *)&set.rec_poly - (uint8_t *)&set))) {   /* (as saved before
+                                                   SEQ's REC MONO / POLY, 2026-11-26: MONO) */
+        set.rec_poly = 0;
+        k = 1;
+    }
     if (!k && !settings_load(&set, (uint32_t)((uint8_t *)&set.dmore - (uint8_t *)&set))) {   /* (as saved before the
                                                    steps' ROLL and PROB and the fourth's ENGINE, 2026-11-20) */
         uint8_t *z = (uint8_t *)&set.dmore;
@@ -5992,6 +6225,7 @@ static void app_main(void)
     if (set.accent >= SD_ACCENTS) set.accent = 0;
     if (set.one_core > 1u) set.one_core = 0;
     if (set.click > 2u) set.click = 0;
+    if (set.rec_poly > 1u) set.rec_poly = 0;
     if (set.song >= USONGS) set.song = 0;
     if (!k) { set.dkit = SD_DR_KIT0; sd_dr_pat0(&set.dpat); set.drum = 0; }   /* (none saved: the lab's kit, its beat) */
     if (set.drum >= UDRUMS) set.drum = 0;
@@ -6284,7 +6518,10 @@ static void app_main(void)
                     rec_live(sd_seq_rec_note(&eng, &eng.t[seq_trk], held[k]), 100u,
                              others || midi_hn || (down & ((1u << k) - 1u)));
             }
-            if (up >> k & 1u && held[k]) { sd_engine_note(&eng, held[k], 0); midi_send(0x80u, held[k], 0); held[k] = 0; }
+            if (up >> k & 1u && held[k]) {
+                if (seq_rec) rec_up(sd_seq_rec_note(&eng, &eng.t[seq_trk], held[k]));   /* (REC: what is held) */
+                sd_engine_note(&eng, held[k], 0); midi_send(0x80u, held[k], 0); held[k] = 0;
+            }
             if (keys >> k & 1u) lit |= 1u << k;
         }
 
@@ -6319,6 +6556,7 @@ static void app_main(void)
             }
         }
         if (dr_dirty) { dr_dirty = 0; dirty = 1; t_change = fm1_ms; }   /* (the drums' sounds and beat: kept) */
+        if (set_dirty) { set_dirty = 0; dirty = 1; t_change = fm1_ms; }
         {                                       /* MIDI clock out over USB (the engine's clko_*: 24 a quarter while
                                                    the FM-1 keeps the tempo): a START before the pulse it came with,
                                                    the pulses (after a stall at most 8), a STOP as PLAY stops
@@ -6351,7 +6589,12 @@ static void app_main(void)
                                                 /* (past the middle as heard: rec_ahead) */
                 if (seq_dub && seqp.step[at].type != SD_ST_REST) rec_tie_at = 0xFEu;   /* (DUB: a held note stops
                                                    at the next note, takes nothing) */
-                else {
+                else if (rec_shrunk && rec_hn && rec_hold_room() >= 2u && rec_at < SD_PSTEPS) {
+                    rec_hold_write(seqp.step[rec_at].vel, 1, 0, 0);   /* (a key of the chord let go: what is left goes on
+                                                   alone, a HOLD in the TIE's place) */
+                } else {
+                    rec_shrunk = 0;
+                    seqp.step[at].prob = (uint8_t)SD_PROB(&seqp.step[at]);
                     if (rec_at < SD_PSTEPS) {   /* (the held note's own: a TIE turned into a NOTE later plays it) */
                         seqp.step[at].note = seqp.step[rec_at].note;
                         seqp.step[at].vel = seqp.step[rec_at].vel;

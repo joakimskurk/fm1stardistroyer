@@ -3669,6 +3669,75 @@ static void run_ms(SdEngine *e, uint32_t ms)
     for (f = 0; f < ms * 441u / 10u; f += SD_SUB) { memset(o, 0, sizeof o); sd_engine_render(e, o, SD_SUB); }   /* (zeroed
                                                    each time, as the platform hands it: the limiter's line keeps it) */
 }
+/* HOLD (2026-11-25): C E G held over a TIE, then C E A: C and E go on unstruck (the same voices, their ages), G off,
+ * A struck; held to the HOLD with no gap (its gate past the TIE's); a NOTE after it strikes anew. And a HOLD after a
+ * REST strikes all its notes; PROB still reads through SD_PROB */
+static uint32_t voice_age(const SdEngine *e, uint32_t note)
+{
+    uint32_t i;
+    for (i = 0; i < e->nvoices; i++) if (e->voice[i].gate && e->voice[i].note == note) return e->voice[i].age + 1u;
+    return 0;
+}
+/* POLY's level by how many sound (2026-11-26): three notes alike at 1/sqrt 3 each (equal power, a chord as loud as a
+ * note), two at 1/sqrt 2; one alone 1. Until then the loudest's (65536^2) wrapped to 0 in uint32: a chord of notes
+ * alike counted none and played at full each, +5 dB for three */
+static void test_poly_level(void)
+{
+    SdEngine e1;
+    uint32_t k;
+    static const uint8_t PL_N[3] = {57, 60, 64};
+    for (k = 1; k <= 3u; k++) {
+        uint32_t i, want = k == 1u ? 32768u : k == 2u ? 23170u : 18919u;
+        sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
+        e1.mode = SD_MODE_POLY; run_ms(&e1, 5);
+        for (i = 0; i < k; i++) sd_engine_note(&e1, PL_N[i], 110);
+        run_ms(&e1, 300);
+        CHECK((uint32_t)e1.vg + 200u >= want && (uint32_t)e1.vg <= want + 200u, "POLY's level, %u notes alike: vg %d (%u)",
+              k, e1.vg, want);
+    }
+}
+static void test_seq_hold(void)
+{
+    SdEngine e1;
+    SdPattern q;
+    uint8_t nt[8];
+    uint32_t n, i, aC, aE, aG;
+    sd_pattern_default(&q);
+    for (i = 0; i < q.len; i++) { q.step[i].type = SD_ST_REST; q.step[i].gate = 100; }
+    q.step[0].type = SD_ST_NOTE; q.step[0].note = 48; q.step[0].chord[0] = 4; q.step[0].chord[1] = 7;
+    q.step[1].type = SD_ST_TIE;
+    q.step[2].type = SD_ST_NOTE; q.step[2].note = 48; q.step[2].chord[0] = 4; q.step[2].chord[1] = 9;
+    q.step[2].prob = 100u | SD_HOLD; q.step[2].vel = 100;
+    q.step[3].type = SD_ST_TIE;
+    q.step[4].type = SD_ST_NOTE; q.step[4].note = 50; q.step[4].gate = 50;
+    q.step[6].type = SD_ST_NOTE; q.step[6].note = 55; q.step[6].prob = 100u | SD_HOLD; q.step[6].gate = 50;
+    CHECK(SD_IS_HOLD(&q.step[2]) && SD_PROB(&q.step[2]) == 100u && !SD_IS_HOLD(&q.step[0]), "HOLD's bit and PROB");
+    sd_engine_init(&e1); sd_engine_patch(&e1, &T_GLASS);
+    e1.mode = SD_MODE_POLY; run_ms(&e1, 5);
+    sd_engine_pattern(&e1, &q); e1.bpm = 120; e1.seq_run = 1;
+    run_ms(&e1, 20);
+    n = gates_on(&e1, nt);
+    CHECK(n == 3u && nt[0] == 48u && nt[1] == 52u && nt[2] == 55u, "HOLD: the chord C E G (%u notes)", n);
+    aC = voice_age(&e1, 48); aE = voice_age(&e1, 52); aG = voice_age(&e1, 55);
+    run_ms(&e1, 222);                           /* the TIE's end, just before the HOLD (a 16th at 120: 125 ms) */
+    n = gates_on(&e1, nt);
+    CHECK(n == 3u && e1.t[0].seq_shown == 1u, "HOLD: held to it, no gap (%u notes at step %u)", n, e1.t[0].seq_shown);
+    run_ms(&e1, 25);
+    n = gates_on(&e1, nt);
+    CHECK(e1.t[0].seq_shown == 2u && n == 3u && nt[0] == 48u && nt[1] == 52u && nt[2] == 57u,
+          "HOLD: C E A at step 3 (%u notes: %u %u %u, step %u)", n, nt[0], nt[1], nt[2], e1.t[0].seq_shown);
+    CHECK(voice_age(&e1, 48) == aC && voice_age(&e1, 52) == aE && aG && voice_age(&e1, 57) &&
+          voice_age(&e1, 57) != aG, "HOLD: C and E struck again, or A not struck");
+    run_ms(&e1, 250);                           /* step 5: a NOTE, D alone, struck */
+    n = gates_on(&e1, nt);
+    CHECK(e1.t[0].seq_shown == 4u && n == 1u && nt[0] == 50u, "after a HOLD a NOTE: %u notes at step %u", n,
+          e1.t[0].seq_shown);
+    run_ms(&e1, 250);                           /* step 7: a HOLD after a REST: struck as a NOTE */
+    n = gates_on(&e1, nt);
+    CHECK(e1.t[0].seq_shown == 6u && n == 1u && nt[0] == 55u, "a HOLD after a REST: %u notes at step %u", n,
+          e1.t[0].seq_shown);
+}
+
 /* Headroom (2026-11-16, the user: "never clipping anywhere, even with everything on"): every factory patch, as made
  * and with everything on at full (all the FX, the Reactor's DRIVE, DISTROY +36 dB with feedback and BIAS, SPACE and
  * TIME at their tops, SHIMMER, FREEZE with PITCH, the filter at 90 % RES, the macros, all eight MOD slots, the wheel),
@@ -5866,6 +5935,8 @@ int main(void)
     test_mod();
     test_split_through();
     test_seq();
+    test_seq_hold();
+    test_poly_level();
     test_filter_seq_arp();
     test_names();
     test_switches();

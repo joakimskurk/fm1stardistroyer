@@ -1,6 +1,6 @@
 # M1: MIDI notes recorded (2026-11-11): a keyboard on MIDI records into SEQ as the FM-1's keys do, at its velocity.
 # Buttons: SEL 3, SEQ 11, REC 13, PLAY 12, ARP 10, EDIT 6, LFO 5 (a REST), GLO 7. The steps: SELECT (encoder 0).
-# DUO (SEL), so a chord fits. SEQ A, ALGORITHM (1) +4: TOOLS, K3 (4): CLEAR, OCT+ (1) yes: an empty pattern; ALGORITHM -4: STEP again. REC, stopped, step by
+# DUO (SEL), so a chord fits. SEQ A, ALGORITHM (1) +4: TOOLS, K4 (5) +1: REC POLY (chords; MONO since 2026-11-26), K3 (4): CLEAR, OCT+ (1) yes: an empty pattern; ALGORITHM -4: STEP again. REC, stopped, step by
 # step: C4 at 40 (TRS), E4 + G4 together (one step, a chord), a REST, A4 at 127 (USB, channel 2), C5 with the FM-1's
 # C4 held (one step, a chord), D4 and F4 short and quick (two steps). REC off; steps 1-7 shown (their NOTE, VEL).
 # PLAY, REC: live, into the step that plays; REC off. POLY (SEL): room for the ARP over A's chords. ARP on (EDIT),
@@ -8,6 +8,7 @@
 1800 btn 3
 2000 btn 11
 2150 enc 1 4
+2200 enc 5 1
 2250 enc 4 1
 2350 btn 1
 2450 enc 1 -4

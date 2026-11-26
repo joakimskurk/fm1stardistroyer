@@ -156,7 +156,7 @@ export function buildSeq(Q) {
           c.querySelector('.sg').textContent = !out && bd.indexOf(i) >= 0 && bd.indexOf(i) < sc ? SEGS[bd.indexOf(i)] : '';
           c.querySelector('b').textContent = out ? '' : ty <= T.SLIDE ? noteText(p[o + L.note]) : ty === T.TIE ? '—' : ty === T.REST ? '·' : '×';
           c.querySelector('u').style.width = ty <= T.SLIDE && !out ? `${Math.round((p[o + L.vel] / 127) * 100)}%` : '0';
-          const rt = Math.max(1, p[o + L.ratchet]), pr = p[o + L.prob];
+          const rt = Math.max(1, p[o + L.ratchet]), pr = p[o + L.prob] & 127;   // (its top bit: HOLD, sd_seq.h)
           c.querySelector('small').textContent = out || ty > T.SLIDE ? '' : `${chord ? `+${chord} ` : ''}${rt > 1 ? '•'.repeat(rt) : ''}${pr < 100 ? ` ${pr}%` : ''}`;
           c.title = out ? '' : `${N} step ${i + 1}, segment ${SEGS[g]}: ${E(16)[ty] || ty}${ty <= T.SLIDE ? ` ${noteText(p[o + L.note])}, velocity ${p[o + L.vel]}, gate ${p[o + L.gate]} %` : ''}` +
             '. Click: edit it; drag or scroll: its note (Shift: an octave); double-click: a note or a rest';
@@ -183,7 +183,8 @@ export function buildSeq(Q) {
     Q.row('', stepper(null, 'NOTE', { src: sf('note', 'NOTE', 0, 127, noteText), title: 'NOTE: drag, scroll or the arrows' }),
       seg(null, 'RATCHET', { src: sf('ratchet', 'RATCHET', 1, 3, String, (v) => Math.max(1, v)), names: ['1', '2', '3'], values: [1, 2, 3] })),
     Q.row('', knob(null, 'VEL', { size: 's', src: sf('vel', 'VELOCITY', 1, 127) }), knob(null, 'GATE', { size: 's', src: sf('gate', 'GATE', 1, 100, (v) => `${v} %`) }),
-      knob(null, 'PROB', { size: 's', src: sf('prob', 'PROBABILITY', 0, 100, (v) => `${v} %`) })),
+      knob(null, 'PROB', { size: 's', src: src('PROBABILITY', 0, 100, () => tr(sel.k)[so(sel.i) + L.prob] & 127,
+        (v) => putT(sel.k, (b) => { const o = so(sel.i) + L.prob; b[o] = (b[o] & 128) | (v & 127); }), (v) => `${v} %`) })),   // (HOLD's bit kept)
     Q.row('chord', Q.lbl('CHORD'), ...[0, 1, 2].map((j) => stepper(null, '', { src: chordF(j), title: `CHORD ${j + 1}: semitones from the note (0: none)` }))));
   controls.push({
     update() {

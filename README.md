@@ -2,6 +2,8 @@
   <img src="docs/readme/banner.png" width="880" alt="/// STAR DISTROYER">
 </p>
 
+<p align="center"><i>Metal in the void. Incomprehensible distances. Shattered destinies. Collapsing structures. Signals without receivers. Echoes of a distant past, suspended somewhere between destruction and beauty.</i></p>
+
 <p align="center">
   <b>A starship FM synth for the M-VAVE FM-1.</b><br>
   Four banks of oscillators on an X/Y nav field · a morphing resonator · multiband destruction · delay and room
@@ -334,12 +336,17 @@ of the patch. Off until you switch it on.
 <td valign="top">
 
 **Two sequencer tracks on one sound**: a melody on A and a bass line on B, one tempo and one PLAY.
-- Up to 64 steps: NOTE (or a SLIDE into it), TIE, REST or SKIP. Each has velocity, gate (1–100 %: 100 the whole step, up to
+- Up to 64 steps: NOTE (or a SLIDE into it), HOLD, TIE, REST or SKIP. Each has velocity, gate (1–100 %: 100 the whole step, up to
   the next), **RATCHET** (2 or 3 hits; on a SLIDE its **SLIDE** time instead, 30 ms as before up to 1 s, since
   2026-11-23) and **PROB**, and can hold a chord of up to four notes.
+- **HOLD** (TYPE, after NOTE; 2026-11-25): a chord that goes on from the step before: the notes they share go on
+  unstruck, the ones it lacks stop, its new ones start. Hold a chord and change one note, and only that note changes.
+- **The picture**: each note a line at its pitch, as long as it sounds, lit where it starts and fading as it is held;
+  the step's note ice, a chord's red; behind them the key's notes as faint lanes, its root's brighter. Playing, the
+  step that plays is lit and a red line goes through it.
 - **ALGORITHM picks what the knobs do**, a row of buttons on the bottom line, the one in use lit: **STEP** (NOTE VEL
   GATE TYPE of the step picked), **MORE** (RATCHET PROB MOVE LENGTH), **TRACK** (LENGTH DIV SWING XPOSE), **PARTS**
-  (PARTS REPEAT ORDER LENGTH) and **TOOLS** (RANDOM UNDO CLEAR DUB). No key has a job on SEQ: the keys play.
+  (PARTS REPEAT ORDER LENGTH) and **TOOLS** (RANDOM UNDO CLEAR REC). No key has a job on SEQ: the keys play.
 - **SELECT** picks the step, on PARTS the part. Stopped, the step picked sounds (SELECT or its NOTE turned), so you
   hear what you edit.
 - **The key** is the master's: GLO + ALGORITHM its scale (MINOR, MAJOR, DORIAN, PHRYG, PENTA−, PENTA+, CHROM, and since
@@ -355,16 +362,22 @@ of the patch. Off until you switch it on.
   The loop keeps to the pattern's LENGTH: repeats play inside it, and when it has played its LENGTH it starts at step 1.
 - **TOOLS**: turn **RANDOM** for a new line in the key, a new one each detent (UNDO brings back the line before the
   turn); **UNDO** takes back the last RANDOM, CLEAR, recording or KEEP (and again: forth); **CLEAR** asks, OCT+ empties
-  the track; **DUB** on (a turn right) makes REC add: a key on a step with a note joins its chord, as far as the
-  voices allow (four notes a step), on an empty step it is the note, and nothing is written over.
+  the track; **REC** says how REC writes (since 2026-11-26; DUB's switch before): **MONO** (the first, kept) one note
+  a step, a line (a key while another is held is the next note, legato), **POLY** (kept) chords and HOLDs (below),
+  and **DUB** adds: a key on a step with a note joins its chord, as far as the voices allow (four notes a step), on
+  an empty step it is the note, and nothing is written over.
 - **REC** (lit while it is on; REC on any page ends it, and away from SEQ ENV and LFO go to their pages; the line
-  under the steps says REC or DUB, STEP or LIVE) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
-  step (keys held together, a chord); playing, into the step nearest where you heard it (the engine runs ~10 ms ahead
+  under the steps says REC MONO, REC POLY or DUB, STEP or LIVE) records from the keys, and from a MIDI keyboard at its velocity (USB or the TRS jack): stopped, step by
+  step (keys held together, a chord, in POLY); playing, into the step nearest where you heard it (the engine runs ~10 ms ahead
   of the speaker; that is taken back, so a note a little early for the next step lands on it, and it sounds once), and
   a key held on past the middle of the next step writes a TIE into it, and so on, and its last step's **GATE** is how long you held it in that step
   (held past it: 100 %, the whole step), so a note is as long as you held it (a key let go a little late writes
-  none, and a held key never writes over its own note round the loop; a new key while one is held is the next note, legato,
-  unless it comes in the same step: a chord). Play over a wrong note and it is replaced. It writes what you hear: under a transpose
+  none, and a held key never writes over its own note round the loop). In POLY keys within 70 ms of a chord's first are its
+  chord, wherever the step's middle falls; a new key while others are held comes in with them, a **HOLD** (they go on;
+  in MONO the next note, legato), and a chord's key let go leaves the rest holding on (a HOLD in the next step).
+  A key held from before and let go within 100 ms of the next is a change, not a chord: it leaves the new key's step
+  (keys pressed together are never trimmed, so a short chord stays one).
+  Play over a wrong note and it is replaced. It writes what you hear: under a transpose
   (GLO's, or ORBIT's XPOSE) a key goes in back by it, so the step plays the note you played.
 - **One key, the master's:** its step 1 is the root and its SCALE (GLO + ALGORITHM on its page) the scale; the hint
   line shows it with GLO held (A MINOR). The other track has none of its own: what it plays is pulled to the nearest
@@ -802,7 +815,7 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
     the audio's hot code (`.ram_audio`: the voices, REACTOR, DISTROY, SPACE, the render) is linked after the second
     core's loop: from the flash it missed the cache, which both cores share, and the FM-1 read 90 to 100 %. In the
     flash, after crt0: memcpy and memset (the RAM code calls them directly, and a call reaches only the flash's first
-    KB), then the audio's flash code (`.text.sd_hot`: the control tick's parts, the plate's job) in 42 KB of its own (34 until 2026-11-19),
+    KB), then the audio's flash code (`.text.sd_hot`: the control tick's parts, the plate's job) in 50 KB of its own (34 until 2026-11-19, 42 until 2026-11-25),
     then the tables (`.rodata`) before the rest of the code, so the flash cache sees the audio at one place whatever
     else changes. The pool is 2 KB longer (0x54800, 2026-11-25: twelve MOD slots in the saved patches), from the
     bottom of the main stack, which is 22 KB (of which ~2 KB is used); `tools/build.py` reports it so.

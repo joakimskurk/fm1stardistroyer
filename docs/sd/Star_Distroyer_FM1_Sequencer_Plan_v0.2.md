@@ -31,8 +31,11 @@ how it behaves; how it got there is in the git history.
   (50..75 %), SCALE, the segments. A new pattern is 16 steps in four segments of four, forwards, once each; SEQ A's
   default is the loop the engine played before the sequencer (A2), SEQ B's every step a rest.
 - *A step* (`SdStep`): NOTE, VEL, GATE (1..100 % of the step: 100 the whole step, up to the next, 2026-11-22; up to 200 %
-  before, past 100 on over a REST; REC while it plays writes it from how long the key was held; the tower on SEQ as wide as it) and TYPE: NOTE, SLIDE (a glide into it, no new attack; a single note only), TIE
-  (the note before held on), REST, SKIP (out of the pattern). A NOTE can RATCHET (2 or 3 hits in its time, each x 0.75
+  before, past 100 on over a REST; REC while it plays writes it from how long the key was held; its line on SEQ as long as it) and TYPE: NOTE, HOLD, SLIDE (a glide into it, no new attack; a single note only), TIE
+  (the note before held on), REST, SKIP (out of the pattern). HOLD (2026-11-25, the user: "I hold a chord and change a
+  note: the others stop where it stops"): a NOTE whose notes shared with what the track holds go on unstruck, the ones
+  it lacks stop, its new ones start (no RATCHET); PROB's top bit (`SD_HOLD`, read PROB through `SD_PROB`), so a step
+  keeps its size and an older pattern has none; TYPE shows it after NOTE. A NOTE can RATCHET (2 or 3 hits in its time, each x 0.75
   softer, never closer than 50 ms) and has a PROB (5 % steps; a step that loses its draw is a rest), and holds a chord:
   up to three more notes as semitones from its note, moving with it (RND, the transposes, RADAR's NOTES).
 - *DIV:* 1/32 1/16T 1/16 1/8T 1/8 1/4, then 1/64 1/32T 1/16D 1/4T 1/8D 1/2 (added after the six, so a saved pattern's
@@ -41,9 +44,11 @@ how it behaves; how it got there is in the git history.
   has a job on SEQ. ALGORITHM (a second SELECT till then) picks what the knobs do, a row of buttons on the hint line,
   the one in use lit: STEP (NOTE VEL GATE TYPE), MORE (RATCHET PROB MOVE LENGTH), TRACK (LENGTH DIV SWING XPOSE, GLO's
   until then), PARTS (PARTS REPEAT ORDER LENGTH, SELECT the part; SKIP is ORDER's last choice) and TOOLS (RANDOM, a
-  new line each detent, a turn's first kept for UNDO; UNDO, one a turn; CLEAR, asked, OCT+; DUB, REC adds: a key on a
-  step with a note joins its chord as the voices allow, an empty step takes it as its note, a held key's TIE stops at
-  the next note). REC keeps the pattern before the take for UNDO. GLO there is the key: every key transposes, GLO +
+  new line each detent, a turn's first kept for UNDO; UNDO, one a turn; CLEAR, asked, OCT+; REC (2026-11-26, the user:
+  "choose whether SEQ records mono or poly, MONO the default"; DUB's switch till then): MONO, one note a step, a key
+  while another is held the next note, legato (no chord, HOLD or window: a line as before HOLD); POLY, chords, HOLD
+  and the 70 ms window; both kept (`set.rec_poly`); DUB, REC adds: a key on a step with a note joins its chord as the
+  voices allow, an empty step takes it as its note, a held key's TIE stops at the next note). REC keeps the pattern before the take for UNDO. GLO there is the key: every key transposes, GLO +
   ALGORITHM the scale, GLO + SELECT the root. The tools' history below (black keys, then TOOLS on GLO + G5 from
   2026-11-21) is how it was.
 - *The page* (SEQ A, SEQ B): SELECT picks the step (2026-11-17, the user: "the keys are no longer the steps: try a line
@@ -92,7 +97,11 @@ how it behaves; how it got there is in the git history.
   their lengths, the last gives way). A new pattern LENGTH rescales the segments. Entering, the step picked's part.
 - *The picture:* each segment's letter and its order where not forwards, a line where one starts; in SEGMENTS the
   part picked framed, the line PLAYS A B<x2 C D (in turn, each its order and repeats, a skipped one left out) and
-  what the keys do.
+  what the keys do. The steps (2026-11-25, the user chose the sheet's C3, no keyboard beside it: towers before): each
+  note a line at its pitch as long as it sounds (its GATE, or on into a TIE or a HOLD that keeps it), a lamp where it
+  starts, fading as it is held; the step's note ice, a chord's red, a soft one (under 110) dimmer; the key's notes
+  faint lanes behind, its root's brighter (CHROM: the root's only); playing, the step that plays lit, the rest dimmer,
+  a red line going through it; RATCHET cuts the line, SLIDE a ramp in, REST a dot, SKIP a cross, PROB a red dot.
 - *As sources:* STEP (where the pattern is, −1 .. +1 across it) and SEG (which segment) in the matrix.
 
 ## 4. Two tracks, the master, the voices
@@ -117,9 +126,15 @@ how it behaves; how it got there is in the git history.
   each step it is held over
   past its middle (2026-11-18, the user: TIEs everywhere; a key let go a little late no longer writes one, nor a key
   held round the loop over its own note)
-  (2026-11-16: a note as long as it was held; playing over a wrong one replaces it). A key pressed while another is
-  held joins its chord only in the same step (stopped: always); in a later step it is the next note, legato (before,
-  in MONO, a legato line lost its notes: ONE NOTE A STEP). It writes what is heard (`sd_seq_rec_note`): a key
+  (2026-11-16: a note as long as it was held; playing over a wrong one replaces it). REC POLY (TOOLS' K4; MONO, the
+  default, writes one note a step and nothing of what follows here): a key pressed while another is
+  held joins its chord in the same step (stopped: always), or within 70 ms of the chord's first key wherever the
+  step's middle falls (2026-11-25, `REC_CHORD_MS`: a chord played across the middle was split over two steps); in a
+  later step it comes in with the keys held, a HOLD of them (they go on; in MONO, no room for two, the next note,
+  legato, as before: ONE NOTE A STEP), and a chord's key let go writes a HOLD of the rest in the next TIE's place
+  (`rec_hold_write`; tests/app_hold_test.c). The trim (2026-11-26, the user: "trim a tiny overlap as you change"): a
+  key held from before (down `REC_CHORD_MS` or more before the new one) let go within `REC_TRIM_MS` (100) of a new key
+  leaves the new key's step (`rec_trim_drop`); keys down together are never trimmed, so a short chord stays one. It writes what is heard (`sd_seq_rec_note`): a key
   under the track's transpose goes in back by it, so the step plays the key's note.
 - *MIDI's notes* (USB or the TRS jack, any channel; `midi_note`) are written as the keys' are, at their velocity (the
   FM-1's keys write 100); MIDI's held notes count with the keys'. They play on every page, the step pages too.

@@ -43,7 +43,9 @@
   header { padding: 96px 0 8px; text-align: center; }
   h1 { margin: 0; line-height: 0; }
   h1 img { display: inline-block; width: min(632px, 100%); height: auto; }
-  .tag { margin: 22px 0 0; font: 700 17px/1.4 var(--mono); letter-spacing: .06em; color: var(--ice); }
+  .motto { max-width: 660px; margin: 30px auto 0; font-size: 21px; line-height: 1.55; font-weight: 300;
+           color: var(--ice); text-wrap: balance; }
+  .tag { margin: 26px 0 0; font: 700 17px/1.4 var(--mono); letter-spacing: .06em; color: var(--ice); }
   .sub { margin: 6px 0 0; color: var(--dim); font-size: 15px; }
   .nw { white-space: nowrap; }
   /* the tabs: the FM-1's top line, the current one a red tab (its right edge slanted, as on the screen) */
@@ -185,6 +187,7 @@
   .cta a:hover { background: var(--red); }
   @media (max-width: 640px) {
     header { padding-top: 64px; }
+    .motto { font-size: 18px; margin-top: 24px; }
     .hero { gap: 8px; }
     .facts { grid-template-columns: repeat(2, 1fr); }
     .eng { grid-template-columns: 104px 1fr; gap: 12px; }
@@ -200,6 +203,7 @@
 <main>
   <header>
     <h1><img src="screens/logo.png" width="1263" height="64" alt="/// STAR DISTROYER"></h1>
+    <p class="motto">Metal in the void. Incomprehensible distances. Shattered destinies. Collapsing structures. Signals without receivers. Echoes of a distant past, suspended somewhere between destruction and beauty.</p>
     <p class="tag">A starship FM synth for the <span class="nw">M-VAVE FM-1</span></p>
     <p class="sub">Four banks of oscillators on an X/Y nav field · a morphing resonator · multiband destruction · a delay, a tape looper and a plate</p>
   </header>
@@ -281,7 +285,7 @@
         the one in use lit. EDIT turns what the page shows on or off. GLO (Shift) is what the keys do instead of
         playing: on SEQ the transpose, on ORBIT the steps.</li>
       <li><b>Write a pattern.</b> On SEQ, SELECT picks a step: turn K1 for its note, K4 for its
-        type (a rest, a tie, a slide). The keys play, so try a line first; then press REC and play them: stopped, step by step; playing, into the step
+        type (a rest, a tie, a slide, a hold: a chord that goes on, one note changed). The keys play, so try a line first; then press REC and play them: stopped, step by step; playing, into the step
         that plays. OCT moves the keys' octave here too; GLO + OCT the track's transpose an octave.</li>
       <li><b>Keep it.</b> Press SAVE, turn ALGORITHM to a place, and press SAVE again (or OCT+; OCT− lets it be). On SEQ it keeps the pattern. In
         the player, what SAVE keeps stays in this browser.</li>
@@ -482,7 +486,7 @@
   <h3 class="btnh"><span class="pbtn">SEQ</span>SEQ A → SEQ B → ORBIT<span class="what">the patterns, the song</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/seq.png" width="240" height="240" alt="The SEQ A page" loading="lazy">
-      <figcaption><b>SEQ A</b>The melody: up to 64 steps, the keys still play.<dl><dt>SELECT</dt><dd>the step (PARTS: the part)</dd><dt>ALGO</dt><dd>what the knobs do, a button each: STEP (NOTE VEL GATE TYPE) · MORE (RATCHET, a SLIDE’s time, PROB MOVE LENGTH) · TRACK (LENGTH DIV SWING XPOSE) · PARTS (PARTS REPEAT ORDER LENGTH) · TOOLS (RANDOM UNDO CLEAR DUB)</dd><dt>KEYS</dt><dd>play; with GLO every key transposes</dd><dt>GLO</dt><dd>GLO + ALGO the scale, GLO + SELECT the root</dd><dt>EDIT</dt><dd>on or off, in at the master’s one</dd></dl></figcaption></figure>
+      <figcaption><b>SEQ A</b>The melody: up to 64 steps, the keys still play.<dl><dt>SELECT</dt><dd>the step (PARTS: the part)</dd><dt>ALGO</dt><dd>what the knobs do, a button each: STEP (NOTE VEL GATE TYPE) · MORE (RATCHET, a SLIDE’s time, PROB MOVE LENGTH) · TRACK (LENGTH DIV SWING XPOSE) · PARTS (PARTS REPEAT ORDER LENGTH) · TOOLS (RANDOM UNDO CLEAR, REC: MONO, POLY or DUB)</dd><dt>KEYS</dt><dd>play; with GLO every key transposes</dd><dt>GLO</dt><dd>GLO + ALGO the scale, GLO + SELECT the root</dd><dt>EDIT</dt><dd>on or off, in at the master’s one</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/seqb.png" width="240" height="240" alt="The SEQ B page" loading="lazy">
       <figcaption><b>SEQ B</b>The second track, a bass line (with DUO or POLY).<dl><dt>ALL</dt><dd>as SEQ A; it plays in the master’s key</dd><dt>EDIT</dt><dd>on or off, in at the master’s one</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/orbit.png" width="240" height="240" alt="The ORBIT page" loading="lazy">

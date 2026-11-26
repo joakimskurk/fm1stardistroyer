@@ -29,8 +29,8 @@
   user's FM-1 (2026-11-23, `fm1_diag -w`) the drums still cost the first core ~16 points that fm1-live does not show
   (95-104 % with SEQ A and B in POLY, 66 % in strict): they are out (`SD_DRUMS` 0, sd_engine.h), their code kept and
   tested (`-DSD_DRUMS=1`: sd_test and the DRUM app tests). Core 2's flash work is under-read by the emulator: a change
-  there needs a device reading. The SD_HOT section has 42 KB of its own (app.ld; if it outgrows that the link fails: add 8 KB,
-  0xC800 next, the same cache sets), so what follows never moves with it. Compare CPU readings only at a fixed layout
+  there needs a device reading. The SD_HOT section has 50 KB of its own (app.ld, since 2026-11-25; if it outgrows that the link fails: add 8 KB,
+  0xE800 next, the same cache sets), so what follows never moves with it. Compare CPU readings only at a fixed layout
   (unpinned, a few lines of UI moved it 2-4 points), and like with like (`STRICT_PROF` itself reads ~0.8 lower).
   Past 100 % the main loop starves and the watchdog restarts the FM-1 8 s later (2026-11-20, the user's freeze; one
   core at ARMADA's climax reads 139 %): app_audio's brake skips a block after three interrupts over in a row (aud_held,

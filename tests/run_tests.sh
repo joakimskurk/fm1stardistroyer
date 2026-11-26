@@ -31,6 +31,9 @@ $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen
 run "HOME's MORE: BODY AIR DROWN DARK, MACROS' CUTOFF; an old MACRO 4 on its knob" "$OUT/app_mac_test" "$OUT/app_mac_test" tests/scripts/mac1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_loop_test" tests/app_loop_test.c
 run "the looper off keeps its loop; TOOLS' CLEAR clears it, asked" "$OUT/app_loop_test" "$OUT/app_loop_test" tests/scripts/lp1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_hold_test" tests/app_hold_test.c
+run "REC's HOLD: a held chord's note changed, the rest goes on; keys 60 ms apart one chord" "$OUT/app_hold_test" "$OUT/app_hold_test" tests/scripts/hold1.txt
+run "REC MONO (the default): the same playing, one note a step, no HOLD or chord" "$OUT/app_hold_test" "$OUT/app_hold_test" tests/scripts/hold2.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_lane_test" tests/app_lane_test.c
 run "ORBIT: a lane picks its destination beside it, then its amount" "$OUT/app_lane_test" "$OUT/app_lane_test" tests/scripts/ob2.txt
 $CC -DDINGHY_HOST -DSD_DRUMS=1 -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_layers_test" tests/app_layers_test.c   # (every page: the drums' too, SD_DRUMS=1)

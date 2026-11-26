@@ -9,7 +9,7 @@
 2800 keys 0x80
 2900 keys 0
 3000 btn 13
-3100 enc 5 1
+3100 enc 5 2
 3200 enc 0 -1
 3300 btn 13
 3400 keys 0x800

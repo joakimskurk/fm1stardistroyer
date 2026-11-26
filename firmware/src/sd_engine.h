@@ -3130,6 +3130,32 @@ SD_HOT static void sd_seq_on(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t 
     t->seq_nn = (uint8_t)n;
     t->seq_note_on = 1;
 }
+SD_NOINLINE static void sd_seq_hold(SdEngine *e, SdSeqT *t, const SdStep *st, uint32_t vel)   /* HOLD (sd_seq.h): what
+                                                   the track holds and the step has goes on, unstruck; the rest off,
+                                                   the step's new ones on. Out of SD_HOT (its 42 KB full): at most once
+                                                   a step, not a sub-block's */
+{
+    uint8_t was[4];
+    uint32_t i, j, n = 1, m = t->seq_nn < 4u ? t->seq_nn : 4u;
+    for (i = 0; i < 4u; i++) was[i] = t->seq_note[i];
+    t->seq_note[0] = (uint8_t)sd_seq_xn(e, t, st->note);
+    for (i = 0; i < 3u; i++)                    /* (its notes as sd_seq_on makes them) */
+        if (st->chord[i]) {
+            int32_t c = (int32_t)st->note + st->chord[i];
+            if (c >= 0 && c <= 127) t->seq_note[n++] = (uint8_t)sd_seq_xn(e, t, (uint32_t)c);
+        }
+    if (n > e->quota[t->src]) n = e->quota[t->src];
+    for (i = 0; i < m; i++) {                   /* held, not in the step: off */
+        for (j = 0; j < n && t->seq_note[j] != was[i]; j++) {}
+        if (j == n) sd_voice_off(e, was[i], t->src);
+    }
+    for (j = 0; j < n; j++) {                   /* the step's, not held: struck */
+        for (i = 0; i < m && was[i] != t->seq_note[j]; i++) {}
+        if (i == m) sd_voice_on(e, t->seq_note[j], vel, t->src);
+    }
+    t->seq_nn = (uint8_t)n;
+    t->seq_note_on = 1;
+}
 
 static void sd_seq_take(SdEngine *e, SdSeqT *t, uint32_t sq)   /* the main loop's pattern, the audio's now */
 {
@@ -3274,7 +3300,7 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
         if (lead) sd_reactor_clock(e);
         st = &t->pat.step[t->seq_step];
         t->rat_q8 = 0;
-        if (st->type <= SD_ST_SLIDE && st->prob < 100u && sd_seq_rand(&t->sq_rng) % 100u >= st->prob) {
+        if (st->type <= SD_ST_SLIDE && SD_PROB(st) < 100u && sd_seq_rand(&t->sq_rng) % 100u >= SD_PROB(st)) {
             if (t->seq_note_on) sd_seq_off(e, t);   /* PROB said no: a rest this time */
             t->seq_pos_q8 += e->clk_adv;
             return;
@@ -3285,7 +3311,8 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
             t->seq_pos_q8 += e->clk_adv;
             return;
         }
-        if (st->type == SD_ST_NOTE && st->ratchet > 1u) {   /* RATCHET: the step in hits, 50 ms apart at least */
+        if (st->type == SD_ST_NOTE && st->ratchet > 1u && !SD_IS_HOLD(st)) {   /* RATCHET: the step in hits, 50 ms
+                                                   apart at least (a HOLD has none: what it holds is not struck) */
             uint32_t n = st->ratchet > SD_RATCHET_MAX ? SD_RATCHET_MAX : st->ratchet;
             while (n > 1u && t->seq_step_q8 / n < SD_RATCHET_MIN_SAMPLES << 8) n--;
             if (n > 1u) {
@@ -3305,14 +3332,17 @@ SD_HOT static void sd_seq_track(SdEngine *e, SdSeqT *t, uint32_t run, uint32_t k
             sd_seq_glide(e, t, sd_seq_xn(e, t, st->note), st->vel, SD_SLIDE_T(st->ratchet));   /* (a single note glides; a chord plays as
                                                    a NOTE) */
             t->seq_note[0] = (uint8_t)sd_seq_xn(e, t, st->note);
+        } else if (SD_IS_HOLD(st) && t->seq_note_on && !t->quiet) {
+            sd_seq_hold(e, t, st, st->vel);     /* HOLD: the notes it shares go on */
         } else {
             if (t->seq_note_on) sd_seq_off(e, t);
             if (st->type == SD_ST_NOTE || st->type == SD_ST_SLIDE) sd_seq_on(e, t, st, st->vel);
         }
         next = sd_seq_peek(t);
         if (!t->rat_q8 && next < SD_PSTEPS &&
-            (t->pat.step[next].type == SD_ST_TIE || t->pat.step[next].type == SD_ST_SLIDE))
-            t->seq_gate_q8 = 0xFFFFFFFFu;       /* a TIE or SLIDE next: held to it */
+            (t->pat.step[next].type == SD_ST_TIE || t->pat.step[next].type == SD_ST_SLIDE ||
+             SD_IS_HOLD(&t->pat.step[next])))
+            t->seq_gate_q8 = 0xFFFFFFFFu;       /* a TIE, SLIDE or HOLD next: held to it */
     } else if (t->rat_q8 && t->rat_i + 1u < t->rat_n && t->seq_pos_q8 >= (t->rat_i + 1u) * t->rat_q8) {
         const SdStep *st = &t->pat.step[t->seq_step];
         t->rat_i++;                             /* the next hit, softer: x 0.75 each */
@@ -4723,8 +4753,11 @@ SD_HOT static void sd_control_tick(SdEngine *e)        /* once a sub-block, befo
         if (mx > 32u)
             for (i = 0; i < e->nvoices && i < SD_VOICES; i++) {
                 int32_t a = e->voice[i].amp;
-                uint32_t r = a <= 0 ? 0u : ((uint32_t)a << 16) / mx;   /* Q16, 1 the loudest (32767 << 16: fits) */
-                n += (r * r) >> 16;             /* (65536^2 >> 16: as uint32, 2^32 would not: r < 65537) */
+                uint32_t r = a <= 0 ? 0u : ((uint32_t)a << 15) / mx;   /* Q15, 1 the loudest (32767 << 15: fits) */
+                n += (r * r) >> 14;             /* (Q16: 32768^2 = 2^30 fits. In Q16 till 2026-11-26 the loudest's
+                                                   65536^2 wrapped to 0: voices alike, a chord, counted none and played
+                                                   as loud as each alone, +5 dB for three, +6 for four: the user's
+                                                   "more internal distortion", POLY's limiter 4-11 dB down) */
             }
         q = n > 65536u ? sd_isqrt(n) : 256u;    /* sqrt of how many, Q8 (256: one) */
         t = (int32_t)(8388608u / q);            /* 1 / sqrt: Q15, 32768 one */

@@ -49,6 +49,12 @@ typedef struct {
     int8_t chord[3];                            /* a chord: up to three more notes, semitones
                                                    from note (0: none); they move with it (RADAR's NOTES, RND, transpose) */
 } SdStep;
+/* HOLD (2026-11-25, the user: "I hold a chord and change one note: the others stop where it stops"): a NOTE whose
+ * notes shared with what the track holds go on, no new attack; the ones it lacks stop, its new ones start. PROB's top
+ * bit (PROB is 0..100), so a step keeps its size and an older pattern has none; read PROB through SD_PROB */
+#define SD_HOLD 0x80u
+#define SD_PROB(s) ((uint32_t)(s)->prob & 0x7Fu)
+#define SD_IS_HOLD(s) ((s)->type == SD_ST_NOTE && ((s)->prob & SD_HOLD))
 #define SD_GATE_MAX 100u
 #define SD_RATCHET_MAX 3u
 #define SD_RATCHET_MIN_SAMPLES 2205u            /* 50 ms: hits never closer */
@@ -295,6 +301,7 @@ static void sd_pattern_randomize(SdPattern *p, uint32_t *rng)   /* RANDOMIZE: a 
         if (k && s->type == SD_ST_NOTE && (r >> 12) % 10u == 0u) s->type = SD_ST_TIE;
         s->vel = (uint8_t)(k % 4u == 0u ? 120u : 80u + (r >> 16) % 30u);
         s->ratchet = (uint8_t)(s->type == SD_ST_NOTE && (r >> 20) % 16u == 0u ? 2u : 1u);   /* now and then a double */
+        s->prob = (uint8_t)SD_PROB(s);         /* (a new line: no HOLD) */
     }
 }
 

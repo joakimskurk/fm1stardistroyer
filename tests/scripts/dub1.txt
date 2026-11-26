@@ -1,6 +1,6 @@
 # DUB (2026-11-22, the user: "overdub in SEQ, as POLY records chords"): POLY (SEL 3 twice), SEQ A (11); TOOLS
 # (ALGORITHM, encoder 1, +4), CLEAR (K3, encoder 4) and OCT+ (1): empty. REC (13), stopped: C4 (key 7) on step 1;
-# REC off. DUB on (K4, encoder 5), SELECT (0) back to step 1, REC: E4 (key 11) joins step 1's chord; REC off.
+# REC off. DUB on (K4, encoder 5, +2 from REC MONO), SELECT (0) back to step 1, REC: E4 (key 11) joins step 1's chord; REC off.
 # tests/app_dub_test.c checks: step 1 C4 with E4 (+4) in its chord, step 2 untouched (a REST).
 1800 btn 3
 2000 btn 3
@@ -12,7 +12,7 @@
 2800 keys 0x80
 2900 keys 0
 3000 btn 13
-3100 enc 5 1
+3100 enc 5 2
 3200 enc 0 -1
 3300 btn 13
 3400 keys 0x800
