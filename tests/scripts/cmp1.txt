@@ -1,0 +1,25 @@
+# CMP1 (2026-11-27, the workshop's): COMPARE, INIT, CHOP, PANIC. The boot shows MACROS: K1 (2) MUTATE +5: changed,
+# the lamp. GLO (7) held + SAVE (9): COMPARE, the saved one heard. K1 -1: COMPARE off, yours again. GLO + SAVE, then
+# OCT+ (1): the saved one kept, the lamp out. PRESETS (6) -1: NEW, INIT; EDIT (6) loads it. ARP (10) twice: LOOPER;
+# ALGORITHM (1) +1: SLICE; K3 (4) +4: CHOP 4/16 (RADAR to START, RADAR on). PLAY (12), then GLO held + PLAY: PANIC,
+# stopped. Checked by tests/app_cmp_test.c.
+1700 enc 2 5
+1900 btndown 7
+1950 btn 9
+2000 btnup 7
+2100 enc 2 -1
+2300 btndown 7
+2350 btn 9
+2400 btnup 7
+2500 btn 1
+2700 enc 6 -1
+2800 btn 6
+3000 btn 10
+3100 btn 10
+3200 enc 1 1
+3300 enc 4 4
+3500 btn 12
+3700 btndown 7
+3750 btn 12
+3800 btnup 7
+4000 end

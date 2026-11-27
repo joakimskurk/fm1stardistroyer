@@ -68,6 +68,12 @@ $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen
 run "SEQ's DUB: a key joins the step's chord, nothing taken" "$OUT/app_dub_test" "$OUT/app_dub_test" tests/scripts/dub1.txt
 $CC -DDINGHY_HOST -DDUB_UNDO -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_dub_undo_test" tests/app_dub_test.c
 run "SEQ's TOOLS: UNDO takes a DUB back" "$OUT/app_dub_undo_test" "$OUT/app_dub_undo_test" tests/scripts/dub2.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_nav_test" tests/app_nav_test.c
+run "NAV: the oscillator SELECT is on, grey knobs that set and say why, ROUND in the COURSE byte, an engine off says so" "$OUT/app_nav_test" "$OUT/app_nav_test" tests/scripts/nav1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_cmp_test" tests/app_cmp_test.c
+run "COMPARE and its lamp, INIT, SLICE's CHOP, PANIC (the workshop's, 2026-11-27)" "$OUT/app_cmp_test" "$OUT/app_cmp_test" tests/scripts/cmp1.txt
+$CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_save500_test" tests/app_save500_test.c
+run "a save from before the LOW CUTs loads, both LOW CUTs 0" "$OUT/app_save500_test" "$OUT/app_save500_test" tests/scripts/c1.txt
 $CC -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_frz_test" tests/app_frz_test.c
 run "the freeze log: the inputs, 16 records, the newest first" "$OUT/app_frz_test" "$OUT/app_frz_test" tests/scripts/frz1.txt
 $CC -fsanitize=address,undefined -fno-sanitize-recover=all -DDINGHY_HOST -DAPP_VER='"dev"' -Ifirmware/hal -Ifirmware/src -Ifirmware/gen -o "$OUT/app_fuzz_test" tests/app_fuzz_test.c

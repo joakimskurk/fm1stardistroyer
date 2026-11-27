@@ -85,7 +85,7 @@ static uint32_t sd_con_frame(uint8_t *o0)       /* the next frame into o0 (SD_CO
                            (eng.t[0].seq_on ? 16u : 0u) | (eng.t[1].seq_on ? 32u : 0u) | (eng.lp_arm ? 64u : 0u)));
     o = con_b(o, (int32_t)((eng.r.on ? 1u : 0u) | (eng.d.on ? 2u : 0u) | (!(p->fx_off & SD_FX_TIME) && p->s_dlevel ? 4u : 0u) |
                            (eng.sp.on ? 8u : 0u) | (p->f_type && !(p->fx_off & SD_FX_FILTER) ? 16u : 0u) |
-                           (p->sub_lvl && !(p->fx_off & SD_FX_SUB) ? 32u : 0u) | (p->course ? 64u : 0u)));
+                           (p->sub_lvl && !(p->fx_off & SD_FX_SUB) ? 32u : 0u) | (SD_COURSE_MODE(p) ? 64u : 0u)));
     tempo = eng.clk_on ? (eng.clk_beat ? (SD_FS * 600u + eng.clk_beat / 2u) / eng.clk_beat : 0u) : 10u * (demo_st ? eng.bpm : set.bpm);
     o = con_w(o, (int32_t)tempo);
     o = con_w(o, cpu_permille == 0xFFFFFFFFu ? 16383 : (int32_t)cpu_permille);

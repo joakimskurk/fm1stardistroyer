@@ -1,7 +1,8 @@
 # HOME1 (2026-11-21): MACROS' switches as the screen has them: on top the chain on the black keys F#3..D#4, under it
-# the players on the white keys F3..E4. GLO held (7): F3 (key 0) ARP on, F#3 (key 1) the FILTER off, D#4 (key 10)
-# SPACE off, F#5 (key 25, RADAR's before) and G5 (key 26, the drums' before) no longer switch. Checked by
-# tests/app_home_test.c.
+# the players on the white keys F3..F4 (2026-11-27: ARP SEQ A SEQ B ORBIT, SUB FREEZE LOOP RADAR). GLO held (7): F3
+# (key 0) ARP on, F#3 (key 1) the FILTER off, D#4 (key 10) SPACE off, C4 (key 7) SUB on, D4 (key 9) FREEZE on
+# (SPACE off: kept for it), F4 (key 12) RADAR on; G4 (key 14), F#5 (key 25, RADAR's before) and G5 (key 26, the
+# drums' before) switch nothing. Checked by tests/app_home_test.c.
 1700 btndown 7
 1800 keys 0x1
 1850 keys 0
@@ -13,6 +14,14 @@
 2300 keys 0
 2400 keys 0x4000000
 2450 keys 0
-2600 btnup 7
-2700 shot
-2800 end
+2500 keys 0x80
+2550 keys 0
+2650 keys 0x200
+2700 keys 0
+2750 keys 0x1000
+2800 keys 0
+2850 keys 0x4000
+2900 keys 0
+3000 btnup 7
+3100 shot
+3200 end

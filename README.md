@@ -22,7 +22,7 @@
 
 <p align="center">
   <img src="docs/readme/screen_splash.png" width="256" alt="The splash: the logo, stars streaming past and one shooting across">
-  <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
+  <img src="docs/readme/screen_nav.png" width="256" alt="NAV: the X/Y diamond, the bank's four oscillators, their routing to OUT">
   <img src="docs/readme/screen_radar.png" width="256" alt="RADAR: its loop as a large scope, each step a blip round it and the sweep where it is, and its bits as a matrix of lamps">
 </p>
 
@@ -31,7 +31,7 @@ morphed across an X/Y field; a **Reactor** of four resonators that sweep through
 which splits the sound into four bands and wrecks each its own way; and **TIME** and **SPACE**, a delay and a looper
 feeding a plate. Around them
 are a modulation matrix with RADAR (a loop of random steps), six macros, a two-track step sequencer with segments, and an
-arpeggiator. 29 patches come with it, and 32 places of your own.
+arpeggiator. 30 patches come with it, and 32 places of your own.
 
 > **Status:** beta, [0.4-beta](https://github.com/joakimskurk/fm1stardistroyer/releases/tag/v0.4-beta), tested on the FM-1.
 > Install it only if you are ready to take the way back (Install, below). Saves may change before 1.0.
@@ -51,11 +51,29 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - Each oscillator is a harmonic 1–32 of the note with a fine tune, and a carrier or a modulator (series or
   parallel), read left to right.
 - **XM** sets the FM, **WARP** turns sine → triangle → saw → pulse, **FOLD** folds, **DETUNE** spreads.
-- The **NAV** X/Y blends the four banks. **COURSE** travels four stored X/Y cells (MONO): EDIT on NAV turns it
-  **ON** (from each note, once round, held on the last), **LOOP** (round and round on its own, back to the first;
-  a note does not start it again, PLAY does, in time with the sequencer) or OFF.
-- Harmonic generators re-roll a bank (K4 of NAV's X/Y layer): ALL, ODD, RND, CLUST, 14 chords, CPY, from a list as the knob
-  turns, each with the harmonics it sets.
+- The **NAV** X/Y blends the four banks (MONO); in DUO a note takes the two X/Y is nearest, in POLY the one.
+- NAV's layers (ALGORITHM): **X/Y** (X, Y, WIDTH, ROUND) · **BANK** (ROUTING, HARM, LEVEL, FINE of the oscillator
+  SELECT is on, A1 to D4) · **TONE** (XM, WARP, FOLD, DETUNE) · **COURSE** (the point's X, Y and TIME on to the next;
+  SELECT or K4 the point) · **TOOLS** (GEN). An oscillator at LEVEL 0 is off; LEVEL opens it.
+- **COURSE** travels four points: EDIT on NAV turns it **ON** (from each note, once round, held on the last), **LOOP**
+  (round and round on its own, back to the first; a note does not start it again, PLAY does, in time with the
+  sequencer) or OFF. **ROUND** sets one round: **FREE** (the points' own times) or ½, 1, 2, 4, 8, 16 or 32 bars at the tempo
+  (or a MIDI clock's), the legs keeping their shares. While COURSE runs it moves X/Y, so X and Y are grey.
+- Harmonic generators re-roll the bank (GEN on NAV's TOOLS): ALL, ODD, RND, CLUST, 14 chords, CPY, from a list as the
+  knob turns, each with the harmonics it sets; an oscillator at 0 opens, so a chord sounds as a chord.
+- **ROUTING always plays** (2026-11-26): each turn starts from the bank as the list found it (turn back and it is as
+  it was); the carriers keep its loudness (one carrier where there were four plays as loud, one at 0 gets its share),
+  a modulator at 0 opens at 30, and XM at 0 comes up to 30 when there are modulators to hear (the screen says so);
+  turned back, XM is back where it was too, while nothing else has changed the bank.
+- NAV's picture shows what sounds. On the left the field, the picture's whole height, as a scope: its edges bearing
+  scales, X and Y read out in its corners, X/Y a reticle with a short trail, COURSE's points and its way with arrows,
+  the banks' mix (POLY: the quarter of the bank the next note gets); A to D beacons on its corners, lit red in play,
+  an outline if they can sound, dark if silent, the edited one framed, a lamp by each a voice playing it. On the
+  right the edited bank's four oscillators as rows (the one SELECT is on framed): lit when they are heard, dark when
+  they are off or feed nothing; what modulates what as patch cables on their left (S into the next, P into the next
+  carrier; the longer further out, so none cross), the carriers bending into a trunk down to /// and **OUT**, a
+  slanted tab (lit: the bank sounds; dark red: it would, but is not in play now; out: it is silent). COURSE's layer draws the round as a line in time, a tick a point, where it is
+  now in red. ROUTING's list says what each routing leaves heard with the bank's levels (SILENT when none).
 - **MONO**, **DUO** or **POLY**, the banks spread by WIDTH round the middle of what sounds (never more than 6 dB to a
   side; a corner's bank alone in the middle), and gentle aliasing tracking up high.
 
@@ -93,8 +111,10 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   picture.
 - Its layers (ALGORITHM): **BAND**, the band's **TYPE** (NONE SOFT HARD FOLD CRUSH), **DRIVE**, what the type does
   (**KNEE**, **SPACING** or **DEPTH**) and **LEVEL**; **SHAPE**, its **BIAS**, **PAN**, **DYNAMIC** and **BODY**;
-  **MIX**, its **SPLIT** (its upper edge, in Hz), the crossover (**XOVER**) and the whole's **MIX**; **LOOP**, the
-  feedback loop's FDBK TIME SPREAD TAME.
+  **MIX**, its **SPLIT** (its upper edge, in Hz), the crossover (**XOVER**), the whole's **MIX** and **AFTER**,
+  where it stands: after REACTOR (as always) or after SPACE, last in the chain, so the echoes, the reverb, the
+  LOOPER and FREEZE are destroyed too (2026-11-27; kept in the patch; about a point more CPU); **LOOP**, the feedback loop's
+  FDBK TIME SPREAD TAME.
 - Dynamics in each band: **PHAT** lifts quiet parts and tails, **SHARP** spits transients, and **BODY** sets where.
 - HI-MID and TOP are shaped at twice the rate (2026-11-19), so SOFT, HARD and FOLD up high no longer fold back as
   noise: a HARD top at 3 kHz leaves −44 dB of it where it left −21 (CRUSH keeps its grit on purpose).
@@ -116,9 +136,11 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 <td valign="top"><img src="docs/readme/screen_space.png" width="256" alt="SPACE"></td>
 <td valign="top">
 
-**TIME** and **SPACE**: a delay and a looper into a plate, last in the chain (FX: REACTOR, DISTROY, TIME, SPACE; the looper on ARP, beside the arpeggiator).
+**TIME** and **SPACE**: a delay and a looper into a plate, last in the chain (FX: REACTOR, DISTROY, TIME, SPACE; the looper on ARP, beside the arpeggiator), unless DISTROY's **AFTER** puts it after them.
 - **TIME** is the delay: stereo or ping-pong, free (1 ms – 1 s) or on the beat (1/32 … 1/2, triplets, dotted), with
-  **FDBK**, **TONE** and **D-LEVEL**; its **MODE** layer: **FREE** or **SYNC**, and **PING**-pong. Ping-pong comes in pairs: an echo on the left, then one as
+  **FDBK**, **TONE** and **D-LEVEL**; its **MODE** layer: **FREE** or **SYNC**, **PING**-pong, and **LO CUT**
+  (2026-11-26): OFF, or a highpass from 20 Hz to 2 kHz inside the echoes' loop, so each echo is thinner than the
+  last. Ping-pong comes in pairs: an echo on the left, then one as
   loud on the right. On the beat it stays on the beat: a division longer than its 1 s (1/2 under 120 BPM, 1/4D under
   90) plays at half, 1/2 as 1/4 and 1/4D as 1/8D. TIME turns red and the hint line says what plays. TIME always
   turns from what plays (2026-11-23): up the next longer division that fits, down the next shorter, so turning it is
@@ -145,7 +167,14 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
   onto its beats and then crossfading into its place, so back at its pitch it plays exactly where it was. It goes
   into the reverb as the synth does (**R-SEND** on its **SEND** layer: how much), and into the delay if you want
   (**D-SEND**), and **FILTER** (SEND's K1) is one knob, a lowpass to the left, a highpass to the right,
-  none in the middle, no resonance. **EDIT** arms it, at any **L-LEVEL**, 0 too: take a loop with it silent and fade
+  none in the middle, no resonance. **SLICE** (its second layer, 2026-11-26) chooses where in the recording the loop
+  plays: **START** moves it back from where LOOP took it, in 16ths with **GRID** on (as it starts) or anywhere with
+  GRID off (shown in ms), as far back as the memory holds (red past that); the head crossfades there (~12 ms) and keeps
+  its place in the bar. START is a MOD destination too, so RADAR's steps on it chop the loop on the grid. **CHOP**
+  (SLICE's K3, 2026-11-27) does that on one knob: 1 to 16 16ths back, a MOD slot of its own (SOURCE RADAR, DEST
+  L-START, up only), RADAR turned on with it; the matrix's START is always in whole 16ths, so the chops land on the
+  grid, GRID on or off. **CLEAR**
+  while the loop plays fades it out first (it cut at once before: a click). **EDIT** arms it, at any **L-LEVEL**, 0 too: take a loop with it silent and fade
   it in. The picture is a tape running past its head on the right: what it records drawn as it comes, the grid it
   locks to over it (the master's bars, the beats), the LENGTH LOOP takes framed with its ends on that grid; LOOP
   stops the tape and its head runs through the loop, red. Armed, it borrows the delay line's second half, which with the RAM's last 24 KB holds 5.1 s, mono at half
@@ -176,6 +205,8 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - **SHIMMER** (K1 on SPACE's **MORE** layer since 2026-11-23: frozen, the plate takes nothing in, so it is not
   FREEZE's) sends an octave up of the tail back into it, a little more each pass: it climbs and fades, and stays
   stable at any DECAY.
+- **LO CUT** (K2 there, 2026-11-26) is the reverb's low cut, 20 Hz to 2 kHz; it sits at the 200 Hz it always had
+  (a patch from before plays as it did).
 - **Two cores:** the plate (and the looper) run on the FM-1's **second core**, a block of 5.8 ms at a
   time beside the audio, and it takes half of every sub-block of the voices too (banks 3 and 4, two of REACTOR's
   resonators, DISTROY's right channel), the same sound bit for bit: on the user's FM-1 an hour of SEQ A and B, ARP,
@@ -236,9 +267,12 @@ arpeggiator. 29 patches come with it, and 32 places of your own.
 - The first time a page opens after power-on, the line at the bottom says what it is for 2.5 s.
 - **Switches**: GLO and a key turn things on and off from MACROS, as EDIT on their own pages, all in the lowest
   keys, as the screen has them: on top the chain, FILTER, REACTOR, DISTROY, TIME and SPACE, on the black keys
-  F♯3–D♯4; under it the players, ARP, the LOOPER, SEQ A, SEQ B, ORBIT and RADAR, on the white keys under
-  them, F3–D4. The picture draws each as a panel button (lit red on, blinking till the one, an outline off): the
-  chain in its order, the players in the knobs' columns; with GLO the keys light the same.
+  F♯3–D♯4; under it, on the white keys F3–F4, two rows: what plays the notes, in the panel's order, ARP, SEQ A,
+  SEQ B and ORBIT; then what is done to the sound, **SUB**, SPACE's **FREEZE** (the tail held, as on its FREEZE
+  layer; dark red while SPACE is off), the LOOPER and RADAR. The picture draws each as a panel button (lit red
+  on, blinking till the one, an outline off): the chain in its order as a trace to OUT (an engine off: the trace
+  dotted round it; DISTROY after SPACE drawn last, and the key under its box takes it), the players in the knobs'
+  columns, four a row; with GLO the keys light the same.
 - HOME is **MACROS ↔ SETUP** since 2026-11-21: what you play with and the FM-1's settings. NAV, the voice's
   oscillators, is the ENV button's first page (NAV → FILTER → ENV → SUB).
 
@@ -268,9 +302,10 @@ SELECT leaves them, each with its slot's number at the right.
   RELEASE); REACTOR (POS, RES, SLEW, DRIVE, FREQ, MIX, LOW); DISTROY (DRIVE, all four bands' or each band's; each
   band's ALT, LEVEL and PAN; BIAS, DYNAMIC and BODY on all four; each band's SPLIT: a crossover moved past another goes
   through it, the band between closing and opening again on its other side; and its loop: FDBK, TIME, SPREAD, TAME,
-  MIX); TIME (the delay's TIME, FDBK, TONE and D-LEVEL); LOOPER (SPEED, ±12 semitones, free: an LFO on it a tape's
-  wobble, the loop's grid following it and taking it back after; from RADAR in whole semitones, through GLIDE; and its
-  L-LEVEL, FILTER, R-SEND and D-SEND); SPACE (SIZE, DECAY, TONE, R-LEVEL; **FREEZE** as a gate, frozen while the sum
+  MIX); TIME (the delay's TIME, FDBK, TONE, D-LEVEL and LO CUT); LOOPER (SPEED, ±12 semitones, free: an LFO on it a
+  tape's wobble, the loop's grid following it and taking it back after; from RADAR in whole semitones, through GLIDE;
+  START, 64 16ths at a full source, in 16ths with GRID: RADAR there chops the loop; and its L-LEVEL, FILTER, R-SEND and
+  D-SEND); SPACE (SIZE, DECAY, TONE, R-LEVEL, LO CUT; **FREEZE** as a gate, frozen while the sum
   is over half, beside the player's own; **FREEZE PITCH**, the frozen tail's, ±24 semitones at 100 %, whole ones;
   **FREEZE LEVEL**, the frozen tail's level, down only, to silence at −100 %; SHIMMER); LFO 1 and LFO 2 (RATE);
   RADAR (SEARCH, OFFSET); MOD (**AMOUNT 1 … 12**: a slot's AMOUNT moved by another, its whole range at a full source at
@@ -288,7 +323,8 @@ SELECT leaves them, each with its slot's number at the right.
   plays the slice of RADAR's step before again, on and on while it stays there, a stutter; off it, back where the
   loop had come to, in sync). The table says ON 1 or ON 0 in OFFSET's place.
 - **Two LFOs:** SINE TRI SAW RAMP SQUARE S&H, free (0.02–40 Hz) or synced (1/16 … 4 bars, from the one at PLAY),
-  restarted by a note, or ONE cycle a note, or one cycle struck by the beat: **ON RADAR 1** or **EACH BAR**
+  restarted by a note, or ONE cycle a note, or one cycle struck by the beat: **ON RADAR 1**, **EACH BAR** or **EACH
+  BEAT** (2026-11-27: a ramp down each beat pumps without the drums)
   (2026-11-20: an envelope RADAR plays). An LFO's own page is one layer (2026-11-25): **SHAPE**, **RATE**, **CLOCK**
   FREE or SYNC, and **CYCLE**, when it starts: LOOPS (it runs on), NOTE (restarts each note), ONCE (one cycle a
   note), or one cycle struck by RADAR 1 or the BAR (those synced). Where it goes is MOD's: a slot with SOURCE LFO 1
@@ -479,31 +515,39 @@ FL's "Send master sync" on that port instead (and SETUP's SYNC on AUTO).
 Every page is laid out the same, from the top: the patch's line (its name, the key, the master's, as IN KEY
 transposes in it, the battery, three bars, and its place, P01 or U01); its button's pages (the current one the red tab, EDIT's lamp and ON /
 OFF on the right; a page button brings back the page it showed last, and again the next; HOME always starts at
-MACROS, where the FM-1 starts too); K1–K4 in a row like the knobs, each value on a printed scale with its pointer, grey
-while the page's engine is off; the picture, the page's room (SEQ's steps in it); the hint line, **ALGORITHM's row**:
+MACROS, where the FM-1 starts too); K1–K4 in a row like the knobs, each name and value with a bar under it, dark to
+lit as it turns (its end red on a knob that turns the sound ugly: DRIVE, FDBK, RES, GAIN), **grey
+while it is not heard** (the page's engine off, X/Y while COURSE moves it, an oscillator at 0; since 2026-11-27 also
+SPACE's DECAY, TONE and SHIMMER while frozen, PITCH while not, SUB at LEVEL 0, an LFO or RADAR no MOD slot uses, a MOD
+slot's AMOUNT without SOURCE or DEST, …): a grey knob still
+sets its value, and a turn says why on the bottom line (2026-11-26); the picture, the page's room, 120 rows (SEQ's steps in it); the hint line, **ALGORITHM's row**:
 the page's layers as buttons, the one the knobs do lit (where the row is short, the page's other word on the right:
 FREEZE's lamp, REC KEEP, OFF; with GLO held on SEQ and ORBIT, what GLO does); the status. Halfway between a
 starship's screen and a synth's panel: boxes with soft corners, lamps, scales; red is the patch, where you are, what
-is on and what plays. The key LEDs show what the keys do. The status line: PLAY's square (red while it plays), the tempo (**CLK** while a MIDI clock
+is on and what plays. Each picture is an *instrument* that shows the sound as it moves (HUD corners, its readouts in
+them) or a *panel* of settings (framed rows, lamps, keys), and what moves is sound: NAV's scope and its oscillators'
+circuit, TIME as a sonar of its echoes, SPACE as a bloom and its tail, REACTOR's half dial with its stages and the
+filters as peaks, DISTROY's bands as heat columns, FILTER's cutoff as a laser, ENV's stage lit as it plays, MACROS's
+engines on one trace to OUT (2026-11-26, a design round). The key LEDs show what the keys do. The status line: PLAY's square (red while it plays), the tempo (**CLK** while a MIDI clock
 leads), the octave and MONO, DUO or POLY (always) with who holds the voices (**A** and **B** the tracks, **R** the ARP, **-**
 the keys). The CPU is on SETUP.
 
 | Control | What it does |
 | --- | --- |
-| **HOME** | MACROS (MUTATE MOVE BREAK CUTOFF; MORE: BODY AIR DROWN DARK; GLO + F♯3–D♯4 the chain's switches, GLO + F3–D4 the players', drawn as those keys with their lamps) → SETUP (TEMPO, XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; MORE: SYNC AUTO or INT, CORES 2 or 1, from the next start, and **CLICK** (2026-11-23), a metronome: OFF, REC (while SEQ records) or PLAY (whenever it plays), a tick a beat and a higher one on the bar's one, after the whole sound (never in the looper or the FX), drawn the same; TOOLS: the **DEMOS**, played on the FM-1 itself (K1 DEMO 1, SINGULARITY; K2 DEMO 2, ARMADA; then OCT+; any key or knob stops it, and your sound, patterns and song come back), K3 **CLEAR**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), on MORE the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If it ever freezes again (the watchdog restarts it 8 s later: wait for that before switching it off) or crashes, the start after it says **FREEZE LOGGED** and keeps it in the **freeze log**, in the flash (the last 16): **SELECT** on SETUP (or TOOLS' K4 LOG) shows them, the newest first, each the time since the start, PLAY or REC, GLO latched, the page (on SEQ its track and layer), the CPU, where the main loop stood and where it was stuck (the PCs the sound interrupted once it had stood a second), and the last 24 buttons, keys and knobs before it, the newest first: a photo of it says what stopped (`build/fm1_diag -l` reads them over USB) |
-| **FX** | REACTOR → DISTROY → TIME → SPACE: the chain in its order (the delay into the reverb; SPACE before TIME till 2026-11-21) |
+| **HOME** | MACROS (MUTATE MOVE BREAK CUTOFF; MORE: BODY AIR DROWN DARK; GLO + F♯3–D♯4 the chain's switches, GLO + F3–F4 ARP SEQ A SEQ B ORBIT, then SUB FREEZE LOOPER RADAR, drawn as those keys with their lamps) → SETUP (TEMPO, XPOSE IN KEY or CHROM, MASTER A or B, COLOUR: one knob each, kept, each knob's choices drawn as buttons under its name, the lit one the setting; MORE: SYNC AUTO or INT, CORES 2 or 1, from the next start, and **CLICK** (2026-11-23), a metronome: OFF, REC (while SEQ records) or PLAY (whenever it plays), a tick a beat and a higher one on the bar's one, after the whole sound (never in the looper or the FX), drawn the same; TOOLS: the **DEMOS**, played on the FM-1 itself (K1 DEMO 1, SINGULARITY; K2 DEMO 2, ARMADA; then OCT+; any key or knob stops it, and your sound, patterns and song come back), K3 **CLEAR**, a start from scratch: SEQ A, B and ORBIT empty, the MOD slots, RADAR, the macros and COURSE back to none, ARP, the looper and FREEZE off, OCT+ yes, the sound itself kept; the CPU in a strip of its own under them, a lamp for each core (the second red if it gave up: the reverb then the room's), the worst since the start (a mark on the gauge, **MAX** under it) and, in red, **GAP** n if the sound ever broke up (an audio interrupt past its time: a click), on MORE the battery's volts). From 90 % the top line warns: **CPU 96%** in red in the patch number's place, blinking from 100 % (time to turn something off or SAVE). Past 100 % three times in a row, the sound skips a block (every other one while it stays over) so the panel and the keys still answer, and the screen says **CPU FULL: TURN AN ENGINE OFF**; before, the FM-1 froze there and the watchdog restarted it 8 s later. If it ever freezes again (the watchdog restarts it 8 s later: wait for that before switching it off) or crashes, the start after it says **FREEZE LOGGED** and keeps it in the **freeze log**, in the flash (the last 16): **SELECT** on SETUP (or TOOLS' K4 LOG) shows them, the newest first, each the time since the start, PLAY or REC, GLO latched, the page (on SEQ its track and layer), the CPU, where the main loop stood and where it was stuck (the PCs the sound interrupted once it had stood a second), and the last 24 buttons, keys and knobs before it, the newest first: a photo of it says what stopped (`build/fm1_diag -l` reads them over USB) |
+| **FX** | REACTOR → DISTROY → TIME → SPACE: the chain in its order (the delay into the reverb; SPACE before TIME till 2026-11-21); DISTROY's AFTER SPACE: REACTOR → TIME → SPACE → DISTROY |
 | **ENV** | NAV → FILTER → ENV → SUB: the voice in its order, the filter before the amp (NAV was HOME's second till 2026-11-21; SUB since that day, the order too). SUB joins after the effects, clean |
 | **LFO** | LFO 1 → LFO 2 → RADAR → MOD (SELECT: SLOT 1 … 12) |
 | **ARP** | ARP → LOOPER: the arpeggiator and the looper, the player's tools (not saved in the patch) |
 | **SEQ** | SEQ A → SEQ B → ORBIT (DRUM, the fourth, out of this version) |
 | **K1–K4** | the four values in the row on top; on the FM-1 a fast turn goes further (slow, a step a detent; a fast spin crosses a level, an amount or the cutoff in about a turn), a list, a note or a semitone still one a detent |
 | **GLO** | what the keys do instead of playing (no knob layers since 2026-11-22), only on SEQ, ORBIT, MACROS and LOOPER (there GLO + OCT the loop's octave; elsewhere it neither latches nor lights): held, or a tap latches it (GLO lit) and a tap again, or a page button, lets it go; on SEQ, the keys transpose the track, in the master's key, the keys in it lit, OCT moves it an octave, ALGORITHM the scale, SELECT the root; on ORBIT the white keys the steps; on MACROS the switches |
-| **ALGORITHM** | **the knobs' layer**, on every page, a row of buttons on the bottom line, the one in use lit (2026-11-22, from SEQ's): the first the page's main four, **MORE** the rest of its settings, **TOOLS** what acts and its switches; each page keeps its own. NAV TONE X/Y ROUTE · REACTOR REACT TONE STAGE F1-F4 MORE · DISTROY BAND SHAPE MIX LOOP · TIME DELAY MODE · SPACE PLATE FREEZE MORE · FILTER FILTER ENV 3 MORE · ENV ENV 1 ENV 2 · LFO LFO MODE · ARP ARP TOOLS · LOOPER LOOPER SEND TOOLS · SEQ STEP MORE TRACK PARTS TOOLS · ORBIT SONG PITCH LANE MACRO SETUP · MACROS MACROS MACRO 4 · SETUP SETUP MORE TOOLS (SUB, RADAR and MOD have one) |
+| **ALGORITHM** | **the knobs' layer**, on every page, a row of buttons on the bottom line, the one in use lit (2026-11-22, from SEQ's): the first the page's main four, **MORE** the rest of its settings, **TOOLS** what acts and its switches; each page keeps its own. NAV X/Y BANK TONE COURSE TOOLS · REACTOR REACT TONE STAGE F1-F4 MORE · DISTROY BAND SHAPE MIX LOOP · TIME DELAY MODE · SPACE PLATE FREEZE MORE · FILTER FILTER ENV 3 MORE · ENV ENV 1 ENV 2 · LFO LFO MODE · ARP ARP TOOLS · LOOPER LOOPER SLICE SEND TOOLS · SEQ STEP MORE TRACK PARTS TOOLS · ORBIT SONG PITCH LANE MACRO SETUP · MACROS MACROS MACRO 4 · SETUP SETUP MORE TOOLS (SUB, RADAR and MOD have one) |
 | **EDIT** | ON / OFF of what the page shows: COURSE (OFF, ON, LOOP), REACTOR, DISTROY, SPACE, TIME, LOOPER (armed), FILTER, SUB, ARP, a track, ORBIT, RADAR (a track or ORBIT, while the master plays: in at its one). Off, the knobs are grey and the hint line says OFF where the row leaves room (not on SEQ and ORBIT, where you write a part while it is off) |
-| **PRESETS** | the patch (on SEQ the pattern, on ORBIT the song; the list says PATCHES, PATTERNS or SONGS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now. A pattern or a song loaded while it plays comes in at the one, from its step 1 (the hint line blinks P02: AT THE ONE till then) |
-| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (PARTS: the part), ORBIT's step, REACTOR's stage (STAGE, F1-F4), DISTROY's band, NAV's bank, MOD's slot, SETUP's freeze log, SAVE's place · MONO → DUO → POLY |
-| **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns, 16 songs): it plays on, the save is there at once, into the flash when PLAY stops. The flash keeps each save twice and writes over the older one: switched off (or restarted) in the middle of a save, the FM-1 starts with the save before it. Each save is read back; one the flash did not take says **SAVE FAILED** |
-| **OCT−** · **OCT+** | the keys' octave, on every page (on SEQ, GLO + OCT the transpose's; on LOOPER, the loop's); to a question (the list, SAVE, CLEAR) **OCT+** is yes and **OCT−** no |
+| **PRESETS** | the patch (on SEQ the pattern, on ORBIT the song; the list says PATCHES, PATTERNS or SONGS): a list as it turns, the sound as it is; **EDIT** or **OCT+** loads, **OCT−** or HOME not now. One turn left of P01 is **NEW · INIT** (2026-11-27): one sine on A1, every engine and FX off, a place to start; it shows NEW where the place is, and SAVE puts it in an empty one. A red lamp before the place (P01) means the sound has changed since it was loaded or saved. A pattern or a song loaded while it plays comes in at the one, from its step 1 (the hint line blinks P02: AT THE ONE till then) |
+| **SELECT** · **SEL** (SCALE on the SMK-37) | which one, where a page has them in a row: SEQ's step (PARTS: the part), ORBIT's step, REACTOR's stage (STAGE, F1-F4), DISTROY's band, NAV's oscillator (A1 to D4; COURSE: its point), MOD's slot, SETUP's freeze log, SAVE's place · MONO → DUO → POLY |
+| **PLAY** · **REC** · **SAVE** | the sequencer · recording · a place of your own (32 patches, 32 patterns, 16 songs). **GLO + SAVE** (GLO held) is **COMPARE** (2026-11-27): the saved sound is heard (the place says SAVED, blinking) while yours is kept; GLO + SAVE again, OCT−, or any knob turned, and yours is back; **OCT+** keeps the saved one. **GLO + PLAY** (GLO held) is **PANIC**: it stops, every voice and ARP's notes go out, LOOP off (its loop kept), FREEZE off, and the echoes and the reverb fade out and empty in about a second; the sound itself stays as it is. SAVE: it plays on, the save is there at once, into the flash when PLAY stops. The flash keeps each save twice and writes over the older one: switched off (or restarted) in the middle of a save, the FM-1 starts with the save before it. Each save is read back; one the flash did not take says **SAVE FAILED** |
+| **OCT−** · **OCT+** | the keys' octave, −3 to +3 (F0 to G8), on every page (on SEQ, GLO + OCT the transpose's; on LOOPER, the loop's); to a question (the list, SAVE, CLEAR) **OCT+** is yes and **OCT−** no |
 | **The keys** | play, on every page (on SEQ and ORBIT too, since 2026-11-17: SELECT picks the step, so a line can be tried before REC; there they take the track's voice); on SEQ, with GLO, every key the track's transpose (its tools are TOOLS' knobs since 2026-11-22: no key has a job there); on ORBIT, with GLO, the white keys its steps (16). No key is a page's tool: those are TOOLS' knobs (since 2026-11-22) |
 | **MIDI in** | USB or the TRS jack, any channel: notes play as the keys do on every page (into ARP while it is on; REC writes them, at their velocity), CC 1 the WHEEL, channel pressure AFTER, and a clock |
 | **MIDI out** | USB: the keys' notes, and while no clock comes in, a clock, START and STOP (the FM-1's TEMPO and PLAY) |
@@ -521,6 +565,7 @@ The whole map is at the top of [`firmware/src/stardistroyer.c`](firmware/src/sta
 | **Pad** | `AURORA` `NEBULA` `MASS` `OVERTONE` `HORIZON` `CHOIR` `STRINGS` |
 | **Pluck** | `STARDUST` `CIRCUIT` `PLUCKS` `PULSAR` |
 | **Film** | `BRAAM` `COLOSSUS` `RISER` `DRONE` `TICKER` `WARP` |
+| **Last** | `SKURK` |
 
 DISTROY is the one it starts on: everything at once.
 
@@ -556,6 +601,9 @@ The film's five (2026-11-23), made the same way:
   it, the wheel lets the echoes build.
 - **WARP:** the jump: each note falls from two octaves up into itself with a jet's sweep and a phaser; short notes zap,
   long ones land.
+- **SKURK** (2026-11-27): made by hand on an FM-1 and read off it over USB. An FM stack over three plain banks, the
+  Reactor's combs driven hard, and DISTROY last, after SPACE, so the echoes and the reverb are crushed too; velocity
+  and aftertouch move it round the nav, the wheel opens the filter.
 
 In POLY each voice keeps the bank it starts on, so the pads begin in their richest bank and move in the filter, the
 vowels and the combs; played one note at a time they travel between the banks too. The demos still play the patches

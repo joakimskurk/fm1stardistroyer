@@ -109,8 +109,10 @@ function build() {
   {
     const b = mod('nav', 'NAV');
     b.append(navPad());
-    b.append(row('', knob('.width', 'WIDTH'), seg('.course', 'COURSE', { cls: 'course' })));
+    b.append(row('', knob('.width', 'WIDTH'), seg('.course', 'COURSE', { cls: 'course', bits: [0, 2], names: ['OFF', 'ON', 'LOOP'] })));
     b.querySelector('.seg.course').title = 'COURSE: the nav travels its four cells. ON: from each note, once round; LOOP: round and round on its own, from PLAY';
+    b.append(row('', seg('.course', 'ROUND', { cls: 'round', bits: [4, 3], names: ['FREE', '1/2', '1', '2', '4', '8', '16', '32'] })));
+    b.querySelector('.seg.round').title = 'ROUND: one round of COURSE in bars at the tempo (the cells\' times their shares), or FREE: the times as they are';
     b.append(row('cells', ...[0, 1, 2].map((k) => knob(`.cell_ms[${k}]`, `${k + 1} › ${k + 2}`, { size: 's', taper: 'log', fmt: msText }))));
   }
   {
@@ -207,7 +209,8 @@ function build() {
   {
     const b = mod('dist', 'DISTROY', { fx: 2 });
     const side = h('div', 'col');
-    side.append(seg('.d_xover', 'XOVER'), knob('.d_mix', 'MIX', { size: 'l' }));
+    side.append(seg('.d_xover', 'XOVER', { cls: 'xover', bits: [0, 1], names: ['CMP', 'LR4'] }),
+      seg('.d_xover', 'AFTER', { cls: 'after', bits: [1, 1], names: ['REACTOR', 'SPACE'] }), knob('.d_mix', 'MIX', { size: 'l' }));
     b.append(row('gr', distroyGraph(), side));
     b.append(row('', lbl('SPLIT'), ...[0, 1, 2].map((k) => knob(`.d_split[${k}]`, `${k + 1}`, { size: 's', fmt: (v) => hzText(hz(v / 256)) })),
       lbl('LOOP'), knob('.d_fb', 'FDBK', { size: 's' }), knob('.d_ftime', 'TIME', { size: 's', fmt: (v) => `${(1 + (v * 19) / 65535).toFixed(1)} ms` }),
@@ -232,6 +235,7 @@ function build() {
     b.append(echoGraph(() => (seq ? seq.set[LS.BPM] : 120)),
       row('', knob('.s_time', 'TIME', { fmt: (v) => (bit('.s_mode', 0) ? SDIV[(v * 12) >> 16] : `${1 + Math.floor((v * 999) / 65535)} ms`) }),
         knob('.s_fb', 'FDBK'), knob('.s_dtone', 'TONE'), knob('.s_dlevel', 'LEVEL'),
+        knob('.s_dlow', 'LO CUT', { fmt: (v) => (v ? `${Math.round(20 * 100 ** (v / 255))} Hz` : 'OFF') }),
         toggle('.s_mode', 'SYNC', { bits: [0, 1], title: 'TIME (and the looper\'s GLIDE) on the tempo; the looper\'s LENGTH always is' }), toggle('.s_mode', 'PING-PONG', { bits: [1, 1] })));
     if (seq) {                                   // the looper: the player's (not the patch's), as GLO on TIME sets it
       const sync = () => bit('.s_mode', 0);
@@ -247,7 +251,8 @@ function build() {
   {
     const b = mod('space', 'SPACE · PLATE', { fx: 4 });
     b.append(row('', knob('.s_size', 'SIZE', { size: 'l' }), knob('.s_decay', 'DECAY', { size: 'l' })),
-      row('', knob('.s_rtone', 'TONE'), knob('.s_rlevel', 'LEVEL'), knob('.s_mode', 'SHIMMER', { bits: [2, 6], fmt: (v) => String(Math.round((v * 99) / 63)) })));
+      row('', knob('.s_rtone', 'TONE'), knob('.s_rlevel', 'LEVEL'), knob('.s_mode', 'SHIMMER', { bits: [2, 6], fmt: (v) => String(Math.round((v * 99) / 63)) }),
+        knob('.s_rlow', 'LO CUT', { fmt: (v) => `${v ? Math.round(20 * 100 ** ((v + 128) / 255)) : 200} Hz` })));
     if (seq) b.append(row('', toggle(null, 'FREEZE', { src: ls(LS.FREEZE, 'FREEZE', 0, 1), title: 'FREEZE: the tail held for ever (the player\'s, not the patch\'s)' })));
   }
   // movement: RADAR, the matrix

@@ -122,7 +122,8 @@ static void lab_build(void)
     lab_add(G_NAV, "X", P(x), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_NAV, "Y", P(y), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_NAV, "WIDTH", P(width), LAB_U16, LAB_99, 0, 0, 65535);
-    lab_add(G_NAV, "COURSE", P(course), LAB_U8, LAB_ENUM, LAB_E_COURSE, 0, 2);   /* OFF, ON (from each note), LOOP */
+    lab_add(G_NAV, "COURSE", P(course), LAB_U8, LAB_HEX, 0, 0, 0x72);   /* (bits 0..1 OFF, ON (from each note), LOOP;
+                                                   4..6 ROUND, 2026-11-26: the lab's two rows) */
     for (k = 0; k < 4u; k++) {
         lab_addk(G_NAV, "CELL ", k + 1u, "X", PK(cell_x, k) + 2u * k, LAB_U16, LAB_99, 0, 0, 65535);
         lab_addk(G_NAV, "CELL ", k + 1u, "Y", PK(cell_y, k) + 2u * k, LAB_U16, LAB_99, 0, 0, 65535);
@@ -215,7 +216,7 @@ static void lab_build(void)
             }
         }
     /* DISTROY: the crossovers, the bands, the loop */
-    lab_add(G_DIST, "XOVER", P(d_xover), LAB_U8, LAB_ENUM, LAB_E_XOVER, 0, 1);
+    lab_add(G_DIST, "XOVER + AFTER", P(d_xover), LAB_U8, LAB_HEX, 0, 0, 3);   /* (bit 0 LR4, bit 1 after SPACE) */
     for (k = 0; k < 3u; k++) lab_addk(G_DIST, "SPLIT ", k + 1u, "", PK(d_split, k) + 2u * k, LAB_U16, LAB_PITCH, 0,
                                       SD_R_LO * 256, SD_R_HI * 256);
     lab_add(G_DIST, "MIX", P(d_mix), LAB_U16, LAB_99, 0, 0, 65535);
@@ -239,10 +240,12 @@ static void lab_build(void)
     lab_add(G_TIME, "TONE", P(s_dtone), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_TIME, "D-LEVEL", P(s_dlevel), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_TIME, "MODE", P(s_mode), LAB_U8, LAB_HEX, 0, 0, 255);
+    lab_add(G_TIME, "LO CUT", P(s_dlow), LAB_U8, LAB_RAW, 0, 0, 255);   /* (2026-11-26: 0 off, 20 Hz .. 2 kHz) */
     lab_add(G_SPACE, "SIZE", P(s_size), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_SPACE, "DECAY", P(s_decay), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_SPACE, "TONE", P(s_rtone), LAB_U16, LAB_99, 0, 0, 65535);
     lab_add(G_SPACE, "R-LEVEL", P(s_rlevel), LAB_U16, LAB_99, 0, 0, 65535);
+    lab_add(G_SPACE, "LO CUT", P(s_rlow), LAB_I8, LAB_RAW, 0, -128, 127);   /* (0: 200 Hz as before) */
     /* the matrix */
     for (k = 0; k < SD_MODS; k++) {
         uint32_t mb = PK(mod, k) + k * (uint32_t)sizeof(SdModSlot);

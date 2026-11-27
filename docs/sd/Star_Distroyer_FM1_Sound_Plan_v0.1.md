@@ -221,11 +221,15 @@ between "digital and harsh" and "digital and good" on this hardware, and it is t
   A stolen voice restarts its envelopes from where they are, so it does not click. A mode change releases every
   voice and switches once all are quiet. The sequencer's notes go through the same allocator. Built in V3; POLY8 is
   not built.
-- **COURSE** (MONO; EDIT on NAV: OFF, ON, LOOP): the nav travels its four cells, a time between each two. ON: from
+- **COURSE** (every mode; EDIT on NAV: OFF, ON, LOOP): the nav travels its four cells, a time between each two. ON: from
   each note, once round, held on the fourth (VOYAGE's from the gate). LOOP (the user: VOYAGE stepped as if sampled
   and held, every note taking it back to A): round and round on its own, the fourth back to the first as long as
   the first leg, never from a note; the master's START takes it to the first cell, in time with the tracks. The
   byte that held ON holds LOOP (2): the patch's size, and every patch saved, as they were. `test_course`.
+  **ROUND** (2026-11-26, the user: "it does one round and stays still; no tempo on it?"): the same byte's bits 4..6,
+  FREE (0, every patch before: cell_ms as they are) or ½, 1, 2, 4, 8 bars; a round (three legs, LOOP four) that long
+  at the tempo (a MIDI clock's when it leads), the legs in cell_ms's proportions (`sd_course_ms`), a new tempo from
+  the next leg. NAV's COURSE layer edits the points and their times on the FM-1. `test_course_round`.
 - **Nav mix:** bilinear weights from X/Y, normalized to equal power (`w_i / sqrt(Σ w²)`, the root from a table) at
   control rate. Gain law tuned in V3 (the spec's "energy hole").
 - **Stereo:** banks A/D left of centre, B/C right, by a WIDTH parameter, spread round the middle of what sounds: a
@@ -375,6 +379,18 @@ it back at once (`test_distroy_letgo`: FDBK at the top on COLOSSUS rang at -7 dB
 
 Bypass at zero, then a tilt toward a 2-pole lowpass with a little resonance at the top of the range. One SVF per
 channel.
+
+### 5.4.1 AFTER: where DISTROY stands (2026-11-27, the user)
+
+"Sometimes I'd want DIST after SPACE": DISTROY's MIX layer, K4 **AFTER**, REACTOR (as always: before TIME and SPACE)
+or SPACE (last: voice → REACTOR → TIME → SPACE → DISTROY → out, so the echoes, the reverb, the looper and FREEZE are
+destroyed too). In the patch, bit 1 of `d_xover` (`SD_DX_LAST`), 0 in every save before. The same work in either
+order, but the second core is busy with the plate's job from the block's end: handed over there (inside SPACE),
+DISTROY's right half after it was the first core's too (the strict emulator, P01 playing: 79.6 % -> 81.5 %); so last,
+the block is handed over after DISTROY (`sp.pdue`): 79.2 % -> 80.5 %, the rest likely DISTROY's knees on a denser
+input (not proven). Last, DISTROY rests only after SPACE has (its tails are its input) and wakes with it in the same
+tick; SPACE no longer waits for it. HOME draws it last and the
+black key under its box takes it. Between TIME and SPACE it cannot stand: the delay and the plate are one loop.
 
 ### 5.5 SPACE: a delay into a reverb (decided by the user)
 

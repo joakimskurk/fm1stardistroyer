@@ -16,7 +16,8 @@ export const DST_NAME = ["OFF", "PITCH", "XM", "WARP", "FOLD", "DETUNE", "NAV X"
   "L-LEVEL", "L FILT", "L RSEND", "L DSEND", "R LOW", "LVL LOW", "LVL LM", "LVL HM", "LVL TOP", "PAN LOW", "PAN LM",
   "PAN HM", "PAN TOP", "ALT LOW", "ALT LM", "ALT HM", "ALT TOP", "DYN ALL", "BDY ALL", "F KEY", "SUB LVL", "SUB SHP",
   "SEARCH", "RDR OFS", "MUTATE", "MOVE", "BREAK", "M BODY", "M AIR", "DROWN", "GATE", "AMT 1", "AMT 2", "AMT 3",
-  "AMT 4", "AMT 5", "AMT 6", "AMT 7", "AMT 8", "AMT 9", "AMT 10", "AMT 11", "AMT 12"];
+  "AMT 4", "AMT 5", "AMT 6", "AMT 7", "AMT 8", "AMT 9", "AMT 10", "AMT 11", "AMT 12",
+  "D-LOCUT", "R-LOCUT", "L-START"];
 export const OWN_DST = ["NOTES", "ACCENTS", "ROLLS", "RESTART", "R NEXT", "SEQ A", "SEQ B", "ARP", "REPEAT"];   // 0x80 + (110 + in a frame)
 export const LSHAPE = ["SINE", "TRI", "SAW", "RAMP", "SQUARE", "S&H"];
 export const SCALE = ["MINOR", "MAJOR", "DORIAN", "PHRYG", "PENTA-", "PENTA+", "CHROM", "LYDIAN", "MIXO", "HMINOR",

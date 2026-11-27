@@ -244,7 +244,7 @@ const node = (s, tag, attrs) => {
 // (the engine's bilinear weights), the point (X/Y) to drag; COURSE's four cells when it is on
 export function navPad() {
   const S = 200, cx = 100, cy = 100, Rr = 84;
-  const s = svg(S, S, 'navpad'), X = acc('.x'), Y = acc('.y'), CO = acc('.course');
+  const s = svg(S, S, 'navpad'), X = acc('.x'), Y = acc('.y'), CO = acc('.course', { bits: [0, 2] });
   node(s, 'path', { class: 'grid', d: `M${cx - Rr} ${cy}H${cx + Rr}M${cx} ${cy - Rr}V${cy + Rr}M${cx - Rr / 2} ${cy - Rr / 2}L${cx + Rr / 2} ${cy + Rr / 2}M${cx + Rr / 2} ${cy - Rr / 2}L${cx - Rr / 2} ${cy + Rr / 2}` });
   node(s, 'path', { class: 'edge', d: `M${cx} ${cy - Rr}L${cx + Rr} ${cy}L${cx} ${cy + Rr}L${cx - Rr} ${cy}Z` });
   const mix = node(s, 'path', { class: 'mix' });

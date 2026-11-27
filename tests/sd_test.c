@@ -576,6 +576,66 @@ static void test_routing(void)
     }
 }
 
+/* NAV's picture and ROUTING's list (2026-11-26, the user: "often it just goes silent"): sd_bank_live says what the
+ * engine plays. Every factory patch, each bank alone (MONO at its corner, nothing moving X / Y), under every
+ * routing: its oscillators silent (the sound as with all their levels 0) exactly when it says no carrier is heard; each modulator with a level changes the sound exactly
+ * when it says it is live (its level taken away: the same sound, sample for sample, when it is not) */
+#define BL_FR (SD_FS / 20u)
+static int32_t bl_a[2u * BL_FR], bl_b[2u * BL_FR];
+static void bl_render(const SdPatch *p, int32_t *o)
+{
+    uint32_t i, done = 0;
+    sd_engine_init(&e2);
+    sd_engine_patch(&e2, p);
+    for (i = 0; i < 100u; i++) sd_engine_render(&e2, o, SD_SUB);
+    sd_engine_note(&e2, 48, 100);
+    memset(o, 0, sizeof bl_a);
+    while (done < BL_FR) { uint32_t n = BL_FR - done < SD_SUB ? BL_FR - done : SD_SUB; sd_engine_render(&e2, o + 2u * done, n); done += n; }
+}
+static void test_bank_live(void)
+{
+    static const uint16_t CX[4] = {0, 65535, 65535, 0}, CY[4] = {65535, 65535, 0, 0};   /* A B C D's corners */
+    uint32_t pi, b, a, k, i, cases = 0, bad = 0, silent = 0;
+    for (pi = 0; pi < SD_PATCHES; pi++)
+        for (b = 0; b < SD_BANKS; b++)
+            for (a = 0; a < SD_ALGOS; a++) {
+                SdPatch p = SD_PATCH[pi];
+                uint8_t lv[SD_OPS];
+                uint32_t heard, loud = 0;
+                p.x = CX[b]; p.y = CY[b]; p.course = 0;
+                p.e1_a = p.e2_a = 0;                /* (a slow attack would hide a modulator in 50 ms: RISER's) */
+                memset(p.mod, 0, sizeof p.mod);
+                for (k = 0; k < SD_OPS; k++) p.bank[b].osc[k].role = sd_role_of(SD_ALGO[a][k]);
+                heard = sd_bank_live(&p.bank[b], sd_clamp16((int32_t)p.xm + 2 * (int32_t)p.bank[b].xm) > 0, lv);
+                {                               /* (silent: as with every level 0; SUB and the attack's snap are not
+                                                   the bank's) */
+                    SdPatch q = p;
+                    for (k = 0; k < SD_OPS; k++) q.bank[b].osc[k].level = 0;
+                    bl_render(&q, bl_b);
+                }
+                bl_render(&p, bl_a);
+                for (i = 0; i < 2u * BL_FR; i++) loud |= bl_a[i] != bl_b[i];
+                cases++;
+                silent += !heard;
+                if (!loud != !heard && bad++ < 5)
+                    CHECK(0, "%s bank %c %s: %s, but sd_bank_live says %s", SD_PATCH_NAME[pi], 'A' + b, SD_ALGO[a],
+                          loud ? "it sounds" : "silent", heard ? "heard" : "silent");
+                for (k = 0; k < SD_OPS; k++) {
+                    SdPatch q = p;
+                    uint32_t diff = 0;
+                    if (p.bank[b].osc[k].role == SD_ROLE_C || !p.bank[b].osc[k].level) continue;
+                    q.bank[b].osc[k].level = 0;
+                    bl_render(&q, bl_b);
+                    for (i = 0; i < 2u * BL_FR; i++) diff |= bl_a[i] != bl_b[i];
+                    if (!diff != !lv[k] && bad++ < 5)
+                        CHECK(0, "%s bank %c %s: oscillator %u %s, but sd_bank_live says %s", SD_PATCH_NAME[pi], 'A' + b,
+                              SD_ALGO[a], k + 1u, diff ? "changes the sound" : "changes nothing", lv[k] ? "live" : "dead");
+                }
+            }
+    CHECK(!bad, "sd_bank_live: %u of %u wrong", bad, cases);
+    printf("bank_live: %u banks x routings, %u silent, as the engine plays them\n", cases, silent);
+}
+
 /* the patch hand-over: the audio never takes a patch the main loop is halfway through */
 static void test_patch_lock(void)
 {
@@ -637,6 +697,58 @@ static void test_nav(void)                   /* the weights: corners, centre, DU
     e1.mode_on = SD_MODE_POLY;
     sd_nav(&e1, w);
     CHECK(w[0] == w[3] && w[0] > 23170 - 120 && w[0] < 23170 + 120, "POLY at the centre: %d", w[0]);
+}
+
+/* ROUND (2026-11-26, the user: "it does one round and stays; is there no tempo on it?"): VOYAGE's round (three legs
+ * of 1.5 s) FREE as before; ROUND 1 BAR at 120 BPM a round of 2 s, at 60 BPM 4 s, at 120 BPM 4 BARS 8 s; its legs
+ * keep their shares (NOVA's 250 / 2500 / 4000 ms) */
+static uint32_t k_panic;
+static double round_s(const SdPatch *p, uint32_t bpm)   /* a note: the time till it is held at the last point, s */
+{
+    uint32_t done = 0;
+    int32_t o[2u * SD_SUB];
+    sd_engine_init(&e1);
+    e1.bpm = (uint16_t)bpm;
+    sd_seq_retime(&e1);
+    sd_engine_patch(&e1, p);
+    sd_engine_note(&e1, 45, 100);
+    run(&e1, o, SD_SUB, SD_SUB); done += SD_SUB;
+    while (done < 20u * SD_FS && !(e1.course_seg == 2u && !e1.course_step)) { run(&e1, o, SD_SUB, SD_SUB); done += SD_SUB; }
+    return (double)done / SD_FS;
+}
+static void test_course_round(void)
+{
+    static const struct { uint32_t round, bpm; double s; } R[] = {{0, 120, 4.5}, {2, 120, 2.0}, {2, 60, 4.0}, {4, 120, 8.0},
+                                                                  {1, 120, 1.0}};
+    SdPatch p = SD_PATCH[SD_P_VOYAGE];
+    uint32_t i;
+    memset(p.mod, 0, sizeof p.mod);
+    for (i = 0; i < sizeof R / sizeof R[0]; i++) {
+        double t;
+        p.course = (uint8_t)(SD_COURSE_ON | R[i].round << 4);
+        t = round_s(&p, R[i].bpm);
+        CHECK(fabs(t - R[i].s) < 0.03, "ROUND %u at %u BPM: a round of %.2f s, not %.2f", R[i].round, R[i].bpm, t, R[i].s);
+    }
+    p = SD_PATCH[SD_P_NOVA];
+    p.course = (uint8_t)(SD_COURSE_ON | 4u << 4);   /* 4 BARS at 120: 8 s, the legs 8 x 250 / 6750 .. */
+    CHECK(sd_course_ms(&p, SD_FS / 2u, 0) == 8000u * 250u / 6750u && sd_course_ms(&p, SD_FS / 2u, 2) == 8000u * 4000u / 6750u,
+          "NOVA's legs at 4 BARS: %u %u %u ms", sd_course_ms(&p, SD_FS / 2u, 0), sd_course_ms(&p, SD_FS / 2u, 1),
+          sd_course_ms(&p, SD_FS / 2u, 2));
+    p.course = SD_COURSE_LOOP | 2u << 4;        /* LOOP: four legs (4 -> 1 as long as 1 -> 2) in 1 BAR */
+    CHECK(sd_course_ms(&p, SD_FS / 2u, 0) * 2u + sd_course_ms(&p, SD_FS / 2u, 1) + sd_course_ms(&p, SD_FS / 2u, 2) <= 2000u &&
+          sd_course_ms(&p, SD_FS / 2u, 0) * 2u + sd_course_ms(&p, SD_FS / 2u, 1) + sd_course_ms(&p, SD_FS / 2u, 2) > 1996u,
+          "LOOP's round at 1 BAR is not 2 s");
+    {                                           /* 16 and 32 BARS (2026-11-27): a scene; 32 at 40 BPM, 192 s, past 32
+                                                   bits the way it was counted */
+        uint32_t a, b;
+        p = SD_PATCH[SD_P_NOVA];
+        p.course = (uint8_t)(SD_COURSE_ON | 6u << 4);
+        a = sd_course_ms(&p, SD_FS / 2u, 0) + sd_course_ms(&p, SD_FS / 2u, 1) + sd_course_ms(&p, SD_FS / 2u, 2);
+        p.course = (uint8_t)(SD_COURSE_ON | 7u << 4);
+        b = sd_course_ms(&p, 66150u, 0) + sd_course_ms(&p, 66150u, 1) + sd_course_ms(&p, 66150u, 2);
+        printf("course: ROUND 16 BARS at 120 BPM %u ms (32000), 32 BARS at 40 BPM %u ms (192000)\n", a, b);
+        CHECK(a > 31980u && a <= 32000u && b > 191900u && b <= 192000u, "ROUND 16 / 32 BARS: %u, %u ms", a, b);
+    }
 }
 
 static void test_course(void)                     /* VOYAGE's COURSE: from the gate, A -> B -> C -> D, 1.5 s each, then held */
@@ -1640,7 +1752,105 @@ static void test_space_mode(uint32_t one)       /* one: the delay and the room o
     }
     space_one = 0;
 }
-static void test_space(void) { test_space_mode(0); test_space_mode(1); }
+/* TIME's and SPACE's LOW CUT (2026-11-26, the user: "I miss a low cut on the delay and the reverb"): a sine 0.2 s, then
+   what rings on 0.3 .. 1 s. The delay's in its loop (FDBK 0.6): at 1 kHz the 100 Hz echoes far down, 4 kHz kept; the
+   reverb's at 2 kHz takes its 150 Hz tail down, at 20 Hz lets more of it through than its 200 Hz (0, as before) */
+static double lc_tail(uint32_t delay, uint8_t dlow, int8_t rlow, double hz)
+{
+    static int32_t o[2u * (SD_FS + SD_SUB)];
+    static int32_t in[2u * SD_SUB];
+    SdPatch p = delay ? space_patch(SD_SPMS(100u), 0, 40000, 65535, 0, 0) : space_patch(SD_SPMS(100u), 0, 0, 0, 65535, 50000);
+    uint32_t i, b, n = 0;
+    double ph = 0, e = 0;
+    p.s_dlow = dlow; p.s_rlow = rlow;
+    memset(&tsm, 0, sizeof tsm);
+    sd_engine_init(&e1);
+    e1.sm = &tsm;
+    e1.sp_room = space_one;
+    e1.bpm = 120;
+    sd_seq_retime(&e1);
+    e1.patch = p;
+    for (b = 0; b * SD_SUB < SD_FS; b++) {
+        sd_space_params(&e1);
+        for (i = 0; i < SD_SUB; i++) {
+            uint32_t at = b * SD_SUB + i;
+            in[2u * i] = in[2u * i + 1u] = at < SD_FS / 5u ? (int32_t)lround(6000 * sin(ph)) : 0;
+            ph += 2 * M_PI * hz / SD_FS;
+            o[2u * i] = o[2u * i + 1u] = 0;
+        }
+        sd_space_run(&e1, in, o, SD_SUB, 0);
+        for (i = 0; i < SD_SUB; i++)
+            if (b * SD_SUB + i >= 3u * SD_FS / 10u) { e += (double)o[2u * i] * o[2u * i]; n++; }
+    }
+    return 10 * log10(e / (n ? n : 1u) + 1e-9);
+}
+static void test_lowcut_mode(uint32_t one)
+{
+    const char *mode = one ? "one core" : "two cores";
+    double d0, d1, h0, h1, r0, r1, r2;
+    space_one = (uint8_t)one;
+    d0 = lc_tail(1, 0, 0, 100); d1 = lc_tail(1, 216, 0, 100); h0 = lc_tail(1, 0, 0, 4000); h1 = lc_tail(1, 216, 0, 4000);
+    r0 = lc_tail(0, 0, 0, 150); r1 = lc_tail(0, 0, 127, 150); r2 = lc_tail(0, 0, -128, 150);
+    printf("low cut (%s): TIME's at 1 kHz, its 100 Hz echoes %.1f dB, 4 kHz %+.1f dB; SPACE's at 2 kHz, its 150 Hz "
+           "tail %.1f dB, at 20 Hz %+.1f dB (against its 200 Hz)\n", mode, d1 - d0, h1 - h0, r1 - r0, r2 - r0);
+    CHECK(d1 - d0 < -20 && h1 - h0 > -2, "TIME's LOW CUT: 100 Hz %.1f dB, 4 kHz %.1f dB", d1 - d0, h1 - h0);
+    CHECK(r1 - r0 < -15 && r2 - r0 > 2, "SPACE's LOW CUT: 2 kHz %.1f dB, 20 Hz %+.1f dB", r1 - r0, r2 - r0);
+    space_one = 0;
+}
+static void test_space(void) { test_space_mode(0); test_space_mode(1); test_lowcut_mode(0); test_lowcut_mode(1); }
+/* LFO's ONE CYCLE EACH BEAT (2026-11-27, the workshop: a pump without the drums): playing at 120 BPM, its restart
+   comes on each beat, four in 2 s; and PANIC (GLO + PLAY): the voices out, the delay's and the reverb's tails out
+   and emptied within its 1.16 s, no step past the sound's own on the way out, and after it a note heard again */
+static void test_lfo_beat_panic(void)
+{
+    static int32_t o[2u * (4u * SD_FS + SD_SUB)];
+    SdPatch p = SD_PATCH_SINE;
+    uint32_t b, n = 0, beats = 0, i;
+    double tail = 0, ctl = 0, after = 0;
+    int32_t own = 0, cut = 0;
+    p.lfo_mode[0] = (uint8_t)(SD_LM_SYNC | SD_LM_ONE | 5u << 3);
+    sd_engine_init(&e1);
+    e1.bpm = 120;
+    sd_seq_retime(&e1);
+    sd_engine_patch(&e1, &p);
+    e1.seq_run = 1;
+    for (b = 0; b * SD_SUB < 2u * SD_FS; b++) { run(&e1, o, SD_SUB, SD_SUB); beats += (e1.lfo_trg >> 5) & 1u; }
+    printf("lfo: ONE CYCLE EACH BEAT, %u restarts in 2 s at 120 BPM (4)\n", beats);
+    CHECK(beats == 4u || beats == 5u, "EACH BEAT: %u restarts in 2 s", beats);
+    for (k_panic = 0; k_panic < 2u; k_panic++) {   /* (1: PANIC at 1 s; 0: as it rings, to compare) */
+        memset(&tsm, 0, sizeof tsm);
+        p = SD_PATCH_SINE;
+        p.s_time = SD_SPMS(400u); p.s_fb = 52000; p.s_dtone = 65535; p.s_dlevel = 40000;
+        p.s_size = 65535; p.s_decay = 65535; p.s_rtone = 50000; p.s_rlevel = 40000;
+        sd_engine_init(&e1);
+        e1.sm = &tsm;
+        e1.bpm = 120;
+        sd_seq_retime(&e1);
+        sd_engine_patch(&e1, &p);
+        sd_engine_note(&e1, 57, 100);
+        for (n = 0; n * SD_SUB < 4u * SD_FS; n++) {
+            if (n * SD_SUB == SD_FS / 2u / SD_SUB * SD_SUB) sd_engine_note(&e1, 57, 0);
+            if (k_panic && n == SD_FS / SD_SUB) e1.panic_req = 1;
+            if (n == 3u * SD_FS / SD_SUB) sd_engine_note(&e1, 64, 100);   /* (a note after it: heard) */
+            run(&e1, o + 2u * n * SD_SUB, SD_SUB, SD_SUB);
+        }
+        {
+            double *acc = k_panic ? &tail : &ctl;
+            for (i = (uint32_t)(2.3 * SD_FS); i < (uint32_t)(2.9 * SD_FS); i++) *acc += (double)o[2u * i] * o[2u * i];
+        }
+        if (k_panic) {
+            for (i = (uint32_t)(0.8 * SD_FS) + 1u; i < SD_FS; i++) { int32_t d = abs(o[2u * i] - o[2u * i - 2u]); own = d > own ? d : own; }
+            for (i = SD_FS + 1u; i < (uint32_t)(1.1 * SD_FS); i++) { int32_t d = abs(o[2u * i] - o[2u * i - 2u]); cut = d > cut ? d : cut; }
+            for (i = (uint32_t)(3.1 * SD_FS); i < (uint32_t)(3.4 * SD_FS); i++) after += (double)o[2u * i] * o[2u * i];
+        }
+    }
+    tail = 10 * log10(tail / ctl + 1e-12);
+    printf("panic: the tails 1.3 s after it %.1f dB against ringing on, the largest step on the way out %d (the tail's "
+           "own %d), a note after it %s\n", tail, cut, own, after > 1e6 ? "heard" : "SILENT");
+    CHECK(tail < -50 && cut <= own * 3 / 2 + 64 && after > 1e6, "PANIC: the tails %.1f dB, step %d (own %d), after %g", tail, cut,
+          own, after);
+}
+
 
 /* TIME's looper (the delay's layer looped and pitched, into the reverb as the synth goes, the delay going on): a
  * 440 Hz sine 0 .. 1 s,
@@ -1884,6 +2094,8 @@ static void test_looper_grid_mode(uint32_t one)
  * while echoes ring fades them out and back, no step bigger than the sine's own; a 440 Hz sine looped through the
  * mu-law bytes keeps its noise 30 dB under it; the memory 5.1 s */
 static int32_t lb_out[2u * (4u * SD_FS + SD_SUB)];
+static double lb_clr_at = 99;                   /* CLEAR from then (s): the level and LOOP gone in one tick, as the
+                                                   app's CLEAR */
 static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, double loop_at, uint32_t frames)
 {
     static int32_t in[2u * SD_SUB];
@@ -1903,8 +2115,8 @@ static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, 
     e1.patch = p;
     for (b = 0; b * SD_SUB < frames; b++) {
         double t = (double)b * SD_SUB / SD_FS;
-        e1.lp_lvl = t >= arm_at ? 65535 : 0;
-        e1.lp_on = t >= loop_at;
+        e1.lp_lvl = t >= arm_at && t < lb_clr_at ? 65535 : 0;
+        e1.lp_on = t >= loop_at && t < lb_clr_at;
         sd_space_params(&e1);
         for (i = 0; i < SD_SUB; i++) {
             int32_t x = sine_amp > 0 && t < loop_at ? (int32_t)lround(sine_amp * sin(ph)) : 0;
@@ -1915,6 +2127,71 @@ static void lb_feed(uint32_t ms, double arm_at, double imp_at, double sine_amp, 
         }
         sd_space_run(&e1, in, lb_out + 2u * b * SD_SUB, SD_SUB, 0);
     }
+}
+/* SLICE's START (2026-11-26, the user: "where in the sample the loop is, a little off at times; on the grid the
+ * default"; and RADAR on it "chops"): a 440 Hz sine rising 1000 .. 11000 over its first second, LOOP at 1 s (1/8:
+ * 250 ms at 120 BPM). START 0 plays its last 250 ms; turned to 2/16 at 1.5 s the loop is the 250 ms before that,
+ * as loud as the ramp was there, through a crossfade (no step past the sine's own); the matrix's on START (6/64 of a
+ * full source, GRID: 6 16ths) the ramp's first 250 ms */
+static void ls_feed(int32_t *o, uint32_t frames, uint16_t start2, int16_t mst)
+{
+    static int32_t in[2u * SD_SUB];
+    SdPatch p = space_patch(SD_SPMS(300u), 0, 0, 0, 0, 30000);
+    uint32_t i, b;
+    double ph = 0;
+    memset(&tsm, 0, sizeof tsm);
+    memset(tl_mem, 0, sizeof tl_mem);
+    sd_engine_init(&e1);
+    e1.sm = &tsm;
+    e1.sp_room = space_one;
+    sd_engine_looper_borrow(&e1, tl_mem, sizeof tl_mem);
+    e1.lp_len = SD_LPDIV(5u); e1.lp_lvl = 65535; e1.lp_grid = 1;
+    e1.bpm = 120;
+    sd_seq_retime(&e1);
+    e1.patch = p;
+    for (b = 0; b * SD_SUB < frames; b++) {
+        double t = (double)b * SD_SUB / SD_FS;
+        e1.lp_on = t >= 1.0;
+        e1.lp_start = t >= 1.5 ? start2 : 0;
+        e1.lp_mst = t >= 1.5 ? mst : 0;
+        sd_space_params(&e1);
+        for (i = 0; i < SD_SUB; i++) {
+            double tt = (double)(b * SD_SUB + i) / SD_FS;
+            in[2u * i] = in[2u * i + 1u] = tt < 1.0 ? (int32_t)lround((1000 + 10000 * tt) * sin(ph)) : 0;
+            ph += 2 * M_PI * 440 / SD_FS;
+            o[2u * (b * SD_SUB + i)] = o[2u * (b * SD_SUB + i) + 1u] = 0;
+        }
+        sd_space_run(&e1, in, o + 2u * b * SD_SUB, SD_SUB, 0);
+    }
+}
+static double ls_rms(const int32_t *o, double t0, double t1)
+{
+    uint32_t i, a = (uint32_t)(t0 * SD_FS), z = (uint32_t)(t1 * SD_FS);
+    double e = 0;
+    for (i = a; i < z; i++) e += (double)o[2u * i] * o[2u * i];
+    return sqrt(e / (z - a));
+}
+static void test_looper_start_mode(uint32_t one)
+{
+    static int32_t o[2u * (3u * SD_FS + SD_SUB)];
+    const char *mode = one ? "one core" : "two cores";
+    double r0, r1, want, mx;
+    uint32_t own, jump;
+    space_one = (uint8_t)one;
+    ls_feed(o, 3u * SD_FS, 2u * 192u, 0);
+    r0 = ls_rms(o, 1.2, 1.45); r1 = ls_rms(o, 1.65, 1.95);
+    want = 20 * log10(7250.0 / 9750.0);         /* (the ramp's mean over 0.5 .. 0.75 s, over 0.75 .. 1 s) */
+    own = (uint32_t)tl_step(o, (uint32_t)(1.2 * SD_FS), (uint32_t)(1.45 * SD_FS));
+    jump = (uint32_t)tl_step(o, (uint32_t)(1.45 * SD_FS), (uint32_t)(1.65 * SD_FS));
+    ls_feed(o, 3u * SD_FS, 0, 3072);           /* (6/64 of a full source: 6 16ths back, the ramp's first 250 ms) */
+    mx = 20 * log10(ls_rms(o, 1.65, 1.95) / r0);
+    printf("looper (%s): START 2/16 plays the 250 ms before (%.1f dB, the ramp's %.1f), its step %u (the sine's own %u); "
+           "the matrix's on START 6 16ths back %.1f dB (the ramp's %.1f)\n", mode, 20 * log10(r1 / r0), want, jump, own, mx,
+           20 * log10(2250.0 / 9750.0));
+    CHECK(fabs(20 * log10(r1 / r0) - want) < 1.0, "START 2/16: %.1f dB (the ramp's %.1f)", 20 * log10(r1 / r0), want);
+    CHECK(jump <= own * 3u / 2u, "START's crossfade: a step %u (the sine's own %u)", jump, own);
+    CHECK(fabs(mx - 20 * log10(2250.0 / 9750.0)) < 1.5, "the matrix's on START: %.1f dB", mx);
+    space_one = 0;
 }
 /* The looper's wishes (2026-11-17): armed by the player (lp_arm) it records at L-LEVEL 0 and the loop fades in after;
  * its FILTER (a lowpass shut, a highpass high) takes a 440 Hz loop down; R-SEND and D-SEND take it into the reverb
@@ -2045,6 +2322,15 @@ static void test_looper_borrow_mode(uint32_t one)
     CHECK(sw <= 3u * s0 / 2u, "arming the looper clicks: %u (its own %u)", sw, s0);
     CHECK(snr < -30, "the mu-law loop's noise %.1f dB under it", snr);
     CHECK(sd_lp_total(&e1) > 5u * 22050u, "the looper's memory %u samples", sd_lp_total(&e1));
+    lb_clr_at = 2.0;                            /* CLEAR as the loop plays (2026-11-26, the user: "a loud click"): out
+                                                   through LOOP's own fade, then the memory back */
+    lb_feed(300u, 0, -1, 12000, 1.0, 3u * F);
+    lb_clr_at = 99;
+    {
+        uint32_t own = (uint32_t)tl_step(lb_out, 3u * F / 2u, 2u * F - 64u), cut = (uint32_t)tl_step(lb_out, 2u * F - 64u, 3u * F);
+        printf("looper (%s): CLEAR as the loop plays: the largest step %u (the loop's own %u)\n", mode, cut, own);
+        CHECK(own > 200u && cut <= own * 3u / 2u, "CLEAR as the loop plays clicks: %u (its own %u)", cut, own);
+    }
     space_one = 0;
 }
 /* LOOP synced while the tracks play: it locks on the grid (sd_lp_snap). START at 0, 120 BPM (a bar 2 s): the lock's
@@ -2407,7 +2693,7 @@ static void test_looper_patch_change(void)
 static void test_looper(void)
 {
     test_looper_mode(0); test_looper_mode(1); test_looper_grid_mode(0); test_looper_grid_mode(1);
-    test_looper_borrow_mode(0); test_looper_borrow_mode(1);
+    test_looper_borrow_mode(0); test_looper_borrow_mode(1); test_looper_start_mode(0); test_looper_start_mode(1);
     test_looper_transport_mode(0); test_looper_transport_mode(1);
     test_looper_lock_mode(0); test_looper_lock_mode(1);
     test_looper_clock_mode(0); test_looper_clock_mode(1);
@@ -3805,7 +4091,7 @@ static void hr_run(SdEngine *e, uint32_t ms)
 static void test_headroom(void)
 {
     static const char *const NM[SD_CK_N] = {"voice filter", "REACTOR in", "REACTOR AP1", "DISTROY sum", "SPACE return",
-        "plate store", "TIME / looper", "output shoulder", "REACTOR KP", "banks' sum"};
+        "plate store", "TIME / looper", "output shoulder", "REACTOR KP", "banks' sum", "TIME LO CUT"};
     static const uint8_t LO[4] = {36, 43, 48, 55}, HI[4] = {72, 79, 84, 91};
     uint32_t hard, pt, m, k, i, deep_as_made = 0, flat_all = 0, shoulder_as_made = 0;
     int64_t pk[2][SD_CK_N];
@@ -3848,9 +4134,9 @@ static void test_headroom(void)
           bdc[0] / 32768, bdc[1] / 32768);
     CHECK(fabs(odc[0]) < 0.005 * 32768 && fabs(odc[1]) < 0.01 * 32768, "headroom: DC out %.4f / %.4f of full scale",
           odc[0] / 32768, odc[1] / 32768);
-    printf("headroom: 29 patches, MONO and POLY, as made and all on: nothing cut (every ceiling rounds); as made the deepest "
+    printf("headroom: %u patches, MONO and POLY, as made and all on: nothing cut (every ceiling rounds); as made the deepest "
            "SPACE return %.2fx (of 3x before it rounds), DISTROY %.2fx, plate %.2fx; DC into the FX %.4f, out %.4f / %.4f\n",
-           pk[0][4] / 32768.0, pk[0][3] / 32768.0, pk[0][5] / 32768.0, bdc[0] / 32768, odc[0] / 32768, odc[1] / 32768);
+           SD_PATCHES, pk[0][4] / 32768.0, pk[0][3] / 32768.0, pk[0][5] / 32768.0, bdc[0] / 32768, odc[0] / 32768, odc[1] / 32768);
     (void)deep_as_made; (void)flat_all; (void)shoulder_as_made;
 }
 static double band_db(const int32_t *x, uint32_t n, double f0, double f1)   /* left channel, a Hann DFT's bins */
@@ -4132,7 +4418,7 @@ static void test_names(void)
         PN(DISTROY), PN(VOYAGE), PN(GROWL), PN(GRAVITY), PN(CHROME), PN(ABYSS), PN(NEON), PN(CORE), PN(NOVA),
         PN(SOLAR), PN(LASER), PN(SIGNAL), PN(AURORA), PN(NEBULA), PN(MASS), PN(OVERTONE), PN(HORIZON), PN(CHOIR),
         PN(STRINGS), PN(STARDUST), PN(CIRCUIT), PN(PLUCKS), PN(PULSAR), PN(BRAAM), PN(COLOSSUS), PN(RISER),
-        PN(DRONE), PN(TICKER), PN(WARP)};
+        PN(DRONE), PN(TICKER), PN(WARP), PN(SKURK)};
 #undef PN
     uint32_t k;
     CHECK(SD_P_COUNT == SD_PATCHES && sizeof P / sizeof P[0] == SD_PATCHES, "SD_P_* has %u names, the bank %u patches",
@@ -5091,6 +5377,65 @@ static void test_distroy_letgo(void)
     printf("distroy let go: the loop %d just after the last voice, %d a second on, its FB back with a note\n", ring, gone);
 }
 
+/* DISTROY after SPACE (2026-11-27, the user: "sometimes I'd want DIST after SPACE"): with SPACE off where it stands
+ * changes nothing, bit for bit; with SPACE on the reverb goes into it (another sound); after the release it never rests
+ * while SPACE's tail sounds (its input), and both rest in the end */
+static uint32_t dlp_next, dlp_bad;
+static int dlp_post(void *ev, uint32_t b)       /* (the plate's hand-over hook: run at once, the blocks counted) */
+{
+    dlp_bad += b != dlp_next;
+    dlp_next = b + 1u;
+    sd_plate_job((SdEngine *)ev, b);
+    return 1;
+}
+static int dlp_join(void *ev) { (void)ev; return 0; }
+static void test_distroy_last(void)
+{
+    static SdEngine ex;
+    static int32_t a[SD_FS], b[SD_FS], o[2u * SD_SUB];
+    SdPatch p = SD_PATCH[SD_P_COLOSSUS];
+    uint32_t i, t, k, gap = 0;
+    double dif = 0, tot = 0;
+    p.r_mix = 0; p.sub_lvl = 0; p.d_fb = 0; p.s_dlevel = 0; p.s_rlevel = 0;
+    for (k = 0; k < 4u; k++) {                  /* 0, 1: SPACE off, before and last; 2, 3: SPACE on */
+        if (k == 2u) {
+            for (i = 0; i < SD_FS; i++) if (a[i] != b[i]) break;
+            CHECK(i == SD_FS, "DISTROY last with SPACE off changed the sound (frame %u)", i / 2u);
+            p.s_time = 9000; p.s_mode = 0; p.s_fb = 30000; p.s_dtone = 65535; p.s_dlevel = 40000;   /* (as SPACE's rest
+                                                   test: COLOSSUS's own TONE parks its echoes' filter at -8, a floor) */
+            p.s_size = 65535; p.s_decay = 30000; p.s_rtone = 50000; p.s_rlevel = 40000;
+        }
+        memset(&tsm, 0, sizeof tsm);
+        sd_engine_init(&ex); ex.sm = &tsm;
+        p.d_xover = (uint8_t)((p.d_xover & SD_DX_LR4) | (k & 1u ? SD_DX_LAST : 0u));
+        sd_engine_patch(&ex, &p); sd_engine_note(&ex, 45, 110);
+        run(&ex, k & 1u ? b : a, SD_FS / 2u, 256);
+    }
+    for (i = 0; i < SD_FS; i++) { double d = (double)a[i] - b[i]; dif += d * d; tot += (double)a[i] * a[i]; }
+    CHECK(10 * log10(dif / tot + 1e-12) > -40, "DISTROY last sounds as before it: %.1f dB apart", 10 * log10(dif / tot + 1e-12));
+    sd_engine_note(&ex, 45, 0);                 /* (last, SPACE on) */
+    for (t = 0; t < 30000u && !(ex.d.rest && ex.sp.rest); t++) {
+        memset(o, 0, sizeof o);
+        sd_engine_render(&ex, o, SD_SUB);
+        gap += ex.d.rest && ex.sp.on && !ex.sp.rest;
+    }
+    CHECK(!gap && ex.d.rest && ex.sp.rest, "DISTROY last: %u sub-blocks resting while SPACE sounded; at rest %d %d",
+          gap, ex.d.rest, ex.sp.rest);
+    for (k = 0; k < 2u; k++) {                  /* the plate's blocks handed over after DISTROY (last: the second
+                                                   core's half of it first): in order, none skipped, the same sound */
+        memset(&tsm, 0, sizeof tsm);
+        sd_engine_init(&ex); ex.sm = &tsm;
+        if (k) { ex.pl_post = dlp_post; ex.pl_join = dlp_join; dlp_next = dlp_bad = 0; }
+        sd_engine_patch(&ex, &p); sd_engine_note(&ex, 45, 110);
+        run(&ex, k ? b : a, SD_FS / 2u, 100);   /* (calls of 100 frames: sub-blocks split) */
+    }
+    for (i = 0; i < SD_FS; i++) if (a[i] != b[i]) break;
+    CHECK(i == SD_FS && !dlp_bad && dlp_next >= 80u, "DISTROY last, the plate handed over after it: frame %u differs, "
+          "%u blocks out of order, %u handed over", i / 2u, dlp_bad, dlp_next);
+    printf("distroy last: the same with SPACE off, %.1f dB apart with it on; both rest %.1f s after the release, "
+           "DISTROY never before SPACE\n", 10 * log10(dif / tot + 1e-12), t * SD_SUB / (double)SD_FS);
+}
+
 /* STOP stops ARP (2026-11-25, the user: "the ARP must stop with STOP: it went on playing"): a held list silent while
  * stopped, again at START; a key put down while stopped plays it */
 static uint32_t arp_ons(SdEngine *e, uint32_t ms)  /* ARP's notes begun in the next ms */
@@ -5892,6 +6237,8 @@ int main(void)
     test_patch_lock();
     test_nav();
     test_course();
+    test_course_round();
+    test_lfo_beat_panic();
     test_modes();
     test_stereo();
     test_alias();
@@ -5920,6 +6267,7 @@ int main(void)
     test_plate_pitch();
     test_freeze_room();
     test_freeze_quiet();
+    test_bank_live();
     test_freeze_room_tail();
     test_freeze_into_room();
     test_c1_halves();
@@ -5927,6 +6275,7 @@ int main(void)
     test_arp_tempo();
     test_arp_stop();
     test_distroy_letgo();
+    test_distroy_last();
     test_looper_tempo();
     test_looper_beats();
     test_radar_on_in_play();

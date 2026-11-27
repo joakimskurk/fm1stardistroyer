@@ -219,7 +219,7 @@
 
   <div class="hero">
     <img src="screens/splash.png" width="240" height="240" alt="The splash: the logo, stars streaming past and one shooting across">
-    <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators and their roles">
+    <img src="screens/nav.png" width="240" height="240" alt="NAV: the X/Y diamond, the bank's four oscillators, their routing to OUT">
     <img src="screens/radar.png" width="240" height="240" alt="RADAR: its loop as a large scope, each step a blip round it and the sweep where it is, and where it goes">
   </div>
   <p class="cta"><a href="#try">▶ Play it in the browser</a> · <a href="#hear">Hear the demos</a> · <a href="#start">Getting started</a></p>
@@ -304,7 +304,7 @@
       <ul>
         <li>Each oscillator is a harmonic 1–32 of the note with a fine tune, a carrier or a modulator.</li>
         <li><b>XM</b> sets the FM, <b>WARP</b> turns sine → triangle → saw → pulse, <b>FOLD</b> folds, <b>DETUNE</b> spreads.</li>
-        <li>The <b>NAV</b> X/Y blends the four banks; <b>COURSE</b> plays four stored X/Y cells from each note.</li>
+        <li>The <b>NAV</b> X/Y blends the four banks; <b>COURSE</b> travels four points from each note, in its own times or ½ to 8 bars at the tempo.</li>
         <li>Harmonic generators re-roll a bank, from a list as the knob turns. <b>MONO</b>, <b>DUO</b> or <b>POLY</b>.</li>
       </ul></div>
   </div>
@@ -335,16 +335,18 @@
     <div><h3>TIME <span>·</span> SPACE <span>·</span> a delay and a looper into a plate</h3>
       <ul>
         <li><b>TIME</b>, the delay: stereo or ping-pong (an echo left, then one as loud right), free (1 ms – 1 s) or on
-          the beat, with feedback and tone. On the beat it stays there: a division longer than 1 s plays at half (TIME
-          red).</li>
+          the beat, with feedback, tone and a LO CUT inside its loop (each echo thinner). On the beat it stays there: a
+          division longer than 1 s plays at half (TIME red).</li>
         <li><b>LOOPER</b>, its own page (ARP's second): LOOP on its first layer, armed with EDIT or L-LEVEL (it borrows half the delay line: 5 s, a
           light 8-bit tape, the delay then 0.5 s), always recording what you hear, plays its last LENGTH round
           while the delay goes on; SPEED takes it an octave up or down, as a tape's (GLO + OCT the next octave, over
-          TOOLS' GLIDE, landing on the loop's own grid), REV (TOOLS) plays it backwards; it goes into the reverb
-          as the synth does. It follows PLAY: STOP stops the loop too, and PLAY starts it again in sync with the
+          TOOLS' GLIDE, landing on the loop's own grid), REV (TOOLS) plays it backwards; SLICE's START picks where in
+          the recording the loop plays, in 16ths or anywhere (GRID), and RADAR on START chops it; it goes into the
+          reverb as the synth does. It follows PLAY: STOP stops the loop too, and PLAY starts it again in sync with the
           sequencer.</li>
         <li><b>SPACE</b>, the plate: four diffusers into a tank in a figure of eight, its lines gently moving.
-          <b>SIZE</b> 0.35–1.75 x (it glides there like tape), <b>DECAY</b> 0.3 s to about 40 s, <b>TONE</b>.</li>
+          <b>SIZE</b> 0.35–1.75 x (it glides there like tape), <b>DECAY</b> 0.3 s to about 40 s, <b>TONE</b>, and a
+          <b>LO CUT</b> from 20 Hz to 2 kHz (200 Hz as it always was).</li>
         <li><b>FREEZE</b> (SPACE's FREEZE layer, K1): the plate's tail held as it is, the input closed; play over it.
           <b>PITCH</b> (K2 there) takes the frozen tail up or down; in MOD it is FREEZE PITCH, and SEQ A or B there at 100 %
           plays it as a melody. <b>SHIMMER</b> (SPACE's MORE layer): an octave up of the tail back into it.</li>
@@ -358,9 +360,9 @@
           and a layer down <b>BODY</b>, <b>AIR</b> and <b>DROWN</b> (the room), each its own knob. 0 is the patch as programmed.</li>
         <li>Twelve modulation slots: envelopes, two LFOs, RADAR, the nav, velocity, the wheel, aftertouch, random,
           and the engines themselves (the step, the bands, the Reactor's stage, the echoes).</li>
-        <li>102 destinations: every knob worth patching, from PITCH to the envelopes' times, the filter, every engine
+        <li>105 destinations: every knob worth patching, from PITCH to the envelopes' times, the filter, every engine
           (DISTROY's bands one by one: DRIVE, ALT, LEVEL, PAN, SPLIT), SUB, the looper (its speed an LFO's tape wobble,
-          its level and sends), FREEZE as a gate and the frozen tail's level, SHIMMER, RADAR's SEARCH, the six macros,
+          START to chop it (or CHOP on SLICE, one knob), its level and sends), both LO CUTs, FREEZE as a gate and the frozen tail's level, SHIMMER, RADAR's SEARCH, the six macros,
           ARP's gate, and each slot's own AMOUNT: one slot opening another, a VCA on the cable. Picked from a list as
           DEST turns, each named by the page its knob is on and the knob's name there, in the pages' order.</li>
         <li>An LFO's page: SHAPE, RATE, CLOCK, CYCLE; MOD sends it where it goes.</li>
@@ -424,7 +426,7 @@
     <tr><td>PRESETS</td><td>the patch (on SEQ the pattern, on ORBIT the song, as the list says): a list as it turns, the sound as it is; EDIT or OCT+ loads, OCT− or HOME not now; while it plays, a pattern or a song comes in at the one</td></tr>
     <tr><td>SELECT · SEL</td><td>which one, where a page has them in a row: SEQ's step (PARTS: the part), ORBIT's step, REACTOR's stage, DISTROY's band, NAV's bank, MOD's slot, SAVE's place · MONO → DUO → POLY</td></tr>
     <tr><td>PLAY · REC · SAVE</td><td>the sequencer · recording · a place of your own (it plays on; into the flash when PLAY stops)</td></tr>
-    <tr><td>OCT− · OCT+</td><td>the keys' octave, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLEAR) OCT+ is yes and OCT− no</td></tr>
+    <tr><td>OCT− · OCT+</td><td>the keys' octave, −3 to +3, on every page (on SEQ, GLO + OCT the transpose's); to a question (the list, SAVE, CLEAR) OCT+ is yes and OCT− no</td></tr>
     <tr><td>The keys</td><td>play, on every page (SELECT picks SEQ's and ORBIT's step); on SEQ, with GLO, every key the transpose; on ORBIT, with GLO, the white keys its 16 steps. No key is a page's tool: those are TOOLS' knobs</td></tr>
     <tr><td>MIDI in</td><td>USB or the TRS jack: notes (as the keys play them; REC writes them at their velocity), the mod wheel, aftertouch and a clock</td></tr>
   </table>
@@ -439,7 +441,7 @@
   <h3 class="btnh"><span class="pbtn">HOME</span>MACROS → SETUP<span class="what">what you play with, and the FM-1’s own</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/macros.png" width="240" height="240" alt="The MACROS page" loading="lazy">
-      <figcaption><b>MACROS</b>Where it starts: four hands on the whole sound, and every engine and player on or off.<dl><dt>K1–K4</dt><dd>MUTATE · MOVE · BREAK · CUTOFF (the synth's own)</dd><dt>ALGO</dt><dd>MACROS · MORE (BODY · AIR · DROWN · DARK: every cutoff at once; yours, kept across patches)</dd><dt>KEYS</dt><dd>with GLO, on and off, as the screen has them: the chain on the black keys F♯3–D♯4, the players on the white keys under them, F3–D4</dd></dl></figcaption></figure>
+      <figcaption><b>MACROS</b>Where it starts: four hands on the whole sound, and every engine and player on or off.<dl><dt>K1–K4</dt><dd>MUTATE · MOVE · BREAK · CUTOFF (the synth's own)</dd><dt>ALGO</dt><dd>MACROS · MORE (BODY · AIR · DROWN · DARK: every cutoff at once; yours, kept across patches)</dd><dt>KEYS</dt><dd>with GLO, on and off, as the screen has them: the chain on the black keys F♯3–D♯4; on the white keys under them, F3–F4, ARP · SEQ A · SEQ B · ORBIT, then SUB · FREEZE · LOOP · RADAR</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/setup.png" width="240" height="240" alt="The SETUP page" loading="lazy">
       <figcaption><b>SETUP</b>The FM-1’s settings, kept in the flash.<dl><dt>K1–K4</dt><dd>TEMPO · XPOSE (IN KEY, CHROM) · MASTER (SEQ A, SEQ B) · COLOUR</dd><dt>ALGO</dt><dd>SETUP · MORE (SYNC: AUTO, a MIDI clock leads, or INT; CORES; CLICK: OFF, REC, PLAY) · TOOLS (DEMO 1, DEMO 2, CLEAR: a start from scratch, the sound kept, OCT+ yes; LOG the freezes)</dd><dt>SEE</dt><dd>each knob’s choices as buttons, the lit one the setting; the CPU: both cores, the load</dd></dl></figcaption></figure>
   </div>
@@ -448,7 +450,7 @@
     <figure class="pg"><img class="scr" src="screens/reactor.png" width="240" height="240" alt="The REACTOR page" loading="lazy">
       <figcaption><b>REACTOR</b>Four resonant filters, morphing through six stages.<dl><dt>ALGO</dt><dd>REACT (POS RES SLEW DRIVE) · TONE (FREQ MODEL DIV MIX) · STAGE (a vowel or a chord in the stage SELECT picks) · F1-F4 · MORE (key tracking, LOW, how many stages, 1–6: at 1 a fixed body)</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/distroy.png" width="240" height="240" alt="The DISTROY page" loading="lazy">
-      <figcaption><b>DISTROY</b>Four bands of destruction, and a feedback loop.<dl><dt>SELECT</dt><dd>the band, LOW to TOP</dd><dt>ALGO</dt><dd>BAND (TYPE DRIVE, KNEE SPACING or DEPTH, LEVEL) · SHAPE (BIAS PAN DYNAMIC BODY) · MIX (SPLIT XOVER MIX) · LOOP (FDBK TIME SPREAD TAME)</dd><dt>SEE</dt><dd>the bands and their splits in Hz</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
+      <figcaption><b>DISTROY</b>Four bands of destruction, and a feedback loop.<dl><dt>SELECT</dt><dd>the band, LOW to TOP</dd><dt>ALGO</dt><dd>BAND (TYPE DRIVE, KNEE SPACING or DEPTH, LEVEL) · SHAPE (BIAS PAN DYNAMIC BODY) · MIX (SPLIT XOVER MIX AFTER: REACTOR, or SPACE: last) · LOOP (FDBK TIME SPREAD TAME)</dd><dt>SEE</dt><dd>the bands and their splits in Hz</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/time.png" width="240" height="240" alt="The TIME page" loading="lazy">
       <figcaption><b>TIME</b>The delay: stereo or ping-pong, free or on the beat.<dl><dt>ALGO</dt><dd>DELAY (TIME FDBK TONE D-LEVEL; TIME red: too long, it plays at half) · MODE (FREE or SYNC, PING-pong)</dd><dt>SEE</dt><dd>the echoes as they fall</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/space.png" width="240" height="240" alt="The SPACE page" loading="lazy">
@@ -457,7 +459,7 @@
   <h3 class="btnh"><span class="pbtn">ENV</span>NAV → FILTER → ENV → SUB<span class="what">the voice, in its order: the oscillators, the filter, the amp</span></h3>
   <div class="pages">
     <figure class="pg"><img class="scr" src="screens/nav.png" width="240" height="240" alt="The NAV page" loading="lazy">
-      <figcaption><b>NAV</b>Four banks of four oscillators, blended on an X/Y.<dl><dt>ALGO</dt><dd>TONE (XM WARP FOLD DETUNE) · X/Y (X Y WIDTH, GEN re-rolls the bank) · ROUTE (the routing, from a list: 1>2>3>4 …)</dd><dt>SELECT</dt><dd>the bank, A to D</dd><dt>EDIT</dt><dd>COURSE: OFF, ON, LOOP (four X/Y cells from each note)</dd></dl></figcaption></figure>
+      <figcaption><b>NAV</b>Four banks of four oscillators, blended on an X/Y. What sounds is lit, what is silent dark, the routing drawn down to OUT; in POLY the bank the next note gets is red. A grey knob is not heard now: turn it and the screen says why.<dl><dt>ALGO</dt><dd>X/Y (X Y WIDTH ROUND) · BANK (ROUTING HARM LEVEL FINE) · TONE (XM WARP FOLD DETUNE) · COURSE (a point's X Y TIME) · TOOLS (GEN)</dd><dt>SELECT</dt><dd>the oscillator, A1 to D4; on COURSE the point</dd><dt>EDIT</dt><dd>COURSE: OFF, ON, LOOP (four points from each note; ROUND: free, or ½ to 8 bars at the tempo)</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/filter.png" width="240" height="240" alt="The FILTER page" loading="lazy">
       <figcaption><b>FILTER</b>A lowpass on each voice; on from the start, open.<dl><dt>ALGO</dt><dd>FILTER (CUTOFF RES ENV KEY) · ENV 3 (ATTACK DECAY SUS RELEASE) · MORE (LP12 or LP24, VEL)</dd><dt>EDIT</dt><dd>on or off</dd></dl></figcaption></figure>
     <figure class="pg"><img class="scr" src="screens/env.png" width="240" height="240" alt="The ENV page" loading="lazy">
@@ -494,12 +496,12 @@
   </div>
 
   <h2><img src="screens/slash.png" width="68" height="28" alt="">The patches</h2>
-  <ul class="chips" aria-label="The 29 patches">
+  <ul class="chips" aria-label="The 30 patches">
     <li class="boot" title="The one it starts on">DISTROY</li><li>VOYAGE</li><li>GROWL</li><li>GRAVITY</li><li>CHROME</li>
     <li>ABYSS</li><li>NEON</li><li>CORE</li><li>NOVA</li><li>SOLAR</li><li>LASER</li><li>SIGNAL</li><li>AURORA</li>
     <li>NEBULA</li><li>MASS</li><li>OVERTONE</li><li>HORIZON</li><li>CHOIR</li><li>STRINGS</li><li>STARDUST</li>
     <li>CIRCUIT</li><li>PLUCKS</li><li>PULSAR</li><li>BRAAM</li><li>COLOSSUS</li><li>RISER</li><li>DRONE</li>
-    <li>TICKER</li><li>WARP</li>
+    <li>TICKER</li><li>WARP</li><li>SKURK</li>
   </ul>
   <p>DISTROY is the one it starts on: everything at once. Then the basses, the leads, the pads, the plucks and the
     film (COLOSSUS's brass wall, RISER's build, DRONE, TICKER's clock, WARP's jump). Twenty-one are new: each moves inside the note, through its four banks, and the wheel, aftertouch and velocity

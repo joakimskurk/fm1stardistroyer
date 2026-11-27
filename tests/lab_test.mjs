@@ -239,7 +239,8 @@ const { x, out } = await play(sc);
   wk.message({ type: 'btn', id: 4, down: true }); quanta(4);   // ENV: from MACROS (the boot's) to NAV (ENV's first
                                                                 // since 2026-11-21; HOME's second before)
   wk.message({ type: 'btn', id: 4, down: false }); quanta(40);
-  wk.message({ type: 'enc', id: 2, n: 6 });     // K1 on the Q page: XM
+  wk.message({ type: 'enc', id: 1, n: 2 }); quanta(10);   // ALGORITHM +2: TONE (NAV's X/Y first since 2026-11-26)
+  wk.message({ type: 'enc', id: 2, n: 6 });     // K1 on TONE: XM
   quanta(60);
   const pat = posted.slice(before).filter((m) => m.type === 'frame' && m.pat).at(-1);
   const xm = fields.find((f) => f.path === '.xm');

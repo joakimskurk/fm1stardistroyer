@@ -62,21 +62,22 @@ static const SdPatch SD_PATCH_SINE = {
  * BRAAM); the sixteen new ones each have four banks of their own, moved through inside the note (COURSE, the
  * envelopes) or by the hands (the wheel, aftertouch, velocity), the Reactor swept inside the note, a snap at the
  * attack and grit in the mids, and no S&H: steps on the beat come from MOVE and RADAR when the player wants them.
- * The film's and FX's last five (2026-11-23): COLOSSUS RISER DRONE TICKER WARP. The
+ * The film's and FX's last five (2026-11-23): COLOSSUS RISER DRONE TICKER WARP. SKURK last (2026-11-27): the
+ * user's own, played on their FM-1 and read over USB. The
  * demos play the set as it was before (tools/sd_demo_patches.h). The code names a patch by SD_P_*, never by number:
  * tests/sd_test.c checks each against SD_PATCH_NAME */
 enum {
     SD_P_DISTROY, SD_P_VOYAGE, SD_P_GROWL, SD_P_GRAVITY, SD_P_CHROME, SD_P_ABYSS, SD_P_NEON, SD_P_CORE, SD_P_NOVA,
     SD_P_SOLAR, SD_P_LASER, SD_P_SIGNAL, SD_P_AURORA, SD_P_NEBULA, SD_P_MASS, SD_P_OVERTONE, SD_P_HORIZON, SD_P_CHOIR,
     SD_P_STRINGS, SD_P_STARDUST, SD_P_CIRCUIT, SD_P_PLUCKS, SD_P_PULSAR, SD_P_BRAAM, SD_P_COLOSSUS, SD_P_RISER,
-    SD_P_DRONE, SD_P_TICKER, SD_P_WARP, SD_P_COUNT
+    SD_P_DRONE, SD_P_TICKER, SD_P_WARP, SD_P_SKURK, SD_P_COUNT
 };
-#define SD_PATCHES 29u
+#define SD_PATCHES 30u
 static const char *const SD_PATCH_NAME[SD_PATCHES] = {"DISTROY", "VOYAGE", "GROWL", "GRAVITY", "CHROME", "ABYSS",
                                                       "NEON", "CORE", "NOVA", "SOLAR", "LASER", "SIGNAL", "AURORA",
                                                       "NEBULA", "MASS", "OVERTONE", "HORIZON", "CHOIR", "STRINGS",
                                                       "STARDUST", "CIRCUIT", "PLUCKS", "PULSAR", "BRAAM", "COLOSSUS",
-                                                      "RISER", "DRONE", "TICKER", "WARP"};
+                                                      "RISER", "DRONE", "TICKER", "WARP", "SKURK"};
 /* DISTROY's splits as MIDI x 256: the pitch of hz, rounded (sd_tables.h's macros are for vowels) */
 #define SD_DHZ_200 14170u                       /* MIDI 55.35 */
 #define SD_DHZ_1200 22111u                      /* MIDI 86.37 */
@@ -767,7 +768,46 @@ static const SdPatch SD_PATCH[SD_PATCHES] = {
                 {SD_MS_AFTER, SD_MD_SFB, 18000}, {SD_MS_ENV2, SD_MD_FOLD, 8000}},
         .lfo_shape = {SD_LS_SIN, SD_LS_RAMP}, .lfo_mode = {0, SD_LM_SYNC | SD_LM_KEY | SD_LM_ONE},
         .lfo_rate = {19853 /* 0.2 Hz */, SD_LDIV(7)},
-        .mac4 = SD_M4_AIR}
+        .mac4 = SD_M4_AIR},
+    {   /* SKURK (2026-11-27, the user's own: played on their FM-1 and read over USB as the knobs left it; SAVE there
+         * names a place after the patch it came from, so its name is the factory's). A an FM stack (6 8 9 12) over
+         * three plain banks (C toward the triangle, D toward the pulse); COURSE round and round at the top of Y; LP24
+         * with RES, ENV3 opening it; the Reactor's KP combs driven hard and keyed; DISTROY LAST, after SPACE (the
+         * echoes, the plate and the looper destroyed too): LR4, LOW and TOP crushed, LO-MID soft, HI-MID hard but
+         * nearly out, TAME; ping-pong echoes on the tempo with SHIMMER and LO CUT into a long plate; MUTATE and BREAK
+         * up. LFO 2 on WARP, ENV2 on the pitch, velocity on X, aftertouch on Y (down), the wheel on CUTOFF. Its
+         * levels already the make-ups' (lv 5: as it played) */
+        .trim = -5, .lv = 5,
+        .bank[0].osc[0].harm = 6, .bank[0].osc[0].role = 1, .bank[0].osc[0].level = 40000, .bank[0].osc[1].harm = 8,
+        .bank[0].osc[1].level = 28842, .bank[0].osc[2].harm = 9, .bank[0].osc[2].role = 1, .bank[0].osc[2].level = 19661,
+        .bank[0].osc[3].harm = 12, .bank[0].osc[3].level = 28842,
+        .bank[1].osc[0].harm = 2, .bank[1].osc[0].level = 34000, .bank[1].osc[1].harm = 1, .bank[1].osc[1].level = 16000,
+        .bank[1].osc[2].harm = 1, .bank[1].osc[3].harm = 1,
+        .bank[2].osc[0].harm = 1, .bank[2].osc[0].level = 40000, .bank[2].osc[1].harm = 2, .bank[2].osc[1].level = 10000,
+        .bank[2].osc[2].harm = 1, .bank[2].osc[3].harm = 1, .bank[2].wp = -9000,
+        .bank[3].osc[0].harm = 1, .bank[3].osc[0].level = 40000, .bank[3].osc[1].harm = 1, .bank[3].osc[2].harm = 1,
+        .bank[3].osc[3].harm = 1, .bank[3].wp = 14000,
+        .xm = 46999, .warp = 52957, .fold = 27802, .dt = 60239, .y = 65535, .width = 20000, .course = 2,
+        .cell_x = {35746}, .cell_y = {45013}, .cell_ms = {539, 163, 79},
+        .e1_d = 70, .e1_s = 100, .e1_r = 10, .e2_d = 50, .e2_r = 30, .e3_d = 54, .e3_s = 45, .e3_r = 30,
+        .f_type = SD_FT_LP24, .f_cut = 40387, .f_res = 31774, .f_env = 21182, .f_key = 40,
+        .r_model = SD_RM_KP, .r_res = 41042, .r_slew = 43028, .r_drive = 64211, .r_mix = 46337, .r_freq = 256,
+        .r_track = 1, .r_max = 5, .r_pan = {-24000, 24000, -8000, 8000},
+        .stage = {{{19908u, 21684u, 25256u, 26855u}, {47800u, 43700u, 37500u, 27900u}},
+                  {{18489u, 24005u, 25328u, 26855u}, {47800u, 43700u, 37500u, 27900u}},
+                  {{15500u, 24975u, 26186u, 26855u}, {47800u, 43700u, 37500u, 27900u}},
+                  {{18811u, 20530u, 25201u, 26855u}, {47800u, 43700u, 37500u, 27900u}},
+                  {{15967u, 20685u, 24877u, 26855u}, {47800u, 43700u, 37500u, 27900u}},
+                  {{18141u, 22633u, 23628u, 26855u}, {47800u, 43700u, 37500u, 27900u}}},
+        .d_xover = SD_DX_LR4 | SD_DX_LAST, .d_split = {14170, 20255, 27668}, .d_mix = 52000,
+        .d_type = {SD_DS_CRUSH, SD_DS_SOFT, SD_DS_HARD, SD_DS_CRUSH}, .d_gain = {13901, 0, 5295, 14563},
+        .d_alt = {38394, 15887, 14000, 0}, .d_level = {30450, 19859, 2647, 47661}, .d_bias = {0, 0, -11790, 0},
+        .d_pan = {0, 0, -689, 0}, .d_shape = {0, 0, 993, 0}, .d_body = {0, 0, 33098, 0}, .d_tame = 28000,
+        .s_time = 54713, .s_mode = SD_SP_SYNC | SD_SP_PP | 41u << 2, .s_fb = 31774, .s_dtone = 35084, .s_dlevel = 12000,
+        .s_dlow = 80, .s_size = 52295, .s_decay = 58253, .s_rtone = 49647, .s_rlevel = 22506,
+        .mod = {{SD_MS_LFO2, SD_MD_WARP, 5000}, {SD_MS_ENV2, SD_MD_PITCH, 1400}, {SD_MS_VEL, SD_MD_X, 24000},
+                {SD_MS_AFTER, SD_MD_Y, -24000}, {SD_MS_WHEEL, SD_MD_FCUT, 9000}},
+        .lfo_shape = {SD_LS_SIN, SD_LS_TRI}, .lfo_rate = {0, 23349}, .mac = {50971, 0, 26478, 0}}
 };
 #ifndef SD_PATCH_WORST                           /* (a test build: -DSD_PATCH_WORST=SD_P_NOVA measures another) */
 #define SD_PATCH_WORST SD_P_DISTROY                       /* the boot patch: fm1-emu measures the worst case */
