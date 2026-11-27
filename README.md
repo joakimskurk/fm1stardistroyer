@@ -813,6 +813,10 @@ Screens and banner: `tools/make_readme_art.sh`. The logo comes only from `tools/
   - `assets/logo.svg`, `logo.png`: Dinghy's logo (all rights reserved, not under the GPL) is not in this repository,
     nor in `docs/DINGHY.md`, and neither is its screen's picture (`docs/screen.png`). The JieLi files in the package come with their licence's text, `LICENSES/Apache-2.0.txt`.
   - `firmware/src/gfx.c`: the canvas without a `.pool` section on a macOS host and in the browser.
+  - `firmware/src/lcd.c` (2026-11-27, Dinghy 0.6.1's fix ported): the FM-1's screen gets M-VAVE's own register values
+    in M-VAVE's order at the start (porch, gate, VCOM, the supplies, 60 Hz, both gammas, full brightness), so the newer
+    FM-1s (the FM-1/M-VAVE logo under the screen) are no longer washed out, without reds, or blank; the first units
+    look as before.
   - `firmware/src/platform.c`: with `DINGHY_WEB`, the browser's FM-1 (`web/app/web_host.c`) in place of `tests/host.c`;
     the crash screen shows the whole record for 20 s (the guards' causes, SP, the last branches, the second core's
     own), not only the vector, PC and RETS for 8 s; that second core's record is also kept through the restart
